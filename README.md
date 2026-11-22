@@ -4,8 +4,6 @@ Static security review of the Mio Client Minecraft mod. This repository document
 
 <p align="center">
   <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ5F1K8mGGc_9b82X-zjlDGGnt0bjuYV-ChsA&amp;s" alt="Mio Client logo" width="300">
-  <br>
-  <img src="https://hackvshack.net/data/attachments/12/12931-2087e3533cd63ef308d7b746d2f8d72b.jpg?hash=IIfjUzzWPv" alt="Additional image" width="750">
 </p>
 
 ## Files
