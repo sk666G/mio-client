@@ -8,9 +8,9 @@ Static security review of the Mio Client Minecraft mod. This repository document
 
 ## Files
 
-- `final-assessment.txt` — concise assessment and SHA-256 hashes.
-- Original JARs are not included in this initial commit.
-
+- `final-assessment.txt` — concise assessment and SHA-256 hashes for the 2.2.1 analysis.
+- `mio-2.1.7-assessment.txt` — separate static security assessment and hashes for Mio Client 2.1.7.
+- Original JARs are not included.
 ## SHA-256
 
 | File | SHA-256 |
