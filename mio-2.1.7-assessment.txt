@@ -1,0 +1,75 @@
+MIO CLIENT 2.1.7 — STATIC SECURITY ASSESSMENT
+Date: 2026-11-22
+
+SCOPE
+Static analysis only. Neither JAR was executed. This assessment concerns Mio Client 2.1.7 and must not be conflated with the separate 2.2.1 assessment in final-assessment.txt. All 1,568 class files in mio.jar were disassembled and screened, but obfuscated invokedynamic targets were not all resolved; this is not a complete semantic audit.
+
+SHA-256
+21266cd02213d21b3de5e6d0140fda61b0431a2940a62dd4288dd7379b232de0  mio-loader.jar
+7755ea37abd05c128e3aeb2b1625494161d7babaaea871b8aa905d79f72edf45  mio.jar
+
+EXECUTIVE ASSESSMENT
+Verdict: Concerning; not proven malware.
+Confidence: Medium, limited by obfuscation and unresolved dynamic call targets.
+
+The strongest concern is unsafe ZIP extraction: ZIP entry names are resolved against a fixed extraction directory without a visible normalization/containment check. A traversal entry can resolve outside that directory. The hidden writer target was not recovered, so an actual outside-root file write and overwrite behavior remain likely but unconfirmed.
+
+A separate flow reads Mio's own .authtoken file and attaches its bytes to an outbound packet sent over a Netty TCP channel to auth.mioclient.me. The inspected pipeline contains no TLS handler, but an opaque outbound transformation remains unresolved. Therefore plaintext transmission and the absence of custom encryption or integrity protection are not established.
+
+CONFIRMED AND QUALIFIED FINDINGS
+
+1. ZIP ENTRY PATH TRAVERSAL — HIGH CONFIDENCE
+- The extraction root is FabricLoader.getConfigDir().resolve("sounds").
+- In the obfuscated ZIP extractor constructor, directory and file entry names are resolved against that base path (file branch around BCI 525–544).
+- No visible path normalization or containment check ensures the resolved path remains under configDir/sounds.
+- A ZIP entry containing traversal components such as ../ can resolve outside the extraction root.
+- The resolved path and extracted bytes are passed to an unresolved invokedynamic static target at BCI 544–557 (bootstrap key 146599005179503313).
+- The exact file API, write behavior, and create/truncate/overwrite options could not be recovered.
+- Archive URL observed: https://mioclient.me/assets/killstreaks.zip
+Conclusion: traversal outside the extraction root is confirmed at path-resolution level; outside-root file creation is likely if the hidden target writes to the supplied path, but is not proven. Do not claim arbitrary file overwrite or code execution from the available evidence.
+
+2. MIO AUTH TOKEN TRANSMISSION — HIGH CONFIDENCE FOR DATA FLOW; PROTECTION UNRESOLVED
+- Mio-specific .authtoken bytes are read from a file under the user's home directory.
+- An inbound packet handler attaches the token bytes to an outbound message and submits it to the channel.
+- The packet serializer writes structured fields and the token byte array.
+- The connection uses Netty NioSocketChannel and targets auth.mioclient.me; the port remains obfuscated/unresolved.
+- The inspected pipeline includes Netty framing handlers, custom encoders/decoders, and packet handlers. No SslHandler or SSLEngine is constructed in the inspected initializer.
+- The outbound encoder applies an opaque invokedynamic transformation before writing bytes. Its target was not resolved.
+Conclusion: reading and sending Mio's own token is confirmed. TLS was not found in the inspected pipeline, but custom encryption or other protection has not been ruled out. Do not describe the token as confirmed plaintext. The inspected flow does not show Microsoft or Minecraft session credentials.
+
+3. SCREENSHOT UPLOAD — HIGH CONFIDENCE; CONDITIONAL FEATURE
+- When the screenshot recorder feature is enabled, screenshot data is Base64-encoded and posted to https://api.imgur.com/3/image.
+- The returned image link is copied to the clipboard.
+- No clipboard-read operation was found in this flow.
+Conclusion: screenshot upload is a real feature, conditional on the feature being enabled / screenshot event occurring; no autonomous screenshot capture was established.
+
+4. DISCORD WEBHOOK — SENDER CONFIRMED; EVENT LINKAGE UNRESOLVED
+- A configurable webhook URL can be set or cleared.
+- A sender method constructs JSON with a content field and issues an HTTP request to the configured URL.
+- A separate event handler processes chat-related events and message text, but the obfuscated call connecting that handler to the sender was not resolved.
+Conclusion: webhook sending capability is confirmed; automatic forwarding of the observed chat events to that sender is not proven.
+
+5. OTHER OBSERVED NETWORK ACTIVITY
+- A bodyless GET to https://api.country.is/ is made during splash initialization to obtain country information; this exposes the request's source IP to that service.
+- Mojang profile lookup uses a UUID. The inspected request did not include a session token.
+- Other lookups observed use usernames, UUIDs, currency codes, or the current Minecraft server address as appropriate to their feature.
+- Discord Rich Presence uses local Discord IPC.
+These observations alone do not establish credential theft.
+
+NOT ESTABLISHED
+- Microsoft or Minecraft session-token theft.
+- Browser cookie, password-manager, or system credential-store theft.
+- Clipboard-content harvesting.
+- Autonomous screenshot capture outside the conditional screenshot feature.
+- Startup persistence, scheduled tasks, shell execution, or process launching in the inspected Mio application paths.
+- Remote code execution or confirmed arbitrary file overwrite through the ZIP extractor.
+- Malicious intent.
+
+RECOMMENDATIONS
+- Treat the 2.1.7 client as untrusted pending clarification of the ZIP writer and token transport.
+- Avoid using Mio's authenticated chat on untrusted networks until the token transport is understood.
+- The ZIP extraction code should canonicalize/normalize each destination and reject any path that is not contained within the extraction root before writing.
+- Keep the original JARs and their hashes as evidence. Do not execute the client as part of this static review.
+
+LIMITATIONS
+Obfuscation and invokedynamic indirection prevented resolution of some call targets. All class files were disassembled and screened, but not every behavior was semantically reconstructed. “Not established” means not demonstrated by this analysis; it is not proof that the behavior is absent.
