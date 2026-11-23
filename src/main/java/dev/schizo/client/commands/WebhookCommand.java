@@ -139,7 +139,7 @@ public final class WebhookCommand extends Command {
          String time = timeFormat.format(
             Instant.ofEpochMilli(entry.timestampMillis()).atZone(ZoneId.systemDefault())
          );
-         output.append("\\n")
+         output.append("\n")
             .append(time).append("  ")
             .append(entry.status()).append("  ")
             .append(entry.messageCount()).append(" message(s)");
