@@ -10,6 +10,7 @@
 package dev.schizo.client.managers;
 
 import dev.schizo.client.config.LegacySocialMigration;
+import dev.schizo.client.config.LegacySocialDirectoryMigration;
 import dev.schizo.client.config.ModulePresetCodec;
 import dev.schizo.client.config.PresetUndoState;
 import dev.schizo.client.render.BundledResourceInstaller;
@@ -103,15 +104,9 @@ public final class ConfigurationManager implements ClientAccess {
    }
 
    public void prepareDirectories() {
-      try {
-         Path legacyAutoEzPath = ROOT_DIRECTORY.resolve("autoez");
-         File legacyAutoEz = legacyAutoEzPath.toFile();
-         if (legacyAutoEz.isDirectory()) {
-            File killsayTarget = KILLSAY_DIRECTORY.toFile();
-            legacyAutoEz.renameTo(killsayTarget);
-         }
-      } catch (Exception ignoredMigrationFailure) {
-      }
+      LegacySocialDirectoryMigration.migrate(
+         ROOT_DIRECTORY.resolve("autoez"), KILLSAY_DIRECTORY, ClientAccess.logger
+      );
 
       for (Path path : directories) {
          try {
