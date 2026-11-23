@@ -177,27 +177,46 @@ public final class WebhookManager implements JsonConfigurable {
       return List.copyOf(requests);
    }
 
-   public void sendContent(String content) {
+   public CompletableFuture<Boolean> sendContent(String content) {
       List<HttpRequest> requests = this.createRequests(content);
-      CompletableFuture<Void> delivery = CompletableFuture.completedFuture(null);
+      if (requests.isEmpty()) {
+         return CompletableFuture.completedFuture(false);
+      }
+
+      CompletableFuture<Boolean> delivery = CompletableFuture.completedFuture(true);
       for (HttpRequest request : requests) {
-         delivery = delivery.thenCompose(ignored -> HttpRequests.sendAsync(request).thenAccept(response -> {
-            if (response.statusCode() < 200 || response.statusCode() >= 300) {
-               ClientAccess.logger.warn("Webhook notification rejected (HTTP {})", response.statusCode());
-            } else if ("api.telegram.org".equalsIgnoreCase(request.uri().getHost())) {
-               try {
-                  JsonObject result = JsonParser.parseString(response.body()).getAsJsonObject();
-                  if (!result.has("ok") || !result.get("ok").getAsBoolean()) {
-                     ClientAccess.logger.warn("Telegram rejected the notification");
-                  }
-               } catch (RuntimeException invalidResponse) {
-                  ClientAccess.logger.warn("Telegram returned an invalid notification response");
-               }
+         delivery = delivery.thenCompose(success -> {
+            if (!success) {
+               return CompletableFuture.completedFuture(false);
             }
-         })).exceptionally(failure -> {
-            ClientAccess.logger.warn("Webhook notification failed ({})", failure.getClass().getSimpleName());
-            return null;
+
+            return HttpRequests.sendAsync(request).thenApply(response -> {
+               if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                  ClientAccess.logger.warn("Webhook notification rejected (HTTP {})", response.statusCode());
+                  return false;
+               }
+
+               if ("api.telegram.org".equalsIgnoreCase(request.uri().getHost())) {
+                  try {
+                     JsonObject result = JsonParser.parseString(response.body()).getAsJsonObject();
+                     if (!result.has("ok") || !result.get("ok").getAsBoolean()) {
+                        ClientAccess.logger.warn("Telegram rejected the notification");
+                        return false;
+                     }
+                  } catch (RuntimeException invalidResponse) {
+                     ClientAccess.logger.warn("Telegram returned an invalid notification response");
+                     return false;
+                  }
+               }
+
+               return true;
+            });
          });
       }
+
+      return delivery.exceptionally(failure -> {
+         ClientAccess.logger.warn("Webhook notification failed ({})", failure.getClass().getSimpleName());
+         return false;
+      });
    }
 }
