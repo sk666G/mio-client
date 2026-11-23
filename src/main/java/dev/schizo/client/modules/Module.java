@@ -238,12 +238,6 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
       }
    }
 
-   protected final void classifyAllSettings(CompatibilityAssessment assessment) {
-      for (Setting<?> setting : this.settings) {
-         setting.setCompatibilityAssessment(assessment);
-      }
-   }
-
    @Override
    public void disable() {
       if (!this.isToggled()) {

@@ -22,12 +22,6 @@ public record CompatibilityAssessment(
       return new CompatibilityAssessment(classification, Evidence.SOURCE_REVIEWED, explanation);
    }
 
-   public static CompatibilityAssessment sourceReviewed(
-      CompatibilityClass classification, String explanation
-   ) {
-      return new CompatibilityAssessment(classification, Evidence.SOURCE_REVIEWED, explanation);
-   }
-
    public static CompatibilityAssessment unverified() {
       return new CompatibilityAssessment(
          CompatibilityClass.UNVERIFIED,
