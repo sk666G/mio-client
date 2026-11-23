@@ -21,7 +21,7 @@ public final class SchizoClient implements ClientModInitializer {
     );
     private static final KeyMapping OPEN_GUI = KeyBindingHelper.registerKeyBinding(
         new KeyMapping("key.schizo.open_gui", InputConstants.Type.KEYSYM,
-            InputConstants.KEY_RIGHT_SHIFT, KEY_CATEGORY)
+            InputConstants.KEY_RSHIFT, KEY_CATEGORY)
     );
 
     @Override
