@@ -12,6 +12,13 @@ jobs:
   import-and-build:
     runs-on: ubuntu-latest
     steps:
+      - name: Require the staging branch
+        run: |
+          if [ "$GITHUB_REF_NAME" != "zio-rebuild" ]; then
+            echo "::error::This rebuild workflow may only run on the zio-rebuild staging branch."
+            exit 1
+          fi
+
       - name: Check out Schizo staging branch
         uses: actions/checkout@v4
         with:
