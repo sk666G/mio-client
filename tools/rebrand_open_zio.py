@@ -149,7 +149,7 @@ def main():
                 raytrace = '      if (!this.registerModule(new dev.schizo.client.modules.exploit.RaytraceBypassModule())) throw new IllegalStateException("Registration rejected RaytraceBypassModule");'
                 grim = '      if (!this.registerModule(new dev.schizo.client.modules.exploit.GrimDisablerModule())) throw new IllegalStateException("Registration rejected GrimDisablerModule");'
                 if raytrace in text and grim not in text:
-                    text = text.replace(raytrace, raytrace + "\\n" + grim)
+                    text = text.replace(raytrace, raytrace + "\n" + grim)
             target.write_text(text, encoding="utf-8", newline="")
         copied += 1
 
