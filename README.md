@@ -23,7 +23,7 @@ See [Performance HUD documentation](docs/PERFORMANCE_HUD.md) for frame-time metr
 
 ## HUD Studio
 
-See [HUD Editor documentation](docs/HUD_EDITOR.md) for layout editing and the new undo/redo shortcuts.
+See [HUD Editor documentation](docs/HUD_EDITOR.md) for layout editing, undo/redo shortcuts and named layout profiles.
 
 ## Original modules
 

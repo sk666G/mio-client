@@ -16,6 +16,7 @@ import dev.schizo.client.commands.BaritoneCommand;
 import dev.schizo.client.commands.ModuleCommand;
 import dev.schizo.client.commands.Command;
 import dev.schizo.client.commands.EnemyFriendCommand;
+import dev.schizo.client.commands.HudLayoutCommand;
 import dev.schizo.client.events.CommandExecuteEvent;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.KeyboardHandlerCharTypedEvent;
@@ -93,6 +94,7 @@ public final class CommandRegistry extends Registry<Command> implements ClientAc
       this.registerCommand(new dev.schizo.client.commands.GlintCommand());
       this.registerCommand(new dev.schizo.client.commands.GlobalCommand());
       this.registerCommand(new dev.schizo.client.commands.HelpCommand());
+      this.registerCommand(new HudLayoutCommand());
       this.registerCommand(new dev.schizo.client.commands.HighlightCommand());
       this.registerCommand(new dev.schizo.client.commands.KitCommand());
       this.registerCommand(new dev.schizo.client.commands.MacroCommand());
