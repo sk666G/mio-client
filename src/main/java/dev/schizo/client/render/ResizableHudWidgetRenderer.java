@@ -17,7 +17,6 @@ import dev.schizo.client.gui.screens.HudEditorScreen;
 import dev.schizo.client.modules.client.HUDModule;
 import dev.schizo.client.settings.NumberSetting;
 import dev.schizo.client.settings.Setting;
-import dev.schizo.client.utils.math.MathUtils;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
@@ -120,15 +119,16 @@ public class ResizableHudWidgetRenderer extends HudWidgetRenderer {
 
          if (activeResizeRenderer == this) {
             if (leftButtonPressed) {
-               double contentWidth = sourceDimensions[0];
-               double contentHeight = sourceDimensions[1];
-               double resizeScale = Math.min(
-                  (mouseX - this.getX()) / contentWidth,
-                  (mouseY - this.getY()) / contentHeight
+               float resizeScale = HudWidgetResize.calculateScale(
+                  mouseX,
+                  mouseY,
+                  this.getX(),
+                  this.getY(),
+                  sourceDimensions[0],
+                  sourceDimensions[1],
+                  this.getSizeScale()
                );
-               this.sizeSetting.setValue(
-                  (float)MathUtils.floorToDecimals(resizeScale, 2)
-               );
+               this.sizeSetting.setValue(resizeScale);
             } else {
                activeResizeRenderer = null;
                editor.finishLayoutEdit();

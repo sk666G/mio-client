@@ -12,7 +12,7 @@ The editor keeps up to 100 layout changes in its in-memory history for the curre
 | `Ctrl+Y` | Redo the last undone layout change |
 | `Ctrl+Shift+Z` | Redo the last undone layout change |
 
-A drag-and-drop operation is recorded as one edit when the mouse is released. Resizing is recorded as one edit from the start of the resize until the mouse button is released. Arrow-key nudges and the existing left/right anchor swap shortcut are recorded as individual edits. Nudging an anchored widget moves it into the free-position group so the new position is retained.
+A drag-and-drop operation is recorded as one edit when the mouse is released. Resizing is recorded as one edit from the start of the resize until the mouse button is released. Arrow-key nudges and the existing left/right anchor swap shortcut are recorded as individual edits. Use an arrow key for a one-pixel nudge, or hold **Shift** while pressing an arrow key for a ten-pixel nudge. Nudging an anchored widget moves it into the free-position group so the new position is retained. Widget positions are clamped to the visible screen area during direct manipulation so a widget cannot be accidentally dragged completely off-screen.
 
 Undo and redo restore each widget's anchor group, order within that group, normalized position, alignment and resize scale. If a drag ends without snapping to an anchor, the widget remains in the free-position group.
 
@@ -32,4 +32,4 @@ Save and manage named visual layouts from chat:
 
 Names can contain spaces when quoted. Layout files are stored separately in the client's `schizo/hud-layouts` directory. Loading a saved layout restores widget positions, anchor groups, ordering, alignments and resizable widget scales. It does not change module enabled states, keybinds, widget settings, safe-zone margins or HUD theme settings.
 
-Layouts use a versioned JSON format and are written atomically. Files with invalid names, unsupported schema versions, excessive size, invalid widget entries or symbolic-link paths are rejected. Widgets unknown to the current client are skipped; widgets added since a layout was saved keep their current placement.
+Layouts use a versioned JSON format and are written atomically. Files with invalid names, unsupported schema versions, excessive size, invalid widget entries or symbolic-link paths are rejected. Widgets unknown to the current client are skipped; widgets added since a layout was saved keep their current placement. Resizable widgets keep the supported 0.5–2.0 size range. A resize gesture with zero or invalid content dimensions is ignored instead of storing a non-finite size. Widgets larger than the current viewport are pinned to the leading edge so their placement remains reachable.

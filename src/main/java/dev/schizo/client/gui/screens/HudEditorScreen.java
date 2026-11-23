@@ -346,11 +346,12 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
    }
 
    private IntPair getArrowKeyOffset(int keyCode) {
+      int step = KeyUtils.isShiftDown() ? 10 : 1;
       return switch (keyCode) {
-         case 262 -> new IntPair(1, 0);
-         case 263 -> new IntPair(-1, 0);
-         case 264 -> new IntPair(0, 1);
-         case 265 -> new IntPair(0, -1);
+         case 262 -> new IntPair(step, 0);
+         case 263 -> new IntPair(-step, 0);
+         case 264 -> new IntPair(0, step);
+         case 265 -> new IntPair(0, -step);
          default -> null;
       };
    }
@@ -414,6 +415,15 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
       return released;
    }
 
+   private ModuleComponent findModuleRow(HudWidgetRenderer widget) {
+      for (Object child : this.modulePanel.getChildren()) {
+         if (child instanceof ModuleComponent row && row.getModule() == widget.getWidgetModule()) {
+            return row;
+         }
+      }
+      return null;
+   }
+
    @Override
    public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
       HudAnchor dragAnchor = null;
@@ -451,17 +461,10 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
                   widget.setSelected(true);
                   widget.resetSnapping();
                } else if (event.button() == 1) {
-                  ModuleComponent moduleRow = (ModuleComponent)(this.modulePanel
-                     .getChildren()
-                     .stream()
-                     .map(ModuleComponent.class::cast)
-                     .filter(
-                        (java.util.function.Predicate<dev.schizo.client.gui.components.ModuleComponent>)(row -> row.getModule()
-                           == widget.getWidgetModule()
-                     ))
-                     .findFirst()
-                     .orElseThrow());
-                  moduleRow.toggleOpen();
+                  ModuleComponent moduleRow = this.findModuleRow(widget);
+                  if (moduleRow != null) {
+                     moduleRow.toggleOpen();
+                  }
                }
             }
          }
@@ -572,6 +575,7 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
       int screenWidth = ClientAccess.schizoMinecraft.getWindow().getGuiScaledWidth();
       int screenHeight = ClientAccess.schizoMinecraft.getWindow().getGuiScaledHeight();
       float coordinate = (float)position;
+      Color guideColor = ColorUtils.withAlpha(ColorUtils.getThemeColor(), 190);
       if (vertical) {
          GuiDrawUtils.fillRect(
             poseStack,
@@ -580,7 +584,7 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
             coordinate
                + 0.5F,
             screenHeight,
-            Color.yellow
+            guideColor
          );
       } else {
          GuiDrawUtils.fillRect(
@@ -590,7 +594,7 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
             screenWidth,
             coordinate
                + 0.5F,
-            Color.yellow
+            guideColor
          );
       }
    }

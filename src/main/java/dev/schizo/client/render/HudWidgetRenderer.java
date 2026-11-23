@@ -73,11 +73,11 @@ public abstract class HudWidgetRenderer implements ClientAccess, GuiElement {
    }
 
    public float getY() {
-      return Math.min(
-         this.relativeY
-            * ClientAccess.schizoMinecraft.getWindow().getGuiScaledHeight(),
-         ClientAccess.schizoMinecraft.getWindow().getGuiScaledHeight()
-            - this.getDimensions()[1]
+      float screenHeight = ClientAccess.schizoMinecraft.getWindow().getGuiScaledHeight();
+      return HudWidgetPosition.clampToViewport(
+         this.relativeY * screenHeight,
+         screenHeight,
+         this.getDimensions()[1]
       );
    }
 
@@ -86,11 +86,11 @@ public abstract class HudWidgetRenderer implements ClientAccess, GuiElement {
    }
 
    public float getX() {
-      return Math.min(
-         this.relativeX
-            * ClientAccess.schizoMinecraft.getWindow().getGuiScaledWidth(),
-         ClientAccess.schizoMinecraft.getWindow().getGuiScaledWidth()
-            - this.getDimensions()[0]
+      float screenWidth = ClientAccess.schizoMinecraft.getWindow().getGuiScaledWidth();
+      return HudWidgetPosition.clampToViewport(
+         this.relativeX * screenWidth,
+         screenWidth,
+         this.getDimensions()[0]
       );
    }
 
@@ -281,8 +281,12 @@ public abstract class HudWidgetRenderer implements ClientAccess, GuiElement {
 
    public void setX(float x, boolean screenCoordinates) {
       if (screenCoordinates) {
-         this.relativeX = x
-            / ClientAccess.schizoMinecraft.getWindow().getGuiScaledWidth();
+         float screenWidth = ClientAccess.schizoMinecraft.getWindow().getGuiScaledWidth();
+         this.relativeX = HudWidgetPosition.toNormalizedPosition(
+            x,
+            screenWidth,
+            this.getDimensions()[0]
+         );
       } else {
          this.relativeX = Mth.clamp(
             x,
@@ -322,8 +326,12 @@ public abstract class HudWidgetRenderer implements ClientAccess, GuiElement {
 
    public void setY(float y, boolean screenCoordinates) {
       if (screenCoordinates) {
-         this.relativeY = y
-            / ClientAccess.schizoMinecraft.getWindow().getGuiScaledHeight();
+         float screenHeight = ClientAccess.schizoMinecraft.getWindow().getGuiScaledHeight();
+         this.relativeY = HudWidgetPosition.toNormalizedPosition(
+            y,
+            screenHeight,
+            this.getDimensions()[1]
+         );
       } else {
          this.relativeY = Mth.clamp(
             y,
@@ -335,10 +343,8 @@ public abstract class HudWidgetRenderer implements ClientAccess, GuiElement {
 
    public FloatBounds getBounds() {
       return FloatBounds.fromPositionAndSize(
-         this.relativeX
-            * ClientAccess.schizoMinecraft.getWindow().getGuiScaledWidth(),
-         this.relativeY
-            * ClientAccess.schizoMinecraft.getWindow().getGuiScaledHeight(),
+         this.getX(),
+         this.getY(),
          this.dimensions[0],
          this.dimensions[1]
       );
