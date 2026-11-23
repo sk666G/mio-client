@@ -27,7 +27,6 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.EnumSet;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -65,14 +64,12 @@ public final class ContextProfileRegistry implements ClientAccess, JsonConfigura
       }
       if (!enabled) {
          this.restoreActiveProfile();
-      } else if (this.isWorldUnavailable()) {
-         this.baseline.clear();
       }
       this.enabled = enabled;
+      this.baseline.clear();
+      this.modifiedCategories.clear();
+      this.lastAppliedContext = null;
       this.dirty = true;
-      if (!enabled) {
-         this.lastAppliedContext = null;
-      }
    }
 
    public synchronized List<Rule> getRules() {
@@ -165,9 +162,15 @@ public final class ContextProfileRegistry implements ClientAccess, JsonConfigura
          return;
       }
 
-      this.enabled = root.has("enabled") && root.get("enabled").getAsBoolean();
+      JsonElement enabledElement = root.get("enabled");
+      this.enabled = enabledElement != null
+         && enabledElement.isJsonPrimitive()
+         && enabledElement.getAsJsonPrimitive().isBoolean()
+         && enabledElement.getAsBoolean();
       JsonElement profileElement = root.get("profiles");
       if (profileElement == null || !profileElement.isJsonArray()) {
+         this.enabled = false;
+         ClientAccess.logger.warn("Ignoring malformed context profile list");
          return;
       }
 
