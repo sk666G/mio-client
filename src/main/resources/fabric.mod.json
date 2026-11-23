@@ -3,15 +3,42 @@
   "id": "schizo",
   "version": "${version}",
   "name": "Schizo",
-  "description": "A modular Fabric client foundation.",
+  "authors": [
+    "Cypphi (Open Zio upstream)",
+    "Schizo contributors"
+  ],
+  "contact": {
+    "discord": "https://discord.com/invite/W2cEqSf8eK",
+    "sources": "https://github.com/sk666G/mio-client"
+  },
+  "icon": "assets/schizo/textures/schizo.png",
+  "description": "Schizo: an independent client-side Fabric fork built on the Open Zio source architecture.",
   "environment": "client",
+  "accessWidener": "schizo.accesswidener",
   "entrypoints": {
-    "client": ["dev.schizo.client.SchizoClient"]
+    "main": [
+      "dev.schizo.client.SchizoClient"
+    ],
+    "client": [
+      "dev.schizo.client.SchizoClient"
+    ]
   },
   "depends": {
     "fabricloader": ">=0.19.5",
-    "minecraft": "~1.21.11",
+    "minecraft": "1.21.11",
     "java": ">=21",
     "fabric-api": "*"
-  }
+  },
+  "suggests": {
+    "baritone-meteor": "1.21.11-SNAPSHOT",
+    "viafabricplus": "4.4.9",
+    "entityculling": "*",
+    "sodium": "*",
+    "lithium": "*",
+    "immediatelyfast": "*",
+    "xaerominimap": "*"
+  },
+  "mixins": [
+    "schizo.mixins.json"
+  ]
 }
