@@ -13,6 +13,7 @@ import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.config.SafeModeManager;
 import dev.schizo.client.integrations.MultiplayerCompatibilityWarnings;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.SchizoClient;
 import dev.schizo.client.events.ClientInitializationEvent;
 import dev.schizo.client.integrations.baritone.BaritoneAdapter;
@@ -97,6 +98,7 @@ public final class ClientInitializer {
       ClientContext.featureBoxRenderer = new FeatureBoxRenderer();
       ClientContext.taskScheduler = new TaskScheduler();
       ClientContext.moduleRegistry = new ModuleRegistry();
+      MixinModuleRegistry.bind(ClientContext.moduleRegistry);
       this.compatibilityWarnings = new MultiplayerCompatibilityWarnings();
       ClientContext.modulePreferencesRegistry = new ModulePreferencesRegistry();
       ClientContext.hudModuleRegistry = new HudModuleRegistry();

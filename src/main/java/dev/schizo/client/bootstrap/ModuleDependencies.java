@@ -96,7 +96,6 @@ public final class ModuleDependencies {
 
    public static void bind(ModuleRegistry registry) {
       Objects.requireNonNull(registry, "Module manager is not initialized");
-      MixinModuleRegistry.bind(registry);
       ServerStateManager.bindModules(registry);
       BlockBreakTracker.bindModules(registry);
       RotationManager.bindReferencedModules(registry);
