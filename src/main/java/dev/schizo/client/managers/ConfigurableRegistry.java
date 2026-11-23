@@ -28,6 +28,7 @@ public final class ConfigurableRegistry implements Iterable<JsonConfigurable> {
       this.register(ClientContext.hudModuleRegistry);
       this.register(ClientContext.kitRegistry);
       this.register(ClientContext.autoPresetRegistry);
+      this.register(ClientContext.contextProfileRegistry);
       this.register(ClientContext.aliasRegistry);
       this.register(ClientContext.chatFilterRegistry);
       this.register(ClientContext.glintRegistry);
