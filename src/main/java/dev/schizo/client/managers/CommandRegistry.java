@@ -22,6 +22,7 @@ import dev.schizo.client.commands.FavoriteCommand;
 import dev.schizo.client.commands.ConfigBackupCommand;
 import dev.schizo.client.commands.HudLayoutCommand;
 import dev.schizo.client.commands.IntegrationCommand;
+import dev.schizo.client.commands.ProfilerCommand;
 import dev.schizo.client.events.CommandExecuteEvent;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.KeyboardHandlerCharTypedEvent;
@@ -115,6 +116,7 @@ public final class CommandRegistry extends Registry<Command> implements ClientAc
       this.registerCommand(new dev.schizo.client.commands.PlaytimeCommand());
       this.registerCommand(new dev.schizo.client.commands.PluginsCommand());
       this.registerCommand(new dev.schizo.client.commands.PrefixCommand());
+      this.registerCommand(new ProfilerCommand());
       this.registerCommand(new dev.schizo.client.commands.PresetCommand());
       this.registerCommand(new dev.schizo.client.commands.PrintCommand());
       this.registerCommand(new dev.schizo.client.commands.QueueCommand());
