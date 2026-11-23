@@ -1,207 +1,202 @@
 #!/usr/bin/env python3
-"""Replace the old scaffold with the pinned Open Zio source tree, rebranded as Schizo."""
+"""Import a pinned Open Zio tree into an existing Schizo checkout."""
 from __future__ import annotations
-
-import argparse
-import json
-import shutil
-import zipfile
+import argparse, json, re, shutil, subprocess, zipfile
 from pathlib import Path
 
 EXPECTED_COMMIT = "2fec97aa0c52860f9252b61543dce8fc9825e081"
-REFERENCE_ONLY_PATHS = {
-    "src/main/java/dev/zio/client/modules/exploit/GrimDisablerModule.java":
-        "reference-source/anti-cheat-modules/GrimDisablerModule.java",
-    "src/main/java/dev/zio/client/modules/exploit/RaytraceBypassModule.java":
-        "reference-source/anti-cheat-modules/RaytraceBypassModule.java",
-}
+VERSION_PLACEHOLDER = "$" + "{version}"
 PRESERVE_TOP_LEVEL = {".git", ".github", "tools"}
-
+PRESERVED_MODULES = {
+    "src/main/java/dev/zio/client/modules/exploit/GrimDisablerModule.java",
+    "src/main/java/dev/zio/client/modules/exploit/RaytraceBypassModule.java",
+}
 README = """# Schizo Client
 
-Schizo is a client-only Fabric client for Minecraft 1.21.11, rebuilt on the Open Zio source architecture. It uses Zio's module registry, event bus, configuration and preset managers, ClickGUI/HUD editor, rendering pipeline, mixins, access widener, integrations and module implementations instead of the previous minimal Schizo scaffold.
+Schizo is a client-only Fabric client for Minecraft 1.21.11, rebuilt on the Open Zio source architecture. This replaces the former minimal Schizo scaffold with the upstream module registry, event bus, managers, configuration and preset systems, ClickGUI/HUD editor, rendering pipeline, mixins, access widener, integrations and module implementations.
 
 ## Upstream and attribution
 
-This project is a rebrand and derivative of **Open Zio** by the upstream contributors. The imported source snapshot is pinned in UPSTREAM.md. The upstream Java files carry MIT-license notices; those headers are preserved. The vendored DiscordIPC sources are separately covered by Apache License 2.0; see LICENSES/ and THIRD_PARTY_NOTICES.md.
+This is an independent rebrand and derivative of Open Zio. See UPSTREAM.md for the pinned snapshot. Original upstream source headers are retained. Third-party notices and known license gaps are recorded in THIRD_PARTY_NOTICES.md.
 
-Schizo is not affiliated with or endorsed by Mio. Mio is a separate project and trademark.
+Schizo is not affiliated with or endorsed by Mio.
 
 ## Build
 
-Use JDK 25 to run Gradle and have JDK 21 installed for the Java toolchain, as required by the upstream project.
+Use JDK 25 to run Gradle and have JDK 21 installed for the Java toolchain.
 
-~~~bash
-./gradlew --no-daemon clean build
-./gradlew runClient
-~~~
+    ./gradlew --no-daemon clean build
+    ./gradlew runClient
 
 The remapped client JAR is written to build/libs/.
-"""
 
+## Preserved source
+
+The two requested exploit-module source files are preserved verbatim in reference/preserved-zio-modules. They are reference-only and are not compiled or registered in the active Schizo client.
+"""
 UPSTREAM = f"""# Upstream source and migration notes
 
 - Project: https://git.spectrum.best/SpectrumDevs/open-zio
-- Source snapshot commit: {EXPECTED_COMMIT}
-- Upstream description: an optimized recreation of Mio 2.4.4 for Minecraft 1.21.11.
-- Imported Java source files: 1,199 in the supplied archive; 1,179 carry the upstream MIT-license header.
-- Rebrand: dev.zio -> dev.schizo; mod id/resource namespace/artifact/root project renamed from zio to schizo; entrypoint renamed to SchizoClient.
-- The previous handcrafted Schizo scaffold is replaced by the upstream module, event, manager, UI and rendering architecture.
-- The original GrimDisablerModule and RaytraceBypassModule source files are preserved byte-for-byte under reference-source/anti-cheat-modules/. They remain reference-only and are not copied into the compiled source tree or registered in the client.
-- Vendored com.jagrosh.discordipc sources are from https://github.com/jagrosh/DiscordIPC and are Apache-2.0 licensed. Their license and attribution are included separately.
+- Pinned source snapshot: {EXPECTED_COMMIT}, matching the commit comment on the supplied archive.
+- Project description: an optimized recreation of Mio 2.4.4 for Minecraft 1.21.11.
+- The supplied archive contains 1,199 Java files; 1,179 carry the upstream MIT-license header. The supplied archive has no separate root LICENSE file. Original headers are retained.
+- Rebrand: dev.zio becomes dev.schizo; mod ID, resource namespace, artifact and Gradle root name become schizo; ZioClient becomes SchizoClient.
+- The previous hand-built Schizo scaffold is replaced by the upstream application architecture.
+- GrimDisablerModule.java and RaytraceBypassModule.java are preserved verbatim in reference/preserved-zio-modules. They are not compiled or registered in the runtime project.
+- The upstream project URL remains intact in retained source headers and attribution.
 
-Upstream source headers and attribution are retained. This file records provenance; it does not replace notices in individual source files.
+This file supplements rather than replaces upstream notices.
 """
-
 THIRD_PARTY = """# Third-party notices
 
 ## DiscordIPC
 
-The source tree under src/main/java/com/jagrosh/discordipc/ is from DiscordIPC by John Grosh (jagrosh). It is licensed under the Apache License, Version 2.0. A copy is included at LICENSES/Apache-2.0.txt.
-
+The source files under src/main/java/com/jagrosh/discordipc/ are vendored from DiscordIPC by John Grosh (jagrosh).
 Upstream: https://github.com/jagrosh/DiscordIPC
+
+The supplied Open Zio archive contains no separate DiscordIPC license file. Its exact upstream license text must be verified and included before redistribution; no license terms are invented here.
+
+## Gradle Wrapper
+
+The wrapper scripts and JAR retain their original Gradle Apache License 2.0 notices.
 """
 
+def iter_source(source: Path):
+    if source.is_dir():
+        if not (source / ".git").exists():
+            raise SystemExit("Source directory must be a Git checkout.")
+        commit = subprocess.check_output(["git", "-C", str(source), "rev-parse", "HEAD"], text=True).strip()
+        if commit != EXPECTED_COMMIT:
+            raise SystemExit(f"Unexpected source commit {commit}; expected {EXPECTED_COMMIT}")
+        for path in source.rglob("*"):
+            if path.is_file():
+                rel = path.relative_to(source).as_posix()
+                if rel.startswith(".git/") or rel.startswith(".gitlab/") or rel == ".gitlab-ci.yml":
+                    continue
+                yield rel, path.read_bytes()
+    else:
+        with zipfile.ZipFile(source) as archive:
+            commit = archive.comment.decode("ascii", errors="strict").strip()
+            if commit != EXPECTED_COMMIT:
+                raise SystemExit(f"Unexpected archive commit {commit!r}; expected {EXPECTED_COMMIT}")
+            files = [item for item in archive.infolist() if not item.is_dir()]
+            if len(files) < 1200:
+                raise SystemExit(f"Archive looks incomplete: {len(files)} files")
+            roots = {item.filename.split("/", 1)[0] for item in files}
+            if len(roots) != 1:
+                raise SystemExit(f"Unexpected archive roots: {sorted(roots)}")
+            root = next(iter(roots)) + "/"
+            for item in files:
+                if item.filename.startswith(root):
+                    rel = item.filename[len(root):]
+                    if rel and not rel.startswith(".gitlab/") and rel != ".gitlab-ci.yml":
+                        yield rel, archive.read(item)
 
-def rebrand_text(text: str) -> str:
-    text = text.replace("ZioClient", "SchizoClient")
-    text = text.replace("dev.zio", "dev.schizo")
-    text = text.replace("Zio", "Schizo")
-    text = text.replace("ZIO", "SCHIZO")
-    text = text.replace("zio", "schizo")
-    text = text.replace(
-        "https://github.com/Cypphi/open-schizo",
-        "https://github.com/sk666G/mio-client",
-    )
-    return text
+def mapped_path(rel: str) -> str:
+    rel = rel.replace("dev/zio/", "dev/schizo/").replace("/zio/", "/schizo/")
+    rel = rel.replace("ZioClient.java", "SchizoClient.java")
+    rel = rel.replace("zio.accesswidener", "schizo.accesswidener")
+    rel = rel.replace("zio.mixins.json", "schizo.mixins.json")
+    rel = rel.replace("assets/zio/", "assets/schizo/").replace("/zio.png", "/schizo.png")
+    return rel
 
+def mapped_text(text: str) -> str:
+    header = ""
+    m = re.match(r"\A/\*.*?Licensed under the MIT License\..*?\*/\s*", text, re.S)
+    if m:
+        header, text = m.group(0), text[m.end():]
+    urls = []
+    def stash(m):
+        urls.append(m.group(0))
+        return f"__SCHIZO_URL_{len(urls)-1}__"
+    text = re.sub(r"https?://[^\s\"'<>]+", stash, text)
+    for old, new in (
+        ("dev.zio", "dev.schizo"), ("dev/zio", "dev/schizo"),
+        ("ZioClient", "SchizoClient"), ("zioMinecraft", "schizoMinecraft"),
+        ("zio.accesswidener", "schizo.accesswidener"),
+        ("zio.mixins.json", "schizo.mixins.json"),
+        ("assets/zio/", "assets/schizo/"),
+        ('"zio"', '"schizo"'), ("'zio'", "'schizo'"),
+        ('"Zio"', '"Schizo"'), ("'Zio'", "'Schizo'"),
+    ):
+        text = text.replace(old, new)
+    text = re.sub(r"\bZio\b", "Schizo", text)
+    text = re.sub(r"\bzio\b", "schizo", text)
+    for i, url in enumerate(urls):
+        text = text.replace(f"__SCHIZO_URL_{i}__", url)
+    return header + text
 
-def mapped_path(relative: str) -> str:
-    mapped = relative.replace("dev/zio/", "dev/schizo/")
-    mapped = mapped.replace("/zio/", "/schizo/")
-    mapped = mapped.replace("zio.", "schizo.")
-    mapped = mapped.replace("zio_", "schizo_")
-    mapped = mapped.replace("ZioClient.java", "SchizoClient.java")
-    if mapped.startswith("assets/zio/"):
-        mapped = "assets/schizo/" + mapped[len("assets/zio/"):]
-    if mapped == "zio.png":
-        mapped = "schizo.png"
-    return mapped
-
-
-def clean_destination(destination: Path) -> None:
-    for child in destination.iterdir():
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("source", type=Path, help="verified Open Zio checkout or supplied ZIP")
+    ap.add_argument("destination", type=Path)
+    args = ap.parse_args()
+    dest = args.destination.resolve()
+    dest.mkdir(parents=True, exist_ok=True)
+    members = list(iter_source(args.source.resolve()))
+    for child in list(dest.iterdir()):
         if child.name in PRESERVE_TOP_LEVEL:
             continue
-        if child.is_dir() and not child.is_symlink():
-            shutil.rmtree(child)
+        shutil.rmtree(child) if child.is_dir() and not child.is_symlink() else child.unlink()
+
+    copied, preserved = 0, []
+    for rel, raw in members:
+        if rel in PRESERVED_MODULES:
+            target = dest / "reference/preserved-zio-modules" / Path(rel).name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(raw)
+            preserved.append(rel)
+            continue
+        target = dest / mapped_path(rel)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            text = raw.decode("utf-8")
+        except UnicodeDecodeError:
+            target.write_bytes(raw)
         else:
-            child.unlink()
+            text = mapped_text(text)
+            if rel == "src/main/java/dev/zio/client/managers/ModuleRegistry.java":
+                text = "\n".join(line for line in text.splitlines()
+                    if "RaytraceBypassModule" not in line and "GrimDisablerModule" not in line) + "\n"
+            target.write_text(text, encoding="utf-8", newline="")
+        copied += 1
 
-
-def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("archive", type=Path)
-    parser.add_argument("destination", type=Path)
-    args = parser.parse_args()
-
-    destination = args.destination.resolve()
-    archive_path = args.archive.resolve()
-    destination.mkdir(parents=True, exist_ok=True)
-
-    with zipfile.ZipFile(archive_path) as archive:
-        commit = archive.comment.decode("ascii", errors="strict").strip()
-        if commit != EXPECTED_COMMIT:
-            raise SystemExit(f"Unexpected upstream archive commit: {commit!r}")
-
-        file_members = [member for member in archive.infolist() if not member.is_dir()]
-        if len(file_members) < 1200:
-            raise SystemExit(f"Archive looks incomplete: only {len(file_members)} files")
-        roots = {member.filename.split("/", 1)[0] for member in file_members}
-        if len(roots) != 1:
-            raise SystemExit(f"Expected one source root, found: {sorted(roots)}")
-        source_root = next(iter(roots)) + "/"
-        members = [m for m in file_members if m.filename.startswith(source_root)]
-
-        clean_destination(destination)
-        copied = 0
-        archived = []
-        for member in members:
-            relative = member.filename[len(source_root):]
-            if not relative or relative.startswith(".gitlab") or relative == ".gitlab-ci.yml":
-                continue
-            raw = archive.read(member)
-            if relative in REFERENCE_ONLY_PATHS:
-                output_path = destination / REFERENCE_ONLY_PATHS[relative]
-                output_path.parent.mkdir(parents=True, exist_ok=True)
-                output_path.write_bytes(raw)
-                copied += 1
-                archived.append(relative)
-                continue
-
-            output_path = destination / mapped_path(relative)
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-            try:
-                decoded = raw.decode("utf-8")
-            except UnicodeDecodeError:
-                output_path.write_bytes(raw)
-                copied += 1
-                continue
-
-            transformed = rebrand_text(decoded)
-            if relative == "src/main/java/dev/zio/client/managers/ModuleRegistry.java":
-                transformed = "\n".join(
-                    line for line in transformed.splitlines()
-                    if "RaytraceBypassModule" not in line and "GrimDisablerModule" not in line
-                ) + "\n"
-            output_path.write_text(transformed, encoding="utf-8", newline="")
-            copied += 1
-
-    metadata_path = destination / "src/main/resources/fabric.mod.json"
-    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
-    metadata["id"] = "schizo"
-    metadata["name"] = "Schizo"
-    metadata["version"] = "${version}"
-    metadata["authors"] = ["Cypphi (Open Zio upstream)", "Schizo contributors"]
-    metadata["description"] = "Schizo: an independent client-side Fabric fork built on the Open Zio source architecture."
-    metadata["icon"] = "assets/schizo/textures/schizo.png"
-    metadata["entrypoints"] = {
-        key: ["dev.schizo.client.SchizoClient"] if key in ("main", "client") else values
-        for key, values in metadata.get("entrypoints", {}).items()
+    meta_path = dest / "src/main/resources/fabric.mod.json"
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    meta.update({
+        "id": "schizo", "name": "Schizo", "version": VERSION_PLACEHOLDER,
+        "authors": ["Cypphi (Open Zio upstream)", "Schizo contributors"],
+        "description": "Schizo: an independent client-side Fabric fork built on the Open Zio source architecture.",
+        "icon": "assets/schizo/textures/schizo.png",
+        "accessWidener": "schizo.accesswidener", "mixins": ["schizo.mixins.json"],
+    })
+    meta["entrypoints"] = {
+        key: ["dev.schizo.client.SchizoClient"] if key in ("main", "client") else value
+        for key, value in meta.get("entrypoints", {}).items()
     }
-    metadata["contact"] = dict(metadata.get("contact", {}))
-    metadata["contact"]["sources"] = "https://github.com/sk666G/mio-client"
-    metadata["accessWidener"] = "schizo.accesswidener"
-    metadata["mixins"] = ["schizo.mixins.json"]
-    metadata_path.write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
+    meta.setdefault("contact", {})["sources"] = "https://github.com/sk666G/mio-client"
+    meta_path.write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
 
-    properties = destination / "gradle.properties"
-    prop_text = properties.read_text(encoding="utf-8")
-    prop_text = prop_text.replace("version=2.4.4", "version=0.1.0")
-    properties.write_text(prop_text, encoding="utf-8")
+    prop = dest / "gradle.properties"
+    text = prop.read_text(encoding="utf-8")
+    text = re.sub(r"(?m)^version=.*$", "version=0.1.0", text)
+    text = re.sub(r"(?m)^group=.*$", "group=dev.schizo", text)
+    prop.write_text(text, encoding="utf-8")
+    build = dest / "build.gradle"
+    build.write_text(build.read_text(encoding="utf-8").replace("archivesName = 'zio'", "archivesName = 'schizo'"), encoding="utf-8")
 
-    settings = destination / "settings.gradle"
-    setting_text = settings.read_text(encoding="utf-8").replace(
-        "rootProject.name = 'Schizo'", "rootProject.name = 'schizo'"
-    )
-    settings.write_text(setting_text, encoding="utf-8")
-
-    (destination / "README.md").write_text(README, encoding="utf-8")
-    (destination / "UPSTREAM.md").write_text(UPSTREAM, encoding="utf-8")
-    (destination / "THIRD_PARTY_NOTICES.md").write_text(THIRD_PARTY, encoding="utf-8")
-
-    gitignore = destination / ".gitignore"
-    existing = gitignore.read_text(encoding="utf-8") if gitignore.exists() else ""
-    for pattern in (".gradle/", "build/", "run/", "run-*", ".idea/", "*.iml"):
-        if pattern not in existing:
-            existing += f"\n{pattern}"
-    gitignore.write_text(existing.strip() + "\n", encoding="utf-8")
-
-    print(f"Imported {copied} files from Open Zio commit {commit}.")
-    print("Preserved reference-only modules byte-for-byte: " + ", ".join(archived))
-    print("Reference-only modules are not compiled or registered.")
-    print("Project identity: Schizo / dev.schizo / schizo")
-
+    (dest / "README.md").write_text(README, encoding="utf-8")
+    (dest / "UPSTREAM.md").write_text(UPSTREAM, encoding="utf-8")
+    (dest / "THIRD_PARTY_NOTICES.md").write_text(THIRD_PARTY, encoding="utf-8")
+    note = dest / "reference/preserved-zio-modules/README.md"
+    note.write_text("The two requested source files are preserved verbatim from the supplied archive. They are kept as reference source and are not compiled or registered in the active Schizo client.\n", encoding="utf-8")
+    gitignore = dest / ".gitignore"
+    current = gitignore.read_text(encoding="utf-8") if gitignore.exists() else ""
+    for pattern in (".gradle/", "build/", "run/", "run-*/", ".idea/", "*.iml"):
+        if pattern not in current:
+            current += "\n" + pattern
+    gitignore.write_text(current.strip() + "\n", encoding="utf-8")
+    print(f"Imported {copied} files from {EXPECTED_COMMIT}; preserved {len(preserved)} source files verbatim.")
 
 if __name__ == "__main__":
     main()
