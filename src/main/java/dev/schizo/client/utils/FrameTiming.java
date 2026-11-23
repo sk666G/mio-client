@@ -22,10 +22,16 @@ public final class FrameTiming implements ClientAccess {
    private int sampleCount;
    private long lastFrameTimeNanos;
    private long lastFrameRate;
+   private long lastFrameDurationNanos;
    private int framesPerSecond;
 
    public int getFramesPerSecond() {
       return this.framesPerSecond;
+   }
+
+   /** Returns the duration of the most recently recorded frame in milliseconds. */
+   public float getFrameTimeMillis() {
+      return this.lastFrameDurationNanos / 1_000_000.0F;
    }
 
    public float getFrameFactor(float rateScale) {
@@ -55,6 +61,7 @@ public final class FrameTiming implements ClientAccess {
 
       this.framesPerSecond = this.sampleCount;
       long elapsedNanos = Math.max(1L, sampledTimeNanos - this.lastFrameTimeNanos);
+      this.lastFrameDurationNanos = elapsedNanos;
       this.lastFrameRate = NANOS_PER_SECOND / elapsedNanos;
       this.lastFrameTimeNanos = sampledTimeNanos;
    }
