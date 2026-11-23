@@ -53,3 +53,8 @@ No public release or merge is part of this branch task.
 - [ ] Complete source assessment for every module and relevant setting; keep unreviewed entries as `UNVERIFIED`.
 - [ ] Verify the conservative activation guard, chat warning, config persistence and keybind behavior in singleplayer and a controlled multiplayer server.
 - [ ] Add the classification inventory to the module/settings search index.
+
+
+- [x] CI checks remapped JAR metadata, mixin/access-widener resources, all 17 module-binding helper/invoker classes, and absence of GrimDisabler/RaytraceBypass classes.
+- [ ] Inspect the remapped JAR artifact from a successful CI run and test Mixin application in a live 1.21.11 client.
+- [ ] Attribute and resolve Gradle deprecations reported with `--warning-mode all`.

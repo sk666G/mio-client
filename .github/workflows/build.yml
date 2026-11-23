@@ -40,7 +40,10 @@ jobs:
       - name: Build mod
         env:
           ORG_GRADLE_JAVA_INSTALLATIONS_PATHS: ${{ env.JAVA_HOME_21_X64 }}
-        run: ./gradlew --no-daemon clean build
+        run: ./gradlew --no-daemon --warning-mode all clean build
+
+      - name: Verify remapped jar contents
+        run: python3 tools/verify_release_jar.py build/libs/schizo-0.1.0.jar
 
       - name: Upload remapped mod jar
         uses: actions/upload-artifact@v4

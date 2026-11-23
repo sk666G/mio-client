@@ -79,3 +79,10 @@ Context Profiles now track a category before applying its preset, retaining roll
 ## Release-readiness follow-up — compatibility classification
 
 Modules and settings now have required classification, reason and evidence metadata. Unreviewed entries default to `UNVERIFIED`. The Settings module's persisted Conservative Multiplayer option blocks enabling packet-affecting, server-sensitive or unverified modules while a multiplayer world is active. The UI exposes module assessments on hover and risky setting explanations in setting tooltips. A source-level classification subset was added to nine interaction/movement modules; no server test is implied. A full searchable inventory and source review of all modules/settings remains outstanding.
+
+
+## Remapped JAR and Mixin binding review
+
+The 17 `*ModuleBindings` invoker mixins target project-defined `@Unique` helpers, not methods in Minecraft's mapped classes. The inspected pairs are Block, BundleContents, Entity, HoneyBlock, Level, LiquidBlock, LivingEntity, Material, Minecraft, Mob, Player, RenderTypeColor, SlimeBlock, SweetBerryBushBlock, TextureTransform, TridentItem and WebBlock. Each binding declares `@Invoker(..., remap = false)`; each corresponding target mixin contains the same helper name with `@Unique`, and both names are registered in `schizo.mixins.json`. The remapper warning that a `schizo$bind...` target is absent from the vanilla class is therefore expected from that design, not evidence of a Minecraft method mapping mismatch. Renaming or suppressing it would be incorrect. The release JAR verifier now checks that all 17 target and bridge class files, helper-name constants, config entries, metadata and access widener are packaged. This static check does not prove Mixin application at runtime.
+
+The build now uses Gradle `--warning-mode all` so deprecated build features are attributable in CI rather than hidden behind the aggregate Gradle 10 warning.

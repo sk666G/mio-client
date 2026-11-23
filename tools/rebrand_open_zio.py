@@ -61,10 +61,11 @@ THIRD_PARTY = """# Third-party notices
 
 ## DiscordIPC
 
-The source files under src/main/java/com/jagrosh/discordipc/ are vendored from DiscordIPC by John Grosh (jagrosh).
+The vendored package under src/main/java/com/jagrosh/discordipc/ is attributed to John A. Grosh and the jagrosh/DiscordIPC project.
 Upstream: https://github.com/jagrosh/DiscordIPC
+License: Apache License 2.0; full text: THIRD_PARTY_LICENSES/DiscordIPC-Apache-2.0.txt
 
-The supplied Open Zio archive contains no separate DiscordIPC license file. Its exact upstream license text must be verified and included before redistribution; no license terms are invented here.
+The supplied Open Zio snapshot does not identify the exact DiscordIPC revision. The vendored tree is modified relative to current upstream; exact import provenance and changes remain to be established before release. No exact-version claim is made.
 
 ## Gradle Wrapper
 
@@ -297,6 +298,10 @@ def build_staging_tree(stage: Path, members) -> int:
     (stage / "README.md").write_text(README, encoding="utf-8")
     (stage / "UPSTREAM.md").write_text(UPSTREAM, encoding="utf-8")
     (stage / "THIRD_PARTY_NOTICES.md").write_text(THIRD_PARTY, encoding="utf-8")
+    license_source = Path(__file__).resolve().parent / "licenses" / "DiscordIPC-Apache-2.0.txt"
+    license_target = stage / "THIRD_PARTY_LICENSES" / "DiscordIPC-Apache-2.0.txt"
+    license_target.parent.mkdir(parents=True, exist_ok=True)
+    license_target.write_text(license_source.read_text(encoding="utf-8"), encoding="utf-8")
     gitignore = stage / ".gitignore"
     current = gitignore.read_text(encoding="utf-8") if gitignore.exists() else ""
     for pattern in (".gradle/", "build/", "run/", "run-*/", ".idea/", "*.iml"):

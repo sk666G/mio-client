@@ -39,3 +39,7 @@ This file separates verified behavior from work that still needs runtime or arch
 
 - Multiplayer classification coverage is partial: nine modules received source-level assessments, while all other modules and settings default to `UNVERIFIED`. Warnings are exposed in hover tooltips; a searchable classification index is not yet implemented.
 - The conservative activation guard is off by default and blocks `PACKET_AFFECTING`, `SERVER_SENSITIVE` and `UNVERIFIED` module activation in a multiplayer world. The categories allowed by policy have not been verified as universally compatible. No local or authorized server test was performed.
+
+
+- Mixin remapping emits expected `Cannot remap schizo$bind...` warnings for 17 local `@Unique` helpers referenced by `remap = false` invokers. Their class/config presence is statically verified in the release JAR; applying the mixins in a live Minecraft runtime remains unverified.
+- Gradle deprecation details are now exposed by CI with `--warning-mode all`; the remaining warning sources still need attribution and remediation where safe.

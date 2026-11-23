@@ -73,6 +73,44 @@ class RebuildSecurityTest(unittest.TestCase):
             with self.assertRaisesRegex(SystemExit, "Unsupported archive entry type"):
                 list(REBRAND.iter_source(archive_path))
 
+    def test_rebuild_excludes_removed_modules_and_keeps_their_registrations_out(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            stage = Path(temporary)
+            (stage / "src/main/resources").mkdir(parents=True)
+            (stage / "src/main/resources/fabric.mod.json").write_text(
+                '{"entrypoints": {}}', encoding="utf-8"
+            )
+            (stage / "gradle.properties").write_text("version=1\ngroup=zio\n", encoding="utf-8")
+            (stage / "build.gradle").write_text("archivesName = 'zio'\n", encoding="utf-8")
+            (stage / ".gitignore").write_text("", encoding="utf-8")
+            members = [
+                (
+                    "src/main/java/dev/zio/client/modules/exploit/GrimDisablerModule.java",
+                    b"package dev.zio;",
+                ),
+                (
+                    "src/main/java/dev/zio/client/modules/exploit/RaytraceBypassModule.java",
+                    b"package dev.zio;",
+                ),
+                (
+                    "src/main/java/dev/zio/client/managers/ModuleRegistry.java",
+                    b'if (!this.registerModule(new dev.zio.client.modules.exploit.GrimDisablerModule())) '
+                    b'throw new IllegalStateException("Registration rejected GrimDisablerModule");\n'
+                    b'if (!this.registerModule(new dev.zio.client.modules.exploit.RaytraceBypassModule())) '
+                    b'throw new IllegalStateException("Registration rejected RaytraceBypassModule");\n',
+                ),
+            ]
+
+            REBRAND.build_staging_tree(stage, members)
+
+            self.assertFalse((stage / "src/main/java/dev/schizo/client/modules/exploit/GrimDisablerModule.java").exists())
+            self.assertFalse((stage / "src/main/java/dev/schizo/client/modules/exploit/RaytraceBypassModule.java").exists())
+            registry = (stage / "src/main/java/dev/schizo/client/managers/ModuleRegistry.java").read_text()
+            self.assertNotIn("GrimDisabler", registry)
+            self.assertNotIn("RaytraceBypass", registry)
+            license_path = stage / "THIRD_PARTY_LICENSES/DiscordIPC-Apache-2.0.txt"
+            self.assertIn("Apache License", license_path.read_text(encoding="utf-8"))
+
     def test_refuses_non_repository_destination(self):
         with tempfile.TemporaryDirectory() as temporary:
             with self.assertRaises(ValueError):
