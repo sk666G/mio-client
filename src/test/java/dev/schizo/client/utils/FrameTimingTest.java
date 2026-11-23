@@ -78,4 +78,19 @@ class FrameTimingTest {
 
       assertEquals(1011.0F, timing.getAverageFrameTimeMillis(), 0.01F);
    }
+
+   @Test
+   void clearsFrameDurationHistoryWhenTheClockMovesBackwards() {
+      FrameTiming timing = new FrameTiming();
+      timing.recordFrameAt(1_000_000_000L);
+      timing.recordFrameAt(1_016_000_000L);
+      assertEquals(16.0F, timing.getAverageFrameTimeMillis(), 0.01F);
+
+      timing.recordFrameAt(900_000_000L);
+      assertEquals(0.0F, timing.getAverageFrameTimeMillis());
+      assertEquals(0.0F, timing.getFrameTimeMillis());
+
+      timing.recordFrameAt(916_000_000L);
+      assertEquals(16.0F, timing.getAverageFrameTimeMillis(), 0.01F);
+   }
 }
