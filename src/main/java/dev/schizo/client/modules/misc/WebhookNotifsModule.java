@@ -16,6 +16,7 @@ import dev.schizo.client.events.MinecraftTickEvent;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.managers.WebhookManager;
+import dev.schizo.client.managers.NotificationDeliveryHistory;
 import dev.schizo.client.utils.ElapsedTimer;
 import dev.schizo.client.utils.chat.ChatUtils;
 import dev.schizo.client.events.EventStage;
@@ -71,6 +72,7 @@ public class WebhookNotifsModule extends Module {
    private final Setting<Boolean> pingSetting;
    private final DateTimeFormatter timestampFormatter;
    private final List<String> pendingMessages;
+   private final NotificationDeliveryHistory deliveryHistory;
    private long pendingCharacters;
    private boolean batchInFlight;
    private boolean deliveryPaused;
@@ -82,15 +84,61 @@ public class WebhookNotifsModule extends Module {
    private ServerData lastServer;
    @Override
    public void onEnable() {
-      this.notificationTimer.reset();
-      synchronized (this.pendingMessages) {
-         this.deliveryPaused = false;
-         this.consecutiveDeliveryFailures = 0;
-      }
+      this.retryDelivery();
       if (ClientContext.webhookManager.isConfigured()) return;
       String prefix = CommandRegistry.getPrefix();
       ChatUtils.printChat(Component.literal("Set a notification destination with " + prefix + "webhook set <url> or "
          + prefix + "webhook telegram <bot-token> <chat-id>."), ChatUtils.createSignature(-10395), ChatUtils.MessagePriority.MID);
+   }
+
+   public int getPendingMessageCount() {
+      synchronized (this.pendingMessages) {
+         return this.pendingMessages.size();
+      }
+   }
+
+   public boolean isBatchInFlight() {
+      synchronized (this.pendingMessages) {
+         return this.batchInFlight;
+      }
+   }
+
+   public boolean isDeliveryPaused() {
+      synchronized (this.pendingMessages) {
+         return this.deliveryPaused;
+      }
+   }
+
+   public int getConsecutiveDeliveryFailures() {
+      synchronized (this.pendingMessages) {
+         return this.consecutiveDeliveryFailures;
+      }
+   }
+
+   public List<NotificationDeliveryHistory.Entry> getDeliveryHistory() {
+      return this.deliveryHistory.snapshot();
+   }
+
+   public void clearDeliveryHistory() {
+      this.deliveryHistory.clear();
+   }
+
+   /** Unpauses delivery without clearing queued messages. */
+   public boolean retryDelivery() {
+      synchronized (this.pendingMessages) {
+         this.deliveryPaused = false;
+         this.consecutiveDeliveryFailures = 0;
+         this.notificationTimer.reset();
+         return !this.pendingMessages.isEmpty();
+      }
+   }
+
+   private void recordDeliveryLocked(
+      NotificationDeliveryHistory.Status status, int messageCount, String detail
+   ) {
+      this.deliveryHistory.record(new NotificationDeliveryHistory.Entry(
+         System.currentTimeMillis(), status, messageCount, detail
+      ));
    }
 
    private String formatMessage(ChatMessageEvent event) {
@@ -125,6 +173,7 @@ public class WebhookNotifsModule extends Module {
       synchronized (this.pendingMessages) {
          if (this.pendingMessages.size() >= MAX_PENDING_MESSAGES
             || this.pendingCharacters + queued.length() > MAX_PENDING_CHARACTERS) {
+            this.recordDeliveryLocked(NotificationDeliveryHistory.Status.DROPPED, 1, "Queue full");
             ClientAccess.logger.warn("Webhook notification queue is full; newest message was dropped");
             return;
          }
@@ -281,12 +330,29 @@ public class WebhookNotifsModule extends Module {
                }
                if (matchedPrefix) {
                   this.consecutiveDeliveryFailures = 0;
+                  this.recordDeliveryLocked(
+                     NotificationDeliveryHistory.Status.DELIVERED, batchMessages.size(), "Delivered"
+                  );
                   if (sendPing && this.pingGeneration == selectedPingGeneration) this.pingPending = false;
                } else {
+                  this.recordDeliveryLocked(
+                     NotificationDeliveryHistory.Status.FAILED, batchMessages.size(), "Queue changed"
+                  );
                   ClientAccess.logger.error("Webhook queue prefix changed during delivery; retaining queued messages");
                }
             } else {
                this.consecutiveDeliveryFailures++;
+               Throwable cause = failure;
+               while (cause.getCause() != null
+                  && (cause instanceof java.util.concurrent.CompletionException
+                     || cause instanceof java.util.concurrent.ExecutionException)) {
+                  cause = cause.getCause();
+               }
+               this.recordDeliveryLocked(
+                  NotificationDeliveryHistory.Status.FAILED,
+                  batchMessages.size(),
+                  cause.getClass().getSimpleName()
+               );
                ClientAccess.logger.warn("Webhook batch delivery attempt {} failed",
                   this.consecutiveDeliveryFailures);
                if (this.consecutiveDeliveryFailures >= 5) {
@@ -321,6 +387,7 @@ public class WebhookNotifsModule extends Module {
       this.pingSetting = this.add(new BooleanSetting("Ping", false).dependsOn(registeredTypes, registeredStash));
       this.timestampFormatter = DateTimeFormatter.ofPattern("HH:mm");
       this.pendingMessages = Collections.synchronizedList(new ArrayList<>());
+      this.deliveryHistory = new NotificationDeliveryHistory();
       this.notificationTimer = new ElapsedTimer();
    }
 
