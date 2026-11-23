@@ -2,6 +2,7 @@ package dev.schizo.client.config;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import java.io.IOException;
@@ -43,11 +44,11 @@ class HudLayoutStoreTest {
 
       store.save("Gameplay", layout);
       assertEquals(java.util.List.of("Gameplay"), store.list());
-      assertEquals(layout, store.load("Gameplay"));
+      assertEquals(new Gson().toJson(layout), new Gson().toJson(store.load("Gameplay")));
 
       store.rename("Gameplay", "Minimal");
       assertEquals(java.util.List.of("Minimal"), store.list());
-      assertEquals(layout, store.load("Minimal"));
+      assertEquals(new Gson().toJson(layout), new Gson().toJson(store.load("Minimal")));
 
       assertTrue(store.delete("Minimal"));
       assertFalse(store.delete("Minimal"));
