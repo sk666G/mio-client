@@ -47,7 +47,8 @@ public final class CommandPaletteScreen extends ClientScreen {
    private enum EntryKind {
       MODULE,
       COMMAND,
-      SETTING
+      SETTING,
+      KEYBIND
    }
 
    private record PaletteEntry(
@@ -99,6 +100,16 @@ public final class CommandPaletteScreen extends ClientScreen {
                EntryKind.SETTING,
                setting.getName(),
                module.getName() + " setting",
+               module,
+               null
+            ));
+         }
+
+         if (!module.getKeybind().isUnbound()) {
+            this.index.add(new PaletteEntry(
+               EntryKind.KEYBIND,
+               module.getKeybind().getDisplayName() + " - " + module.getName(),
+               "Keybind for " + module.getName(),
                module,
                null
             ));
@@ -179,7 +190,7 @@ public final class CommandPaletteScreen extends ClientScreen {
          case COMMAND -> ClientAccess.schizoMinecraft.setScreen(
             new ChatScreen(CommandRegistry.getPrefix() + entry.command().getName() + " ", false)
          );
-         case SETTING -> this.openModuleSettings(entry.module());
+         case SETTING, KEYBIND -> this.openModuleSettings(entry.module());
       }
    }
 
@@ -397,6 +408,7 @@ public final class CommandPaletteScreen extends ClientScreen {
             case MODULE -> "MODULE";
             case COMMAND -> "COMMAND";
             case SETTING -> "SETTING";
+            case KEYBIND -> "KEYBIND";
          };
          font.drawWithShadow(
             poseStack,
