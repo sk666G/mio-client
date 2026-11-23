@@ -45,8 +45,9 @@ An optional conservative activation policy is available:
 - `;compat policy warn` returns to warning-only mode.
 - `;compat policy allow <ModuleClass>` adds an explicit class-level exception.
 - `;compat policy deny <ModuleClass>` removes that exception; `;compat policy clear` removes all exceptions.
+- `;compat policy reset <ModuleClass>` explicitly saves the module as disabled, clearing any preserved enable preference from a previous policy suspension.
 
-The conservative policy is opt-in because most modules and all individual settings have not completed source review. `CLIENT_ONLY`, `VISUAL_ONLY`, `INPUT_MODIFYING` and `WORLD_INTERACTION` modules are not blocked by this first policy; the latter two continue to show warnings. An exception is a user permission, not a compatibility certification.
+The conservative policy is opt-in because most modules and all individual settings have not completed source review. `CLIENT_ONLY`, `VISUAL_ONLY`, `INPUT_MODIFYING` and `WORLD_INTERACTION` modules are not blocked by this first policy; the latter two continue to show warnings. An exception is a user permission, not a compatibility certification. Use `reset` when you want to clear a suspended module's saved enabled preference instead of retaining it for a future warning-only startup.
 
 When the conservative policy is active, already-enabled blocked modules are suspended on the first player tick in a remote multiplayer session. Their saved enabled preference is preserved in the module config, but they are not automatically re-enabled on disconnect or when the policy changes to warning-only. Toggle them manually, or restart under warning-only mode to restore saved enable preferences. The policy and its explicit exceptions are stored separately in `multiplayer-compatibility.json`.
 

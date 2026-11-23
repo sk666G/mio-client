@@ -266,6 +266,15 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
       this.disableInternal();
    }
 
+   /** Explicitly clears a policy-suspended module's saved enabled preference. */
+   public void resetCompatibilityPolicyPreference() {
+      if (this.enabled) {
+         this.disable();
+      } else {
+         this.compatibilityPolicySuppressed = false;
+      }
+   }
+
    private void disableInternal() {
       if (!this.isToggled()) {
          return;

@@ -54,6 +54,8 @@ public final class CompatibilityCommand extends Command {
             .then(argument("name", StringArgumentType.word()).executes(this::allowModule)))
          .then(literal("deny")
             .then(argument("name", StringArgumentType.word()).executes(this::denyModule)))
+         .then(literal("reset")
+            .then(argument("name", StringArgumentType.word()).executes(this::resetModulePreference)))
          .then(literal("clear").executes(context -> this.clearPolicyExceptions())));
    }
 
@@ -68,7 +70,7 @@ public final class CompatibilityCommand extends Command {
       for (String exception : exceptions) {
          output.append("\n- ").append(exception);
       }
-      output.append("\nUse ;compat policy warn|conservative|allow <ModuleClass>|deny <ModuleClass>|clear.");
+      output.append("\nUse ;compat policy warn|conservative|allow <ModuleClass>|deny <ModuleClass>|reset <ModuleClass>|clear.");
       this.print(output.toString());
       return 1;
    }
@@ -92,6 +94,17 @@ public final class CompatibilityCommand extends Command {
       this.print(added
          ? module.getName() + " is now an explicit conservative-policy exception. It will not be auto-enabled; toggle it manually if needed."
          : module.getName() + " is already an explicit policy exception.");
+      return 1;
+   }
+
+   private int resetModulePreference(CommandContext<?> context) {
+      Module module = this.findModule(StringArgumentType.getString(context, "name"));
+      if (module == null) {
+         this.print("Module not found. Use ;compat list to browse module names.");
+         return 0;
+      }
+      module.resetCompatibilityPolicyPreference();
+      this.print(module.getName() + " is now saved as disabled. The conservative policy exception (if any) is unchanged.");
       return 1;
    }
 
