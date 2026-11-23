@@ -532,7 +532,6 @@ public class ModuleComponent extends AbstractComponent implements CloseState {
 
       poseStack.popPose();
       if (this.isFavoriteHandleHovered(mouseX, mouseY)) {
-         ModulePreferencesRegistry preferences = ClientContext.modulePreferencesRegistry;
          boolean favorite = preferences != null && preferences.isFavorite(this.module);
          ClientContext.getClickGui().setTooltipText(
             favorite ? "Remove from favourites" : "Add to favourites"
