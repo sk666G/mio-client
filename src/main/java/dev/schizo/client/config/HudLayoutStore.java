@@ -155,7 +155,7 @@ public final class HudLayoutStore {
    private void validateLayout(JsonObject layout) throws IOException {
       if (layout == null || !layout.has("version") || !layout.get("version").isJsonPrimitive()
          || !layout.get("version").getAsJsonPrimitive().isNumber()
-         || layout.get("version").getAsInt() != CURRENT_SCHEMA_VERSION) {
+         || layout.get("version").getAsDouble() != CURRENT_SCHEMA_VERSION) {
          throw new IOException("Unsupported or missing HUD layout version");
       }
       if (!layout.has("widgets") || !layout.get("widgets").isJsonArray()) {
@@ -165,11 +165,53 @@ public final class HudLayoutStore {
       if (widgets.size() > MAX_WIDGETS) {
          throw new IOException("HUD layout contains too many widgets");
       }
+      java.util.Set<String> moduleNames = new java.util.HashSet<>();
       for (JsonElement widget : widgets) {
          if (!widget.isJsonObject()) {
             throw new IOException("HUD layout contains an invalid widget entry");
          }
+
+         JsonObject widgetObject = widget.getAsJsonObject();
+         String moduleName = requiredString(widgetObject, "module");
+         requiredString(widgetObject, "anchor");
+         requiredString(widgetObject, "horizontal");
+         requiredString(widgetObject, "vertical");
+         if (!moduleNames.add(moduleName)) {
+            throw new IOException("HUD layout contains a duplicate widget: " + moduleName);
+         }
+
+         double x = requiredFiniteNumber(widgetObject, "x");
+         double y = requiredFiniteNumber(widgetObject, "y");
+         double scale = requiredFiniteNumber(widgetObject, "scale");
+         if (x < 0.0D || x > 1.0D || y < 0.0D || y > 1.0D
+            || scale < 0.5D || scale > 2.0D) {
+            throw new IOException("HUD layout contains widget values outside the supported range");
+         }
       }
+   }
+
+   private static String requiredString(JsonObject object, String key) throws IOException {
+      JsonElement value = object.get(key);
+      if (value == null || !value.isJsonPrimitive() || !value.getAsJsonPrimitive().isString()) {
+         throw new IOException("HUD layout widget is missing a valid " + key + " value");
+      }
+      String text = value.getAsString();
+      if (text.isBlank() || text.length() > 128) {
+         throw new IOException("HUD layout widget contains an invalid " + key + " value");
+      }
+      return text;
+   }
+
+   private static double requiredFiniteNumber(JsonObject object, String key) throws IOException {
+      JsonElement value = object.get(key);
+      if (value == null || !value.isJsonPrimitive() || !value.getAsJsonPrimitive().isNumber()) {
+         throw new IOException("HUD layout widget is missing a valid " + key + " value");
+      }
+      double number = value.getAsDouble();
+      if (!Double.isFinite(number)) {
+         throw new IOException("HUD layout widget contains a non-finite " + key + " value");
+      }
+      return number;
    }
 
    private void ensureDirectory() throws IOException {
