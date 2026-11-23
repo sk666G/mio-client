@@ -325,14 +325,37 @@ public final class ContextProfileRegistry implements ClientAccess, JsonConfigura
             PresetRegistry registry = ClientContext.configurationManager == null
                ? null
                : ClientContext.configurationManager.getPresetRegistry(rule.category());
-            if (registry == null || !registry.applyPreset(rule.presetName())) {
+            if (registry == null) {
                ClientAccess.logger.warn(
                   "Context profile references missing preset {} ({})",
                   rule.presetName(), rule.category().getName()
                );
                continue;
             }
+
+            // Record the category before applying: fromJson may partially mutate settings and then throw.
             this.modifiedCategories.add(rule.category());
+            boolean applied;
+            try {
+               applied = registry.applyPreset(rule.presetName());
+            } catch (RuntimeException failure) {
+               ClientAccess.logger.error(
+                  "Could not apply context preset {} ({})",
+                  rule.presetName(), rule.category().getName(), failure
+               );
+               boolean restored = this.restoreActiveProfile();
+               this.lastAppliedContext = restored ? contextKey : null;
+               this.dirty = !restored;
+               return;
+            }
+            if (!applied) {
+               this.modifiedCategories.remove(rule.category());
+               ClientAccess.logger.warn(
+                  "Context profile references missing preset {} ({})",
+                  rule.presetName(), rule.category().getName()
+               );
+               continue;
+            }
             ClientAccess.logger.info(
                "Applied context preset {} for {} / {} / {}",
                rule.presetName(), server, dimension, gameMode
@@ -345,54 +368,37 @@ public final class ContextProfileRegistry implements ClientAccess, JsonConfigura
    }
 
    private boolean captureBaseline() {
-      if (!this.modifiedCategories.isEmpty()) {
-         return false;
-      }
-      this.baseline.clear();
-      Map<PresetCategory, JsonElement> snapshots = new EnumMap<>(PresetCategory.class);
-      for (PresetCategory category : orderedCategories()) {
-         try {
+      return ContextProfileRestoreState.capture(
+         this.baseline,
+         this.modifiedCategories,
+         orderedCategories(),
+         category -> {
             JsonElement snapshot = category.toJson();
             if (snapshot == null) {
                throw new IllegalStateException("Preset category returned a null baseline");
             }
-            snapshots.put(category, snapshot.deepCopy());
-         } catch (RuntimeException failure) {
-            ClientAccess.logger.warn("Could not snapshot baseline for {} context profiles", category.getName(), failure);
-            return false;
-         }
-      }
-      this.baseline.putAll(snapshots);
-      return true;
+            return snapshot.deepCopy();
+         },
+         (category, failure) -> ClientAccess.logger.warn(
+            "Could not snapshot baseline for {} context profiles",
+            category.getName(),
+            failure
+         )
+      );
    }
 
    private boolean restoreActiveProfile() {
-      if (this.modifiedCategories.isEmpty()) {
-         return true;
-      }
-      boolean restored = true;
-      for (PresetCategory category : orderedCategories()) {
-         if (!this.modifiedCategories.contains(category)) {
-            continue;
-         }
-         JsonElement snapshot = this.baseline.get(category);
-         if (snapshot == null) {
-            ClientAccess.logger.error(
-               "Could not restore baseline for {} context profile because no snapshot exists",
-               category.getName()
-            );
-            restored = false;
-            continue;
-         }
-         try {
-            category.fromJson(snapshot.deepCopy());
-            this.modifiedCategories.remove(category);
-         } catch (RuntimeException failure) {
-            restored = false;
-            ClientAccess.logger.error("Could not restore baseline for {} context profile", category.getName(), failure);
-         }
-      }
-      return restored && this.modifiedCategories.isEmpty();
+      return ContextProfileRestoreState.restore(
+         this.baseline,
+         this.modifiedCategories,
+         orderedCategories(),
+         (category, snapshot) -> category.fromJson(snapshot.deepCopy()),
+         (category, failure) -> ClientAccess.logger.error(
+            "Could not restore baseline for {} context profile",
+            category.getName(),
+            failure
+         )
+      );
    }
 
    private static List<PresetCategory> orderedCategories() {
