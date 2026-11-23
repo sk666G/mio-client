@@ -19,7 +19,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Files;
 
-public record PresetData(String name, JsonObject contents) implements ClientAccess, NamedEntry {
+public record PresetData(String name, JsonObject contents) implements NamedEntry {
    @Override
    public String getName() {
       return this.name;
@@ -35,6 +35,12 @@ public record PresetData(String name, JsonObject contents) implements ClientAcce
       }
 
       Path root = directory.toAbsolutePath().normalize();
+      if (Files.isSymbolicLink(root)) {
+         throw new IOException("Preset directory must not be a symbolic link");
+      }
+      if (Files.exists(root, LinkOption.NOFOLLOW_LINKS) && !Files.isDirectory(root, LinkOption.NOFOLLOW_LINKS)) {
+         throw new IOException("Preset directory is not a directory");
+      }
       Path target = root.resolve(name + ".json").normalize();
       if (!target.startsWith(root)) {
          throw new IOException("Preset path escapes its directory");
