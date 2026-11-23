@@ -59,7 +59,7 @@ Webhook delivery uses asynchronous Java HTTP requests. Telegram credentials are 
 
 The two validation-circumvention modules are removed. This is a source-level compatibility correction, not proof of universal server compatibility. Remaining movement/combat modules can deliberately request client behavior that differs from vanilla expectations; whether a server accepts those packets depends on Minecraft version, server implementation, plugin and module settings. This pass does not claim that such behavior was tested against a controlled server.
 
-The conservative result established here is limited: Schizo no longer ships the two named modules that exist to defeat validation, and the build importer cannot restore them. A full per-module protocol matrix and controlled local-server scenarios remain release work. No public server testing was performed.
+The source review disposition and exact unsupported groups are recorded in [Multiplayer Compatibility Review](MULTIPLAYER_COMPATIBILITY.md). The conservative result established here is limited: Schizo no longer ships the two named modules that exist to defeat validation, and the build importer cannot restore them. A full per-module protocol matrix, compatibility activation profile and controlled local-server scenarios remain release work. No public server testing was performed.
 
 ## Verification boundary
 
