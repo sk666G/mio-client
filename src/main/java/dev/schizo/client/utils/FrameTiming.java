@@ -102,7 +102,7 @@ public final class FrameTiming implements ClientAccess {
    }
 
    public float getFrameFactor(float rateScale) {
-      if (!this.hasPreviousFrame || this.lastFrameRate <= 0L || rateScale <= 0.0F) {
+      if (rateScale <= 0.0F) {
          return 0.0F;
       }
       return Mth.clamp(1.0F / ((float)this.lastFrameRate * rateScale), 0.0F, 1.0F);
@@ -113,9 +113,14 @@ public final class FrameTiming implements ClientAccess {
    }
 
    void recordFrameAt(long sampledTimeNanos) {
+      boolean clockMovedBackwards = this.hasPreviousFrame && sampledTimeNanos < this.lastFrameTimeNanos;
       this.recordFpsBucket(sampledTimeNanos);
 
-      if (this.hasPreviousFrame) {
+      if (clockMovedBackwards) {
+         this.clearFrameSamples();
+         this.lastFrameDurationNanos = 0L;
+         this.lastFrameRate = 0L;
+      } else if (this.hasPreviousFrame) {
          long elapsedNanos = Math.max(1L, sampledTimeNanos - this.lastFrameTimeNanos);
          this.lastFrameDurationNanos = elapsedNanos;
          this.lastFrameRate = NANOS_PER_SECOND / elapsedNanos;
@@ -184,6 +189,14 @@ public final class FrameTiming implements ClientAccess {
       this.totalFrameDurationNanos -= this.frameDurationsNanos[this.oldestFrameSampleIndex];
       this.oldestFrameSampleIndex = (this.oldestFrameSampleIndex + 1) % FRAME_SAMPLE_CAPACITY;
       this.frameSampleCount--;
+   }
+
+   private void clearFrameSamples() {
+      this.oldestFrameSampleIndex = 0;
+      this.frameSampleCount = 0;
+      this.totalFrameDurationNanos = 0L;
+      this.lastLowFpsUpdateNanos = Long.MIN_VALUE;
+      this.cachedOnePercentLowFramesPerSecond = 0.0F;
    }
 
    public FrameTiming() {
