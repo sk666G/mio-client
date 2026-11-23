@@ -10,6 +10,8 @@
 package dev.schizo.client.modules.movement;
 
 
+import dev.schizo.client.compatibility.CompatibilityAssessment;
+import dev.schizo.client.compatibility.CompatibilityClass;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.PacketEvent;
@@ -223,6 +225,7 @@ public class FakeLagModule extends Module {
 
    public FakeLagModule() {
       super("FakeLag", "Cancels movement packets until toggled off.", ModuleCategory.MOVEMENT, new String[0]);
+
       this.modeSetting = this.add(new EnumSetting<>("Mode", FakeLagModule.ModeChoice.BLINK));
       this.cancelSetting = this.add(new BooleanSetting("Cancel", false));
       String timeoutName = "Timeout";
@@ -296,6 +299,13 @@ public class FakeLagModule extends Module {
       EventBus eventBus = ClientAccess.eventBus;
       FakeLagRenderer renderer = new FakeLagRenderer(this);
       eventBus.subscribe(renderer);
+      CompatibilityAssessment assessment = CompatibilityAssessment.sourceReviewed(
+         CompatibilityClass.PACKET_AFFECTING,
+         "Queues or delays traffic; packet timing and ordering differ from ordinary client behavior."
+      );
+      this.setCompatibilityAssessment(assessment);
+      this.classifyAllSettings(assessment);
+
    }
 
    public enum ModeChoice implements NamedEntry {

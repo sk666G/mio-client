@@ -46,3 +46,10 @@ No public release or merge is part of this branch task.
 - [ ] Force a preset apply/restore failure and confirm the original baseline remains pending and is retried.
 - [ ] Verify recovery behavior after process termination while a Context Profile restoration is pending.
 
+
+
+## Multiplayer compatibility follow-up
+
+- [ ] Complete source assessment for every module and relevant setting; keep unreviewed entries as `UNVERIFIED`.
+- [ ] Verify the conservative activation guard, chat warning, config persistence and keybind behavior in singleplayer and a controlled multiplayer server.
+- [ ] Add the classification inventory to the module/settings search index.

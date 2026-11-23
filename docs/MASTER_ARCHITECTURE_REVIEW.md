@@ -74,3 +74,8 @@ The scheduled-task queues now reserve from one shared capacity before work is di
 
 Context Profiles now track a category before applying its preset, retaining rollback responsibility if application fails partway through. Baselines and profile payloads omit each module's top-level `enabled` field: automatic profiles may alter settings, but module activation remains user-owned. A restore is considered complete only when the serialized category matches the saved baseline. Reloading Context Profile configuration while restoration is pending is rejected so in-memory recovery state is not discarded.
 
+
+
+## Release-readiness follow-up — compatibility classification
+
+Modules and settings now have required classification, reason and evidence metadata. Unreviewed entries default to `UNVERIFIED`. The Settings module's persisted Conservative Multiplayer option blocks enabling packet-affecting, server-sensitive or unverified modules while a multiplayer world is active. The UI exposes module assessments on hover and risky setting explanations in setting tooltips. A source-level classification subset was added to nine interaction/movement modules; no server test is implied. A full searchable inventory and source review of all modules/settings remains outstanding.

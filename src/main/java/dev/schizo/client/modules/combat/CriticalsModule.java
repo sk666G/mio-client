@@ -10,6 +10,8 @@
 package dev.schizo.client.modules.combat;
 
 
+import dev.schizo.client.compatibility.CompatibilityAssessment;
+import dev.schizo.client.compatibility.CompatibilityClass;
 import dev.schizo.client.utils.math.MathConstants;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
@@ -308,6 +310,7 @@ public class CriticalsModule extends Module {
 
    public CriticalsModule() {
       super("Criticals", "Turns your hits into critical ones.", ModuleCategory.COMBAT, new String[0]);
+
       this.modeSetting = this.add(new EnumSetting<>("Mode", ModeChoice.PACKET));
       this.pauseOnMoveSetting = this.add(new BooleanSetting("PauseOnMove", false));
       this.onlyFullSetting = this.add(new BooleanSetting("OnlyFull", false));
@@ -320,6 +323,13 @@ public class CriticalsModule extends Module {
          Setting<ModeChoice> modeSource = this.modeSetting;
          return modeSource.getValue() == ModeChoice.GRIMV3;
       });
+      CompatibilityAssessment assessment = CompatibilityAssessment.sourceReviewed(
+         CompatibilityClass.SERVER_SENSITIVE,
+         "Critical hit modes alter attack outcomes compared with vanilla timing; server validation is not tested."
+      );
+      this.setCompatibilityAssessment(assessment);
+      this.classifyAllSettings(assessment);
+
    }
 
    public enum ModeChoice implements NamedEntry {

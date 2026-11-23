@@ -10,6 +10,7 @@
 package dev.schizo.client.modules.client;
 
 import dev.schizo.client.gui.screens.PresetScreen;
+import dev.schizo.client.compatibility.MultiplayerCompatibilityPolicy;
 import dev.schizo.client.audio.BuiltinSound;
 import dev.schizo.client.utils.collections.NamedIdentifier;
 import dev.schizo.client.managers.CommandRegistry;
@@ -25,6 +26,7 @@ public class SettingsModule extends PermanentModule {
    public final Setting<String> prefixSetting;
    private final Setting<NamedIdentifier> startupSetting;
    private final Setting<Boolean> presetsSetting;
+   private final Setting<Boolean> conservativeMultiplayerSetting;
 
    private static void updateCommandPrefix(SettingsModule owner, String prefixValue) {
       if (!prefixValue.equals(CommandRegistry.getPrefix())) {
@@ -42,6 +44,16 @@ public class SettingsModule extends PermanentModule {
       this.prefixSetting = this.add(new StringSetting(("Prefix"), ";"));
       this.startupSetting = this.add(new IdentifierSetting(("Startup"), BuiltinSound.BLIP.getIdentifier()));
       this.presetsSetting = this.add(new BooleanSetting(("Presets"), true));
+      this.conservativeMultiplayerSetting = this.add(
+         new BooleanSetting("Conservative Multiplayer", false)
+      );
+      this.conservativeMultiplayerSetting.setDescription(
+         "Blocks enabling packet-affecting, server-sensitive, or unreviewed modules in multiplayer. "
+            + "This is a compatibility guard, not a server compatibility guarantee."
+      );
+      this.conservativeMultiplayerSetting.setChangeCallback(
+         () -> MultiplayerCompatibilityPolicy.setConservativeEnabled(this.conservativeMultiplayerSetting.getValue())
+      );
       this.prefixSetting.setChangeCallback(() -> {
          String prefixValue = this.prefixSetting.getValue();
          updateCommandPrefix(this, prefixValue);

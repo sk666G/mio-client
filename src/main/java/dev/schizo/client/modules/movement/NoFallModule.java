@@ -10,6 +10,8 @@
 package dev.schizo.client.modules.movement;
 
 
+import dev.schizo.client.compatibility.CompatibilityAssessment;
+import dev.schizo.client.compatibility.CompatibilityClass;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.utils.math.MathConstants;
 import dev.schizo.client.ClientContext;
@@ -122,6 +124,7 @@ public class NoFallModule extends Module {
 
    public NoFallModule() {
       super("NoFall", "Prevents falling damage.", ModuleCategory.MOVEMENT, new String[0]);
+
       this.modeSetting = this.add(new EnumSetting<>("Mode", ModeChoice.PACKET));
       Predicate<Object> groundDistanceVisible = ignored -> this.modeSetting.getValue() == ModeChoice.MLG;
       this.groundDistanceSetting = this.add(new NumberSetting<>("GroundDistance", 2.0F, 1.0F, 4.0F, groundDistanceVisible).withUnit("m"));
@@ -129,6 +132,13 @@ public class NoFallModule extends Module {
       for (NoFallModule.ModeChoice choice : NoFallModule.ModeChoice.values()) {
          choice.module = this;
       }
+      CompatibilityAssessment assessment = CompatibilityAssessment.sourceReviewed(
+         CompatibilityClass.PACKET_AFFECTING,
+         "Its packet mode changes the on-ground state sent with movement; this is not vanilla-consistent."
+      );
+      this.setCompatibilityAssessment(assessment);
+      this.classifyAllSettings(assessment);
+
    }
 
    public enum ModeChoice implements NamedEntry {

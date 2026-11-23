@@ -149,25 +149,27 @@ public abstract class SettingComponent<T> extends AbstractComponent {
 
    @Override
    public void render(PoseStack poseStack, double mouseX, double mouseY) {
-      if (this.getUiModule().descriptionsSetting.getValue()
-         && this.getUiModule().settingsSetting.getValue()
-         && this.isMouseOver(mouseX, mouseY)
-         && this.parentCloseState instanceof ModuleComponent parentModule) {
-         String moduleConfigName = parentModule.getModule()
-            .getConfigName();
-         String settingConfigName = this.setting.getConfigName();
-         LanguageTable translations = ClientContext.languageTable;
-         String description = translations.getTranslation(
-            "descriptions.settings.%s.%s".formatted(moduleConfigName, settingConfigName));
-         if (description != null) {
-            ClientContext.getClickGui()
-               .setTooltipText(
-                  description
-               );
-         }
+      super.render(poseStack, mouseX, mouseY);
+      if (!this.getUiModule().settingsSetting.getValue() || !this.isMouseOver(mouseX, mouseY)
+         || !(this.parentCloseState instanceof ModuleComponent parentModule)) {
+         return;
       }
 
-      super.render(poseStack, mouseX, mouseY);
+      String tooltip = null;
+      if (this.getUiModule().descriptionsSetting.getValue()) {
+         String moduleConfigName = parentModule.getModule().getConfigName();
+         String settingConfigName = this.setting.getConfigName();
+         LanguageTable translations = ClientContext.languageTable;
+         tooltip = translations.getTranslation(
+            "descriptions.settings.%s.%s".formatted(moduleConfigName, settingConfigName));
+      }
+      if (this.setting.getCompatibilityAssessment().isRisky()) {
+         String warning = "Compatibility warning: " + this.setting.getCompatibilityAssessment().summary();
+         tooltip = tooltip == null || tooltip.isBlank() ? warning : tooltip + "\n" + warning;
+      }
+      if (tooltip != null && !tooltip.isBlank()) {
+         ClientContext.getClickGui().setTooltipText(tooltip);
+      }
    }
 
    @Override

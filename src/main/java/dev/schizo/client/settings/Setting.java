@@ -10,6 +10,7 @@
 package dev.schizo.client.settings;
 
 import dev.schizo.client.ClientContext;
+import dev.schizo.client.compatibility.CompatibilityAssessment;
 import dev.schizo.client.NamedFeature;
 import dev.schizo.client.settings.ValueProvider;
 import dev.schizo.client.config.EnumJsonConverter;
@@ -20,6 +21,7 @@ import java.util.function.Predicate;
 
 public abstract class Setting<T> extends NamedFeature implements ValueProvider<T>, JsonConfigurable {
    private T defaultValue;
+   private CompatibilityAssessment compatibilityAssessment = CompatibilityAssessment.unverified();
    public boolean expanded;
    public boolean visibilityDependency;
    public boolean opaqueColor;
@@ -257,6 +259,15 @@ public abstract class Setting<T> extends NamedFeature implements ValueProvider<T
 
    public void disableNumericBounds() {
       this.numericBoundsEnabled = false;
+   }
+
+   public CompatibilityAssessment getCompatibilityAssessment() {
+      return this.compatibilityAssessment;
+   }
+
+   public Setting<T> setCompatibilityAssessment(CompatibilityAssessment assessment) {
+      this.compatibilityAssessment = Objects.requireNonNull(assessment, "assessment");
+      return this;
    }
 
    public boolean isExcludedFromConfig() {

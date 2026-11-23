@@ -9,6 +9,8 @@
 
 package dev.schizo.client.modules.combat;
 
+import dev.schizo.client.compatibility.CompatibilityAssessment;
+import dev.schizo.client.compatibility.CompatibilityClass;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.RotationRequestEvent;
@@ -307,6 +309,7 @@ public class AntiPhaseModule extends Module {
 
    public AntiPhaseModule() {
       super("AntiPhase", "Prevents your enemies from pearl-phasing into blocks.", ModuleCategory.COMBAT, new String[0]);
+
       this.materialSetting = this.add(new EnumSetting<>("Material", AntiPhaseMaterialChoice.LADDER));
       Predicate bannerVisibility = unused -> this.materialSetting.getValue() == AntiPhaseMaterialChoice.ITEMFRAME;
       this.bannerSetting = this.add(new BooleanSetting("Banner", false, bannerVisibility));
@@ -334,6 +337,13 @@ public class AntiPhaseModule extends Module {
       );
 
       rendererSnapshot.register(renderConfiguration);
+      CompatibilityAssessment assessment = CompatibilityAssessment.sourceReviewed(
+         CompatibilityClass.SERVER_SENSITIVE,
+         "Automates block interactions around phasing behavior; server-side interaction handling is not tested."
+      );
+      this.setCompatibilityAssessment(assessment);
+      this.classifyAllSettings(assessment);
+
    }
 
    record PendingSwap(

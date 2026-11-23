@@ -35,3 +35,7 @@ This file separates verified behavior from work that still needs runtime or arch
 - Context Profile category application is not transactional. A failure can partially mutate global settings; the registry keeps that category marked as modified and retries restoring the original baseline before applying another context. Module enabled states are excluded from profile ownership and remain user controlled.
 - Context Profile recovery is in-memory. A process termination during a failed restore cannot preserve the pending baseline across restart; no separate crash-recovery journal has been added yet.
 
+
+
+- Multiplayer classification coverage is partial: nine modules received source-level assessments, while all other modules and settings default to `UNVERIFIED`. Warnings are exposed in hover tooltips; a searchable classification index is not yet implemented.
+- The conservative activation guard is off by default and blocks `PACKET_AFFECTING`, `SERVER_SENSITIVE` and `UNVERIFIED` module activation in a multiplayer world. The categories allowed by policy have not been verified as universally compatible. No local or authorized server test was performed.

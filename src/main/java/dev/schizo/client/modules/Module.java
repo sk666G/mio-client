@@ -10,6 +10,8 @@
 package dev.schizo.client.modules;
 
 import dev.schizo.client.ClientAccess;
+import dev.schizo.client.compatibility.CompatibilityAssessment;
+import dev.schizo.client.compatibility.MultiplayerCompatibilityPolicy;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.NamedFeature;
 import dev.schizo.client.events.bus.EventBus;
@@ -42,6 +44,7 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
    private boolean drawn;
    private boolean workInProgress;
    private boolean ignoreEnabledState;
+   private CompatibilityAssessment compatibilityAssessment = CompatibilityAssessment.unverified();
 
    public Module(String name, String description, ModuleCategory category, String... aliases) {
       super(name);
@@ -78,6 +81,10 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
    @Override
    public void enable() {
       if (this.isToggled()) {
+         return;
+      }
+      if (!MultiplayerCompatibilityPolicy.canEnable(this)) {
+         MultiplayerCompatibilityPolicy.reportBlocked(this);
          return;
       }
       this.enabled = true;
@@ -215,6 +222,26 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
 
    public ModuleCategory getCategory() {
       return this.category;
+   }
+
+   public CompatibilityAssessment getCompatibilityAssessment() {
+      return this.compatibilityAssessment;
+   }
+
+   public void setCompatibilityAssessment(CompatibilityAssessment assessment) {
+      this.compatibilityAssessment = Objects.requireNonNull(assessment, "assessment");
+   }
+
+   protected final void classifyAllSettings(CompatibilityAssessment assessment) {
+      for (Setting<?> setting : this.settings) {
+         setting.setCompatibilityAssessment(assessment);
+      }
+   }
+
+   protected final void classifyAllSettings(CompatibilityAssessment assessment) {
+      for (Setting<?> setting : this.settings) {
+         setting.setCompatibilityAssessment(assessment);
+      }
    }
 
    @Override

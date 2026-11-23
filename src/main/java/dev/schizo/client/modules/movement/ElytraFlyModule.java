@@ -10,6 +10,8 @@
 package dev.schizo.client.modules.movement;
 
 
+import dev.schizo.client.compatibility.CompatibilityAssessment;
+import dev.schizo.client.compatibility.CompatibilityClass;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.LivingEntityRotationEvent;
@@ -547,6 +549,7 @@ public class ElytraFlyModule extends Module {
 
    public ElytraFlyModule() {
       super("ElytraFly", "Turns you into a block game boeing.", ModuleCategory.MOVEMENT, new String[]{"elytraflight"});
+
       this.modeSetting = this.add(new EnumSetting<>("Mode", ElytraFlyModule.ModeChoice.CONTROL));
       Predicate<Object> elytraFlyTakeoffPredicate = ignored -> this.modeSetting.getValue() != ModeChoice.PACKET;
       this.takeoffSetting = this.add(new EnumSetting<>("Takeoff", ElytraFlyModule.TakeoffChoice.PLAIN, elytraFlyTakeoffPredicate));
@@ -637,6 +640,13 @@ public class ElytraFlyModule extends Module {
       this.modeHandlers.register(ElytraFlyModule.ModeChoice.BOUNCE, new BounceElytraFlyHandler(this));
       this.modeHandlers.register(ElytraFlyModule.ModeChoice.NEWGRIM, new NewGrimElytraFlyHandler(this));
       this.modeHandlers.register(ElytraFlyModule.ModeChoice.VANILLA, new VanillaElytraFlyHandler(this));
+      CompatibilityAssessment assessment = CompatibilityAssessment.sourceReviewed(
+         CompatibilityClass.SERVER_SENSITIVE,
+         "Implements non-vanilla flight movement; server and plugin behavior is unverified."
+      );
+      this.setCompatibilityAssessment(assessment);
+      this.classifyAllSettings(assessment);
+
    }
 
    public enum InfDurabilityChoice implements NamedEntry {
