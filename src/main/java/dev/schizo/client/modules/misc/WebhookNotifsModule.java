@@ -69,6 +69,7 @@ public class WebhookNotifsModule extends Module {
    private final DateTimeFormatter timestampFormatter;
    private final List<String> pendingMessages;
    private final List<String> includedMessages;
+   private boolean deliveryInFlight;
    private boolean pingPending;
    private final ElapsedTimer notificationTimer;
    private String previousQueueMessage;
@@ -207,28 +208,53 @@ public class WebhookNotifsModule extends Module {
       WebhookManager manager = ClientContext.webhookManager;
       if (!manager.isConfigured() || !this.notificationTimer.hasElapsed(this.timeoutSetting.getValue(), TimeUnit.SECONDS)
          || this.pendingMessages.isEmpty()) return;
+
       this.notificationTimer.reset();
       synchronized (this.pendingMessages) {
-         if (this.pendingMessages.isEmpty()) return;
-         String mention = this.pingPending && !manager.isTelegram() ? "@everyone\n" : "";
+         if (this.deliveryInFlight || this.pendingMessages.isEmpty()) return;
+
+         boolean hadPendingPing = this.pingPending;
+         String mention = hadPendingPing && !manager.isTelegram() ? "@everyone\n" : "";
          this.pingPending = false;
+
          StringBuilder batch = new StringBuilder();
+         int includedCount = 0;
          String timestamp = "[" + this.timestampFormatter.format(LocalDateTime.now()) + "] ";
          for (String message : this.pendingMessages) {
             if (batch.length() > 1900) break;
             if (this.timestampSetting.getValue()) batch.append(timestamp);
             batch.append(message).append('\n');
-            this.includedMessages.add(message);
+            includedCount++;
          }
+         if (includedCount == 0) {
+            if (hadPendingPing) this.pingPending = true;
+            return;
+         }
+
          String text = batch.substring(0, batch.length() - 1).replace("`", "'");
+         String payload;
          if (manager.isTelegram()) {
-            manager.sendContent(text);
+            payload = text;
          } else {
             String language = this.colorSetting.getValue() ? "ansi\n" : "";
-            manager.sendContent(mention + "```" + language + text + "```");
+            payload = mention + "```" + language + text + "```";
          }
-         for (String message : this.includedMessages) this.pendingMessages.remove(message);
-         this.includedMessages.clear();
+
+         this.deliveryInFlight = true;
+         final int messagesInBatch = includedCount;
+         manager.sendContent(payload).whenComplete((delivered, failure) -> {
+            synchronized (this.pendingMessages) {
+               if (failure == null && Boolean.TRUE.equals(delivered)) {
+                  for (int index = 0; index < messagesInBatch && !this.pendingMessages.isEmpty(); index++) {
+                     this.pendingMessages.remove(0);
+                  }
+               } else if (hadPendingPing) {
+                  this.pingPending = true;
+               }
+
+               this.deliveryInFlight = false;
+            }
+         });
       }
    }
 
