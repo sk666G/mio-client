@@ -22,6 +22,7 @@ import dev.schizo.client.managers.BlockColorRegistry;
 import dev.schizo.client.managers.ChatFilterRegistry;
 import dev.schizo.client.managers.CommandRegistry;
 import dev.schizo.client.managers.ConfigurationManager;
+import dev.schizo.client.managers.ContextProfileRegistry;
 import dev.schizo.client.managers.CrystalInteractionManager;
 import dev.schizo.client.managers.GlintRegistry;
 import dev.schizo.client.managers.HoleManager;
@@ -108,6 +109,7 @@ public final class ClientInitializer {
       ClientContext.chatFilterRegistry = new ChatFilterRegistry();
       ClientContext.glintRegistry = new GlintRegistry();
       ClientContext.autoPresetRegistry = new AutoPresetRegistry();
+      ClientContext.contextProfileRegistry = new ContextProfileRegistry();
       ClientContext.swingManager = new SwingInteractionManager();
       Locale.setDefault(Category.FORMAT, Locale.US);
       this.managersInitialized = true;
