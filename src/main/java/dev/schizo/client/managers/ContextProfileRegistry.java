@@ -47,7 +47,7 @@ public final class ContextProfileRegistry implements ClientAccess, JsonConfigura
    private final List<Rule> rules = new ArrayList<>();
    private final Map<PresetCategory, JsonElement> baseline = new EnumMap<>(PresetCategory.class);
    private final Set<PresetCategory> modifiedCategories = EnumSet.noneOf(PresetCategory.class);
-   private boolean enabled;
+   private volatile boolean enabled;
    private boolean dirty = true;
    private String lastAppliedContext;
 
@@ -253,6 +253,9 @@ public final class ContextProfileRegistry implements ClientAccess, JsonConfigura
 
    @EventHandler
    private void applyForCurrentContext(LocalPlayerPreTickEvent event) {
+      if (!this.enabled) {
+         return;
+      }
       synchronized (this) {
          if (!this.enabled || this.isWorldUnavailable()) {
             return;
@@ -347,7 +350,7 @@ public final class ContextProfileRegistry implements ClientAccess, JsonConfigura
       List<PresetCategory> categories = new ArrayList<>(List.of(PresetCategory.values()));
       categories.sort(Comparator
          .comparingInt((PresetCategory category) -> category == PresetCategory.ALL ? 0 : 1)
-         .thenComparingInt(Enum::ordinal));
+         .thenComparingInt(category -> category.ordinal()));
       return categories;
    }
 
