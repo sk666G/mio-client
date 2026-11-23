@@ -17,6 +17,10 @@ Use JDK 25 to run Gradle and have JDK 21 installed for the Java toolchain.
 
 The remapped client JAR is written to build/libs/.
 
+## Performance HUD
+
+See [Performance HUD documentation](docs/PERFORMANCE_HUD.md) for frame-time metrics, 1% lows, hitch counting and the frame-time graph.
+
 ## Original modules
 
 The original upstream module sources are included in the active Schizo source tree. Their implementations and original source notices are retained during the rebrand.
