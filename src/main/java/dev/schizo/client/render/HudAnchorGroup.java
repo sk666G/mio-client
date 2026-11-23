@@ -14,6 +14,7 @@ import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.modules.client.HUDModule;
 import dev.schizo.client.settings.options.HudAnchor;
+import dev.schizo.client.profiling.EventProfiler;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.util.ArrayList;
@@ -102,7 +103,17 @@ public class HudAnchorGroup implements ClientAccess, GuiElement {
                1.0F,
                enabledProgress
             );
-            widget.render(poseStack, mouseX, mouseY);
+            EventProfiler profiler = EventProfiler.GLOBAL;
+            if (HudWidgetRenderer.renderingHud && profiler.isEnabled()) {
+               long startedAt = profiler.nanoTime();
+               try {
+                  widget.render(poseStack, mouseX, mouseY);
+               } finally {
+                  profiler.recordHudRender(widget.getProfilerHandle(), profiler.nanoTime() - startedAt);
+               }
+            } else {
+               widget.render(poseStack, mouseX, mouseY);
+            }
             this.prepareWidgetRender(enabledProgress);
             if (!HudWidgetRenderer.renderingHud) {
                RenderUtils.getEntityBuffers()

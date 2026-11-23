@@ -19,6 +19,7 @@ import dev.schizo.client.ClientContext;
 import dev.schizo.client.gui.screens.ClientScreen;
 import dev.schizo.client.gui.screens.HudEditorScreen;
 import dev.schizo.client.modules.HudWidgetModule;
+import dev.schizo.client.profiling.EventProfiler;
 import dev.schizo.client.modules.client.FontsModule;
 import dev.schizo.client.settings.options.HudAnchor;
 
@@ -34,6 +35,7 @@ public abstract class HudWidgetRenderer implements ClientAccess, GuiElement {
       0,120);
    public static boolean renderingHud = false;
    protected final HudWidgetModule widget;
+   private final EventProfiler.HudHandle profilerHandle;
    private final FloatAnimation selectionAnimation = new FloatAnimation();
    private final FloatAnimation enabledAnimation = new FloatAnimation();
    private HudAnchor anchor = HudAnchor.NONE;
@@ -101,6 +103,11 @@ public abstract class HudWidgetRenderer implements ClientAccess, GuiElement {
 
    protected HudWidgetRenderer(HudWidgetModule widget) {
       this.widget = widget;
+      this.profilerHandle = EventProfiler.GLOBAL.registerHudWidget(widget.getName());
+   }
+
+   public EventProfiler.HudHandle getProfilerHandle() {
+      return this.profilerHandle;
    }
 
    public void updateSnapping(float screenWidth, float screenHeight, float snapDistance) {

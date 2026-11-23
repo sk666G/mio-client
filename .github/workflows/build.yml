@@ -2,7 +2,7 @@ name: Build
 
 on:
   push:
-    branches: [main, codex/reliability-hardening]
+    branches: [main, codex/reliability-hardening, codex/schizo-master-integration]
   pull_request:
   workflow_dispatch:
 
