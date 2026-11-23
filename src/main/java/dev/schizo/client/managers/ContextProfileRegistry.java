@@ -249,6 +249,8 @@ public final class ContextProfileRegistry implements ClientAccess, JsonConfigura
       synchronized (this) {
          if (this.enabled) {
             if (this.modifiedCategories.isEmpty()) {
+               // A successful server switch invalidates the previous server's baseline.
+               this.baseline.clear();
                this.captureBaseline();
             }
          } else if (this.modifiedCategories.isEmpty()) {
