@@ -369,6 +369,11 @@ public class Panel implements RegistryContainer, GuiElement, NamedEntry {
                || this.isMouseOverHeader(mouseX, mouseY),
             200L
          );
+      UIModule.StyleChoice style = this.getUiModule().styleSetting.getValue();
+      boolean schizoStyle = style == UIModule.StyleChoice.SCHIZO;
+      Color headerSurface = schizoStyle
+         ? this.getUiModule().buttonSetting.getValue()
+         : uiColor;
       float headerVerticalOffset = this.getUiModule().lineSetting.getValue()
          ? 0.0F
          : 0.5F;
@@ -376,15 +381,10 @@ public class Panel implements RegistryContainer, GuiElement, NamedEntry {
          poseStack,
          this.x,
          this.y,
-         this.x
-            + this.getWidth(),
-         this.y
-               + this.getHeaderHeight()
-            + headerVerticalOffset,
-         this.applyHeaderAlpha(uiColor)
+         this.x + this.getWidth(),
+         this.y + this.getHeaderHeight() + headerVerticalOffset,
+         this.applyHeaderAlpha(headerSurface)
       );
-      UIModule.StyleChoice style = this.getUiModule().styleSetting.getValue();
-      boolean schizoStyle = style == UIModule.StyleChoice.SCHIZO;
       if (schizoStyle) {
          Color railColor = this.applyHeaderAlpha(uiColor);
          GuiDrawUtils.fillRect(
@@ -413,9 +413,7 @@ public class Panel implements RegistryContainer, GuiElement, NamedEntry {
             + this.getHeaderHeight() / 2.0F
             - FontRenderer.INSTANCE.getHeight() / 2.0F
             + headerVerticalOffset,
-         this.applyHeaderAlpha(schizoStyle
-            ? this.getUiModule().backgroundSetting.getValue()
-            : Color.white)
+         this.applyHeaderAlpha(schizoStyle ? uiColor : Color.white)
       );
       if (expansionValue != 0.0F) {
          GuiDrawUtils.flush();
