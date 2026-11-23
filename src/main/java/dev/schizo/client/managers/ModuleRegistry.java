@@ -11,6 +11,7 @@ package dev.schizo.client.managers;
 
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
+import dev.schizo.client.config.ModuleConfigLoadReport;
 import dev.schizo.client.NamedFeature;
 import dev.schizo.client.events.InputPressEvent;
 import dev.schizo.client.events.WorldRenderEvent;
@@ -42,6 +43,7 @@ import java.util.stream.Stream;
 
 public final class ModuleRegistry extends Registry<Module> implements ClientAccess, JsonConfigurable {
    private final Object2ObjectOpenHashMap<Class<?>, Module> modulesByClass = new Object2ObjectOpenHashMap<>();
+   private final ModuleConfigLoadReport lastConfigLoadReport = new ModuleConfigLoadReport();
 
    public List<PlacementModule> getPlacementModules() {
       ArrayList<PlacementModule> placementModules = new ArrayList<>();
@@ -272,20 +274,43 @@ public final class ModuleRegistry extends Registry<Module> implements ClientAcce
       return super.unregisterEntry(module);
    }
 
+   public ModuleConfigLoadReport.Snapshot getLastConfigLoadReport() {
+      return this.lastConfigLoadReport.snapshot();
+   }
+
    @Override
    public void fromJson(JsonElement config) {
+      this.lastConfigLoadReport.clear();
       List<Module> registeredModules = (List<Module>)this.getRegistry();
       Iterator<Module> modulesIterator = registeredModules.iterator();
 
       while (modulesIterator.hasNext()) {
          Module module = modulesIterator.next();
-         if (!(module instanceof HudWidgetModule)) {
-            try {
-               JsonObject configObject = config.getAsJsonObject();
-               String moduleConfigName = module.getConfigName();
-               JsonElement moduleConfig = dev.schizo.client.config.LegacyBranding.findModuleConfig(configObject, moduleConfigName);
-               module.fromJson(moduleConfig);
-            } catch (Exception ignoredFailure) {
+         if (module instanceof HudWidgetModule) {
+            continue;
+         }
+
+         try {
+            JsonObject configObject = config.getAsJsonObject();
+            String moduleConfigName = module.getConfigName();
+            JsonElement moduleConfig = dev.schizo.client.config.LegacyBranding.findModuleConfig(configObject, moduleConfigName);
+            module.fromJson(moduleConfig);
+         } catch (Exception moduleFailure) {
+            this.lastConfigLoadReport.record(module.getName(), "(module)", moduleFailure);
+            ClientAccess.logger.warn(
+               "Could not fully apply configuration for module {} ({})",
+               module.getName(),
+               moduleFailure.getClass().getSimpleName()
+            );
+         } finally {
+            for (ModuleConfigLoadReport.Issue issue : module.getLastConfigLoadIssues()) {
+               this.lastConfigLoadReport.record(issue);
+               ClientAccess.logger.warn(
+                  "Ignoring invalid configuration value for module {} setting {} ({})",
+                  issue.moduleName(),
+                  issue.settingName(),
+                  issue.failureType()
+               );
             }
          }
       }
