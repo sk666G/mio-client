@@ -7,10 +7,11 @@ Schizo is a client-side Fabric mod for Minecraft 1.21.11. It provides a modular 
 - Client-only Fabric entrypoint
 - Right Shift ClickGUI keybind (editable in Options > Controls)
 - Category filters and module enable/disable buttons
+- Dedicated, unbound-by-default keybinds for every module under Options > Controls > Schizo Modules
 - Boolean, bounded-number, and mode setting controls
 - Feature lifecycle hooks and central registry
 - Toggle Sprint module that uses normal Minecraft sprint input
-- Configurable HUD for coordinates, facing direction, and enabled modules
+- Configurable HUD for coordinates, facing direction, FPS, and enabled modules
 - JSON configuration saved in the Minecraft config directory
 - Module enabled states and supported setting values restored on startup
 - GitHub Actions build workflow that compiles the mod and uploads the JAR artifact
@@ -29,11 +30,11 @@ The remapped mod JAR is produced under `build/libs/`.
 
 ## Configuration
 
-Schizo writes `config/schizo.json` in the active Minecraft game directory. Module toggles and Boolean, Number, and Mode settings are saved when changed and again during client shutdown. Unknown module or setting IDs are ignored so configuration files can survive module updates.
+Schizo writes `config/schizo.json` in the active Minecraft game directory. Module toggles and Boolean, Number, and Mode settings are saved when changed and again during client shutdown. Module keybinds are managed by Minecraft's Controls screen and saved with the normal game options. Unknown module or setting IDs are ignored so configuration files can survive module updates.
 
 ## Project status
 
-The ClickGUI provides basic module and setting controls with a dark panel theme. The Information HUD can show block coordinates, facing direction, and the enabled-module list; each display option is configurable in the GUI. The project does not include stealth injection, anti-cheat circumvention, or detection-evasion mechanisms.
+The ClickGUI provides basic module and setting controls with a dark panel theme. The Information HUD can show block coordinates, facing direction, FPS, and the enabled-module list; each display option is configurable in the GUI. Toggle Sprint uses the normal client sprint input and leaves sprint eligibility to Minecraft. The project does not include stealth injection, anti-cheat circumvention, or detection-evasion mechanisms.
 
 ## License
 

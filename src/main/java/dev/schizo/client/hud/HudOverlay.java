@@ -43,6 +43,9 @@ public final class HudOverlay {
         if (feature.showDirection().get()) {
             infoLines.add("Facing " + client.player.getDirection().getName().toUpperCase(java.util.Locale.ROOT));
         }
+        if (feature.showFps().get()) {
+            infoLines.add("FPS " + client.getFps());
+        }
 
         int panelWidth = Math.max(client.font.width("SCHIZO"), 54);
         for (String line : infoLines) panelWidth = Math.max(panelWidth, client.font.width(line));

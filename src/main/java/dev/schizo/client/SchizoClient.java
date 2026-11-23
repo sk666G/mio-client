@@ -7,6 +7,7 @@ import dev.schizo.client.feature.HudFeature;
 import dev.schizo.client.feature.ToggleSprintFeature;
 import dev.schizo.client.gui.ClickGuiScreen;
 import dev.schizo.client.hud.HudOverlay;
+import dev.schizo.client.input.ModuleKeybinds;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
@@ -35,6 +36,7 @@ public final class SchizoClient implements ClientModInitializer {
         FeatureRegistry.register(new HudFeature());
         FeatureRegistry.register(new ToggleSprintFeature());
         FeatureRegistry.registerDefaults();
+        ModuleKeybinds.register();
         ClientConfig.load();
         HudOverlay.register();
 

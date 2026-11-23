@@ -10,15 +10,19 @@ public final class HudFeature extends Feature {
     private final BooleanSetting showDirection = addSetting(
         new BooleanSetting("direction", "Show facing direction", true)
     );
+    private final BooleanSetting showFps = addSetting(
+        new BooleanSetting("fps", "Show FPS", true)
+    );
     private final BooleanSetting showModules = addSetting(
         new BooleanSetting("enabled-modules", "Show enabled modules", true)
     );
 
     public HudFeature() {
-        super("information-hud", "Information HUD", "Displays local position, facing direction and enabled modules.", FeatureCategory.RENDER);
+        super("information-hud", "Information HUD", "Displays local position, facing direction, FPS and enabled modules.", FeatureCategory.RENDER);
     }
 
     public BooleanSetting showCoordinates() { return showCoordinates; }
     public BooleanSetting showDirection() { return showDirection; }
+    public BooleanSetting showFps() { return showFps; }
     public BooleanSetting showModules() { return showModules; }
 }
