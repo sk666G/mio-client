@@ -37,6 +37,7 @@ public final class ConfigBackupCommand extends Command {
    @Override
    public void exec(com.mojang.brigadier.builder.LiteralArgumentBuilder root) {
       root.then(literal("configs").executes(context -> listConfigNames()));
+      root.then(literal("health").executes(context -> showConfigHealth()));
       root.then(literal("list")
          .executes(context -> listAllBackups())
          .then(argument("config", StringArgumentType.word())
@@ -53,7 +54,7 @@ public final class ConfigBackupCommand extends Command {
             .executes(this::clearBackups)));
 
       root.executes(context -> {
-         this.print("Config backups: configs, list [config], create <config>, restore <config> <backup-file>, clear <config>.");
+         this.print("Config recovery: configs, health, list [config], create <config>, restore <config> <backup-file>, clear <config>.");
          return 1;
       });
    }
@@ -64,6 +65,45 @@ public final class ConfigBackupCommand extends Command {
 
    private boolean isKnownConfig(String configName) {
       return this.configuration() != null && this.configuration().isRegisteredConfig(configName);
+   }
+
+   private int showConfigHealth() {
+      List<String> names = this.configuration().getConfigurableNames();
+      StringBuilder output = new StringBuilder("Schizo configuration health:");
+      int valid = 0;
+      int issues = 0;
+
+      for (String configName : names) {
+         ConfigurationBackupManager.ConfigDiagnostic diagnostic =
+            this.configuration().getBackupManager().inspectConfig(configName);
+         String backupSummary;
+         try {
+            int backups = this.configuration().getBackupManager().listBackups(configName).size();
+            backupSummary = backups + " backup(s)";
+         } catch (IOException failure) {
+            backupSummary = "backup directory unavailable";
+         }
+
+         if (diagnostic.status() == ConfigurationBackupManager.ConfigStatus.VALID) {
+            valid++;
+         } else {
+            issues++;
+         }
+
+         output.append("\n")
+            .append(configName).append(": ")
+            .append(diagnostic.status()).append(" · ")
+            .append(backupSummary);
+         if (diagnostic.status() != ConfigurationBackupManager.ConfigStatus.VALID) {
+            output.append(" · ").append(diagnostic.detail());
+         }
+      }
+
+      output.append("\nSummary: ")
+         .append(valid).append(" valid, ")
+         .append(issues).append(" requiring attention.");
+      this.print(output.toString());
+      return issues == 0 ? 1 : 0;
    }
 
    private int listConfigNames() {

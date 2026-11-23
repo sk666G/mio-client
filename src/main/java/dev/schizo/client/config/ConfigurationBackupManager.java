@@ -113,6 +113,52 @@ public final class ConfigurationBackupManager {
       return this.toRecord(target);
    }
 
+   /** Inspects one registered config file without exposing or logging its contents. */
+   public synchronized ConfigDiagnostic inspectConfig(String configName) {
+      final Path file;
+      try {
+         file = this.resolveConfig(configName);
+         if (Files.isSymbolicLink(this.root) || !Files.isDirectory(this.root, LinkOption.NOFOLLOW_LINKS)) {
+            return new ConfigDiagnostic(configName, ConfigStatus.UNSAFE, -1L, "Configuration root is not a real directory");
+         }
+         if (!Files.exists(file, LinkOption.NOFOLLOW_LINKS)) {
+            return new ConfigDiagnostic(configName, ConfigStatus.MISSING, 0L, "File does not exist");
+         }
+         if (Files.isSymbolicLink(file) || !Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)) {
+            return new ConfigDiagnostic(configName, ConfigStatus.UNSAFE, -1L, "Not a regular file");
+         }
+
+         long size = Files.size(file);
+         if (size > MAX_CONFIG_BYTES) {
+            return new ConfigDiagnostic(configName, ConfigStatus.TOO_LARGE, size, "File exceeds 8 MiB");
+         }
+
+         byte[] contents;
+         try (InputStream input = Files.newInputStream(file)) {
+            contents = input.readNBytes((int)MAX_CONFIG_BYTES + 1);
+         } catch (IOException readFailure) {
+            return new ConfigDiagnostic(configName, ConfigStatus.UNREADABLE, size, "File could not be read");
+         }
+         if (contents.length > MAX_CONFIG_BYTES) {
+            return new ConfigDiagnostic(configName, ConfigStatus.TOO_LARGE, size, "File exceeds 8 MiB");
+         }
+
+         try {
+            JsonElement json = JsonParser.parseString(new String(contents, StandardCharsets.UTF_8));
+            if (!json.isJsonObject()) {
+               return new ConfigDiagnostic(configName, ConfigStatus.CORRUPT, size, "JSON root is not an object");
+            }
+            return new ConfigDiagnostic(configName, ConfigStatus.VALID, size, "Valid JSON object");
+         } catch (RuntimeException malformed) {
+            return new ConfigDiagnostic(configName, ConfigStatus.CORRUPT, size, "Invalid JSON");
+         }
+      } catch (IllegalArgumentException failure) {
+         return new ConfigDiagnostic(configName, ConfigStatus.UNSAFE, -1L, "Invalid configuration name");
+      } catch (IOException failure) {
+         return new ConfigDiagnostic(configName, ConfigStatus.UNREADABLE, -1L, "File could not be inspected");
+      }
+   }
+
    public synchronized List<BackupRecord> listBackups(String configName) throws IOException {
       this.resolveConfig(configName);
       if (!Files.exists(this.backupDirectory, LinkOption.NOFOLLOW_LINKS)) {
@@ -322,5 +368,17 @@ public final class ConfigurationBackupManager {
    }
 
    public record BackupRecord(String fileName, long createdAtMillis, long sizeBytes) {
+   }
+
+   public enum ConfigStatus {
+      VALID,
+      MISSING,
+      CORRUPT,
+      TOO_LARGE,
+      UNSAFE,
+      UNREADABLE
+   }
+
+   public record ConfigDiagnostic(String configName, ConfigStatus status, long sizeBytes, String detail) {
    }
 }
