@@ -85,6 +85,7 @@ def prepare_members(members):
     """Apply path mapping once and reject collisions before the destination is modified."""
     prepared = []
     seen_paths = set()
+    file_paths = set()
     for relative_path, raw in members:
         safe_source_path = validate_relative_path(relative_path)
         if safe_source_path.split("/", 1)[0] in PRESERVE_TOP_LEVEL:
@@ -93,7 +94,18 @@ def prepare_members(members):
         collision_key = mapped.casefold()
         if collision_key in seen_paths:
             raise ValueError(f"Multiple upstream files map to the same destination: {mapped}")
+
+        parts = collision_key.split("/")
+        for index in range(1, len(parts)):
+            parent_key = "/".join(parts[:index])
+            if parent_key in file_paths:
+                raise ValueError(f"An upstream file conflicts with a required directory: {mapped}")
+        prefix = collision_key + "/"
+        if any(existing.startswith(prefix) for existing in file_paths):
+            raise ValueError(f"An upstream file conflicts with an existing child path: {mapped}")
+
         seen_paths.add(collision_key)
+        file_paths.add(collision_key)
         prepared.append((safe_source_path, mapped, raw))
     return prepared
 
