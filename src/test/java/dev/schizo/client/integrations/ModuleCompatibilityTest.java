@@ -30,7 +30,9 @@ import dev.schizo.client.modules.render.NameTagsModule;
 import dev.schizo.client.modules.render.ParticlesModule;
 import dev.schizo.client.modules.render.ShaderModule;
 import dev.schizo.client.modules.render.TracersModule;
+import dev.schizo.client.modules.render.FreeLookModule;
 import dev.schizo.client.modules.render.NoBobModule;
+import dev.schizo.client.modules.render.NoRenderModule;
 import dev.schizo.client.modules.render.ViewModelModule;
 import dev.schizo.client.modules.render.XrayModule;
 import dev.schizo.client.modules.render.LogoutSpotsModule;
@@ -72,6 +74,7 @@ class ModuleCompatibilityTest {
       assertClassification(ShaderModule.class, ModuleCompatibility.Classification.VISUAL_ONLY);
       assertClassification(TracersModule.class, ModuleCompatibility.Classification.VISUAL_ONLY);
       assertClassification(NoBobModule.class, ModuleCompatibility.Classification.VISUAL_ONLY);
+      assertClassification(NoRenderModule.class, ModuleCompatibility.Classification.PACKET_AFFECTING);
       assertClassification(ViewModelModule.class, ModuleCompatibility.Classification.VISUAL_ONLY);
       assertClassification(XrayModule.class, ModuleCompatibility.Classification.VISUAL_ONLY);
       assertClassification(LogoutSpotsModule.class, ModuleCompatibility.Classification.VISUAL_ONLY);
@@ -92,6 +95,7 @@ class ModuleCompatibilityTest {
       assertClassification(TrajectoriesModule.class, ModuleCompatibility.Classification.VISUAL_ONLY);
       assertClassification(VoidESPModule.class, ModuleCompatibility.Classification.VISUAL_ONLY);
       assertClassification(dev.schizo.client.modules.movement.NoFallModule.class, ModuleCompatibility.Classification.PACKET_AFFECTING);
+      assertClassification(FreeLookModule.class, ModuleCompatibility.Classification.SERVER_SENSITIVE);
       assertClassification(ReachModule.class, ModuleCompatibility.Classification.SERVER_SENSITIVE);
       assertClassification(PhaseModule.class, ModuleCompatibility.Classification.SERVER_SENSITIVE);
       assertClassification(AntiPhaseModule.class, ModuleCompatibility.Classification.WORLD_INTERACTION);

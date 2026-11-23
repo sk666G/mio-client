@@ -38,7 +38,9 @@ import dev.schizo.client.modules.render.NameTagsModule;
 import dev.schizo.client.modules.render.ParticlesModule;
 import dev.schizo.client.modules.render.ShaderModule;
 import dev.schizo.client.modules.render.TracersModule;
+import dev.schizo.client.modules.render.FreeLookModule;
 import dev.schizo.client.modules.render.NoBobModule;
+import dev.schizo.client.modules.render.NoRenderModule;
 import dev.schizo.client.modules.render.ViewModelModule;
 import dev.schizo.client.modules.render.XrayModule;
 import dev.schizo.client.modules.render.LogoutSpotsModule;
@@ -134,6 +136,11 @@ public final class ModuleCompatibility {
          Classification.VISUAL_ONLY,
          "Adjusts the local player avatar walk animation state for first-person bobbing presentation."
       )),
+      Map.entry(NoRenderModule.class, assessed(
+         Classification.PACKET_AFFECTING,
+         "Cancels selected clientbound chunk-cache-radius and block-update packets, changing which server updates reach the client; other settings affect local rendering."
+      )),
+
       Map.entry(ViewModelModule.class, assessed(
          Classification.VISUAL_ONLY,
          "Transforms first-person item and arm model position, scale, rotation and animation only."
@@ -213,6 +220,10 @@ public final class ModuleCompatibility {
       Map.entry(NoFallModule.class, assessed(
          Classification.PACKET_AFFECTING,
          "Its Packet mode modifies the on-ground flag in outgoing movement packets."
+      )),
+      Map.entry(FreeLookModule.class, assessed(
+         Classification.SERVER_SENSITIVE,
+         "Separates camera rotation from player rotation and changes the view vector used for entity/block picking, which can alter interaction targeting."
       )),
       Map.entry(ReachModule.class, assessed(
          Classification.SERVER_SENSITIVE,

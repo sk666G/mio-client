@@ -14,6 +14,8 @@ Fabric's networking documentation describes packets as the client/server state b
 | Module or group | Observed behavior from source | Compatibility status |
 | --- | --- | --- |
 | `NoFall` | Its Packet mode changes the outgoing movement packet's on-ground flag after tracked fall distance exceeds 2.1 blocks. | `PACKET_AFFECTING`; not vanilla-consistent and not supported on multiplayer. |
+| `NoRender` | Cancels selected clientbound chunk-cache-radius and End fire block-update packet events; other settings hide local render effects. | `PACKET_AFFECTING`; affects client packet processing, with setting-level review pending. |
+| `FreeLook` | Separates camera rotation from player rotation and changes the view vector used for entity/block picking. | `SERVER_SENSITIVE`; interaction targeting can diverge from the player's reported rotation. |
 | `Reach` | Changes reach distance up to 6 blocks and advertises illegal interactions. | `SERVER_SENSITIVE`; not vanilla-consistent and not supported on multiplayer. |
 | `Phase` / `AntiPhase` | Phase changes collision/position behavior; AntiPhase automates block placement against pearl phasing. | `SERVER_SENSITIVE` / `WORLD_INTERACTION`; unsupported pending controlled testing. |
 | `ElytraFly` | Implements non-vanilla flight modes and mode-specific movement behavior. | `SERVER_SENSITIVE`; server/plugin dependent and unsupported pending testing. |
