@@ -13,7 +13,8 @@ Schizo is a client-side Fabric mod for Minecraft 1.21.11. It provides a modular 
 - Toggle Sprint module that uses normal Minecraft sprint input
 - Information HUD for coordinates, facing direction, FPS, and enabled modules
 - Armor HUD with equipment icons, durability percentages, optional empty slots, and left/right placement
-- Effects HUD with active potion/status effects, amplifier levels, durations, and configurable row count
+- Effects HUD with active status effects, amplifier levels, durations, and configurable row count
+- Keystrokes HUD showing live WASD and jump input states, with left/right placement
 - JSON configuration saved in the Minecraft config directory
 - Module enabled states and supported setting values restored on startup
 - GitHub Actions build workflow that compiles the mod and uploads the JAR artifact
@@ -36,7 +37,7 @@ Schizo writes `config/schizo.json` in the active Minecraft game directory. Modul
 
 ## Project status
 
-The ClickGUI provides module and setting controls with a dark panel theme. The Information HUD can show block coordinates, facing direction, FPS, and enabled modules. The Armor HUD shows equipped armor and remaining durability. The Effects HUD lists active status effects and durations. HUD settings are configurable in the GUI. Toggle Sprint uses normal Minecraft sprint input and leaves sprint eligibility to Minecraft. The project does not include stealth injection, anti-cheat circumvention, or detection-evasion mechanisms.
+The ClickGUI provides module and setting controls with a dark panel theme. The Information HUD can show block coordinates, facing direction, FPS, and enabled modules. The Armor HUD shows equipped armor and remaining durability. The Effects HUD lists active status effects and durations. Keystrokes shows WASD and jump input. HUD settings are configurable in the GUI. Toggle Sprint uses normal Minecraft sprint input and leaves sprint eligibility to Minecraft. The project does not include stealth injection, anti-cheat circumvention, or detection-evasion mechanisms.
 
 ## License
 

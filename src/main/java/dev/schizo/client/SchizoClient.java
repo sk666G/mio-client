@@ -6,6 +6,7 @@ import dev.schizo.client.feature.ArmorHudFeature;
 import dev.schizo.client.feature.EffectsHudFeature;
 import dev.schizo.client.feature.ExampleFeature;
 import dev.schizo.client.feature.HudFeature;
+import dev.schizo.client.feature.KeystrokesFeature;
 import dev.schizo.client.feature.ToggleSprintFeature;
 import dev.schizo.client.gui.ClickGuiScreen;
 import dev.schizo.client.hud.HudOverlay;
@@ -38,6 +39,7 @@ public final class SchizoClient implements ClientModInitializer {
         FeatureRegistry.register(new HudFeature());
         FeatureRegistry.register(new ArmorHudFeature());
         FeatureRegistry.register(new EffectsHudFeature());
+        FeatureRegistry.register(new KeystrokesFeature());
         FeatureRegistry.register(new ToggleSprintFeature());
         FeatureRegistry.registerDefaults();
         ModuleKeybinds.register();
