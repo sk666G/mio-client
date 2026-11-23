@@ -16,6 +16,9 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v4
 
+      - name: Test upstream rebuild tooling
+        run: python3 -m unittest discover -s tools -p 'test_*.py'
+
       - name: Install Java 21 toolchain
         uses: actions/setup-java@v4
         with:
