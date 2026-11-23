@@ -12,7 +12,7 @@ The editor keeps up to 100 layout changes in its in-memory history for the curre
 | `Ctrl+Y` | Redo the last undone layout change |
 | `Ctrl+Shift+Z` | Redo the last undone layout change |
 
-A drag-and-drop operation is recorded as one edit when the mouse is released. Resizing is recorded as one edit from the start of the resize until the mouse button is released. Arrow-key nudges and the existing left/right anchor swap shortcut are recorded as individual edits.
+A drag-and-drop operation is recorded as one edit when the mouse is released. Resizing is recorded as one edit from the start of the resize until the mouse button is released. Arrow-key nudges and the existing left/right anchor swap shortcut are recorded as individual edits. Nudging an anchored widget moves it into the free-position group so the new position is retained.
 
 Undo and redo restore each widget's anchor group, order within that group, normalized position, alignment and resize scale. If a drag ends without snapping to an anchor, the widget remains in the free-position group.
 
