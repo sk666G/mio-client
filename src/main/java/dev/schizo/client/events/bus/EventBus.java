@@ -18,13 +18,12 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 
 public class EventBus implements EventDispatcher {
    private final Map<Object, List<EventListener>> instanceListenerCache =
       Collections.synchronizedMap(new IdentityHashMap<>());
    private final Map<Class<?>, List<EventListener>> staticListenerCache = new ConcurrentHashMap<>();
-   private final Map<Class<?>, CopyOnWriteArrayList<EventListener>> listenersByEventClass = new ConcurrentHashMap<>();
+   private final Map<Class<?>, EventListener[]> listenersByEventClass = new ConcurrentHashMap<>();
 
    @Override
    public void subscribe(Object subscriber) {
@@ -88,33 +87,63 @@ public class EventBus implements EventDispatcher {
 
    @Override
    public void subscribeListener(EventListener listener) {
-      CopyOnWriteArrayList<EventListener> listeners = this.listenersByEventClass.computeIfAbsent(
-         listener.getEventType(), ignored -> new CopyOnWriteArrayList<>()
-      );
-      synchronized (listeners) {
+      Class<?> eventType = listener.getEventType();
+      this.listenersByEventClass.compute(eventType, (ignored, current) -> {
+         EventListener[] previous = current == null ? new EventListener[0] : current;
          int insertionIndex = 0;
-         while (insertionIndex < listeners.size()
-            && listener.getPriority() <= listeners.get(insertionIndex).getPriority()) {
+         while (insertionIndex < previous.length
+            && listener.getPriority() <= previous[insertionIndex].getPriority()) {
             insertionIndex++;
          }
-         listeners.add(insertionIndex, listener);
-      }
+
+         EventListener[] updated = new EventListener[previous.length + 1];
+         System.arraycopy(previous, 0, updated, 0, insertionIndex);
+         updated[insertionIndex] = listener;
+         System.arraycopy(previous, insertionIndex, updated, insertionIndex + 1,
+            previous.length - insertionIndex);
+         return updated;
+      });
    }
 
    @Override
    public void unsubscribeListener(EventListener listener) {
-      List<EventListener> listeners = this.listenersByEventClass.get(listener.getEventType());
-      if (listeners != null) {
-         listeners.remove(listener);
-      }
+      this.listenersByEventClass.computeIfPresent(listener.getEventType(), (ignored, current) -> {
+         int removalIndex = -1;
+         for (int index = 0; index < current.length; index++) {
+            if (current[index].equals(listener)) {
+               removalIndex = index;
+               break;
+            }
+         }
+         if (removalIndex < 0) {
+            return current;
+         }
+         if (current.length == 1) {
+            return null;
+         }
+
+         EventListener[] updated = new EventListener[current.length - 1];
+         System.arraycopy(current, 0, updated, 0, removalIndex);
+         System.arraycopy(current, removalIndex + 1, updated, removalIndex,
+            current.length - removalIndex - 1);
+         return updated;
+      });
+   }
+
+   /**
+    * Returns whether an event has subscribers without allocating an event object.
+    */
+   public boolean hasListeners(Class<?> eventType) {
+      EventListener[] listeners = this.listenersByEventClass.get(eventType);
+      return listeners != null && listeners.length != 0;
    }
 
    @Override
    public Object post(Object event) {
-      List<EventListener> listeners = this.listenersByEventClass.get(event.getClass());
+      EventListener[] listeners = this.listenersByEventClass.get(event.getClass());
       if (listeners != null) {
-         for (EventListener listener : listeners) {
-            listener.call(event);
+         for (int index = 0; index < listeners.length; index++) {
+            listeners[index].call(event);
          }
       }
       return event;
@@ -122,10 +151,11 @@ public class EventBus implements EventDispatcher {
 
    @Override
    public Cancellable postCancellable(Cancellable event) {
-      List<EventListener> listeners = this.listenersByEventClass.get(event.getClass());
+      EventListener[] listeners = this.listenersByEventClass.get(event.getClass());
       if (listeners != null) {
          event.setCancelled(false);
-         for (EventListener listener : listeners) {
+         for (int index = 0; index < listeners.length; index++) {
+            EventListener listener = listeners[index];
             listener.call(event);
             if (event.isCancelled()) {
                break;
