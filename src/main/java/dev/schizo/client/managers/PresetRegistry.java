@@ -10,13 +10,11 @@
 package dev.schizo.client.managers;
 
 import dev.schizo.client.config.PresetData;
-import dev.schizo.client.utils.FileUtils;
 
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.managers.Registry;
 import dev.schizo.client.settings.options.PresetCategory;
 
-import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import java.io.IOException;
@@ -28,9 +26,7 @@ import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.Iterator;
-import java.util.Collection;
 import java.util.function.Consumer;
-import java.util.function.Predicate;
 
 public final class PresetRegistry extends Registry<PresetData> implements ClientAccess {
    private final PresetCategory category;
