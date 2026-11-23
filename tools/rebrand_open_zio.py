@@ -130,13 +130,17 @@ def main() -> None:
             relative = member.filename[len(source_root):]
             if not relative or relative.startswith(".gitlab") or relative == ".gitlab-ci.yml":
                 continue
-            if relative in EXCLUDED_PATHS:
-                skipped.append(relative)
+            raw = archive.read(member)
+            if relative in REFERENCE_ONLY_PATHS:
+                output_path = destination / REFERENCE_ONLY_PATHS[relative]
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                output_path.write_bytes(raw)
+                copied += 1
+                archived.append(relative)
                 continue
 
             output_path = destination / mapped_path(relative)
             output_path.parent.mkdir(parents=True, exist_ok=True)
-            raw = archive.read(member)
             try:
                 decoded = raw.decode("utf-8")
             except UnicodeDecodeError:
@@ -194,8 +198,8 @@ def main() -> None:
     gitignore.write_text(existing.strip() + "\n", encoding="utf-8")
 
     print(f"Imported {copied} files from Open Zio commit {commit}.")
-    print("Excluded modules: GrimDisabler and RaytraceBypass.")
-    print("Skipped source paths: " + ", ".join(skipped))
+    print("Preserved reference-only modules byte-for-byte: " + ", ".join(archived))
+    print("Reference-only modules are not compiled or registered.")
     print("Project identity: Schizo / dev.schizo / schizo")
 
 
