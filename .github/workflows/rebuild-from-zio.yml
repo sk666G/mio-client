@@ -1,0 +1,67 @@
+name: Rebuild Schizo from Open Zio
+
+on:
+  push:
+    branches: [zio-rebuild]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  import-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out Schizo staging branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+
+      - name: Install Java 21 toolchain
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install Java 25 Gradle runtime
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Set up Gradle cache
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Fetch pinned Open Zio source
+        env:
+          UPSTREAM_COMMIT: 2fec97aa0c52860f9252b61543dce8fc9825e081
+        run: |
+          git clone --no-tags https://git.spectrum.best/SpectrumDevs/open-zio.git "$RUNNER_TEMP/open-zio"
+          git -C "$RUNNER_TEMP/open-zio" checkout --detach "$UPSTREAM_COMMIT"
+          test "$(git -C "$RUNNER_TEMP/open-zio" rev-parse HEAD)" = "$UPSTREAM_COMMIT"
+
+      - name: Rebuild Schizo from upstream architecture
+        run: python3 tools/rebrand_open_zio.py "$RUNNER_TEMP/open-zio" .
+
+      - name: Build remapped client
+        env:
+          ORG_GRADLE_JAVA_INSTALLATIONS_PATHS: ${{ env.JAVA_HOME_21_X64 }}
+        run: ./gradlew --no-daemon clean build
+
+      - name: Upload remapped client JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: schizo-zio-rebuild
+          path: build/libs/*.jar
+          if-no-files-found: error
+
+      - name: Commit rebuilt source tree to staging
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "Rebuild Schizo on Open Zio architecture [skip ci]"
+            git push origin "HEAD:${{ github.ref_name }}"
+          fi
