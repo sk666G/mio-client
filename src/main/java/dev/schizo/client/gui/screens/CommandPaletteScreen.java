@@ -84,10 +84,6 @@ public final class CommandPaletteScreen extends ClientScreen {
    private void rebuildIndex() {
       this.index.clear();
 
-      ModulePreferencesRegistry preferences = ClientContext.modulePreferencesRegistry;
-      List<String> favoriteNames = preferences == null ? List.of() : preferences.getFavorites();
-      List<String> recentNames = preferences == null ? List.of() : preferences.getRecentlyUsed();
-
       for (Object moduleElement : ClientContext.moduleRegistry.getRegistry()) {
          Module module = (Module)moduleElement;
          int favoriteIndex = preferences == null ? -1 : preferences.getFavoriteIndex(module.getConfigName());
