@@ -7,10 +7,6 @@ from pathlib import Path
 EXPECTED_COMMIT = "2fec97aa0c52860f9252b61543dce8fc9825e081"
 VERSION_PLACEHOLDER = "$" + "{version}"
 PRESERVE_TOP_LEVEL = {".git", ".github", "tools"}
-PRESERVED_MODULES = {
-    "src/main/java/dev/zio/client/modules/exploit/GrimDisablerModule.java",
-    "src/main/java/dev/zio/client/modules/exploit/RaytraceBypassModule.java",
-}
 README = """# Schizo Client
 
 Schizo is a client-only Fabric client for Minecraft 1.21.11, rebuilt on the Open Zio source architecture. This replaces the former minimal Schizo scaffold with the upstream module registry, event bus, managers, configuration and preset systems, ClickGUI/HUD editor, rendering pipeline, mixins, access widener, integrations and module implementations.
@@ -30,9 +26,9 @@ Use JDK 25 to run Gradle and have JDK 21 installed for the Java toolchain.
 
 The remapped client JAR is written to build/libs/.
 
-## Preserved source
+## Original modules
 
-The two requested exploit-module source files are preserved verbatim in reference/preserved-zio-modules. They are reference-only and are not compiled or registered in the active Schizo client.
+The original upstream module sources are included in the active Schizo source tree. Their implementations and original source notices are retained during the rebrand.
 """
 UPSTREAM = f"""# Upstream source and migration notes
 
@@ -42,7 +38,7 @@ UPSTREAM = f"""# Upstream source and migration notes
 - The supplied archive contains 1,199 Java files; 1,179 carry the upstream MIT-license header. The supplied archive has no separate root LICENSE file. Original headers are retained.
 - Rebrand: dev.zio becomes dev.schizo; mod ID, resource namespace, artifact and Gradle root name become schizo; ZioClient becomes SchizoClient.
 - The previous hand-built Schizo scaffold is replaced by the upstream application architecture.
-- GrimDisablerModule.java and RaytraceBypassModule.java are preserved verbatim in reference/preserved-zio-modules. They are not compiled or registered in the runtime project.
+- GrimDisablerModule.java and RaytraceBypassModule.java are retained in the active source tree with their original source notices.
 - The upstream project URL remains intact in retained source headers and attribution.
 
 This file supplements rather than replaces upstream notices.
@@ -139,14 +135,8 @@ def main():
             continue
         shutil.rmtree(child) if child.is_dir() and not child.is_symlink() else child.unlink()
 
-    copied, preserved = 0, []
+    copied = 0
     for rel, raw in members:
-        if rel in PRESERVED_MODULES:
-            target = dest / "reference/preserved-zio-modules" / Path(rel).name
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_bytes(raw)
-            preserved.append(rel)
-            continue
         target = dest / mapped_path(rel)
         target.parent.mkdir(parents=True, exist_ok=True)
         try:
@@ -155,9 +145,6 @@ def main():
             target.write_bytes(raw)
         else:
             text = mapped_text(text)
-            if rel == "src/main/java/dev/zio/client/managers/ModuleRegistry.java":
-                text = "\n".join(line for line in text.splitlines()
-                    if "RaytraceBypassModule" not in line and "GrimDisablerModule" not in line) + "\n"
             target.write_text(text, encoding="utf-8", newline="")
         copied += 1
 
@@ -188,15 +175,13 @@ def main():
     (dest / "README.md").write_text(README, encoding="utf-8")
     (dest / "UPSTREAM.md").write_text(UPSTREAM, encoding="utf-8")
     (dest / "THIRD_PARTY_NOTICES.md").write_text(THIRD_PARTY, encoding="utf-8")
-    note = dest / "reference/preserved-zio-modules/README.md"
-    note.write_text("The two requested source files are preserved verbatim from the supplied archive. They are kept as reference source and are not compiled or registered in the active Schizo client.\n", encoding="utf-8")
     gitignore = dest / ".gitignore"
     current = gitignore.read_text(encoding="utf-8") if gitignore.exists() else ""
     for pattern in (".gradle/", "build/", "run/", "run-*/", ".idea/", "*.iml"):
         if pattern not in current:
             current += "\n" + pattern
     gitignore.write_text(current.strip() + "\n", encoding="utf-8")
-    print(f"Imported {copied} files from {EXPECTED_COMMIT}; preserved {len(preserved)} source files verbatim.")
+    print(f"Imported {copied} files from {EXPECTED_COMMIT}; original module source is retained.")
 
 if __name__ == "__main__":
     main()
