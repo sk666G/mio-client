@@ -175,7 +175,7 @@ public final class UIModule extends Module {
    public UIModule() {
       super("UI", "Displays the client's click gui.", ModuleCategory.CLIENT, new String[0]);
       this.resetSetting = this.add(new BooleanSetting(("Reset"), true));
-      this.styleSetting = this.add(new EnumSetting<>(("Style"), UIModule.StyleChoice.PLAIN));
+      this.styleSetting = this.add(new EnumSetting<>(("Style"), UIModule.StyleChoice.SLIM));
       this.animSpeedSetting = this.add(new NumberSetting<>("AnimSpeed", 1.0F, 0.5F, 2.5F));
       this.scaleSetting = this.add(new NumberSetting<>("Scale", 1.0F, 0.1F, 2.0F));
       this.snowSetting = this.add(new BooleanSetting("Snow", true));
