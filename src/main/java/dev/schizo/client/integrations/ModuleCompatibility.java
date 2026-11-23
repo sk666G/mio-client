@@ -38,6 +38,21 @@ import dev.schizo.client.modules.render.NameTagsModule;
 import dev.schizo.client.modules.render.ParticlesModule;
 import dev.schizo.client.modules.render.ShaderModule;
 import dev.schizo.client.modules.render.TracersModule;
+import dev.schizo.client.modules.render.BlurModule;
+import dev.schizo.client.modules.render.BordersModule;
+import dev.schizo.client.modules.render.BreakHighlightModule;
+import dev.schizo.client.modules.render.CrosshairModule;
+import dev.schizo.client.modules.render.GlintModule;
+import dev.schizo.client.modules.render.HighlightModule;
+import dev.schizo.client.modules.render.HoleESPModule;
+import dev.schizo.client.modules.render.PhaseESPModule;
+import dev.schizo.client.modules.render.SkeletonModule;
+import dev.schizo.client.modules.render.SkyboxModule;
+import dev.schizo.client.modules.render.TooltipsModule;
+import dev.schizo.client.modules.render.TrailsModule;
+import dev.schizo.client.modules.render.TrajectoriesModule;
+import dev.schizo.client.modules.render.VoidESPModule;
+import dev.schizo.client.modules.render.ZoomModule;
 import java.util.Map;
 
 /**
@@ -108,6 +123,62 @@ public final class ModuleCompatibility {
          Classification.VISUAL_ONLY,
          "Draws world and HUD tracer lines from locally observed entity positions; no outgoing packet path was found."
       )),
+      Map.entry(BlurModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Blurs local GUI backgrounds and adjusts only client render targets."
+      )),
+      Map.entry(BordersModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Draws local chunk/map border overlays from already-loaded client world coordinates."
+      )),
+      Map.entry(BreakHighlightModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Draws local boxes from the client block-break tracker; it does not issue or rewrite mining interactions."
+      )),
+      Map.entry(CrosshairModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Draws and animates a local HUD crosshair without changing player input or outgoing packets."
+      )),
+      Map.entry(GlintModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Changes local item glint texture, scale and render color only."
+      )),
+      Map.entry(HighlightModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Changes the local block outline and renders selected block boxes; its event cancellation affects only outline rendering."
+      )),
+      Map.entry(HoleESPModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Renders local overlays from the client hole cache and block states; no outgoing interaction path was found."
+      )),
+      Map.entry(PhaseESPModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Renders local phase/position indicators from observed world state; no movement or packet mutation path was found."
+      )),
+      Map.entry(SkeletonModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Draws local player/entity skeleton overlays from interpolated render poses."
+      )),
+      Map.entry(SkyboxModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Changes local sky rendering and only observes login/respawn packets to reset local rendering state."
+      )),
+      Map.entry(TooltipsModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Changes client tooltip content, formatting and inventory presentation; no inventory interaction is sent."
+      )),
+      Map.entry(TrailsModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Records locally observed entity/projectile positions and renders trails without changing movement or packets."
+      )),
+      Map.entry(TrajectoriesModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Renders predicted projectile/item paths from current client entity and player state; it does not launch or alter projectiles."
+      )),
+      Map.entry(VoidESPModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Builds and renders local void-column overlays; it only observes login/respawn packets to reset its cache."
+      )),
       Map.entry(NoFallModule.class, assessed(
          Classification.PACKET_AFFECTING,
          "Its Packet mode modifies the on-ground flag in outgoing movement packets."
@@ -139,6 +210,10 @@ public final class ModuleCompatibility {
       Map.entry(FastClimbModule.class, assessed(
          Classification.INPUT_MODIFYING,
          "Changes climbing movement behavior beyond ordinary player input."
+      )),
+      Map.entry(ZoomModule.class, assessed(
+         Classification.INPUT_MODIFYING,
+         "Consumes mouse-wheel input to adjust local field of view and camera smoothing; it does not alter gameplay packets."
       )),
       Map.entry(FastPlaceModule.class, assessed(
          Classification.WORLD_INTERACTION,
