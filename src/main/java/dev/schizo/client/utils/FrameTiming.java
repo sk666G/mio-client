@@ -19,6 +19,7 @@ public final class FrameTiming implements ClientAccess {
    private static final long NANOS_PER_BUCKET = 1_000_000L;
    private static final long LOW_FPS_REFRESH_NANOS = 250_000_000L;
    private static final long ONE_SECOND_NANOS = NANOS_PER_SECOND;
+   private static final long STUTTER_THRESHOLD_NANOS = 50_000_000L;
    private static final int WINDOW_BUCKETS = 1001;
    private static final int FRAME_SAMPLE_CAPACITY = 65536;
 
@@ -41,6 +42,7 @@ public final class FrameTiming implements ClientAccess {
    private int oldestFrameSampleIndex;
    private int frameSampleCount;
    private long totalFrameDurationNanos;
+   private int stuttersInWindow;
 
    private long lastLowFpsUpdateNanos = Long.MIN_VALUE;
    private float cachedOnePercentLowFramesPerSecond;
@@ -68,6 +70,11 @@ public final class FrameTiming implements ClientAccess {
       }
 
       return this.totalFrameDurationNanos / (float)this.frameSampleCount / 1_000_000.0F;
+   }
+
+   /** Returns the number of frames slower than 50 ms in the rolling one-second window. */
+   public int getStuttersPerSecond() {
+      return this.stuttersInWindow;
    }
 
    /** Returns FPS derived from the 99th-percentile frame duration in the rolling window. */
@@ -178,6 +185,9 @@ public final class FrameTiming implements ClientAccess {
       this.frameDurationsNanos[writeIndex] = frameDurationNanos;
       this.frameSampleCount++;
       this.totalFrameDurationNanos += frameDurationNanos;
+      if (frameDurationNanos > STUTTER_THRESHOLD_NANOS) {
+         this.stuttersInWindow++;
+      }
 
       while (this.frameSampleCount > 0
          && sampledTimeNanos - this.frameSampleTimesNanos[this.oldestFrameSampleIndex] > ONE_SECOND_NANOS) {
@@ -186,7 +196,11 @@ public final class FrameTiming implements ClientAccess {
    }
 
    private void removeOldestFrameSample() {
-      this.totalFrameDurationNanos -= this.frameDurationsNanos[this.oldestFrameSampleIndex];
+      long expiredDuration = this.frameDurationsNanos[this.oldestFrameSampleIndex];
+      this.totalFrameDurationNanos -= expiredDuration;
+      if (expiredDuration > STUTTER_THRESHOLD_NANOS) {
+         this.stuttersInWindow--;
+      }
       this.oldestFrameSampleIndex = (this.oldestFrameSampleIndex + 1) % FRAME_SAMPLE_CAPACITY;
       this.frameSampleCount--;
    }
@@ -195,6 +209,7 @@ public final class FrameTiming implements ClientAccess {
       this.oldestFrameSampleIndex = 0;
       this.frameSampleCount = 0;
       this.totalFrameDurationNanos = 0L;
+      this.stuttersInWindow = 0;
       this.lastLowFpsUpdateNanos = Long.MIN_VALUE;
       this.cachedOnePercentLowFramesPerSecond = 0.0F;
    }
