@@ -227,7 +227,16 @@ public final class ContextProfileRegistry implements ClientAccess, JsonConfigura
    private void beforeServerPresetChange(ConnectScreenConnectEvent event) {
       synchronized (this) {
          boolean restored = this.restoreActiveProfile();
-         if (!this.enabled && restored) {
+         if (!restored) {
+            event.cancel();
+            this.dirty = true;
+            this.lastAppliedContext = null;
+            ClientAccess.logger.error(
+               "Cancelled server connection because the active context profile baseline could not be restored"
+            );
+            return;
+         }
+         if (!this.enabled) {
             this.baseline.clear();
          }
          this.lastAppliedContext = null;

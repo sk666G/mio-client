@@ -52,6 +52,6 @@ Within a category, a later rule wins when two rules have equal specificity. The 
 
 The active server's ordinary AutoPreset is applied first. Context profiles then use the resulting settings as the baseline for that connection. When the dimension or game mode changes, Schizo restores that baseline before applying the rules for the new context. On a new server connection, the previous profile is restored before the ordinary AutoPreset runs, and the new baseline is captured afterwards.
 
-Disabling context profiles restores the baseline. Disconnecting also restores it. Manual setting changes made while a context profile is active are not automatically promoted to the baseline; save them as a preset before switching contexts if they should be reusable.
+Disabling context profiles restores the baseline. Disconnecting also restores it. When a new server connection is requested, Schizo restores the active context baseline before allowing the connection. If that restore fails, the connection is cancelled rather than stacking another server's presets on top of unresolved settings; retry after the restore succeeds. Manual setting changes made while a context profile is active are not automatically promoted to the baseline; save them as a preset before switching contexts if they should be reusable.
 
 The rules and enabled state are saved in `context-profiles.json`. At most 512 rules are loaded. Missing preset references are skipped with a warning rather than crashing the client.
