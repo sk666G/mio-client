@@ -21,6 +21,10 @@ The remapped client JAR is written to build/libs/.
 
 See [Performance HUD documentation](docs/PERFORMANCE_HUD.md) for frame-time metrics, 1% lows, hitch counting and the frame-time graph.
 
+## Visual identity
+
+See [Schizo visual identity](docs/VISUAL_IDENTITY.md) for the default palette and customization behavior.
+
 ## HUD Studio
 
 See [HUD Editor documentation](docs/HUD_EDITOR.md) for layout editing, undo/redo shortcuts and named layout profiles.
