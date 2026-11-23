@@ -17,6 +17,8 @@ import net.minecraft.network.chat.Component;
 public final class ClickGuiScreen extends Screen {
     private static final int BUTTON_WIDTH = 230;
     private static final int BUTTON_HEIGHT = 20;
+    private static final int PANEL_COLOR = 0xE5101520;
+    private static final int ACCENT_COLOR = 0xFF55DDEE;
     private final Screen parent;
     private final FeatureCategory selectedCategory;
 
@@ -120,8 +122,14 @@ public final class ClickGuiScreen extends Screen {
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         renderBackground(graphics, mouseX, mouseY, partialTick);
-        graphics.drawCenteredString(font, title, width / 2, 10, 0xFFFFFF);
+        int panelLeft = Math.max(6, (width - 330) / 2);
+        int panelRight = Math.min(width - 6, panelLeft + 330);
+        graphics.fill(panelLeft, 8, panelRight, height - 8, PANEL_COLOR);
+        graphics.fill(panelLeft, 8, panelRight, 10, ACCENT_COLOR);
+        graphics.drawCenteredString(font, title, width / 2, 13, 0xFFF1F4F8);
+        graphics.fill(panelLeft + 12, 22, panelRight - 12, 23, 0xFF33404D);
         super.render(graphics, mouseX, mouseY, partialTick);
+        graphics.drawCenteredString(font, "RIGHT SHIFT  •  MODULE MENU", width / 2, height - 14, ACCENT_COLOR);
     }
 
     @Override
