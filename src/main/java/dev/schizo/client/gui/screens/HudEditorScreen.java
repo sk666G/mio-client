@@ -162,8 +162,28 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
       }
    }
 
+   private boolean cancelPendingLayoutGesture() {
+      if (this.pendingLayoutBefore == null) {
+         return false;
+      }
+
+      if (this.draggingWidget) {
+         HudAnchorGroup freeGroup = this.getAnchorGroup(HudAnchor.NONE);
+         if (!freeGroup.getWidgets().isEmpty()) {
+            ((HudWidgetRenderer)freeGroup.getWidgets().getLast()).setSelected(false);
+         }
+         this.draggingWidget = false;
+      }
+
+      ResizableHudWidgetRenderer.cancelActiveResize();
+      this.cancelLayoutEdit();
+      return true;
+   }
+
    private void undoLayoutEdit() {
-      this.finishLayoutEdit();
+      if (this.cancelPendingLayoutGesture()) {
+         return;
+      }
       LayoutSnapshot previous = this.layoutHistory.undo(this.captureLayout());
       if (previous != null) {
          this.restoreLayout(previous);
@@ -171,7 +191,9 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
    }
 
    private void redoLayoutEdit() {
-      this.finishLayoutEdit();
+      if (this.cancelPendingLayoutGesture()) {
+         return;
+      }
       LayoutSnapshot next = this.layoutHistory.redo(this.captureLayout());
       if (next != null) {
          this.restoreLayout(next);
@@ -445,8 +467,14 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
 
       for (Object firstWidgetElement : firstWidgets) {
          HudWidgetRenderer firstWidget = (HudWidgetRenderer)firstWidgetElement;
-         secondGroup.getWidgets()
-            .add(firstWidget);
+         secondGroup.getWidgets().add(firstWidget);
+      }
+
+      for (Object widgetElement : firstGroup.getWidgets()) {
+         ((HudWidgetRenderer)widgetElement).setAnchor(firstAnchor);
+      }
+      for (Object widgetElement : secondGroup.getWidgets()) {
+         ((HudWidgetRenderer)widgetElement).setAnchor(secondAnchor);
       }
    }
 
