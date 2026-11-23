@@ -73,7 +73,9 @@ public final class RotationManager implements ClientAccess {
    private int lastRotationTick;
    private int rotationHoldTicks;
    private final MovementInputProcessor movementInput = new MovementInputProcessor();
+   private static final int MAX_DEFERRED_ACTIONS = 4096;
    private final Queue<Runnable> deferredActions = new ArrayDeque<>();
+   private boolean deferredQueueOverflowWarned;
    private boolean collectingActions;
    private boolean executingAction;
    private RotationRequest request;
@@ -110,13 +112,30 @@ public final class RotationManager implements ClientAccess {
    }
 
    private void runDeferredActions() {
-      for (int index = 0; !this.deferredActions.isEmpty() && index < 500; index++) {
+      for (int index = 0; index < 500; index++) {
          Runnable action = this.deferredActions.poll();
-         if (action != null) {
-            this.executeAction(action);
+         if (action == null) {
+            break;
          }
+         this.executeAction(action);
       }
-      this.deferredActions.clear();
+
+      if (this.deferredActions.isEmpty()) {
+         this.deferredQueueOverflowWarned = false;
+      }
+   }
+
+   private boolean enqueueDeferredAction(Runnable action) {
+      if (this.deferredActions.size() >= MAX_DEFERRED_ACTIONS) {
+         if (!this.deferredQueueOverflowWarned) {
+            ClientAccess.logger.warn("Deferred rotation action queue is full; new actions are being rejected");
+            this.deferredQueueOverflowWarned = true;
+         }
+         return false;
+      }
+
+      this.deferredActions.add(action);
+      return true;
    }
 
    public float getPreviousBodyYaw() {
@@ -354,12 +373,10 @@ public final class RotationManager implements ClientAccess {
       if (event.isCancelled() || this.executingAction) {
          return;
       }
-      Queue<Runnable> queue = this.deferredActions;
       boolean sneaking = event.isSneaking();
-      queue.add(() -> {
-         ClientContext.playerStateTracker.setSneaking(sneaking);
-      });
-      event.cancel();
+      if (this.enqueueDeferredAction(() -> ClientContext.playerStateTracker.setSneaking(sneaking))) {
+         event.cancel();
+      }
       return;
    }
 
@@ -530,8 +547,9 @@ public final class RotationManager implements ClientAccess {
          return;
       }
 
-      this.deferredActions.add(() -> replayInventoryClick(event));
-      event.cancel();
+      if (this.enqueueDeferredAction(() -> replayInventoryClick(event))) {
+         event.cancel();
+      }
       return;
    }
 
@@ -561,10 +579,10 @@ public final class RotationManager implements ClientAccess {
          return;
       }
 
-      Queue<Runnable> queue = this.deferredActions;
       Packet packet = event.getPacket();
-      queue.add(() -> PacketSender.send(packet));
-      event.cancel();
+      if (this.enqueueDeferredAction(() -> PacketSender.send(packet))) {
+         event.cancel();
+      }
       return;
    }
 
