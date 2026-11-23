@@ -11,6 +11,7 @@ package dev.schizo.client.managers;
 
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
+import dev.schizo.client.config.ModuleQuickAccessState;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.ModuleToggleEvent;
 import dev.schizo.client.modules.Module;
@@ -19,19 +20,15 @@ import dev.schizo.client.settings.JsonConfigurable;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.LinkedHashSet;
 import java.util.List;
 
-/** Stores user module favourites and the most recently enabled modules. */
+/** Stores user module favorites and the most recently enabled modules. */
 public final class ModulePreferencesRegistry implements ClientAccess, JsonConfigurable {
    public static final int CURRENT_SCHEMA_VERSION = 1;
-   public static final int MAX_FAVORITES = 128;
-   public static final int MAX_RECENT = 20;
-   private final LinkedHashSet<String> favorites = new LinkedHashSet<>();
-   private final ArrayDeque<String> recentlyUsed = new ArrayDeque<>();
+   public static final int MAX_FAVORITES = ModuleQuickAccessState.MAX_FAVORITES;
+   public static final int MAX_RECENT = ModuleQuickAccessState.MAX_RECENT;
+   private final ModuleQuickAccessState state = new ModuleQuickAccessState();
 
    public ModulePreferencesRegistry() {
       ClientAccess.eventBus.subscribe(this);
@@ -42,97 +39,54 @@ public final class ModulePreferencesRegistry implements ClientAccess, JsonConfig
       return "module-preferences.json";
    }
 
-   public synchronized boolean isFavorite(Module module) {
-      return module != null && this.favorites.contains(module.getConfigName());
+   public boolean isFavorite(Module module) {
+      return module != null && this.state.isFavorite(module.getConfigName());
    }
 
-   public synchronized boolean isFavorite(String moduleName) {
-      return moduleName != null && this.favorites.contains(moduleName);
+   public boolean isFavorite(String moduleName) {
+      return this.state.isFavorite(moduleName);
    }
 
-   public synchronized boolean addFavorite(Module module) {
-      if (module == null) {
-         return false;
-      }
-      String name = module.getConfigName();
-      if (this.favorites.contains(name)) {
-         return false;
-      }
-      while (this.favorites.size() >= MAX_FAVORITES) {
-         String oldest = this.favorites.iterator().next();
-         this.favorites.remove(oldest);
-      }
-      return this.favorites.add(name);
+   public boolean addFavorite(Module module) {
+      return module != null && this.state.addFavorite(module.getConfigName());
    }
 
-   public synchronized boolean removeFavorite(Module module) {
-      return module != null && this.favorites.remove(module.getConfigName());
+   public boolean removeFavorite(Module module) {
+      return module != null && this.state.removeFavorite(module.getConfigName());
    }
 
    /** Returns the new favorite state. */
-   public synchronized boolean toggleFavorite(Module module) {
-      if (module == null) {
-         return false;
-      }
-      if (this.favorites.remove(module.getConfigName())) {
-         return false;
-      }
-      while (this.favorites.size() >= MAX_FAVORITES) {
-         String oldest = this.favorites.iterator().next();
-         this.favorites.remove(oldest);
-      }
-      this.favorites.add(module.getConfigName());
-      return true;
+   public boolean toggleFavorite(Module module) {
+      return module != null && this.state.toggleFavorite(module.getConfigName());
    }
 
-   public synchronized List<String> getFavorites() {
-      return List.copyOf(this.favorites);
+   public List<String> getFavorites() {
+      return this.state.getFavorites();
    }
 
-   public synchronized int getFavoriteIndex(String moduleName) {
-      if (moduleName == null) {
-         return -1;
-      }
-      int index = 0;
-      for (String name : this.favorites) {
-         if (name.equals(moduleName)) {
-            return index;
-         }
-         index++;
-      }
-      return -1;
+   public int getFavoriteIndex(String moduleName) {
+      return this.state.getFavoriteIndex(moduleName);
    }
 
    /** Most recently enabled module first. */
-   public synchronized List<String> getRecentlyUsed() {
-      return List.copyOf(this.recentlyUsed);
+   public List<String> getRecentlyUsed() {
+      return this.state.getRecentlyUsed();
    }
 
-   public synchronized int getRecentIndex(String moduleName) {
-      if (moduleName == null) {
-         return -1;
-      }
-      int index = 0;
-      for (String name : this.recentlyUsed) {
-         if (name.equals(moduleName)) {
-            return index;
-         }
-         index++;
-      }
-      return -1;
+   public int getRecentIndex(String moduleName) {
+      return this.state.getRecentIndex(moduleName);
    }
 
-   public synchronized void clearFavorites() {
-      this.favorites.clear();
+   public void clearFavorites() {
+      this.state.clearFavorites();
    }
 
-   public synchronized void clearRecentlyUsed() {
-      this.recentlyUsed.clear();
+   public void clearRecentlyUsed() {
+      this.state.clearRecentlyUsed();
    }
 
-   public synchronized void clear() {
-      this.favorites.clear();
-      this.recentlyUsed.clear();
+   public void clear() {
+      this.state.clear();
    }
 
    @EventHandler
@@ -141,30 +95,21 @@ public final class ModulePreferencesRegistry implements ClientAccess, JsonConfig
       if (module == null || !module.isToggled()) {
          return;
       }
-      this.recordRecentlyUsed(module);
-   }
-
-   private synchronized void recordRecentlyUsed(Module module) {
-      String name = module.getConfigName();
-      this.recentlyUsed.remove(name);
-      this.recentlyUsed.addFirst(name);
-      while (this.recentlyUsed.size() > MAX_RECENT) {
-         this.recentlyUsed.removeLast();
-      }
+      this.state.recordRecentlyUsed(module.getConfigName());
    }
 
    @Override
-   public synchronized JsonElement toJson() {
+   public JsonElement toJson() {
       JsonObject root = new JsonObject();
       root.addProperty("version", CURRENT_SCHEMA_VERSION);
       JsonArray favoriteArray = new JsonArray();
-      for (String name : this.favorites) {
+      for (String name : this.state.getFavorites()) {
          favoriteArray.add(name);
       }
       root.add("favorites", favoriteArray);
 
       JsonArray recentArray = new JsonArray();
-      for (String name : this.recentlyUsed) {
+      for (String name : this.state.getRecentlyUsed()) {
          recentArray.add(name);
       }
       root.add("recent", recentArray);
@@ -172,8 +117,8 @@ public final class ModulePreferencesRegistry implements ClientAccess, JsonConfig
    }
 
    @Override
-   public synchronized void fromJson(JsonElement json) {
-      this.clear();
+   public void fromJson(JsonElement json) {
+      this.state.clear();
       if (json == null || !json.isJsonObject()) {
          return;
       }
@@ -186,18 +131,18 @@ public final class ModulePreferencesRegistry implements ClientAccess, JsonConfig
          return;
       }
 
-      this.loadNames(root.get("favorites"), this.favorites, MAX_FAVORITES, false);
-      List<String> recent = new ArrayList<>();
-      this.loadNames(root.get("recent"), recent, MAX_RECENT, true);
-      this.recentlyUsed.addAll(recent);
+      List<String> favorites = this.loadKnownNames(root.get("favorites"), MAX_FAVORITES, false);
+      List<String> recent = this.loadKnownNames(root.get("recent"), MAX_RECENT, true);
+      this.state.replace(favorites, recent);
    }
 
-   private void loadNames(JsonElement value, Collection<String> target, int limit, boolean allowDuplicates) {
-      if (value == null || !value.isJsonArray()) {
-         return;
+   private List<String> loadKnownNames(JsonElement value, int limit, boolean allowDuplicates) {
+      List<String> names = new ArrayList<>();
+      if (value == null || !value.isJsonArray() || ClientContext.moduleRegistry == null) {
+         return names;
       }
       for (JsonElement element : value.getAsJsonArray()) {
-         if (target.size() >= limit) {
+         if (names.size() >= limit) {
             break;
          }
          if (!element.isJsonPrimitive() || !element.getAsJsonPrimitive().isString()) {
@@ -209,17 +154,16 @@ public final class ModulePreferencesRegistry implements ClientAccess, JsonConfig
          }
 
          boolean known = false;
-         if (ClientContext.moduleRegistry != null) {
-            for (Object moduleElement : ClientContext.moduleRegistry.getRegistry()) {
-               if (moduleElement instanceof Module module && module.getConfigName().equals(name)) {
-                  known = true;
-                  break;
-               }
+         for (Object moduleElement : ClientContext.moduleRegistry.getRegistry()) {
+            if (moduleElement instanceof Module module && module.getConfigName().equals(name)) {
+               known = true;
+               break;
             }
          }
-         if (known && (allowDuplicates || !target.contains(name))) {
-            target.add(name);
+         if (known && (allowDuplicates || !names.contains(name))) {
+            names.add(name);
          }
       }
+      return names;
    }
 }
