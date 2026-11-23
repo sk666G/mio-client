@@ -27,6 +27,9 @@ import dev.schizo.client.render.FontRenderer;
 import dev.schizo.client.render.GuiProjectionUtils;
 import dev.schizo.client.gui.components.ModuleComponent;
 import dev.schizo.client.render.HudWidgetRenderer;
+import dev.schizo.client.render.HudHorizontalAlignment;
+import dev.schizo.client.render.HudVerticalAlignment;
+import dev.schizo.client.utils.KeyUtils;
 import dev.schizo.client.render.ResizableHudWidgetRenderer;
 import dev.schizo.client.gui.components.StringSettingComponent;
 import dev.schizo.client.modules.client.HUDModule;
@@ -41,6 +44,7 @@ import java.util.List;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
+import org.lwjgl.glfw.GLFW;
 
 public class HudEditorScreen extends ClientScreen implements ClientAccess {
 
@@ -61,6 +65,118 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
    private float dragOffsetY;
    private float mouseX;
    private float mouseY;
+   private static final int LAYOUT_HISTORY_CAPACITY = 100;
+   private final HudLayoutHistory<LayoutSnapshot> layoutHistory =
+      new HudLayoutHistory<>(LAYOUT_HISTORY_CAPACITY);
+   private LayoutSnapshot pendingLayoutBefore;
+
+   private record WidgetLayoutState(
+      HudWidgetRenderer widget,
+      HudAnchor groupAnchor,
+      float relativeX,
+      float relativeY,
+      HudHorizontalAlignment horizontalAlignment,
+      HudVerticalAlignment verticalAlignment,
+      float scale
+   ) {
+   }
+
+   private record LayoutSnapshot(List<WidgetLayoutState> widgets) {
+   }
+
+
+   private LayoutSnapshot captureLayout() {
+      List<WidgetLayoutState> widgetStates = new ArrayList<>();
+      for (HudAnchorGroup group : this.getAnchorGroups()) {
+         for (Object widgetElement : group.getWidgets()) {
+            HudWidgetRenderer widget = (HudWidgetRenderer)widgetElement;
+            float scale = widget instanceof ResizableHudWidgetRenderer resizable
+               ? resizable.getSizeScale()
+               : 1.0F;
+            widgetStates.add(new WidgetLayoutState(
+               widget,
+               group.getAnchor(),
+               widget.getRelativeX(),
+               widget.getRelativeY(),
+               widget.getHorizontalAlignment(),
+               widget.getVerticalAlignment(),
+               scale
+            ));
+         }
+      }
+      return new LayoutSnapshot(List.copyOf(widgetStates));
+   }
+
+   private void restoreLayout(LayoutSnapshot snapshot) {
+      for (HudAnchorGroup group : this.getAnchorGroups()) {
+         group.getWidgets().clear();
+      }
+
+      for (WidgetLayoutState state : snapshot.widgets()) {
+         HudWidgetRenderer widget = state.widget();
+         widget.setAnchor(state.groupAnchor());
+         widget.setX(state.relativeX(), false);
+         widget.setY(state.relativeY(), false);
+         widget.setHorizontalAlignment(state.horizontalAlignment());
+         widget.setVerticalAlignment(state.verticalAlignment());
+         if (widget instanceof ResizableHudWidgetRenderer resizable) {
+            resizable.setSizeScale(state.scale());
+         }
+
+         HudAnchorGroup group = this.getAnchorGroup(state.groupAnchor());
+         if (group != null) {
+            group.getWidgets().add(widget);
+         }
+         widget.updateDirections();
+      }
+
+      this.requestDirectionRefresh();
+   }
+
+   /** Starts a layout gesture. Multiple calls during the same gesture share one snapshot. */
+   public void beginLayoutEdit() {
+      if (this.pendingLayoutBefore == null) {
+         this.pendingLayoutBefore = this.captureLayout();
+      }
+   }
+
+   /** Commits one layout gesture, recording it only if something actually changed. */
+   public void finishLayoutEdit() {
+      LayoutSnapshot previous = this.pendingLayoutBefore;
+      if (previous == null) {
+         return;
+      }
+      this.pendingLayoutBefore = null;
+      LayoutSnapshot current = this.captureLayout();
+      if (!previous.equals(current)) {
+         this.layoutHistory.record(previous);
+      }
+   }
+
+   /** Cancels the in-progress gesture and restores its starting layout. */
+   public void cancelLayoutEdit() {
+      LayoutSnapshot previous = this.pendingLayoutBefore;
+      this.pendingLayoutBefore = null;
+      if (previous != null) {
+         this.restoreLayout(previous);
+      }
+   }
+
+   private void undoLayoutEdit() {
+      this.finishLayoutEdit();
+      LayoutSnapshot previous = this.layoutHistory.undo(this.captureLayout());
+      if (previous != null) {
+         this.restoreLayout(previous);
+      }
+   }
+
+   private void redoLayoutEdit() {
+      this.finishLayoutEdit();
+      LayoutSnapshot next = this.layoutHistory.redo(this.captureLayout());
+      if (next != null) {
+         this.restoreLayout(next);
+      }
+   }
 
    private IntPair getArrowKeyOffset(int keyCode) {
       return switch (keyCode) {
@@ -83,60 +199,46 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
 
    @Override
    public boolean mouseReleased(MouseButtonEvent event) {
-      this.marginController
-         .mouseReleased(event.button());
+      this.marginController.mouseReleased(event.button());
       boolean released = super.mouseReleased(event);
       if (this.draggingWidget) {
          this.draggingWidget = false;
          HudAnchorGroup freeGroup = this.getAnchorGroup(HudAnchor.NONE);
-         HudWidgetRenderer widget = (HudWidgetRenderer)freeGroup.getWidgets()
-            .getLast();
+         if (freeGroup.getWidgets().isEmpty()) {
+            this.finishLayoutEdit();
+            return true;
+         }
+
+         HudWidgetRenderer widget = (HudWidgetRenderer)freeGroup.getWidgets().getLast();
          widget.setSelected(false);
-         freeGroup.getWidgets()
-            .remove(widget);
+         freeGroup.getWidgets().remove(widget);
          int screenWidth = ClientAccess.schizoMinecraft.getWindow().getGuiScaledWidth();
          int screenHeight = ClientAccess.schizoMinecraft.getWindow().getGuiScaledHeight();
-         widget.updateSnapping(
-            screenWidth,
-            screenHeight,
-            5.0F
-         );
+         widget.updateSnapping(screenWidth, screenHeight, 5.0F);
 
          for (HudAnchorGroup group : anchorGroups) {
             for (Object widgetElement : group.getWidgets()) {
                HudWidgetRenderer otherWidget = (HudWidgetRenderer)widgetElement;
-               if (otherWidget.getBounds()
-                  .intersects(
-                     widget.getBounds()
-                  )) {
-                  this.getAnchorGroup(
-                        group.getAnchor()
-                     )
-                     .getWidgets()
-                     .addLast(widget);
-                  widget.setAnchor(
-                     group.getAnchor()
-                  );
+               if (otherWidget.getBounds().intersects(widget.getBounds())) {
+                  widget.setAnchor(group.getAnchor());
+                  this.finishLayoutEdit();
                   return true;
                }
             }
          }
 
          for (HudAnchor anchor : HudAnchor.values()) {
-            if (anchor.getBounds()
-               .intersects(
-                  widget.getBounds()
-                     .expand(
-                        5.0F
-                     )
-               )) {
-               this.getAnchorGroup(anchor)
-                  .getWidgets()
-                  .addLast(widget);
+            if (anchor.getBounds().intersects(widget.getBounds().expand(5.0F))) {
                widget.setAnchor(anchor);
+               this.finishLayoutEdit();
                return true;
             }
          }
+
+         // A free widget that is not snapped to an anchor must remain in the free group.
+         widget.setAnchor(HudAnchor.NONE);
+         this.finishLayoutEdit();
+         return true;
       }
 
       return released;
@@ -166,6 +268,7 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
                      )
                )) {
                if (event.button() == 0) {
+                  this.beginLayoutEdit();
                   dragAnchor = group.getAnchor();
                   dragCandidate = widget;
                   this.dragOffsetX = (int)(
@@ -433,51 +536,49 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
 
       for (Object panelElement : this.panels) {
          Panel panel = (Panel)panelElement;
-         if (panel.isMouseOver(
-            this.mouseX,
-            this.mouseY
-         )) {
+         if (panel.isMouseOver(this.mouseX, this.mouseY)) {
             overPanel = true;
             break;
          }
       }
 
       if (!overPanel) {
+         if (KeyUtils.isControlDown() && event.key() == GLFW.GLFW_KEY_Z) {
+            if (KeyUtils.isShiftDown()) {
+               this.redoLayoutEdit();
+            } else {
+               this.undoLayoutEdit();
+            }
+            return true;
+         }
+         if (KeyUtils.isControlDown() && event.key() == GLFW.GLFW_KEY_Y) {
+            this.redoLayoutEdit();
+            return true;
+         }
+
          HudWidgetRenderer widget = this.findHoveredWidget();
          IntPair offset = this.getArrowKeyOffset(event.key());
          if (offset != null && widget != null && widget.isEnabled()) {
-            widget.setX(
-               widget.getX()
-                  + offset.first(),
-               true
-            );
-            widget.setY(
-               widget.getY()
-                  + offset.second(),
-               true
-            );
+            this.beginLayoutEdit();
+            widget.setX(widget.getX() + offset.first(), true);
+            widget.setY(widget.getY() + offset.second(), true);
             widget.updateDirections();
+            this.finishLayoutEdit();
          } else {
             switch (event.key()) {
                case 73:
-                  if (!(
-                     ClientContext.getClickGui()
-                        .getEditingSetting() instanceof StringSettingComponent
-                  )) {
-                     this.swapAnchorContents(
-                        HudAnchor.BOTTOM_LEFT, HudAnchor.BOTTOM_RIGHT
-                     );
-                     this.swapAnchorContents(
-                        HudAnchor.TOP_LEFT, HudAnchor.TOP_RIGHT
-                     );
+                  if (!(ClientContext.getClickGui().getEditingSetting() instanceof StringSettingComponent)) {
+                     this.beginLayoutEdit();
+                     this.swapAnchorContents(HudAnchor.BOTTOM_LEFT, HudAnchor.BOTTOM_RIGHT);
+                     this.swapAnchorContents(HudAnchor.TOP_LEFT, HudAnchor.TOP_RIGHT);
                      this.requestDirectionRefresh();
+                     this.finishLayoutEdit();
                   }
                   break;
                case 259:
                case 261:
                   if (widget != null && widget.isEnabled()) {
-                     widget.getWidgetModule()
-                        .setToggled(false);
+                     widget.getWidgetModule().setToggled(false);
                   }
             }
          }
@@ -490,12 +591,14 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
    public void onClose() {
       super.onClose();
       if (this.draggingWidget) {
-         ((HudWidgetRenderer)this.getAnchorGroup(HudAnchor.NONE)
-               .getWidgets()
-               .getLast())
-            .setSelected(false);
+         HudAnchorGroup freeGroup = this.getAnchorGroup(HudAnchor.NONE);
+         if (!freeGroup.getWidgets().isEmpty()) {
+            ((HudWidgetRenderer)freeGroup.getWidgets().getLast()).setSelected(false);
+         }
          this.draggingWidget = false;
       }
+      ResizableHudWidgetRenderer.cancelActiveResize();
+      this.cancelLayoutEdit();
    }
 
    @Override
