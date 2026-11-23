@@ -125,7 +125,7 @@ public final class ConfigurationBackupManager {
       try (DirectoryStream<Path> entries = Files.newDirectoryStream(this.backupDirectory)) {
          for (Path entry : entries) {
             String name = entry.getFileName().toString();
-            if (!name.startsWith(prefix) || !name.endsWith(".bak")
+            if (!name.matches(this.backupNamePattern(configName))
                || Files.isSymbolicLink(entry)
                || !Files.isRegularFile(entry, LinkOption.NOFOLLOW_LINKS)) {
                continue;
@@ -201,10 +201,7 @@ public final class ConfigurationBackupManager {
 
    private Path resolveBackup(String configName, String backupFileName) throws IOException {
       this.resolveConfig(configName);
-      if (backupFileName == null || !backupFileName.startsWith(configName + ".")
-         || !backupFileName.endsWith(".bak")
-         || backupFileName.contains("/") || backupFileName.contains("\\")
-         || backupFileName.contains("..")) {
+      if (backupFileName == null || !backupFileName.matches(this.backupNamePattern(configName))) {
          throw new IOException("Invalid backup file name");
       }
       Path target = this.backupDirectory.resolve(backupFileName).normalize();
@@ -264,12 +261,13 @@ public final class ConfigurationBackupManager {
    private BackupRecord toRecord(Path backup) throws IOException {
       String fileName = backup.getFileName().toString();
       long timestamp = -1L;
-      int separator = fileName.indexOf('.', fileName.indexOf('.') + 1);
-      if (separator >= 0) {
-         int dash = fileName.indexOf('-', separator + 1);
-         if (dash > separator + 1) {
+      int marker = fileName.indexOf(".json.");
+      if (marker >= 0) {
+         int timestampStart = marker + ".json.".length();
+         int dash = fileName.indexOf('-', timestampStart);
+         if (dash > timestampStart) {
             try {
-               timestamp = Long.parseLong(fileName.substring(separator + 1, dash));
+               timestamp = Long.parseLong(fileName.substring(timestampStart, dash));
             } catch (NumberFormatException ignoredInvalidTimestamp) {
                timestamp = -1L;
             }
@@ -280,6 +278,10 @@ public final class ConfigurationBackupManager {
          timestamp = modified.toMillis();
       }
       return new BackupRecord(fileName, timestamp, Files.size(backup));
+   }
+
+   private String backupNamePattern(String configName) {
+      return java.util.regex.Pattern.quote(configName) + "\\\\.[0-9]{13}-[0-9a-f]{8}\\\\.bak";
    }
 
    private long nextTimestampMillis(String configName) throws IOException {
