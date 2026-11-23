@@ -43,7 +43,7 @@ public final class IntegrationCommand extends Command {
       String baritoneState = ClientContext.baritoneBridge != null
          && ClientContext.baritoneBridge.isAvailable() ? "available" : "not installed";
       String waypointState = ClientContext.waypointAdapter != null
-         && ClientContext.waypointAdapter.isAvailable() ? "available" : "not installed";
+         && ClientContext.waypointAdapter.isAvailable() ? "available" : "adapter inactive";
 
       String webhookState = ClientContext.webhookManager.isConfigured()
          ? ClientContext.webhookManager.getDestinationDescription()
