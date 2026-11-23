@@ -127,7 +127,7 @@ public final class CommandPaletteScreen extends ClientScreen {
 
       this.results.clear();
       for (PaletteEntry entry : this.index) {
-         int score = this.matchScore(entry, query);
+         int score = PaletteMatcher.score(entry.title(), entry.subtitle(), query);
          if (score >= 0) {
             this.results.add(new PaletteResult(entry, score));
          }
@@ -144,45 +144,6 @@ public final class CommandPaletteScreen extends ClientScreen {
 
       this.selectedIndex = 0;
       this.firstVisibleIndex = 0;
-   }
-
-   private int matchScore(PaletteEntry entry, String query) {
-      if (query.isEmpty()) {
-         return switch (entry.kind()) {
-            case MODULE -> 0;
-            case COMMAND -> 1;
-            case SETTING -> 2;
-         };
-      }
-
-      String title = entry.title().toLowerCase(Locale.ROOT);
-      String subtitle = entry.subtitle().toLowerCase(Locale.ROOT);
-      if (title.equals(query)) {
-         return 0;
-      }
-      if (title.startsWith(query)) {
-         return 1;
-      }
-      if (title.contains(query)) {
-         return 2;
-      }
-      if (subtitle.contains(query)) {
-         return 3;
-      }
-      if (isSubsequence(query, title)) {
-         return 4;
-      }
-      return -1;
-   }
-
-   private static boolean isSubsequence(String query, String candidate) {
-      int queryIndex = 0;
-      for (int index = 0; index < candidate.length() && queryIndex < query.length(); index++) {
-         if (candidate.charAt(index) == query.charAt(queryIndex)) {
-            queryIndex++;
-         }
-      }
-      return queryIndex == query.length();
    }
 
    private void keepSelectionVisible() {
@@ -313,7 +274,9 @@ public final class CommandPaletteScreen extends ClientScreen {
 
       float relativeY = (float)mouseY - this.resultsTop;
       int row = (int)(relativeY / RESULT_ROW_HEIGHT);
-      if (relativeY >= 0.0F && row >= 0 && row < VISIBLE_RESULTS) {
+      boolean insidePanel = mouseX >= this.panelLeft
+         && mouseX <= this.panelLeft + this.panelWidth;
+      if (insidePanel && relativeY >= 0.0F && row >= 0 && row < VISIBLE_RESULTS) {
          int resultIndex = this.firstVisibleIndex + row;
          if (resultIndex < this.results.size()) {
             this.selectedIndex = resultIndex;
@@ -378,12 +341,16 @@ public final class CommandPaletteScreen extends ClientScreen {
 
       this.searchBox.setX((int)this.panelLeft + 12);
       this.searchBox.setY((int)this.panelTop + 32);
+      String searchValue = this.searchBox.getValue();
+      String searchDisplay = searchValue.isEmpty()
+         ? "Search modules, commands, settings..."
+         : searchValue + (this.searchBox.isFocused() ? "|" : "");
       font.drawWithShadow(
          poseStack,
-         this.searchBox.getValue().isEmpty() ? "Search modules, commands, settings..." : this.searchBox.getValue(),
+         searchDisplay,
          this.panelLeft + 14.0F,
          this.panelTop + 34.0F,
-         this.searchBox.getValue().isEmpty() ? Color.GRAY : Color.WHITE
+         searchValue.isEmpty() ? Color.GRAY : Color.WHITE
       );
       GuiDrawUtils.fillRect(
          poseStack,
