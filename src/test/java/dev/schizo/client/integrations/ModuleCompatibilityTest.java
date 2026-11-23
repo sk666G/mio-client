@@ -21,6 +21,15 @@ import dev.schizo.client.modules.movement.NoSlowModule;
 import dev.schizo.client.modules.movement.WarpModule;
 import dev.schizo.client.modules.player.FastPlaceModule;
 import dev.schizo.client.modules.player.SpeedMineModule;
+import dev.schizo.client.modules.render.AmbienceModule;
+import dev.schizo.client.modules.render.AnimationsModule;
+import dev.schizo.client.modules.render.ChamsModule;
+import dev.schizo.client.modules.render.ESPModule;
+import dev.schizo.client.modules.render.HitmarkerModule;
+import dev.schizo.client.modules.render.NameTagsModule;
+import dev.schizo.client.modules.render.ParticlesModule;
+import dev.schizo.client.modules.render.ShaderModule;
+import dev.schizo.client.modules.render.TracersModule;
 import org.junit.jupiter.api.Test;
 
 class ModuleCompatibilityTest {
@@ -31,6 +40,15 @@ class ModuleCompatibilityTest {
       assertClassification(ColorsModule.class, ModuleCompatibility.Classification.CLIENT_ONLY);
       assertClassification(FontsModule.class, ModuleCompatibility.Classification.CLIENT_ONLY);
       assertClassification(HUDModule.class, ModuleCompatibility.Classification.CLIENT_ONLY);
+      assertClassification(AmbienceModule.class, ModuleCompatibility.Classification.VISUAL_ONLY);
+      assertClassification(AnimationsModule.class, ModuleCompatibility.Classification.VISUAL_ONLY);
+      assertClassification(ChamsModule.class, ModuleCompatibility.Classification.VISUAL_ONLY);
+      assertClassification(ESPModule.class, ModuleCompatibility.Classification.VISUAL_ONLY);
+      assertClassification(HitmarkerModule.class, ModuleCompatibility.Classification.VISUAL_ONLY);
+      assertClassification(NameTagsModule.class, ModuleCompatibility.Classification.VISUAL_ONLY);
+      assertClassification(ParticlesModule.class, ModuleCompatibility.Classification.VISUAL_ONLY);
+      assertClassification(ShaderModule.class, ModuleCompatibility.Classification.VISUAL_ONLY);
+      assertClassification(TracersModule.class, ModuleCompatibility.Classification.VISUAL_ONLY);
       assertClassification(dev.schizo.client.modules.movement.NoFallModule.class, ModuleCompatibility.Classification.PACKET_AFFECTING);
       assertClassification(ReachModule.class, ModuleCompatibility.Classification.SERVER_SENSITIVE);
       assertClassification(PhaseModule.class, ModuleCompatibility.Classification.SERVER_SENSITIVE);

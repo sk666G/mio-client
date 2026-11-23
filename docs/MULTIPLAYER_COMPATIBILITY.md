@@ -22,6 +22,7 @@ Fabric's networking documentation describes packets as the client/server state b
 | `AntiHunger`, `PingSpoof`, `FakeLag`, `PortalGodMode`, `Warp` | Alter movement-related state or delay, cancel, retain or replay packets. | `PACKET_AFFECTING`; packet timing/order can diverge from vanilla behavior. |
 | `FastPlace`, `SpeedMine` | Change the cadence of block placement or mining interactions. | `WORLD_INTERACTION`; server/plugin dependent. |
 | `Settings`, `Colors`, `Fonts`, `HUD` | Local client configuration and presentation only in the reviewed code paths. | `CLIENT_ONLY`; technical code-path label, not an endorsement under any server's rules. |
+| `Ambience`, `Animations`, `Chams`, `ESP`, `Hitmarker`, `NameTags`, `Particles`, `Shader`, `Tracers` | Local render/camera/overlay effects. ESP and Hitmarker observe packet or interaction events but do not rewrite outbound packets in the reviewed paths. | `VISUAL_ONLY`; setting-level review remains incomplete. |
 
 “Unsupported” means Schizo has not demonstrated vanilla-consistent behavior for that feature and does not claim compatibility. It does not predict a specific server's response.
 
@@ -34,7 +35,7 @@ Use:
 - `;compat list <CLASSIFICATION>` to filter the inventory.
 - `;compat module <ModuleClass>` for the module rationale and each setting's current review state.
 
-The first-pass registry labels only the modules listed above. **Every other module defaults to `UNVERIFIED`**. Runtime warnings are shown when a module in one of the warning-required classes is enabled in multiplayer; warnings are deduplicated per module per connection and capped in chat. The inventory identifies every individual setting as `UNVERIFIED` until that setting has received its own source review. A module-level label is not a per-setting certification.
+The first-pass registry labels the modules listed above, including the render-only group. **Every other module defaults to `UNVERIFIED`**. Runtime warnings are shown when a module in one of the warning-required classes is enabled in multiplayer; warnings are deduplicated per module per connection and capped in chat. The inventory identifies every individual setting as `UNVERIFIED` until that setting has received its own source review. A module-level label is not a per-setting certification.
 
 The report does not modify packets or attempt to evade server validation. The default policy is **WARN_ONLY** and leaves module activation unchanged.
 

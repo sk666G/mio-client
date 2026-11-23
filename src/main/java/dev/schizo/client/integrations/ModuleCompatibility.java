@@ -29,6 +29,15 @@ import dev.schizo.client.modules.exploit.PingSpoofModule;
 import dev.schizo.client.modules.movement.FakeLagModule;
 import dev.schizo.client.modules.exploit.PortalGodModeModule;
 import dev.schizo.client.modules.movement.WarpModule;
+import dev.schizo.client.modules.render.AmbienceModule;
+import dev.schizo.client.modules.render.AnimationsModule;
+import dev.schizo.client.modules.render.ChamsModule;
+import dev.schizo.client.modules.render.ESPModule;
+import dev.schizo.client.modules.render.HitmarkerModule;
+import dev.schizo.client.modules.render.NameTagsModule;
+import dev.schizo.client.modules.render.ParticlesModule;
+import dev.schizo.client.modules.render.ShaderModule;
+import dev.schizo.client.modules.render.TracersModule;
 import java.util.Map;
 
 /**
@@ -62,6 +71,42 @@ public final class ModuleCompatibility {
       Map.entry(HUDModule.class, assessed(
          Classification.CLIENT_ONLY,
          "Local HUD rendering and editor presentation only; no outgoing gameplay packet path was found."
+      )),
+      Map.entry(AmbienceModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Changes local gamma, time, fog, sky and lighting presentation; its time adjustments are applied to the client world and no outgoing gameplay packet path was found."
+      )),
+      Map.entry(AnimationsModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Changes local camera interpolation and entity/crystal model presentation; no outgoing packet or server-state mutation was found."
+      )),
+      Map.entry(ChamsModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Renders entity/crystal chams and local ghost/highlight models; the reviewed hooks only affect render state."
+      )),
+      Map.entry(ESPModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Builds local overlays from entity state, clientbound block/sound observations and local item-use events; no outgoing packet mutation was found."
+      )),
+      Map.entry(HitmarkerModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Observes outgoing attack packets to trigger local HUD and sound feedback; it does not cancel or rewrite those packets."
+      )),
+      Map.entry(NameTagsModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Renders local name-tag, equipment and player-information overlays; the reviewed connection access is read-only."
+      )),
+      Map.entry(ParticlesModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Adds or suppresses client-side particle effects only."
+      )),
+      Map.entry(ShaderModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Applies local post-processing shaders and render-target effects only."
+      )),
+      Map.entry(TracersModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Draws world and HUD tracer lines from locally observed entity positions; no outgoing packet path was found."
       )),
       Map.entry(NoFallModule.class, assessed(
          Classification.PACKET_AFFECTING,
