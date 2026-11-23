@@ -178,22 +178,31 @@ public final class UIModule extends Module {
    private boolean applyingPalette;
 
    private void applySelectedPalette() {
-      if (this.applyingPalette || this.paletteSetting.getValue() != PaletteChoice.SCHIZO) {
+      if (this.applyingPalette) {
+         return;
+      }
+
+      UiPalette palette = this.paletteSetting.getValue().getPalette();
+      if (palette == null) {
          return;
       }
 
       this.applyingPalette = true;
       try {
-         this.colorSetting.setValue(new Color(190, 255, 64, 220));
-         this.backgroundSetting.setValue(new Color(18, 22, 26, 230));
-         this.buttonSetting.setValue(new Color(32, 38, 42, 205));
-         this.enabledSetting.setValue(new Color(190, 255, 64, 120));
-         this.tintSetting.setValue(new Color(8, 12, 15, 150));
-         this.gradientColorSetting.setValue(new Color(105, 160, 35, 24));
+         this.colorSetting.setValue(palette.accent());
+         this.backgroundSetting.setValue(palette.background());
+         this.buttonSetting.setValue(palette.button());
+         this.enabledSetting.setValue(palette.enabled());
+         this.tintSetting.setValue(palette.tint());
+         this.gradientColorSetting.setValue(palette.gradient());
 
          NotificationsModule notifications = ClientContext.getModule(NotificationsModule.class);
          if (notifications != null) {
-            Color accent = new Color(190, 255, 64);
+            Color accent = new Color(
+               palette.accent().getRed(),
+               palette.accent().getGreen(),
+               palette.accent().getBlue()
+            );
             notifications.watermarkSetting.setValue(accent);
             notifications.bracketsSetting.setValue(accent);
          }
@@ -424,18 +433,55 @@ public final class UIModule extends Module {
    }
 
    public enum PaletteChoice implements NamedEntry {
-      SCHIZO("Schizo"),
-      CUSTOM("Custom");
+      SCHIZO("Schizo", new UiPalette(
+         new Color(190, 255, 64, 220),
+         new Color(18, 22, 26, 230),
+         new Color(32, 38, 42, 205),
+         new Color(190, 255, 64, 120),
+         new Color(8, 12, 15, 150),
+         new Color(105, 160, 35, 24)
+      )),
+      MIDNIGHT("Midnight", new UiPalette(
+         new Color(93, 168, 255, 220),
+         new Color(14, 18, 28, 235),
+         new Color(27, 36, 52, 215),
+         new Color(83, 148, 255, 118),
+         new Color(5, 8, 18, 160),
+         new Color(42, 94, 180, 28)
+      )),
+      FROST("Frost", new UiPalette(
+         new Color(120, 225, 240, 225),
+         new Color(20, 29, 35, 235),
+         new Color(39, 55, 63, 215),
+         new Color(105, 215, 230, 122),
+         new Color(6, 15, 20, 150),
+         new Color(61, 154, 175, 28)
+      )),
+      AMETHYST("Amethyst", new UiPalette(
+         new Color(190, 140, 255, 225),
+         new Color(27, 20, 35, 235),
+         new Color(45, 34, 57, 215),
+         new Color(175, 115, 235, 122),
+         new Color(15, 8, 22, 155),
+         new Color(125, 70, 170, 28)
+      )),
+      CUSTOM("Custom", null);
 
       private final String displayName;
+      private final UiPalette palette;
+
+      public UiPalette getPalette() {
+         return this.palette;
+      }
 
       @Override
       public String getName() {
          return this.displayName;
       }
 
-      PaletteChoice(String displayName) {
+      PaletteChoice(String displayName, UiPalette palette) {
          this.displayName = displayName;
+         this.palette = palette;
       }
    }
 
