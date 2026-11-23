@@ -2,6 +2,7 @@ package dev.schizo.client;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import dev.schizo.client.config.ClientConfig;
+import dev.schizo.client.feature.ArmorHudFeature;
 import dev.schizo.client.feature.ExampleFeature;
 import dev.schizo.client.feature.HudFeature;
 import dev.schizo.client.feature.ToggleSprintFeature;
@@ -34,6 +35,7 @@ public final class SchizoClient implements ClientModInitializer {
     public void onInitializeClient() {
         FeatureRegistry.register(new ExampleFeature());
         FeatureRegistry.register(new HudFeature());
+        FeatureRegistry.register(new ArmorHudFeature());
         FeatureRegistry.register(new ToggleSprintFeature());
         FeatureRegistry.registerDefaults();
         ModuleKeybinds.register();

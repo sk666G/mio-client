@@ -11,7 +11,8 @@ Schizo is a client-side Fabric mod for Minecraft 1.21.11. It provides a modular 
 - Boolean, bounded-number, and mode setting controls
 - Feature lifecycle hooks and central registry
 - Toggle Sprint module that uses normal Minecraft sprint input
-- Configurable HUD for coordinates, facing direction, FPS, and enabled modules
+- Information HUD for coordinates, facing direction, FPS, and enabled modules
+- Armor HUD with equipment icons, durability percentages, optional empty slots, and left/right placement
 - JSON configuration saved in the Minecraft config directory
 - Module enabled states and supported setting values restored on startup
 - GitHub Actions build workflow that compiles the mod and uploads the JAR artifact
@@ -34,7 +35,7 @@ Schizo writes `config/schizo.json` in the active Minecraft game directory. Modul
 
 ## Project status
 
-The ClickGUI provides basic module and setting controls with a dark panel theme. The Information HUD can show block coordinates, facing direction, FPS, and the enabled-module list; each display option is configurable in the GUI. Toggle Sprint uses the normal client sprint input and leaves sprint eligibility to Minecraft. The project does not include stealth injection, anti-cheat circumvention, or detection-evasion mechanisms.
+The ClickGUI provides module and setting controls with a dark panel theme. The Information HUD can show block coordinates, facing direction, FPS, and enabled modules. The Armor HUD shows equipped armor and remaining durability. HUD settings are configurable in the GUI. Toggle Sprint uses normal Minecraft sprint input and leaves sprint eligibility to Minecraft. The project does not include stealth injection, anti-cheat circumvention, or detection-evasion mechanisms.
 
 ## License
 

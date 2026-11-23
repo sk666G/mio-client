@@ -35,6 +35,8 @@ public final class HudOverlay {
         Minecraft client = Minecraft.getInstance();
         if (client.player == null || client.options.hideGui) return;
 
+        ArmorHudRenderer.render(graphics, client);
+
         List<String> infoLines = new ArrayList<>();
         if (feature.showCoordinates().get()) {
             var position = client.player.blockPosition();

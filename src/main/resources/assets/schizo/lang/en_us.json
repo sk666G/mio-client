@@ -4,5 +4,6 @@
   "key.category.schizo.modules": "Schizo Modules",
   "key.schizo.module.example": "Toggle Example",
   "key.schizo.module.information_hud": "Toggle Information HUD",
+  "key.schizo.module.armor_hud": "Toggle Armor HUD",
   "key.schizo.module.toggle_sprint": "Toggle Sprint"
 }
