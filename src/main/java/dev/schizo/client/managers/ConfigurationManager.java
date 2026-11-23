@@ -10,6 +10,7 @@
 package dev.schizo.client.managers;
 
 import dev.schizo.client.config.LegacySocialMigration;
+import dev.schizo.client.config.LegacyDirectoryMigration;
 import dev.schizo.client.config.ConfigurationBackupManager;
 import dev.schizo.client.config.ModulePresetCodec;
 import dev.schizo.client.config.PresetUndoState;
