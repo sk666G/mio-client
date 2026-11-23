@@ -178,7 +178,7 @@ public final class UIModule extends Module {
    private boolean applyingPalette;
 
    private void applySelectedPalette() {
-      if (this.paletteSetting.getValue() != PaletteChoice.SCHIZO) {
+      if (this.applyingPalette || this.paletteSetting.getValue() != PaletteChoice.SCHIZO) {
          return;
       }
 
@@ -210,7 +210,13 @@ public final class UIModule extends Module {
 
    @Override
    public void fromJson(JsonElement json) {
-      super.fromJson(json);
+      this.applyingPalette = true;
+      try {
+         super.fromJson(json);
+      } finally {
+         this.applyingPalette = false;
+      }
+
       if (!(json instanceof JsonObject configuration)
          || !configuration.has("settings")
          || !configuration.get("settings").isJsonObject()
