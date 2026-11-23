@@ -38,8 +38,6 @@ import dev.schizo.client.modules.client.AntiCheatModule;
 import dev.schizo.client.settings.Setting;
 import dev.schizo.client.settings.options.AntiCheatRotationsChoice;
 
-import java.util.ArrayDeque;
-import java.util.Queue;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.multiplayer.MultiPlayerGameMode;
 import net.minecraft.client.player.ClientInput;
@@ -73,7 +71,10 @@ public final class RotationManager implements ClientAccess {
    private int lastRotationTick;
    private int rotationHoldTicks;
    private final MovementInputProcessor movementInput = new MovementInputProcessor();
-   private final Queue<Runnable> deferredActions = new ArrayDeque<>();
+   private static final int MAX_DEFERRED_ACTIONS = 4096;
+   private static final int MAX_DEFERRED_ACTIONS_PER_PASS = 500;
+   private final BoundedActionQueue deferredActions = new BoundedActionQueue(MAX_DEFERRED_ACTIONS);
+   private boolean deferredQueueOverflowWarningLogged;
    private boolean collectingActions;
    private boolean executingAction;
    private RotationRequest request;
@@ -110,13 +111,30 @@ public final class RotationManager implements ClientAccess {
    }
 
    private void runDeferredActions() {
-      for (int index = 0; !this.deferredActions.isEmpty() && index < 500; index++) {
-         Runnable action = this.deferredActions.poll();
-         if (action != null) {
-            this.executeAction(action);
-         }
+      this.deferredActions.drain(MAX_DEFERRED_ACTIONS_PER_PASS, this::executeAction);
+      if (!this.deferredActions.isFull()) {
+         this.deferredQueueOverflowWarningLogged = false;
       }
-      this.deferredActions.clear();
+   }
+
+   /**
+    * Defers an operation while rotations are being collected. When the bounded queue is full,
+    * leave the originating event uncancelled so vanilla processing can continue instead of
+    * silently dropping the operation.
+    */
+   private boolean enqueueDeferredAction(Runnable action) {
+      if (this.deferredActions.offer(action)) {
+         return true;
+      }
+
+      if (!this.deferredQueueOverflowWarningLogged) {
+         ClientAccess.logger.warn(
+            "Rotation action queue reached its {} action limit; incoming actions will run normally until it drains.",
+            MAX_DEFERRED_ACTIONS
+         );
+         this.deferredQueueOverflowWarningLogged = true;
+      }
+      return false;
    }
 
    public float getPreviousBodyYaw() {
@@ -354,12 +372,12 @@ public final class RotationManager implements ClientAccess {
       if (event.isCancelled() || this.executingAction) {
          return;
       }
-      Queue<Runnable> queue = this.deferredActions;
       boolean sneaking = event.isSneaking();
-      queue.add(() -> {
+      if (this.enqueueDeferredAction(() -> {
          ClientContext.playerStateTracker.setSneaking(sneaking);
-      });
-      event.cancel();
+      })) {
+         event.cancel();
+      }
       return;
    }
 
@@ -530,8 +548,9 @@ public final class RotationManager implements ClientAccess {
          return;
       }
 
-      this.deferredActions.add(() -> replayInventoryClick(event));
-      event.cancel();
+      if (this.enqueueDeferredAction(() -> replayInventoryClick(event))) {
+         event.cancel();
+      }
       return;
    }
 
@@ -561,10 +580,10 @@ public final class RotationManager implements ClientAccess {
          return;
       }
 
-      Queue<Runnable> queue = this.deferredActions;
       Packet packet = event.getPacket();
-      queue.add(() -> PacketSender.send(packet));
-      event.cancel();
+      if (this.enqueueDeferredAction(() -> PacketSender.send(packet))) {
+         event.cancel();
+      }
       return;
    }
 
