@@ -16,6 +16,7 @@ import dev.schizo.client.commands.BaritoneCommand;
 import dev.schizo.client.commands.ModuleCommand;
 import dev.schizo.client.commands.Command;
 import dev.schizo.client.commands.ContextProfileCommand;
+import dev.schizo.client.commands.CompatibilityCommand;
 import dev.schizo.client.commands.ConfigBackupCommand;
 import dev.schizo.client.commands.EnemyFriendCommand;
 import dev.schizo.client.commands.FavoriteCommand;
@@ -117,6 +118,7 @@ public final class CommandRegistry extends Registry<Command> implements ClientAc
       this.registerCommand(new dev.schizo.client.commands.PrefixCommand());
       this.registerCommand(new ProfilerCommand());
       this.registerCommand(new SafeModeCommand());
+      this.registerCommand(new CompatibilityCommand());
       this.registerCommand(new dev.schizo.client.commands.PresetCommand());
       this.registerCommand(new dev.schizo.client.commands.PrintCommand());
       this.registerCommand(new dev.schizo.client.commands.QueueCommand());

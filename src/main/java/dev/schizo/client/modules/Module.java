@@ -12,6 +12,7 @@ package dev.schizo.client.modules;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.config.ModuleConfigLoadReport;
 import dev.schizo.client.config.SafeModeManager;
+import dev.schizo.client.integrations.MultiplayerCompatibilityWarnings;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.NamedFeature;
 import dev.schizo.client.events.bus.EventBus;
@@ -86,6 +87,7 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
       if (this.isToggled()) {
          return;
       }
+      MultiplayerCompatibilityWarnings.warnIfNeeded(this);
       this.enabled = true;
       ClientAccess.eventBus.subscribe(this);
       EventBus eventBus = ClientAccess.eventBus;

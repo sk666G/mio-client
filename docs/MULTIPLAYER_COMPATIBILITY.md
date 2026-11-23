@@ -9,25 +9,38 @@ In 1.21.11, movement packets carry position/rotation change flags and an on-grou
 
 Fabric's networking documentation describes packets as the client/server state bridge and warns that unsynchronized client/server state produces desynchronization. It does not define how every server or plugin validates movement, reach, timing or interactions. A packet being structurally valid does not establish that its state transition is vanilla-consistent or accepted by a server.
 
-## Disposition
+## Source-reviewed disposition
 
 | Module or group | Observed behavior from source | Compatibility status |
 | --- | --- | --- |
-| `GrimDisabler` | Delayed ping handling and player flight-state manipulation during elytra/firework sequences. | Removed from source and registration. |
-| `RaytraceBypass` | Explicitly described as bypassing NCP raytracing; searches/sends alternative rotations. | Removed from source and registration. |
-| `NoFall` | Its Packet mode changes the outgoing movement packet's on-ground flag after tracked fall distance exceeds 2.1 blocks. | Not vanilla-consistent; unsupported on multiplayer. |
-| `Reach` | Changes reach distance up to 6 blocks and advertises illegal interactions. | Not vanilla-consistent; unsupported on multiplayer. |
-| `Phase` / `AntiPhase` | Phase changes collision/position behavior; AntiPhase automates block placement against pearl phasing. | Server-state-sensitive; unsupported pending controlled testing. |
-| `ElytraFly` | Implements non-vanilla flight modes and mode-specific movement behavior. | Server/plugin dependent; unsupported pending controlled testing. |
-| `Criticals` | Offers Packet, NCP and Grim-named modes to alter attack outcomes. | Server-validation-sensitive; unsupported pending controlled testing. |
-| `NoSlow`, `AntiHunger`, `FastClimb`, `FastPlace`, `SpeedMine` | Change movement, sprint, climbing, placement cadence or mining progression; several modes send or alter packets. | Vanilla behavior is not preserved by every setting; unsupported pending per-setting tests. |
-| `PingSpoof`, `FastLatency`, `FakeLag`, `PortalGodMode`, `Warp` | Delay, cancel, retain or replay keepalive, movement, teleport-confirmation or other packets; Warp also accumulates/replays movement. | Packet timing/order or server state can diverge; unsupported on multiplayer. |
+| `NoFall` | Its Packet mode changes the outgoing movement packet's on-ground flag after tracked fall distance exceeds 2.1 blocks. | `PACKET_AFFECTING`; not vanilla-consistent and not supported on multiplayer. |
+| `Reach` | Changes reach distance up to 6 blocks and advertises illegal interactions. | `SERVER_SENSITIVE`; not vanilla-consistent and not supported on multiplayer. |
+| `Phase` / `AntiPhase` | Phase changes collision/position behavior; AntiPhase automates block placement against pearl phasing. | `SERVER_SENSITIVE` / `WORLD_INTERACTION`; unsupported pending controlled testing. |
+| `ElytraFly` | Implements non-vanilla flight modes and mode-specific movement behavior. | `SERVER_SENSITIVE`; server/plugin dependent and unsupported pending testing. |
+| `Criticals` | Offers Packet, NCP and Grim-named modes to alter attack outcomes. | `SERVER_SENSITIVE`; server-validation-sensitive. |
+| `NoSlow`, `FastClimb` | Change movement slowdown or climbing behavior; some modes need packet/input review. | `SERVER_SENSITIVE` / `INPUT_MODIFYING`; per-setting review pending. |
+| `AntiHunger`, `PingSpoof`, `FakeLag`, `PortalGodMode`, `Warp` | Alter movement-related state or delay, cancel, retain or replay packets. | `PACKET_AFFECTING`; packet timing/order can diverge from vanilla behavior. |
+| `FastPlace`, `SpeedMine` | Change the cadence of block placement or mining interactions. | `WORLD_INTERACTION`; server/plugin dependent. |
+| `Settings`, `Colors`, `Fonts`, `HUD` | Local client configuration and presentation only in the reviewed code paths. | `CLIENT_ONLY`; technical code-path label, not an endorsement under any server's rules. |
 
 “Unsupported” means Schizo has not demonstrated vanilla-consistent behavior for that feature and does not claim compatibility. It does not predict a specific server's response.
 
+## In-client compatibility inventory
+
+Use:
+
+- `;compat` or `;compat status` for counts by classification.
+- `;compat list` to list modules that are not marked client-only or visual-only.
+- `;compat list <CLASSIFICATION>` to filter the inventory.
+- `;compat module <ModuleClass>` for the module rationale and each setting's current review state.
+
+The first-pass registry labels only the modules listed above. **Every other module defaults to `UNVERIFIED`**. Runtime warnings are shown when a module in one of the warning-required classes is enabled in multiplayer; warnings are deduplicated per module per connection and capped in chat. The inventory identifies every individual setting as `UNVERIFIED` until that setting has received its own source review. A module-level label is not a per-setting certification.
+
+The report is informational only. It does not modify packets, attempt to evade server validation, or silently change module state. A strict activation profile is deliberately not enabled while the full module/setting matrix is incomplete; adding a deny policy before classifying the remaining modules would make the result misleading and could unexpectedly break user configurations.
+
 ## Tests and evidence
 
-- **Source inspected:** the two removed modules, their registry and rebuild-script paths, plus representative movement, combat, packet-delay and interaction modules listed above.
+- **Source inspected:** the removed validation-circumvention modules and their registration/rebuild paths, plus representative movement, combat, packet-delay and interaction modules listed above.
 - **Build-tested:** the project compiles and tests pass in GitHub Actions. Compilation does not validate server behavior.
 - **Controlled multiplayer tested:** none.
 - **Public-server tested:** none.
@@ -36,6 +49,4 @@ Fabric's networking documentation describes packets as the client/server state b
 
 ## Remaining compatibility work
 
-The source tree still contains modules whose settings intentionally alter player state, packet timing, reach or interaction cadence. This branch does not yet provide a conservative multiplayer activation profile or a per-setting warning/deny mechanism. Those require a reviewed compatibility classification and explicit tests before being represented as safe. For now, users should treat the listed behaviors as unsupported, and Schizo makes no claim of universal server compatibility.
-
-A complete matrix still needs to inspect every relevant module and setting, then run reproducible scenarios on a locally controlled 1.21.11 server with the exact server build and plugin configuration recorded. Movement corrections, interaction outcomes, teleport confirmation, inventory synchronization and packet order need separate assertions.
+A complete matrix still needs to inspect every relevant module and each setting, then run reproducible scenarios on a locally controlled 1.21.11 server with the exact server build and plugin configuration recorded. Movement corrections, interaction outcomes, teleport confirmation, inventory synchronization and packet order need separate assertions. Schizo makes no claim of universal server compatibility.
