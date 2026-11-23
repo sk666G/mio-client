@@ -6,6 +6,7 @@ import stat
 import sys
 import tempfile
 import unittest
+import subprocess
 import zipfile
 from pathlib import Path
 from unittest.mock import patch
@@ -84,6 +85,16 @@ class DestinationSafetyTests(unittest.TestCase):
             destination = Path(temporary) / "not-a-repository"
             destination.mkdir()
             with self.assertRaises(SystemExit):
+                validate_destination(destination)
+
+    def test_rejects_a_dirty_git_checkout(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            destination = Path(temporary) / "checkout"
+            destination.mkdir()
+            subprocess.run(["git", "init", str(destination)], check=True, capture_output=True)
+            (destination / "local-change.txt").write_text("keep me", encoding="utf-8")
+
+            with self.assertRaisesRegex(SystemExit, "must be clean"):
                 validate_destination(destination)
 
     def test_destructive_import_requires_explicit_confirmation_before_cleanup(self):
