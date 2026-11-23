@@ -21,6 +21,10 @@ The remapped client JAR is written to build/libs/.
 
 See [Performance HUD documentation](docs/PERFORMANCE_HUD.md) for frame-time metrics, 1% lows, hitch counting and the frame-time graph.
 
+## Command Palette
+
+See [Command Palette documentation](docs/COMMAND_PALETTE.md) for global search and actions using Right Shift + K.
+
 ## Visual identity
 
 See [Schizo visual identity](docs/VISUAL_IDENTITY.md) for the default palette and customization behavior.
