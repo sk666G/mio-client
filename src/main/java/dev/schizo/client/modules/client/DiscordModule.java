@@ -126,6 +126,24 @@ public class DiscordModule extends Module {
       }
    }
 
+   /** Returns the local IPC lifecycle state without waiting for the connection future. */
+   public String getConnectionStatus() {
+      if (!this.isToggled()) {
+         return "disabled";
+      }
+      CompletableFuture<IPCClient> pending = this.connectionFuture;
+      if (pending == null) {
+         return "not started";
+      }
+      if (!pending.isDone()) {
+         return "connecting";
+      }
+      if (pending.isCompletedExceptionally() || pending.isCancelled()) {
+         return "failed";
+      }
+      return pending.getNow(null) == null ? "disconnected" : "connected";
+   }
+
    public void closeClient() {
       CompletableFuture<IPCClient> pending = this.connectionFuture;
       this.connectionFuture = null;
