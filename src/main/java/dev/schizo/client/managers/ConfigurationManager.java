@@ -10,6 +10,7 @@
 package dev.schizo.client.managers;
 
 import dev.schizo.client.config.LegacySocialMigration;
+import dev.schizo.client.config.LegacyDirectoryMigration;
 import dev.schizo.client.config.ConfigurationBackupManager;
 import dev.schizo.client.config.ModulePresetCodec;
 import dev.schizo.client.config.PresetUndoState;
@@ -122,13 +123,33 @@ public final class ConfigurationManager implements ClientAccess {
 
    public void prepareDirectories() {
       try {
-         Path legacyAutoEzPath = ROOT_DIRECTORY.resolve("autoez");
-         File legacyAutoEz = legacyAutoEzPath.toFile();
-         if (legacyAutoEz.isDirectory()) {
-            File killsayTarget = KILLSAY_DIRECTORY.toFile();
-            legacyAutoEz.renameTo(killsayTarget);
+         if (Files.isSymbolicLink(ROOT_DIRECTORY)) {
+            throw new IOException("Configuration root must not be a symbolic link");
          }
-      } catch (Exception ignoredMigrationFailure) {
+         Files.createDirectories(ROOT_DIRECTORY);
+         if (!Files.isDirectory(ROOT_DIRECTORY, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+            throw new IOException("Configuration root is not a real directory");
+         }
+      } catch (IOException rootFailure) {
+         ClientAccess.logger.error("Could not prepare configuration root {}", ROOT_DIRECTORY, rootFailure);
+         return;
+      }
+
+      try {
+         LegacyDirectoryMigration.Result result = LegacyDirectoryMigration.moveDirectory(
+            ROOT_DIRECTORY,
+            "autoez",
+            "killsay"
+         );
+         if (result == LegacyDirectoryMigration.Result.MOVED) {
+            ClientAccess.logger.info("Migrated legacy autoez directory to killsay");
+         } else if (result == LegacyDirectoryMigration.Result.TARGET_EXISTS) {
+            ClientAccess.logger.warn("Leaving legacy autoez directory in place because killsay already exists");
+         } else if (result == LegacyDirectoryMigration.Result.UNSAFE_SOURCE) {
+            ClientAccess.logger.warn("Leaving legacy autoez directory in place because it contains unsafe entries");
+         }
+      } catch (IOException | IllegalArgumentException migrationFailure) {
+         ClientAccess.logger.warn("Could not migrate legacy autoez directory", migrationFailure);
       }
 
       for (Path path : directories) {
