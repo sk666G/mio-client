@@ -129,13 +129,16 @@ final class ClientThreadTaskQueue implements AutoCloseable {
       }
 
       long sequenceBoundary;
+      int queuedAtPassStart;
       synchronized (this.lock) {
          sequenceBoundary = this.nextSequence;
+         queuedAtPassStart = this.queue.size();
       }
 
       int inspected = 0;
       int executed = 0;
-      while (inspected < workBudget.maximum()) {
+      int passLimit = Math.min(workBudget.maximum(), queuedAtPassStart);
+      while (inspected < passLimit) {
          TaskRecord record;
          synchronized (this.lock) {
             record = this.queue.peekFirst();
