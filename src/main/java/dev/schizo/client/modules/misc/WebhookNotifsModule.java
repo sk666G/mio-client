@@ -68,7 +68,6 @@ public class WebhookNotifsModule extends Module {
    private final Setting<Boolean> pingSetting;
    private final DateTimeFormatter timestampFormatter;
    private final List<String> pendingMessages;
-   private final List<String> includedMessages;
    private boolean deliveryInFlight;
    private boolean pingPending;
    private final ElapsedTimer notificationTimer;
@@ -242,19 +241,25 @@ public class WebhookNotifsModule extends Module {
 
          this.deliveryInFlight = true;
          final int messagesInBatch = includedCount;
-         manager.sendContent(payload).whenComplete((delivered, failure) -> {
-            synchronized (this.pendingMessages) {
-               if (failure == null && Boolean.TRUE.equals(delivered)) {
-                  for (int index = 0; index < messagesInBatch && !this.pendingMessages.isEmpty(); index++) {
-                     this.pendingMessages.remove(0);
+         try {
+            manager.sendContent(payload).whenComplete((delivered, failure) -> {
+               synchronized (this.pendingMessages) {
+                  if (failure == null && Boolean.TRUE.equals(delivered)) {
+                     for (int index = 0; index < messagesInBatch && !this.pendingMessages.isEmpty(); index++) {
+                        this.pendingMessages.remove(0);
+                     }
+                  } else if (hadPendingPing) {
+                     this.pingPending = true;
                   }
-               } else if (hadPendingPing) {
-                  this.pingPending = true;
-               }
 
-               this.deliveryInFlight = false;
-            }
-         });
+                  this.deliveryInFlight = false;
+               }
+            });
+         } catch (RuntimeException sendFailure) {
+            if (hadPendingPing) this.pingPending = true;
+            this.deliveryInFlight = false;
+            ClientAccess.logger.warn("Webhook notification could not be queued ({})", sendFailure.getClass().getSimpleName());
+         }
       }
    }
 
@@ -280,7 +285,6 @@ public class WebhookNotifsModule extends Module {
       this.pingSetting = this.add(new BooleanSetting("Ping", false).dependsOn(registeredTypes, registeredStash));
       this.timestampFormatter = DateTimeFormatter.ofPattern("HH:mm");
       this.pendingMessages = Collections.synchronizedList(new ArrayList<>());
-      this.includedMessages = new ArrayList<>();
       this.notificationTimer = new ElapsedTimer();
    }
 
