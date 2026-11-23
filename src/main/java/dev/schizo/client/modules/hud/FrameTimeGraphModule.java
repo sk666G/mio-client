@@ -77,6 +77,9 @@ public class FrameTimeGraphModule extends HudWidgetModule {
          return;
       }
 
+      Color graphBaseColor = this.getHudColor(this.getRenderer().getY() + this.heightSetting.getValue() / 2.0F);
+      int graphColor = ColorUtils.withAlpha(graphBaseColor, 255).hashCode();
+
       MeshBuffer buffer = MeshDrawContext.getBuffer();
       buffer.begin(Mode.LINES, DefaultVertexFormat.POSITION_COLOR_NORMAL_LINE_WIDTH);
       for (int sampleIndex = 1; sampleIndex < this.sampleCount; sampleIndex++) {
@@ -84,7 +87,7 @@ public class FrameTimeGraphModule extends HudWidgetModule {
          float currentY = this.getSampleY(this.getSample(sampleIndex));
          VertexGeometry.appendLine(
             buffer, poses.last(), sampleIndex - 1, previousY, 0.0F, sampleIndex, currentY, 0.0F,
-            1.0F, this.getSampleColor(previousY), this.getSampleColor(currentY)
+            1.0F, graphColor, graphColor
          );
       }
       buffer.draw(ClientRenderTypes.worldLines());
@@ -134,11 +137,6 @@ public class FrameTimeGraphModule extends HudWidgetModule {
       float ceiling = this.ceilingSetting.getValue();
       float clippedSample = Math.min(sample, ceiling);
       return 1.0F + (height - 2) * (1.0F - clippedSample / ceiling);
-   }
-
-   private int getSampleColor(float sampleY) {
-      Color baseColor = this.getHudColor(sampleY + this.getRenderer().getY());
-      return ColorUtils.withAlpha(baseColor, 255).hashCode();
    }
 
    public FrameTimeGraphModule() {
