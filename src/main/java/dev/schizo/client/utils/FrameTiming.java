@@ -54,7 +54,7 @@ public final class FrameTiming implements ClientAccess {
    /** Returns FPS derived from the 99th-percentile frame time in the rolling sample window. */
    public float getOnePercentLowFramesPerSecond() {
       long currentTimeNanos = System.nanoTime();
-      if (currentTimeNanos - this.lastOnePercentLowUpdateNanos >= ONE_PERCENT_LOW_REFRESH_NANOS) {
+      if (this.lastOnePercentLowUpdateNanos == 0L || currentTimeNanos - this.lastOnePercentLowUpdateNanos >= ONE_PERCENT_LOW_REFRESH_NANOS) {
          int durationCount = this.sampleCount - 1;
          if (durationCount > 0) {
             for (int i = 0; i < durationCount; i++) {
