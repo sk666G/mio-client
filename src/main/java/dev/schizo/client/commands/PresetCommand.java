@@ -316,7 +316,7 @@ public final class PresetCommand extends Command {
          return 0;
       }
       PresetUndoAction undoAction = PresetUndoAction.beforeLoad(preset.getName());
-      owner.loadMatchingModules(preset, candidate -> candidate.getCategory() == moduleCategory);
+      owner.loadMatchingModules(preset, candidate -> ((Module)candidate).getCategory() == moduleCategory);
       configurationManager.getPresetUndoState().push(undoAction);
 
       String presetName = preset.getName();

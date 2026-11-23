@@ -41,7 +41,7 @@ public final class ClientDataDirectory {
             }
             staging = Files.createTempDirectory(destination.toAbsolutePath().getParent(), ".schizo-migration-");
             Path copied = staging;
-            Files.walkFileTree(legacy, Integer.MAX_VALUE, new SimpleFileVisitor<>() {
+            Files.walkFileTree(legacy, new SimpleFileVisitor<>() {
                 @Override
                 public FileVisitResult preVisitDirectory(Path directory, BasicFileAttributes attributes) throws IOException {
                     if (attributes.isSymbolicLink() || !attributes.isDirectory()) {
