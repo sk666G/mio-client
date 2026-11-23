@@ -57,13 +57,16 @@ public final class HudLayoutStore {
       try (DirectoryStream<Path> entries = Files.newDirectoryStream(this.directory)) {
          for (Path entry : entries) {
             String filename = entry.getFileName().toString();
-            if (!filename.toLowerCase(Locale.ROOT).endsWith(".json")
+            if (!filename.endsWith(".json")
                || Files.isSymbolicLink(entry)
                || !Files.isRegularFile(entry, LinkOption.NOFOLLOW_LINKS)) {
                continue;
             }
 
             String name = filename.substring(0, filename.length() - 5);
+            if (name.toLowerCase(Locale.ROOT).endsWith(".json")) {
+               continue;
+            }
             try {
                names.add(PresetNameValidator.normalize(name));
             } catch (IllegalArgumentException invalidName) {
@@ -76,8 +79,8 @@ public final class HudLayoutStore {
    }
 
    public void save(String name, JsonObject layout) throws IOException {
-      this.ensureDirectory();
       Path target = this.resolve(name);
+      this.ensureDirectory();
       this.requireSafeTarget(target);
       this.validateLayout(layout);
       String serialized = GSON.toJson(layout);
@@ -122,6 +125,9 @@ public final class HudLayoutStore {
    }
 
    public boolean delete(String name) throws IOException {
+      if (!Files.exists(this.directory, LinkOption.NOFOLLOW_LINKS)) {
+         return false;
+      }
       this.requireRealDirectory();
       Path target = this.resolve(name);
       this.requireSafeTarget(target);
