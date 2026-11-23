@@ -21,6 +21,10 @@ The remapped client JAR is written to build/libs/.
 
 See [Performance HUD documentation](docs/PERFORMANCE_HUD.md) for frame-time metrics, 1% lows, hitch counting and the frame-time graph.
 
+## HUD Studio
+
+See [HUD Editor documentation](docs/HUD_EDITOR.md) for layout editing and the new undo/redo shortcuts.
+
 ## Original modules
 
 The original upstream module sources are included in the active Schizo source tree. Their implementations and original source notices are retained during the rebrand.
