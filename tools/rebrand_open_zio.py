@@ -16,6 +16,11 @@ from pathlib import Path, PurePosixPath, PureWindowsPath
 EXPECTED_COMMIT = "2fec97aa0c52860f9252b61543dce8fc9825e081"
 VERSION_PLACEHOLDER = "$" + "{version}"
 PRESERVE_TOP_LEVEL = {".git", ".github", "tools"}
+REMOVED_MODULES = {
+    "src/main/java/dev/zio/client/modules/exploit/GrimDisablerModule.java",
+    "src/main/java/dev/zio/client/modules/exploit/RaytraceBypassModule.java",
+}
+WINDOWS_RESERVED_NAMES = {"CON", "PRN", "AUX", "NUL", *(f"COM{i}" for i in range(1, 10)), *(f"LPT{i}" for i in range(1, 10))}
 README = """# Schizo Client
 
 Schizo is a client-only Fabric client for Minecraft 1.21.11, rebuilt on the Open Zio source architecture. This replaces the former minimal Schizo scaffold with the upstream module registry, event bus, managers, configuration and preset systems, ClickGUI/HUD editor, rendering pipeline, mixins, access widener, integrations and module implementations.
@@ -47,7 +52,7 @@ UPSTREAM = f"""# Upstream source and migration notes
 - The supplied archive contains 1,199 Java files; 1,179 carry the upstream MIT-license header. The supplied archive has no separate root LICENSE file. Original headers are retained.
 - Rebrand: dev.zio becomes dev.schizo; mod ID, resource namespace, artifact and Gradle root name become schizo; ZioClient becomes SchizoClient.
 - The previous hand-built Schizo scaffold is replaced by the upstream application architecture.
-- GrimDisablerModule.java and RaytraceBypassModule.java are retained in the active source tree with their original source notices.
+- Modules whose sole purpose is to interfere with server validation (GrimDisablerModule and RaytraceBypassModule) are excluded from generated source and registration.
 - The upstream project URL remains intact in retained source headers.
 
 This file supplements rather than replaces upstream notices.
@@ -75,14 +80,21 @@ def safe_relative_member(name: str) -> str:
     parts = name.split("/")
     if any(part in ("", ".", "..") for part in parts):
         raise ValueError(f"Traversal or empty component in archive path: {name!r}")
-    if ":" in parts[0] or any(ord(character) < 32 for character in name):
-        raise ValueError(f"Invalid archive path: {name!r}")
+    if any(
+        ":" in part or part.endswith((" ", "."))
+        or part.split(".", 1)[0].upper() in WINDOWS_RESERVED_NAMES
+        or any(character in '<>"|?*' for character in part)
+        for part in parts
+    ) or any(ord(character) < 32 for character in name):
+        raise ValueError(f"Invalid or platform-reserved archive path: {name!r}")
     return PurePosixPath(*parts).as_posix()
 
 
 def validate_destination(destination: Path) -> Path:
+    if destination.is_symlink():
+        raise ValueError(f"Destination must not be a symbolic link: {destination}")
     dest = destination.resolve()
-    if destination.is_symlink() or not dest.is_dir():
+    if not dest.is_dir():
         raise ValueError(f"Destination must be a real Schizo checkout: {destination}")
     required = (".git", ".github", "tools", "build.gradle", "src")
     missing = [name for name in required if not (dest / name).exists()]
@@ -90,6 +102,22 @@ def validate_destination(destination: Path) -> Path:
         raise ValueError(f"Refusing unsafe destination; missing checkout markers: {', '.join(missing)}")
     if not (dest / ".github").is_dir() or not (dest / "tools").is_dir() or not (dest / "src").is_dir():
         raise ValueError(f"Destination markers are not directories: {dest}")
+    if (dest / ".git").is_symlink():
+        raise ValueError(f"Destination Git metadata must not be a symbolic link: {dest / '.git'}")
+    try:
+        git_root = Path(subprocess.check_output(
+            ["git", "-C", str(dest), "rev-parse", "--show-toplevel"], text=True, stderr=subprocess.PIPE
+        ).strip()).resolve()
+        status = subprocess.check_output(
+            ["git", "-C", str(dest), "status", "--porcelain", "--untracked-files=all"],
+            text=True, stderr=subprocess.PIPE
+        )
+    except (OSError, subprocess.CalledProcessError) as error:
+        raise ValueError(f"Destination is not a readable Git checkout: {dest}") from error
+    if git_root != dest:
+        raise ValueError(f"Destination must be the Git checkout root: {dest}")
+    if status.strip():
+        raise ValueError("Destination checkout must be clean before replacing its contents.")
     return dest
 
 
@@ -139,13 +167,17 @@ def iter_source(source: Path):
                 safe_name = safe_relative_member(normalized)
                 if safe_name != root and not safe_name.startswith(root + "/"):
                     raise SystemExit(f"Unexpected archive root entry: {item.filename!r}")
+                mode = (item.external_attr >> 16) & 0xFFFF
+                if stat.S_ISLNK(mode):
+                    raise SystemExit(f"Symbolic links are not allowed in archives: {item.filename!r}")
                 if item.is_dir():
+                    if mode and not stat.S_ISDIR(mode):
+                        raise SystemExit(f"Unsupported archive entry type: {item.filename!r}")
                     continue
                 file_count += 1
                 rel = safe_name[len(root):].lstrip("/")
                 rel = safe_relative_member(rel)
-                mode = (item.external_attr >> 16) & 0xFFFF
-                if stat.S_ISLNK(mode) or (mode and not stat.S_ISREG(mode)):
+                if mode and not stat.S_ISREG(mode):
                     raise SystemExit(f"Unsupported archive entry type: {item.filename!r}")
                 if rel.split("/", 1)[0] in PRESERVE_TOP_LEVEL:
                     continue
@@ -209,6 +241,8 @@ def build_staging_tree(stage: Path, members) -> int:
     collision_paths = set()
     for rel, raw in members:
         rel = safe_relative_member(rel)
+        if rel in REMOVED_MODULES:
+            continue
         mapped = mapped_path(rel)
         collision_key = mapped.casefold()
         if collision_key in collision_paths:
@@ -225,10 +259,11 @@ def build_staging_tree(stage: Path, members) -> int:
         else:
             text = mapped_text(text)
             if rel == "src/main/java/dev/zio/client/managers/ModuleRegistry.java":
-                raytrace = '      if (!this.registerModule(new dev.schizo.client.modules.exploit.RaytraceBypassModule())) throw new IllegalStateException("Registration rejected RaytraceBypassModule");'
-                grim = '      if (!this.registerModule(new dev.schizo.client.modules.exploit.GrimDisablerModule())) throw new IllegalStateException("Registration rejected GrimDisablerModule");'
-                if raytrace in text and grim not in text:
-                    text = text.replace(raytrace, raytrace + "\n" + grim)
+                text = re.sub(
+                    r'(?m)^\s*if \(!this\.registerModule\(new dev\.schizo\.client\.modules\.exploit\.(?:GrimDisabler|RaytraceBypass)Module\(\)\)\) throw new IllegalStateException\("Registration rejected (?:GrimDisabler|RaytraceBypass)Module"\);\s*\n?',
+                    "",
+                    text,
+                )
             target.write_text(text, encoding="utf-8", newline="")
         copied += 1
 
@@ -305,10 +340,22 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("source", type=Path, help="verified Open Zio checkout or supplied ZIP")
     parser.add_argument("destination", type=Path)
+    parser.add_argument(
+        "--replace-existing",
+        action="store_true",
+        help="Confirm replacement of the existing clean Git checkout contents.",
+    )
     args = parser.parse_args()
+    if not args.replace_existing:
+        parser.error("refusing destructive replacement without --replace-existing")
 
     dest = validate_destination(args.destination)
-    members = list(iter_source(args.source.resolve()))
+    if args.source.is_symlink():
+        raise SystemExit(f"Source must not be a symbolic link: {args.source}")
+    source = args.source.resolve()
+    if source.is_dir() and (source == dest or source.is_relative_to(dest) or dest.is_relative_to(source)):
+        raise SystemExit("Source and destination must be separate directory trees.")
+    members = list(iter_source(source))
     if not members:
         raise SystemExit("Source contains no importable files.")
 
@@ -328,8 +375,9 @@ def main():
         copied = build_staging_tree(stage, members)
         install_staging_tree(dest, stage)
     finally:
-        shutil.rmtree(stage, ignore_errors=True)
-    print(f"Imported {copied} files from {EXPECTED_COMMIT}; original module source is retained.")
+        if stage.exists():
+            shutil.rmtree(stage)
+    print(f"Imported {copied} files from {EXPECTED_COMMIT}; validation-circumvention modules are excluded.")
 
 
 if __name__ == "__main__":

@@ -201,8 +201,6 @@ public final class ModuleRegistry extends Registry<Module> implements ClientAcce
       if (!this.registerModule(new dev.schizo.client.modules.exploit.PortalGodModeModule())) throw new IllegalStateException("Registration rejected PortalGodModeModule");
       if (!this.registerModule(new dev.schizo.client.modules.combat.PistonCrystalModule())) throw new IllegalStateException("Registration rejected PistonCrystalModule");
       if (!this.registerModule(new dev.schizo.client.modules.combat.PusherModule())) throw new IllegalStateException("Registration rejected PusherModule");
-      if (!this.registerModule(new dev.schizo.client.modules.exploit.RaytraceBypassModule())) throw new IllegalStateException("Registration rejected RaytraceBypassModule");
-      if (!this.registerModule(new dev.schizo.client.modules.exploit.GrimDisablerModule())) throw new IllegalStateException("Registration rejected GrimDisablerModule");
       if (!this.registerModule(new dev.schizo.client.modules.exploit.ReachModule())) throw new IllegalStateException("Registration rejected ReachModule");
       if (!this.registerModule(new dev.schizo.client.modules.player.ReplenishModule())) throw new IllegalStateException("Registration rejected ReplenishModule");
       if (!this.registerModule(new dev.schizo.client.modules.exploit.RocketExtenderModule())) throw new IllegalStateException("Registration rejected RocketExtenderModule");
