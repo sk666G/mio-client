@@ -17,7 +17,7 @@ import java.util.Set;
 import java.util.function.Consumer;
 
 /**
- * Bounded queue for countdown tasks. Reservations count toward capacity before a task is
+ * Bounded FIFO queue for countdown tasks. Reservations count toward capacity before a task is
  * dispatched to the client thread, so the dispatch hand-off cannot create an unbounded backlog.
  */
 final class BoundedCountdownTaskQueue {
@@ -30,6 +30,7 @@ final class BoundedCountdownTaskQueue {
    private final int capacity;
    private final int maximumTasksPerPass;
    private int outstanding;
+   private long passSequence;
    private boolean draining;
    private boolean closed;
 
@@ -70,6 +71,7 @@ final class BoundedCountdownTaskQueue {
             this.cancelLocked(reservation);
             return false;
          }
+         reservation.readyAtPass = this.passSequence + reservation.delayPasses + 2L;
          reservation.state = ReservationState.QUEUED;
          this.queue.addLast(reservation);
          return true;
@@ -93,36 +95,33 @@ final class BoundedCountdownTaskQueue {
    }
 
    /**
-    * Processes at most the initial queue head count (capped per pass). Work added by a running
-    * task is deliberately left for the next pass. A failing task is completed and removed rather
-    * than being left at the head to fail repeatedly.
+    * Drains ready tasks in strict FIFO order. A not-yet-ready head deliberately blocks later
+    * entries, and tasks enqueued by a running action cannot execute in the same pass.
     */
    int runPass(Consumer<RuntimeException> failureHandler) {
       Objects.requireNonNull(failureHandler, "failureHandler");
-      int scanLimit;
       synchronized (this.lock) {
-         if (this.closed || this.draining || this.queue.isEmpty()) {
+         if (this.closed || this.draining) {
+            return 0;
+         }
+         this.passSequence++;
+         if (this.queue.isEmpty()) {
             return 0;
          }
          this.draining = true;
-         scanLimit = Math.min(this.queue.size(), this.maximumTasksPerPass);
       }
 
       int completed = 0;
       try {
-         for (int index = 0; index < scanLimit; index++) {
+         while (completed < this.maximumTasksPerPass) {
             Reservation reservation;
             synchronized (this.lock) {
-               reservation = this.queue.pollFirst();
-               if (reservation == null) {
+               reservation = this.queue.peekFirst();
+               if (reservation == null || reservation.readyAtPass > this.passSequence) {
                   break;
                }
+               this.queue.removeFirst();
                if (reservation.state != ReservationState.QUEUED) {
-                  continue;
-               }
-               // Preserve the existing countdown contract: a delay of N waits N+1 full passes.
-               if (reservation.remainingPasses-- >= 0) {
-                  this.queue.addLast(reservation);
                   continue;
                }
                reservation.state = ReservationState.RUNNING;
@@ -205,13 +204,14 @@ final class BoundedCountdownTaskQueue {
    static final class Reservation {
       private final BoundedCountdownTaskQueue owner;
       private final Runnable action;
-      private int remainingPasses;
+      private final int delayPasses;
+      private long readyAtPass;
       private ReservationState state = ReservationState.RESERVED;
 
       private Reservation(BoundedCountdownTaskQueue owner, Runnable action, int delayPasses) {
          this.owner = owner;
          this.action = action;
-         this.remainingPasses = delayPasses;
+         this.delayPasses = delayPasses;
       }
    }
 

@@ -60,7 +60,7 @@ class BoundedCountdownTaskQueueTest {
    }
 
    @Test
-   void doesNotRunTasksAddedByAnActionUntilTheNextPass() {
+   void doesNotRunTasksAddedByAnActionUntilTheNextEligiblePass() {
       BoundedCountdownTaskQueue queue = new BoundedCountdownTaskQueue(4, 4);
       List<Integer> executed = new ArrayList<>();
       assertTrue(queue.offer(() -> {
@@ -69,15 +69,12 @@ class BoundedCountdownTaskQueueTest {
       }, 0));
       assertTrue(queue.offer(() -> executed.add(2), 0));
 
-      queue.runPass(failure -> fail(failure));
       assertEquals(0, queue.runPass(failure -> fail(failure)));
-      assertEquals(List.of(), executed);
-
       assertEquals(2, queue.runPass(failure -> fail(failure)));
       assertEquals(List.of(1, 2), executed);
       assertEquals(1, queue.queuedCount());
 
-      queue.runPass(failure -> fail(failure));
+      assertEquals(0, queue.runPass(failure -> fail(failure)));
       assertEquals(1, queue.runPass(failure -> fail(failure)));
       assertEquals(List.of(1, 2, 3), executed);
    }
@@ -92,7 +89,7 @@ class BoundedCountdownTaskQueueTest {
       }, 0));
       assertTrue(queue.offer(() -> executed.add(2), 0));
 
-      queue.runPass(failure -> fail(failure));
+      assertEquals(0, queue.runPass(failure -> fail(failure)));
       assertEquals(2, queue.runPass(failure -> {
          assertInstanceOf(IllegalStateException.class, failure);
          failures.incrementAndGet();
@@ -146,6 +143,20 @@ class BoundedCountdownTaskQueueTest {
       assertEquals(0, executed.get());
       assertEquals(1, queue.runPass(failure -> fail(failure)));
       assertEquals(1, executed.get());
+   }
+
+   @Test
+   void keepsLaterTasksBehindAnOlderDelayedTask() {
+      BoundedCountdownTaskQueue queue = new BoundedCountdownTaskQueue(3, 3);
+      List<Integer> executed = new ArrayList<>();
+      assertTrue(queue.offer(() -> executed.add(1), 2));
+      assertTrue(queue.offer(() -> executed.add(2), 0));
+
+      assertEquals(0, queue.runPass(failure -> fail(failure)));
+      assertEquals(0, queue.runPass(failure -> fail(failure)));
+      assertEquals(0, queue.runPass(failure -> fail(failure)));
+      assertEquals(2, queue.runPass(failure -> fail(failure)));
+      assertEquals(List.of(1, 2), executed);
    }
 
    @Test
