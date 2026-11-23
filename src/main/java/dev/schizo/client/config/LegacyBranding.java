@@ -104,19 +104,19 @@ public final class LegacyBranding {
             case "UI" -> {
                 // Migrate only untouched upstream defaults; keep every user-chosen
                 // colour and transparency value intact.
-                replaceDefaultColor(settings, "Color", new int[]{199, 148, 244, 130},
-                    new int[]{194, 16, 37, 238});
-                replaceDefaultColor(settings, "BgColor", new int[]{199, 148, 244, 30},
-                    new int[]{8, 8, 12, 240});
-                replaceDefaultColor(settings, "BgButton", new int[]{199, 148, 244, 115},
-                    new int[]{34, 17, 23, 236});
-                replaceDefaultColor(settings, "BgEnabled", new int[]{199, 148, 244, 90},
-                    new int[]{122, 10, 29, 238});
-                replaceDefaultColor(settings, "Tint", new int[]{32, 13, 48, 100},
-                    new int[]{42, 3, 12, 118});
-                replaceDefaultColor(settings, "GradientColor", new int[]{199, 148, 244, 15},
-                    new int[]{196, 12, 36, 218});
-                replaceDefault(settings, "Style", "Plain", "Slim");
+                replaceDefaultColor(settings, "Color", new int[]{194, 16, 37, 238},
+                    new int[]{199, 148, 244, 130});
+                replaceDefaultColor(settings, "BgColor", new int[]{8, 8, 12, 240},
+                    new int[]{199, 148, 244, 30});
+                replaceDefaultColor(settings, "BgButton", new int[]{34, 17, 23, 236},
+                    new int[]{199, 148, 244, 115});
+                replaceDefaultColor(settings, "BgEnabled", new int[]{122, 10, 29, 238},
+                    new int[]{199, 148, 244, 90});
+                replaceDefaultColor(settings, "Tint", new int[]{42, 3, 12, 118},
+                    new int[]{32, 13, 48, 100});
+                replaceDefaultColor(settings, "GradientColor", new int[]{196, 12, 36, 218},
+                    new int[]{199, 148, 244, 15});
+                replaceDefault(settings, "Style", "Slim", "Plain");
             }
             default -> throw new AssertionError(moduleName);
         }
