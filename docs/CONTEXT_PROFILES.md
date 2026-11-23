@@ -22,8 +22,8 @@ Server names are matched case-insensitively. A server selector can include its p
 | --- | --- |
 | `;contextprofile enable` | Enable automatic context switching |
 | `;contextprofile disable` | Disable it and restore the pre-profile settings |
-| `;contextprofile status` | Show enabled state and the last detected context |
-| `;contextprofile list` | List configured rules |
+| `;contextprofile status` | Show enabled state, last detected context and any failed preset application |
+| `;contextprofile refresh` | Retry applying the current context after fixing a previously failing preset |\n| `;contextprofile list` | List configured rules |
 | `;contextprofile add "<server>" <dimension> <game_mode> <category> "<preset>"` | Add or replace one rule |
 | `;contextprofile remove "<server>" <dimension> <game_mode> <category>` | Remove a rule |
 | `;contextprofile clear` | Remove all rules |
@@ -54,4 +54,4 @@ The active server's ordinary AutoPreset is applied first. Context profiles then 
 
 Disabling context profiles restores the baseline. Disconnecting also restores it. When a new server connection is requested, Schizo restores the active context baseline before allowing the connection. If that restore fails, the connection is cancelled rather than stacking another server's presets on top of unresolved settings; retry after the restore succeeds. Manual setting changes made while a context profile is active are not automatically promoted to the baseline; save them as a preset before switching contexts if they should be reusable.
 
-The rules and enabled state are saved in `context-profiles.json`. At most 512 rules are loaded. Missing preset references are skipped with a warning rather than crashing the client.
+The rules and enabled state are saved in `context-profiles.json`. At most 512 rules are loaded. Missing preset references are skipped with a warning rather than crashing the client. If a preset throws during application, Schizo restores the baseline and records the failed context instead of retrying the same broken preset every tick. After repairing the preset, run `;contextprofile refresh`. If baseline restoration itself fails, restoration is retried before any new profile can apply.

@@ -35,6 +35,7 @@ public final class ContextProfileCommand extends Command {
       root.then(literal("enable").executes(context -> setEnabled(true)));
       root.then(literal("disable").executes(context -> setEnabled(false)));
       root.then(literal("status").executes(context -> showStatus()));
+      root.then(literal("refresh").executes(context -> refresh()));
       root.then(literal("list").executes(context -> listRules()));
       root.then(literal("clear").executes(context -> clearRules()));
 
@@ -54,7 +55,7 @@ public final class ContextProfileCommand extends Command {
                      .executes(this::removeRule))))));
 
       root.executes(context -> {
-         this.print("Context profiles: enable, disable, status, list, add <server> <dimension> <game_mode> <category> <preset>, remove <server> <dimension> <game_mode> <category>, clear.");
+         this.print("Context profiles: enable, disable, status, refresh, list, add <server> <dimension> <game_mode> <category> <preset>, remove <server> <dimension> <game_mode> <category>, clear.");
          return 1;
       });
    }
@@ -73,9 +74,22 @@ public final class ContextProfileCommand extends Command {
 
    private int showStatus() {
       ContextProfileRegistry profiles = registry();
+      String failedContext = profiles.getFailedContextDescription();
       this.print("Context profiles: " + (profiles.isEnabled() ? "enabled" : "disabled")
          + "\nCurrent context: " + profiles.getCurrentContextDescription()
-         + "\nRules: " + profiles.getRules().size());
+         + "\nRules: " + profiles.getRules().size()
+         + (failedContext == null
+            ? ""
+            : "\nLast preset application failed for: " + failedContext + ". Fix the preset and run ;contextprofile refresh."));
+      return 1;
+   }
+
+   private int refresh() {
+      if (!registry().retryCurrentContext()) {
+         this.print("Context profiles are disabled. Enable them before requesting a refresh.");
+         return 0;
+      }
+      this.print("Context profile refresh requested. Rules will retry on the next player tick.");
       return 1;
    }
 

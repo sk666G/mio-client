@@ -49,6 +49,7 @@ public final class ContextProfileRegistry implements ClientAccess, JsonConfigura
    private volatile boolean enabled;
    private boolean dirty = true;
    private String lastAppliedContext;
+   private final ContextProfileApplyFailure applyFailure = new ContextProfileApplyFailure();
 
    public ContextProfileRegistry() {
       ClientAccess.eventBus.subscribe(this);
@@ -79,7 +80,24 @@ public final class ContextProfileRegistry implements ClientAccess, JsonConfigura
          }
       }
       this.lastAppliedContext = null;
+      this.applyFailure.clear();
       this.dirty = true;
+   }
+
+   /** Requests one retry for the current context after a preset has been repaired. */
+   public synchronized boolean retryCurrentContext() {
+      if (!this.enabled) {
+         return false;
+      }
+      this.applyFailure.clear();
+      this.lastAppliedContext = null;
+      this.dirty = true;
+      return true;
+   }
+
+   public synchronized String getFailedContextDescription() {
+      String failedContext = this.applyFailure.getFailedContext();
+      return failedContext == null ? null : failedContext.replace("|", " / ");
    }
 
    public synchronized List<Rule> getRules() {
@@ -99,6 +117,7 @@ public final class ContextProfileRegistry implements ClientAccess, JsonConfigura
          }
          this.rules.add(rule);
       }
+      this.applyFailure.clear();
       this.dirty = true;
    }
 
@@ -111,12 +130,14 @@ public final class ContextProfileRegistry implements ClientAccess, JsonConfigura
          return false;
       }
       this.rules.remove(index);
+      this.applyFailure.clear();
       this.dirty = true;
       return true;
    }
 
    public synchronized void clearRules() {
       this.rules.clear();
+      this.applyFailure.clear();
       this.dirty = true;
    }
 
@@ -157,6 +178,7 @@ public final class ContextProfileRegistry implements ClientAccess, JsonConfigura
       this.enabled = false;
       this.dirty = true;
       this.lastAppliedContext = null;
+      this.applyFailure.clear();
       this.baseline.clear();
       this.modifiedCategories.clear();
 
@@ -231,6 +253,7 @@ public final class ContextProfileRegistry implements ClientAccess, JsonConfigura
             event.cancel();
             this.dirty = true;
             this.lastAppliedContext = null;
+         this.applyFailure.clear();
             ClientAccess.logger.error(
                "Cancelled server connection because the active context profile baseline could not be restored"
             );
@@ -257,6 +280,7 @@ public final class ContextProfileRegistry implements ClientAccess, JsonConfigura
             this.baseline.clear();
          }
          this.lastAppliedContext = null;
+         this.applyFailure.clear();
          this.dirty = true;
       }
    }
@@ -272,6 +296,7 @@ public final class ContextProfileRegistry implements ClientAccess, JsonConfigura
             ClientAccess.logger.error("Context profile baseline remains pending after disconnect");
          }
          this.lastAppliedContext = null;
+         this.applyFailure.clear();
          this.dirty = true;
       }
    }
@@ -284,6 +309,7 @@ public final class ContextProfileRegistry implements ClientAccess, JsonConfigura
             if (restored) {
                this.baseline.clear();
                this.lastAppliedContext = null;
+               this.applyFailure.clear();
             }
             return;
          }
@@ -310,6 +336,10 @@ public final class ContextProfileRegistry implements ClientAccess, JsonConfigura
 
          if (!this.restoreActiveProfile()) {
             this.dirty = true;
+            return;
+         }
+         if (this.applyFailure.shouldSkip(contextKey)) {
+            this.dirty = false;
             return;
          }
          List<Rule> matching = selectMatchingRules(this.rules, server, dimension, gameMode);
@@ -346,7 +376,8 @@ public final class ContextProfileRegistry implements ClientAccess, JsonConfigura
                   rule.presetName(), rule.category().getName(), failure
                );
                boolean restored = this.restoreActiveProfile();
-               this.lastAppliedContext = restored ? contextKey : null;
+               this.lastAppliedContext = null;
+               this.applyFailure.markFailed(contextKey);
                this.dirty = !restored;
                return;
             }
@@ -365,6 +396,7 @@ public final class ContextProfileRegistry implements ClientAccess, JsonConfigura
          }
 
          this.lastAppliedContext = contextKey;
+         this.applyFailure.clear();
          this.dirty = false;
       }
    }
