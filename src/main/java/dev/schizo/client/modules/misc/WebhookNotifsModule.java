@@ -319,16 +319,21 @@ public class WebhookNotifsModule extends Module {
       manager.sendContent(payload).whenComplete((ignored, failure) -> {
          synchronized (this.pendingMessages) {
             if (failure == null) {
-               boolean matchedPrefix = true;
-               for (String expected : batchMessages) {
-                  if (this.pendingMessages.isEmpty() || !this.pendingMessages.get(0).equals(expected)) {
-                     matchedPrefix = false;
-                     break;
-                  }
-                  this.pendingMessages.remove(0);
-                  this.pendingCharacters -= expected.length();
-               }
+               boolean matchedPrefix = this.pendingMessages.size() >= batchMessages.size();
                if (matchedPrefix) {
+                  for (int index = 0; index < batchMessages.size(); index++) {
+                     if (!this.pendingMessages.get(index).equals(batchMessages.get(index))) {
+                        matchedPrefix = false;
+                        break;
+                     }
+                  }
+               }
+
+               if (matchedPrefix) {
+                  for (String expected : batchMessages) {
+                     this.pendingMessages.remove(0);
+                     this.pendingCharacters -= expected.length();
+                  }
                   this.consecutiveDeliveryFailures = 0;
                   this.recordDeliveryLocked(
                      NotificationDeliveryHistory.Status.DELIVERED, batchMessages.size(), "Delivered"
@@ -357,7 +362,7 @@ public class WebhookNotifsModule extends Module {
                   this.consecutiveDeliveryFailures);
                if (this.consecutiveDeliveryFailures >= 5) {
                   this.deliveryPaused = true;
-                  ClientAccess.logger.error("Webhook delivery paused after repeated failures; toggle the module to retry");
+                  ClientAccess.logger.error("Webhook delivery paused after repeated failures; use webhook retry to resume");
                }
             }
             this.batchInFlight = false;
