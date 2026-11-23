@@ -34,6 +34,7 @@ public final class ConfigurationBackupManager {
 
    private final Path root;
    private final Path backupDirectory;
+   private long lastTimestampMillis;
 
    public ConfigurationBackupManager(Path root) {
       this.root = root.toAbsolutePath().normalize();
@@ -69,7 +70,7 @@ public final class ConfigurationBackupManager {
       }
 
       this.ensureBackupDirectory();
-      long timestamp = System.currentTimeMillis();
+      long timestamp = this.nextTimestampMillis(configName);
       String fileName = configName + "." + String.format(Locale.ROOT, "%013d", timestamp)
          + "-" + UUID.randomUUID().toString().substring(0, 8) + ".bak";
       Path target = this.resolveBackup(configName, fileName);
@@ -96,7 +97,7 @@ public final class ConfigurationBackupManager {
       }
 
       this.ensureBackupDirectory();
-      long timestamp = System.currentTimeMillis();
+      long timestamp = this.nextTimestampMillis(configName);
       String fileName = configName + "." + String.format(Locale.ROOT, "%013d", timestamp)
          + "-" + UUID.randomUUID().toString().substring(0, 8) + ".bak";
       Path target = this.resolveBackup(configName, fileName);
@@ -261,12 +262,36 @@ public final class ConfigurationBackupManager {
    }
 
    private BackupRecord toRecord(Path backup) throws IOException {
-      FileTime modified = Files.getLastModifiedTime(backup, LinkOption.NOFOLLOW_LINKS);
-      return new BackupRecord(
-         backup.getFileName().toString(),
-         modified.toMillis(),
-         Files.size(backup)
+      String fileName = backup.getFileName().toString();
+      long timestamp = -1L;
+      int separator = fileName.indexOf('.', fileName.indexOf('.') + 1);
+      if (separator >= 0) {
+         int dash = fileName.indexOf('-', separator + 1);
+         if (dash > separator + 1) {
+            try {
+               timestamp = Long.parseLong(fileName.substring(separator + 1, dash));
+            } catch (NumberFormatException ignoredInvalidTimestamp) {
+               timestamp = -1L;
+            }
+         }
+      }
+      if (timestamp < 0L) {
+         FileTime modified = Files.getLastModifiedTime(backup, LinkOption.NOFOLLOW_LINKS);
+         timestamp = modified.toMillis();
+      }
+      return new BackupRecord(fileName, timestamp, Files.size(backup));
+   }
+
+   private long nextTimestampMillis(String configName) throws IOException {
+      long newestExisting = 0L;
+      for (BackupRecord backup : this.listBackups(configName)) {
+         newestExisting = Math.max(newestExisting, backup.createdAtMillis());
+      }
+      this.lastTimestampMillis = Math.max(
+         System.currentTimeMillis(),
+         Math.max(this.lastTimestampMillis + 1L, newestExisting + 1L)
       );
+      return this.lastTimestampMillis;
    }
 
    private void pruneBackups(String configName) throws IOException {
