@@ -17,6 +17,7 @@ import dev.schizo.client.render.MeshDrawContext;
 import dev.schizo.client.render.ResizableHudWidgetRenderer;
 import dev.schizo.client.render.VertexGeometry;
 import dev.schizo.client.modules.HudWidgetModule;
+import dev.schizo.client.settings.BooleanSetting;
 import dev.schizo.client.settings.NumberSetting;
 import dev.schizo.client.settings.Setting;
 import dev.schizo.client.utils.FrameTiming;
@@ -33,6 +34,8 @@ public class FrameTimeGraphModule extends HudWidgetModule {
    private final Setting<Float> ceilingSetting;
    private final Setting<Integer> heightSetting;
    private final Setting<Integer> widthSetting;
+   private final Setting<Integer> targetFpsSetting;
+   private final Setting<Boolean> averageSetting;
    private float[] frameTimeSamples;
    private int sampleCount;
    private int nextSampleIndex;
@@ -92,6 +95,26 @@ public class FrameTimeGraphModule extends HudWidgetModule {
          buffer, poses.last(), 0.0F, sixtyFpsY, 0.0F,
          this.widthSetting.getValue() - 1.0F, sixtyFpsY, 0.0F, 1.0F, guideColor
       );
+
+      int targetFps = this.targetFpsSetting.getValue();
+      if (targetFps != 60) {
+         float targetFrameTime = 1000.0F / targetFps;
+         float targetY = this.getSampleY(targetFrameTime);
+         int targetColor = (graphColor & 0x00FFFFFF) | (140 << 24);
+         VertexGeometry.appendLine(
+            buffer, poses.last(), 0.0F, targetY, 0.0F,
+            this.widthSetting.getValue() - 1.0F, targetY, 0.0F, 1.0F, targetColor
+         );
+      }
+
+      if (this.averageSetting.getValue()) {
+         float averageY = this.getSampleY(frameTiming.getAverageFrameTimeMillis());
+         int averageColor = (graphColor & 0x00FFFFFF) | (210 << 24);
+         VertexGeometry.appendLine(
+            buffer, poses.last(), 0.0F, averageY, 0.0F,
+            this.widthSetting.getValue() - 1.0F, averageY, 0.0F, 1.0F, averageColor
+         );
+      }
 
       for (int sampleIndex = 1; sampleIndex < this.sampleCount; sampleIndex++) {
          float previousY = this.getSampleY(this.getSample(sampleIndex - 1));
@@ -171,6 +194,13 @@ public class FrameTimeGraphModule extends HudWidgetModule {
          50,
          200
       ));
+      this.targetFpsSetting = this.add(new NumberSetting<>(
+         "TargetFPS",
+         60,
+         30,
+         240
+      ));
+      this.averageSetting = this.add(new BooleanSetting("AverageLine", false));
       this.frameTimeSamples = new float[this.widthSetting.getValue()];
       this.setRenderer(new ResizableHudWidgetRenderer(this));
    }

@@ -40,7 +40,7 @@ Webhook delivery uses asynchronous Java HTTP requests. Telegram credentials are 
 
 ### Performance instrumentation
 
-`FrameTiming` uses fixed primitive arrays for FPS buckets and bounded rolling frame samples. Its one-percent-low calculation sorts reusable scratch storage on a throttled read; it is not per-frame allocation. `EventProfiler` is off by default, times event callbacks only when enabled, and separately records direct HUD widget rendering. Callback/module totals can be inclusive when callbacks post nested events; they must not be summed as frame time.
+`FrameTiming` uses fixed primitive arrays for FPS buckets and bounded rolling frame samples. Rolling average FPS and population frame-time variance use maintained sums; 1% and 0.1% percentile calculations sort reusable scratch storage on a throttled read. The graph has fixed 60 FPS and configurable target/average guides. `EventProfiler` is off by default, times event callbacks only when enabled, and separately records direct HUD widget rendering. Callback/module totals can be inclusive when callbacks post nested events; they must not be summed as frame time.
 
 ## Review findings and disposition
 
