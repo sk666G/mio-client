@@ -203,17 +203,17 @@ public final class PresetCommand extends Command {
       PresetUndoAction undoAction = PresetUndoAction.beforeSave(presetManager, presetName);
 
       try {
-
          presetManager.savePreset(presetName);
          ClientContext.configurationManager.getPresetUndoState().push(undoAction);
-      } catch (IOException saveFailure) {
-         saveFailure.printStackTrace();
+      } catch (IOException | IllegalArgumentException saveFailure) {
+         ClientAccess.logger.warn("Could not save preset {}", presetName, saveFailure);
+         ChatUtils.printChat(Component.literal("Failed to save preset " + presetName + "."), ChatUtils.DEFAULT_SIGNATURE,
+            ChatUtils.MessagePriority.MID);
+         return 0;
       }
 
-      String savedMessage = "Preset " + String.valueOf(presetName) + " has been saved.";
-      MutableComponent savedMessageComponent = Component.literal(savedMessage);
-
-      ChatUtils.printChat(savedMessageComponent, ChatUtils.createSignature(-1));
+      ChatUtils.printChat(Component.literal("Preset " + presetName + " has been saved."),
+         ChatUtils.createSignature(-1));
       return 1;
    }
 
@@ -225,14 +225,22 @@ public final class PresetCommand extends Command {
       String presetName = preset.getName();
 
       PresetUndoAction undoAction = PresetUndoAction.beforeDelete(presetManager, presetName);
-      if (presetManager.deletePreset(presetName)) {
+      try {
+         if (!presetManager.deletePreset(presetName)) {
+            ChatUtils.printChat(Component.literal("Preset was not present in the registry."), ChatUtils.DEFAULT_SIGNATURE,
+               ChatUtils.MessagePriority.MID);
+            return 0;
+         }
          ClientContext.configurationManager.getPresetUndoState().push(undoAction);
+      } catch (IOException | IllegalArgumentException deleteFailure) {
+         ClientAccess.logger.warn("Could not delete preset {}", presetName, deleteFailure);
+         ChatUtils.printChat(Component.literal("Failed to delete preset " + presetName + "."), ChatUtils.DEFAULT_SIGNATURE,
+            ChatUtils.MessagePriority.MID);
+         return 0;
       }
 
-      String deletedMessage = "Preset " + String.valueOf(preset.getName()) + " has been deleted.";
-      MutableComponent deletedMessageComponent = Component.literal(deletedMessage);
-
-      ChatUtils.printChat(deletedMessageComponent, ChatUtils.createSignature(-1));
+      ChatUtils.printChat(Component.literal("Preset " + presetName + " has been deleted."),
+         ChatUtils.createSignature(-1));
       return 1;
    }
 
@@ -246,16 +254,21 @@ public final class PresetCommand extends Command {
       String newName = (String)(context.getArgument("name", String.class));
 
       PresetUndoAction undoAction = PresetUndoAction.beforeRename(presetManager, oldName, newName);
-      if (presetManager.renamePreset(oldName, newName)) {
+      try {
+         if (!presetManager.renamePreset(oldName, newName)) {
+            ChatUtils.printChat(Component.literal("Preset name is unchanged."), ChatUtils.DEFAULT_SIGNATURE);
+            return 0;
+         }
          ClientContext.configurationManager.getPresetUndoState().push(undoAction);
+      } catch (IOException | IllegalArgumentException renameFailure) {
+         ClientAccess.logger.warn("Could not rename preset {} to {}", oldName, newName, renameFailure);
+         ChatUtils.printChat(Component.literal("Failed to rename preset " + oldName + "."),
+            ChatUtils.DEFAULT_SIGNATURE, ChatUtils.MessagePriority.MID);
+         return 0;
       }
 
-      String reportedOldName = preset.getName();
-
-      String renamedMessage = "The name of " + String.valueOf(reportedOldName) + " has been set to " + String.valueOf((String)(context.getArgument("name", String.class))) + ".";
-      MutableComponent renamedMessageComponent = Component.literal(renamedMessage);
-
-      ChatUtils.printChat(renamedMessageComponent, ChatUtils.createSignature(-1));
+      ChatUtils.printChat(Component.literal("Renamed preset " + oldName + " to " + newName + "."),
+         ChatUtils.createSignature(-1));
       return 1;
    }
 
@@ -270,10 +283,12 @@ public final class PresetCommand extends Command {
       presetManager.loadPresets();
 
       String presetName = preset.getName();
-
-      if (presetManager.applyPreset(presetName)) {
-         configurationManager.getPresetUndoState().push(undoAction);
+      if (presetManager.getPreset(presetName) == null || !presetManager.applyPreset(presetName)) {
+         ChatUtils.printChat(Component.literal("Failed to load preset " + presetName + "."),
+            ChatUtils.DEFAULT_SIGNATURE, ChatUtils.MessagePriority.MID);
+         return 0;
       }
+      configurationManager.getPresetUndoState().push(undoAction);
 
       String loadedMessage = "Preset " + String.valueOf(preset.getName()) + " has been loaded.";
       MutableComponent loadedMessageComponent = Component.literal(loadedMessage);
@@ -294,10 +309,14 @@ public final class PresetCommand extends Command {
       ModuleCategory moduleCategory = (ModuleCategory)(context.getArgument("module_category", ModuleCategory.class));
 
       presetManager.loadPresets();
+      preset = presetManager.getPreset(preset.getName());
+      if (preset == null) {
+         ChatUtils.printChat(Component.literal("Preset is no longer available."),
+            ChatUtils.DEFAULT_SIGNATURE, ChatUtils.MessagePriority.MID);
+         return 0;
+      }
       PresetUndoAction undoAction = PresetUndoAction.beforeLoad(preset.getName());
-      owner.loadMatchingModules(preset, (Predicate<Module>)candidate -> {
-         return candidate.getCategory() == moduleCategory;
-      });
+      owner.loadMatchingModules(preset, candidate -> candidate.getCategory() == moduleCategory);
       configurationManager.getPresetUndoState().push(undoAction);
 
       String presetName = preset.getName();
@@ -319,6 +338,12 @@ public final class PresetCommand extends Command {
       Set moduleClasses = (Set)moduleClassesStream.collect(Collectors.toSet());
 
       presetManager.loadPresets();
+      preset = presetManager.getPreset(preset.getName());
+      if (preset == null) {
+         ChatUtils.printChat(Component.literal("Preset is no longer available."),
+            ChatUtils.DEFAULT_SIGNATURE, ChatUtils.MessagePriority.MID);
+         return 0;
+      }
       Predicate matchesSelectedModule = candidate -> moduleClasses.contains(candidate.getClass());
       PresetUndoAction undoAction = PresetUndoAction.beforeLoad(preset.getName());
       owner.loadMatchingModules(preset, matchesSelectedModule);

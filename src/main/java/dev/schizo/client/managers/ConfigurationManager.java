@@ -72,7 +72,8 @@ public final class ConfigurationManager implements ClientAccess {
       try {
 
          LegacySocialMigration.migrate();
-      } catch (Throwable ignoredBootstrapFailure) {
+      } catch (Exception migrationFailure) {
+         ClientAccess.logger.error("Could not migrate legacy social data", migrationFailure);
       }
 
       Iterator<?> configurableIterator = this.configurables.iterator();
@@ -88,8 +89,8 @@ public final class ConfigurationManager implements ClientAccess {
                JsonElement configJson = JsonParser.parseString(configText);
                configurable.fromJson(configJson.getAsJsonObject());
             }
-         } catch (Throwable loadFailure) {
-            loadFailure.printStackTrace();
+         } catch (Exception loadFailure) {
+            ClientAccess.logger.error("Could not load configuration {}", configurable.getConfigName(), loadFailure);
          }
       }
 
@@ -173,9 +174,9 @@ public final class ConfigurationManager implements ClientAccess {
                Gson gsonSnapshot = ClientAccess.gson;
                JsonElement serialized = configurable.toJson();
                JsonObject object = serialized.getAsJsonObject();
-               FileUtils.writeUtf8(configPath, gsonSnapshot.toJson(object));
-            } catch (Throwable saveFailure) {
-               saveFailure.printStackTrace();
+               FileUtils.writeUtf8Atomically(configPath, gsonSnapshot.toJson(object));
+            } catch (Exception saveFailure) {
+               ClientAccess.logger.error("Could not save configuration {}", configurable.getConfigName(), saveFailure);
             }
          }
       }

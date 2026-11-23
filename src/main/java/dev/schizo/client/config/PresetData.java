@@ -18,19 +18,22 @@ import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.Objects;
 
 public record PresetData(String name, JsonObject contents) implements ClientAccess, NamedEntry {
+   public PresetData {
+      name = PresetNameValidator.normalize(name);
+      contents = Objects.requireNonNull(contents, "Preset contents are required");
+   }
+
    @Override
    public String getName() {
       return this.name;
    }
 
    public void saveToDirectory(Path directory) throws IOException {
-      String presetName = this.name;
-      Path targetPath = directory.resolve(presetName + ".json");
+      Path targetPath = PresetNameValidator.resolve(directory, this.name);
       Gson gson = ClientAccess.gson;
-      JsonObject contents = this.contents();
-      String serializedContents = gson.toJson(contents);
-      FileUtils.writeUtf8(targetPath, serializedContents);
+      FileUtils.writeUtf8Atomically(targetPath, gson.toJson(this.contents));
    }
 }

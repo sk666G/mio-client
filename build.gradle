@@ -49,6 +49,7 @@ def viaFabricPlusModules = nestedLibraries(configurations.viaDistribution) {
 }
 
 dependencies {
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.11.4'
     minecraft "com.mojang:minecraft:${minecraft_version}"
     mappings loom.officialMojangMappings()
     modImplementation "net.fabricmc:fabric-loader:${loader_version}"
@@ -107,6 +108,10 @@ processResources {
 java {
     toolchain { languageVersion = JavaLanguageVersion.of(21) }
     withSourcesJar()
+}
+
+tasks.withType(Test).configureEach {
+    useJUnitPlatform()
 }
 
 tasks.withType(JavaCompile).configureEach {

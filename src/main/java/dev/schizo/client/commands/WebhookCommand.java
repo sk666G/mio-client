@@ -44,7 +44,7 @@ public final class WebhookCommand extends Command {
             try {
                ClientContext.webhookManager.setTelegram((String)context.getArgument("botToken", String.class),
                   (String)context.getArgument("chatId", String.class));
-               reply("Telegram notifications configured. Start the bot or add it to the destination chat first.", -1035362);
+               reply("Telegram notifications configured for this session. The bot token is not saved; re-enter it after restart.", -1035362);
             } catch (IllegalArgumentException invalid) {
                reply("Invalid Telegram credentials. Use webhook telegram <bot-token> <chat-id>.", -1035362);
             }

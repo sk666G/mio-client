@@ -18,6 +18,7 @@ import dev.schizo.client.ClientAccess;
 import dev.schizo.client.SchizoClient;
 import dev.schizo.client.settings.JsonConfigurable;
 import java.net.URI;
+import java.io.IOException;
 import java.net.URLDecoder;
 import java.net.http.HttpRequest;
 import java.net.http.HttpRequest.BodyPublishers;
@@ -25,29 +26,49 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.Objects;
 import java.util.regex.Pattern;
 
 public final class WebhookManager implements JsonConfigurable {
-   private static final Pattern TELEGRAM_PATH = Pattern.compile("/bot[0-9]+:[A-Za-z0-9_-]+/sendMessage", Pattern.CASE_INSENSITIVE);
+   private static final Pattern TELEGRAM_PATH = Pattern.compile("/bot([0-9]+:[A-Za-z0-9_-]+)/sendMessage", Pattern.CASE_INSENSITIVE);
    private static final Pattern BOT_TOKEN = Pattern.compile("[0-9]+:[A-Za-z0-9_-]+");
    private static final Pattern CHAT_ID = Pattern.compile("-?[0-9]+|@[A-Za-z0-9_]+");
    private static final Pattern ANSI_COLOR = Pattern.compile("\\x1B\\[[0-9;]*m");
-   private volatile Destination destination = new Destination(null, "");
+   private volatile Destination destination = new Destination(null, "", null, false);
+   private final RequestSender requestSender;
 
-   private record Destination(URI uri, String chatId) {
-      boolean telegram() {
-         return uri != null && "api.telegram.org".equalsIgnoreCase(uri.getHost());
-      }
+   @FunctionalInterface
+   interface RequestSender {
+      CompletableFuture<java.net.http.HttpResponse<String>> send(HttpRequest request);
+   }
+
+   private record Destination(URI uri, String chatId, String telegramToken, boolean telegram) {
+   }
+
+   public WebhookManager() {
+      this(HttpRequests::sendAsync);
+   }
+
+   WebhookManager(RequestSender requestSender) {
+      this.requestSender = Objects.requireNonNull(requestSender);
    }
 
    @Override
    public void fromJson(JsonElement json) {
       JsonObject object = json.getAsJsonObject();
-      Destination target = parseUrl(object.has("url") && !object.get("url").isJsonNull() ? object.get("url").getAsString() : "");
-      if (target.telegram() && object.has("telegramChatId")) {
-         String chatId = object.get("telegramChatId").getAsString();
+      Destination target;
+      if (object.has("type") && "telegram".equalsIgnoreCase(object.get("type").getAsString())) {
+         String chatId = object.has("telegramChatId") ? object.get("telegramChatId").getAsString() : "";
          if (!chatId.isEmpty()) validateChatId(chatId);
-         target = new Destination(target.uri(), chatId);
+         target = new Destination(null, chatId, null, true);
+      } else {
+         target = parseUrl(object.has("url") && !object.get("url").isJsonNull() ? object.get("url").getAsString() : "");
+         if (target.telegram() && object.has("telegramChatId")) {
+            String chatId = object.get("telegramChatId").getAsString();
+            if (!chatId.isEmpty()) validateChatId(chatId);
+            target = new Destination(null, chatId, target.telegramToken(), true);
+         }
       }
       this.destination = target;
    }
@@ -56,19 +77,19 @@ public final class WebhookManager implements JsonConfigurable {
    public JsonElement toJson() {
       Destination target = this.destination;
       JsonObject json = new JsonObject();
-      json.addProperty("url", target.uri() == null ? "" : target.uri().toString());
-      if (target.telegram()) json.addProperty("telegramChatId", target.chatId());
+      json.addProperty("url", target.telegram() || target.uri() == null ? "" : target.uri().toString());
+      if (target.telegram()) {
+         json.addProperty("type", "telegram");
+         json.addProperty("telegramChatId", target.chatId());
+      }
       return json;
-   }
-
-   @Override
-   public String getConfigName() {
-      return "webhook.json";
    }
 
    public boolean isConfigured() {
       Destination target = this.destination;
-      return target.uri() != null && (!target.telegram() || !target.chatId().isBlank());
+      return target.telegram()
+         ? target.telegramToken() != null && !target.chatId().isBlank()
+         : target.uri() != null;
    }
 
    public boolean isTelegram() {
@@ -85,13 +106,16 @@ public final class WebhookManager implements JsonConfigurable {
          throw new IllegalArgumentException("Chat ID is not supported for current webhook");
       }
       validateChatId(chatId);
-      this.destination = new Destination(target.uri(), chatId);
+      this.destination = new Destination(null, chatId, target.telegramToken(), true);
    }
 
    public String getDestinationDescription() {
       Destination target = this.destination;
+      if (target.telegram()) {
+         if (target.telegramToken() == null) return "Telegram (token must be re-entered after restart)";
+         return target.chatId().isBlank() ? "Telegram (chat ID missing)" : "Telegram (configured for this session)";
+      }
       if (target.uri() == null) return "No notification destination configured";
-      if (target.telegram()) return target.chatId().isBlank() ? "Telegram (chat ID missing)" : "Telegram (configured)";
       return "Webhook (" + target.uri().getHost() + ")";
    }
 
@@ -100,7 +124,7 @@ public final class WebhookManager implements JsonConfigurable {
          throw new IllegalArgumentException("Invalid Telegram bot token");
       }
       validateChatId(chatId);
-      this.destination = new Destination(URI.create("https://api.telegram.org/bot" + botToken + "/sendMessage"), chatId);
+      this.destination = new Destination(null, chatId, botToken, true);
    }
 
    public void setUrl(String url) {
@@ -108,17 +132,20 @@ public final class WebhookManager implements JsonConfigurable {
    }
 
    private static Destination parseUrl(String url) {
-      if (url == null || url.isBlank()) return new Destination(null, "");
+      if (url == null || url.isBlank()) return new Destination(null, "", null, false);
       try {
          URI uri = URI.create(url.trim());
          if ((!"https".equalsIgnoreCase(uri.getScheme()) && !"http".equalsIgnoreCase(uri.getScheme()))
             || uri.getHost() == null || uri.getUserInfo() != null || uri.getFragment() != null) {
             throw new IllegalArgumentException();
          }
-         String chatId = "";
          if ("api.telegram.org".equalsIgnoreCase(uri.getHost())) {
-            if (!"https".equalsIgnoreCase(uri.getScheme()) || uri.getPort() != -1 && uri.getPort() != 443
-               || !TELEGRAM_PATH.matcher(uri.getPath()).matches()) throw new IllegalArgumentException();
+            if (!"https".equalsIgnoreCase(uri.getScheme()) || uri.getPort() != -1 && uri.getPort() != 443) {
+               throw new IllegalArgumentException();
+            }
+            java.util.regex.Matcher path = TELEGRAM_PATH.matcher(uri.getPath());
+            if (!path.matches()) throw new IllegalArgumentException();
+            String chatId = "";
             String query = uri.getRawQuery();
             if (query != null) {
                for (String parameter : query.split("&")) {
@@ -130,18 +157,17 @@ public final class WebhookManager implements JsonConfigurable {
                   }
                }
             }
-            uri = URI.create("https://api.telegram.org" + uri.getPath());
+            return new Destination(null, chatId, path.group(1), true);
          }
-         return new Destination(uri, chatId);
+         return new Destination(uri, "", null, false);
       } catch (IllegalArgumentException invalid) {
-
          throw new IllegalArgumentException("Invalid webhook URL");
       }
    }
 
    public String getUrl() {
-      URI uri = this.destination.uri();
-      return uri == null ? "" : uri.toString();
+      Destination target = this.destination;
+      return target.telegram() || target.uri() == null ? "" : target.uri().toString();
    }
 
    private static void validateChatId(String chatId) {
@@ -152,7 +178,8 @@ public final class WebhookManager implements JsonConfigurable {
 
    List<HttpRequest> createRequests(String content) {
       Destination target = this.destination;
-      if (target.uri() == null || target.telegram() && target.chatId().isBlank() || content == null || content.isEmpty()) return List.of();
+      if ((target.telegram() && (target.telegramToken() == null || target.chatId().isBlank()))
+         || (!target.telegram() && target.uri() == null) || content == null || content.isEmpty()) return List.of();
       String text = target.telegram() ? ANSI_COLOR.matcher(content).replaceAll("") : content;
       if (text.isEmpty()) return List.of();
       int limit = target.telegram() ? 4096 : 2000;
@@ -167,7 +194,10 @@ public final class WebhookManager implements JsonConfigurable {
          } else {
             payload.addProperty("content", text.substring(start, end));
          }
-         requests.add(HttpRequest.newBuilder(target.uri())
+         URI destinationUri = target.telegram()
+            ? URI.create("https://api.telegram.org/bot" + target.telegramToken() + "/sendMessage")
+            : target.uri();
+         requests.add(HttpRequest.newBuilder(destinationUri)
             .timeout(java.time.Duration.ofSeconds(30))
             .header("User-Agent", SchizoClient.USER_AGENT)
             .header("Content-Type", "application/json; charset=UTF-8")
@@ -177,27 +207,54 @@ public final class WebhookManager implements JsonConfigurable {
       return List.copyOf(requests);
    }
 
-   public void sendContent(String content) {
+   public CompletableFuture<Void> sendContent(String content) {
       List<HttpRequest> requests = this.createRequests(content);
       CompletableFuture<Void> delivery = CompletableFuture.completedFuture(null);
       for (HttpRequest request : requests) {
-         delivery = delivery.thenCompose(ignored -> HttpRequests.sendAsync(request).thenAccept(response -> {
-            if (response.statusCode() < 200 || response.statusCode() >= 300) {
-               ClientAccess.logger.warn("Webhook notification rejected (HTTP {})", response.statusCode());
-            } else if ("api.telegram.org".equalsIgnoreCase(request.uri().getHost())) {
-               try {
-                  JsonObject result = JsonParser.parseString(response.body()).getAsJsonObject();
-                  if (!result.has("ok") || !result.get("ok").getAsBoolean()) {
-                     ClientAccess.logger.warn("Telegram rejected the notification");
-                  }
-               } catch (RuntimeException invalidResponse) {
-                  ClientAccess.logger.warn("Telegram returned an invalid notification response");
-               }
-            }
-         })).exceptionally(failure -> {
-            ClientAccess.logger.warn("Webhook notification failed ({})", failure.getClass().getSimpleName());
-            return null;
-         });
+         delivery = delivery.thenCompose(ignored -> this.sendWithRetry(request, 0));
       }
+      return delivery.exceptionallyCompose(failure -> {
+         Throwable cause = failure;
+         while (cause.getCause() != null
+            && (cause instanceof java.util.concurrent.CompletionException
+               || cause instanceof java.util.concurrent.ExecutionException)) {
+            cause = cause.getCause();
+         }
+         ClientAccess.logger.warn("Webhook notification failed ({})", cause.getClass().getSimpleName());
+         return CompletableFuture.failedFuture(cause);
+      });
    }
+
+   private CompletableFuture<Void> sendWithRetry(HttpRequest request, int attempt) {
+      CompletableFuture<java.net.http.HttpResponse<String>> responseFuture;
+      try {
+         responseFuture = this.requestSender.send(request);
+      } catch (RuntimeException failure) {
+         responseFuture = CompletableFuture.failedFuture(failure);
+      }
+      CompletableFuture<Void> checked = responseFuture.thenCompose(response -> {
+         if (response.statusCode() < 200 || response.statusCode() >= 300) {
+            return CompletableFuture.failedFuture(new IOException("HTTP " + response.statusCode()));
+         }
+         if ("api.telegram.org".equalsIgnoreCase(request.uri().getHost())) {
+            try {
+               JsonObject result = JsonParser.parseString(response.body()).getAsJsonObject();
+               if (!result.has("ok") || !result.get("ok").getAsBoolean()) {
+                  return CompletableFuture.failedFuture(new IOException("Telegram rejected the notification"));
+               }
+            } catch (RuntimeException invalidResponse) {
+               return CompletableFuture.failedFuture(new IOException("Invalid Telegram response", invalidResponse));
+            }
+         }
+         return CompletableFuture.completedFuture(null);
+      });
+      return checked.exceptionallyCompose(failure -> {
+         if (attempt >= 2) return CompletableFuture.failedFuture(failure);
+         long delayMillis = attempt == 0 ? 250L : 750L;
+         return CompletableFuture.runAsync(() -> { },
+            CompletableFuture.delayedExecutor(delayMillis, TimeUnit.MILLISECONDS))
+            .thenCompose(ignored -> this.sendWithRetry(request, attempt + 1));
+      });
+   }
+
 }
