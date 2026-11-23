@@ -18,6 +18,7 @@ import dev.schizo.client.gui.components.ModuleComponent;
 import dev.schizo.client.render.TextUtils;
 import dev.schizo.client.modules.Module;
 import dev.schizo.client.modules.ModuleCategory;
+import dev.schizo.client.settings.Setting;
 
 import java.util.Comparator;
 import java.util.List;
@@ -58,13 +59,22 @@ public class ModuleCategoryPanel extends Panel implements ClientAccess {
       }
 
       if (child instanceof ModuleComponent moduleComponent && !searchBox.getValue().isEmpty()) {
-         for (String alias : moduleComponent.getModule()
-            .getAliases()) {
-            if (TextUtils.containsIgnoreCase(alias, TextUtils.normalizeKeyboardLayout(searchBox.getValue()))) {
+         String query = TextUtils.normalizeKeyboardLayout(searchBox.getValue());
+         Module module = moduleComponent.getModule();
+         for (String alias : module.getAliases()) {
+            if (TextUtils.containsIgnoreCase(alias, query)) {
                return true;
             }
          }
-
+         if (module.getCompatibilityAssessment().matchesSearch(query)) {
+            return true;
+         }
+         for (Setting<?> setting : module.getSettings()) {
+            if (TextUtils.containsIgnoreCase(setting.getName(), query)
+               || setting.getCompatibilityAssessment().matchesSearch(query)) {
+               return true;
+            }
+         }
          return false;
       } else {
          return true;

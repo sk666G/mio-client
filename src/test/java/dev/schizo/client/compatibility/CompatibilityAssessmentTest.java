@@ -36,6 +36,19 @@ class CompatibilityAssessmentTest {
    }
 
    @Test
+   void classificationAndWarningReasonsAreSearchable() {
+      CompatibilityAssessment assessment = CompatibilityAssessment.sourceReviewed(
+         CompatibilityClass.PACKET_AFFECTING,
+         "Rewrites movement packet state."
+      );
+
+      assertTrue(assessment.matchesSearch("packet_affecting"));
+      assertTrue(assessment.matchesSearch("rewrites movement"));
+      assertTrue(assessment.matchesSearch("source reviewed"));
+      assertFalse(assessment.matchesSearch("unrelated"));
+   }
+
+   @Test
    void assessmentRequiresAReason() {
       assertThrows(
          IllegalArgumentException.class,

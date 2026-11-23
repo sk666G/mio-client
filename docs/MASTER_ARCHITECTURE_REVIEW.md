@@ -78,7 +78,7 @@ Context Profiles now track a category before applying its preset, retaining roll
 
 ## Release-readiness follow-up — compatibility classification
 
-Modules and settings now have required classification, reason and evidence metadata. Unreviewed entries default to `UNVERIFIED`. The Settings module's persisted Conservative Multiplayer option blocks enabling packet-affecting, server-sensitive or unverified modules while a multiplayer world is active. The UI exposes module assessments on hover and risky setting explanations in setting tooltips. A source-level classification subset was added to nine interaction/movement modules; no server test is implied. A full searchable inventory and source review of all modules/settings remains outstanding.
+Modules and settings now have required classification, reason and evidence metadata. Unreviewed entries default to `UNVERIFIED`. The Settings module's persisted Conservative Multiplayer option blocks enabling packet-affecting, server-sensitive or unverified modules while a multiplayer world is active. The UI exposes module assessments on hover and risky setting explanations in setting tooltips. A source-level classification subset was added to nine interaction/movement modules; no server test is implied. ClickGUI search now matches assessment categories and explanations. A full classification inventory and source review of all modules/settings remains outstanding.
 
 
 ## Remapped JAR and Mixin binding review

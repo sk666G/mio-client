@@ -1,5 +1,6 @@
 package dev.schizo.client.compatibility;
 
+import java.util.Locale;
 import java.util.Objects;
 
 public record CompatibilityAssessment(
@@ -39,6 +40,14 @@ public record CompatibilityAssessment(
 
    public String summary() {
       return classification + " (" + evidence.label + "): " + explanation;
+   }
+
+   public boolean matchesSearch(String query) {
+      String term = Objects.requireNonNullElse(query, "").strip().toLowerCase(Locale.ROOT);
+      return term.isEmpty()
+         || this.classification.name().toLowerCase(Locale.ROOT).contains(term)
+         || this.evidence.label().toLowerCase(Locale.ROOT).contains(term)
+         || this.explanation.toLowerCase(Locale.ROOT).contains(term);
    }
 
    public enum Evidence {

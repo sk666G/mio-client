@@ -64,3 +64,5 @@ No public release or merge is part of this branch task.
 - [ ] Force Context Profile restore failure, verify the one-second retry and ensure recovery does not apply a new context before all pending categories restore.
 
 - [ ] Verify conservative policy decisions for all seven classifications and confirm disabled mode/singleplayer do not block module activation.
+
+- [ ] Confirm searching by classification, explanation and setting warning finds the owning module and that hover warning text is readable at supported UI scales.
