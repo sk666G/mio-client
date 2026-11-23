@@ -80,7 +80,11 @@ public final class HudLayoutStore {
       Path target = this.resolve(name);
       this.requireSafeTarget(target);
       this.validateLayout(layout);
-      FileUtils.writeUtf8Atomically(target, GSON.toJson(layout));
+      String serialized = GSON.toJson(layout);
+      if (serialized.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > MAX_LAYOUT_BYTES) {
+         throw new IOException("HUD layout is larger than the supported size limit");
+      }
+      FileUtils.writeUtf8Atomically(target, serialized);
    }
 
    public JsonObject load(String name) throws IOException {
