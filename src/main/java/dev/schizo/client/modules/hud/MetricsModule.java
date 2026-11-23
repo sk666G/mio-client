@@ -48,6 +48,7 @@ public class MetricsModule extends HudWidgetModule {
    private final Setting<Boolean> frameTimeSetting;
    private final Setting<Boolean> averageFrameTimeSetting;
    private final Setting<Boolean> onePercentLowSetting;
+   private final Setting<Boolean> hitchesSetting;
    private final Setting<Boolean> serverBrandSetting;
    private final Setting<Boolean> durabilitySetting;
    private final Setting<Boolean> shulkersSetting;
@@ -152,6 +153,12 @@ public class MetricsModule extends HudWidgetModule {
             ChatFormatting.WHITE, frameTiming.getOnePercentLowFramesPerSecond()
          ));
       }, this.onePercentLowSetting::getValue);
+      HudTextRow hitchesRow = new HudTextRow(() -> {
+         FrameTiming frameTiming = ClientContext.frameTiming;
+         return Component.literal("Hitches %s%d/s".formatted(
+            ChatFormatting.WHITE, frameTiming.getStuttersPerSecond()
+         ));
+      }, this.hitchesSetting::getValue);
       HudTextRow serverBrandRow = new HudTextRow(() -> {
 
          Object[] formatArguments = new Object[2];
@@ -196,7 +203,7 @@ public class MetricsModule extends HudWidgetModule {
          return Component.literal(text);
       }, this.shulkersSetting::getValue);
 
-      rowsForRegistration.addAll(List.of(speedRow, tpsRow, pingRow, fpsRow, frameTimeRow, averageFrameTimeRow, onePercentLowRow, serverBrandRow, durabilityRow, chestRow, shulkerRow));
+      rowsForRegistration.addAll(List.of(speedRow, tpsRow, pingRow, fpsRow, frameTimeRow, averageFrameTimeRow, onePercentLowRow, hitchesRow, serverBrandRow, durabilityRow, chestRow, shulkerRow));
    }
 
    @EventHandler
@@ -291,6 +298,7 @@ public class MetricsModule extends HudWidgetModule {
       this.frameTimeSetting = this.add(new BooleanSetting("FrameTime", false));
       this.averageFrameTimeSetting = this.add(new BooleanSetting("AverageFrameTime", false));
       this.onePercentLowSetting = this.add(new BooleanSetting("OnePercentLow", false));
+      this.hitchesSetting = this.add(new BooleanSetting("Hitches", false));
       this.serverBrandSetting = this.add(new BooleanSetting("ServerBrand", true));
       this.durabilitySetting = this.add(new BooleanSetting("Durability", false));
       this.shulkersSetting = this.add(new BooleanSetting("Shulkers", false));
