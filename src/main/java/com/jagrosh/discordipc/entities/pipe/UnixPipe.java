@@ -25,6 +25,8 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 
+import java.net.UnixDomainSocketAddress;
+import java.nio.channels.SocketChannel;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.HashMap;
@@ -34,11 +36,12 @@ import org.slf4j.LoggerFactory;
 
 public class UnixPipe extends Pipe {
    private static final Logger LOGGER = LoggerFactory.getLogger(UnixPipe.class);
-   private final JavaUnixSocketTransport socket;
+   private final SocketChannel socket;
+   private final Object writeLock = new Object();
 
    UnixPipe(IPCClient client, HashMap callbacks, File endpoint) throws IOException {
       super(client, callbacks);
-      this.socket = JavaUnixSocketTransport.connect(endpoint.toPath());
+      this.socket = SocketChannel.open(UnixDomainSocketAddress.of(endpoint.toPath()));
    }
 
    @Override
@@ -46,7 +49,8 @@ public class UnixPipe extends Pipe {
       try {
          if (this.status == PipeStatus.DISCONNECTED) throw new IOException("Disconnected!");
          if (this.status == PipeStatus.CLOSED) return new Packet(Packet.OpCode.CLOSE, null, this.ipcClient.getEncoding());
-         IpcFrameCodec.Frame frame = this.socket.read();
+         dev.schizo.client.integrations.discord.DiscordIpcFrameCodec.Frame frame =
+            dev.schizo.client.integrations.discord.DiscordIpcFrameCodec.read(this.socket);
          Packet.OpCode[] codes = Packet.OpCode.values();
          if (frame.opcode() < 0 || frame.opcode() >= codes.length) throw new IOException("Unknown IPC opcode: " + frame.opcode());
          return this.receive(codes[frame.opcode()], frame.body());
@@ -58,7 +62,9 @@ public class UnixPipe extends Pipe {
 
    @Override
    public void write(byte[] packet) throws IOException {
-      this.socket.write(packet);
+      synchronized (this.writeLock) {
+         dev.schizo.client.integrations.discord.DiscordIpcFrameCodec.writeFully(this.socket, packet);
+      }
    }
 
    @Override

@@ -6,9 +6,9 @@ Eighteen source files under `src/main/java/com/jagrosh/discordipc/` correspond b
 
 The corresponding files in this snapshot contain downstream changes carried by Open Zio and Schizo. Copyright and Apache-2.0 notices have been restored in those 18 files. The rebuild tool preserves both MIT and Apache-2.0 source headers. The checked upstream repository has no separate `NOTICE` file.
 
-## Open Zio-only DiscordIPC transport helpers
+## Schizo Discord IPC transport
 
-`src/main/java/com/jagrosh/discordipc/entities/pipe/IpcFrameCodec.java` and `JavaUnixSocketTransport.java` are additional files in the pinned Open Zio source snapshot and are not present in the public CDAGaming/DiscordIPC source tree checked for this review. Their authorship and licence terms have not been established from available source metadata. The Apache-2.0 license copy above is **not** asserted to cover these two files. Resolve their provenance/licensing or replace them with clearly licensed alternatives before redistribution.
+The Unix-domain socket frame codec under `src/main/java/dev/schizo/client/integrations/discord/` is an original Schizo implementation under the project's MIT license header. The two unverified Open Zio helper files previously present in this area have been removed; Unix socket connections now use the standard Java NIO `SocketChannel` API.
 
 ## Gradle Wrapper
 
