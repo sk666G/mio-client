@@ -191,7 +191,7 @@ public final class ConfigurationManager implements ClientAccess {
                Path configPath = ROOT_DIRECTORY.resolve(configurable.getConfigName());
                try {
                   this.backupManager.backupBeforeSave(configurable.getConfigName());
-               } catch (IOException backupFailure) {
+               } catch (IOException | IllegalArgumentException backupFailure) {
                   ClientAccess.logger.warn(
                      "Could not back up configuration {} before saving",
                      configurable.getConfigName(),
