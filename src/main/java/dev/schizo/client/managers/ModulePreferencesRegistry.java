@@ -89,6 +89,20 @@ public final class ModulePreferencesRegistry implements ClientAccess, JsonConfig
       return List.copyOf(this.favorites);
    }
 
+   public synchronized int getFavoriteIndex(String moduleName) {
+      if (moduleName == null) {
+         return -1;
+      }
+      int index = 0;
+      for (String name : this.favorites) {
+         if (name.equals(moduleName)) {
+            return index;
+         }
+         index++;
+      }
+      return -1;
+   }
+
    /** Most recently enabled module first. */
    public synchronized List<String> getRecentlyUsed() {
       return List.copyOf(this.recentlyUsed);
