@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.EnumSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -143,12 +144,17 @@ public final class ContextProfileRegistry implements ClientAccess, JsonConfigura
 
    @Override
    public synchronized void fromJson(JsonElement json) {
+      if (!this.modifiedCategories.isEmpty()) {
+         ClientAccess.logger.warn(
+            "Ignoring context profile reload while restoration is pending; the user baseline remains protected"
+         );
+         return;
+      }
       this.rules.clear();
       this.enabled = false;
       this.dirty = true;
       this.lastAppliedContext = null;
       this.baseline.clear();
-      this.modifiedCategories.clear();
 
       if (json == null || !json.isJsonObject()) {
          return;
@@ -301,14 +307,29 @@ public final class ContextProfileRegistry implements ClientAccess, JsonConfigura
             PresetRegistry registry = ClientContext.configurationManager == null
                ? null
                : ClientContext.configurationManager.getPresetRegistry(rule.category());
-            if (registry == null || !registry.applyPreset(rule.presetName())) {
+            PresetData preset = registry == null ? null : registry.getPreset(rule.presetName());
+            if (preset == null) {
                ClientAccess.logger.warn(
                   "Context profile references missing preset {} ({})",
                   rule.presetName(), rule.category().getName()
                );
                continue;
             }
+            // Record ownership before mutation so a partial application can always be rolled back.
             this.modifiedCategories.add(rule.category());
+            try {
+               JsonElement profileState = ContextProfilePresetPolicy.withoutModuleEnabledState(
+                  preset.contents().deepCopy()
+               );
+               rule.category().fromJson(profileState);
+            } catch (RuntimeException failure) {
+               this.dirty = true;
+               ClientAccess.logger.error(
+                  "Context profile {} partially failed to apply; its baseline remains pending",
+                  rule.presetName(), failure
+               );
+               return;
+            }
             ClientAccess.logger.info(
                "Applied context preset {} for {} / {} / {}",
                rule.presetName(), server, dimension, gameMode
@@ -332,7 +353,10 @@ public final class ContextProfileRegistry implements ClientAccess, JsonConfigura
             if (snapshot == null) {
                throw new IllegalStateException("Preset category returned a null baseline");
             }
-            snapshots.put(category, snapshot.deepCopy());
+            snapshots.put(
+               category,
+               ContextProfilePresetPolicy.withoutModuleEnabledState(snapshot.deepCopy())
+            );
          } catch (RuntimeException failure) {
             ClientAccess.logger.warn("Could not snapshot baseline for {} context profiles", category.getName(), failure);
             return false;
@@ -362,6 +386,10 @@ public final class ContextProfileRegistry implements ClientAccess, JsonConfigura
          }
          try {
             category.fromJson(snapshot.deepCopy());
+            JsonElement restoredState = ContextProfilePresetPolicy.withoutModuleEnabledState(category.toJson());
+            if (!snapshot.equals(restoredState)) {
+               throw new IllegalStateException("Restored values do not match the saved baseline");
+            }
             this.modifiedCategories.remove(category);
          } catch (RuntimeException failure) {
             restored = false;

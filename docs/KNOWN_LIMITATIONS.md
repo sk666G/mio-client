@@ -27,3 +27,11 @@ This file separates verified behavior from work that still needs runtime or arch
 - A GitHub Actions build is the available build verification; local runtime verification and artifact launch verification remain outstanding.
 - Third-party license terms for the vendored DiscordIPC source are still not established by repository evidence. `THIRD_PARTY_NOTICES.md` records that gap rather than inventing terms.
 - No public release was created. The branch is not merged.
+
+
+## Release-readiness findings
+
+- The scheduler treats an executor submission that throws or returns `false` as rejected and releases its reservation. Minecraft's production `executeIfPossible` does not expose an acceptance result; teardown closes the scheduler and cancels queued work. Work already accepted by the game executor immediately before shutdown may not run.
+- Context Profile category application is not transactional. A failure can partially mutate global settings; the registry keeps that category marked as modified and retries restoring the original baseline before applying another context. Module enabled states are excluded from profile ownership and remain user controlled.
+- Context Profile recovery is in-memory. A process termination during a failed restore cannot preserve the pending baseline across restart; no separate crash-recovery journal has been added yet.
+

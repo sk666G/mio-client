@@ -66,3 +66,11 @@ The conservative result established here is limited: Schizo no longer ships the 
 ## Verification boundary
 
 The integration commit's GitHub Actions build ran Java tests and `./gradlew --no-daemon clean build` successfully. Later commits require their own Actions run before their code is considered build-verified. No live Minecraft launch, GUI interaction, controlled multiplayer session, benchmark, or release-JAR runtime test is implied by a successful CI build.
+
+
+## Release-readiness follow-up — scheduler and profile ownership
+
+The scheduled-task queues now reserve from one shared capacity before work is dispatched to the client executor. The queue processes at most one pass over tasks present at the start of a tick, so delayed tasks cannot consume the entire per-tick work budget by rotating repeatedly. New work created by a callback waits until the next pass. Overflow rejects the newest task and the non-throwing legacy APIs report rejection through the scheduler logger.
+
+Context Profiles now track a category before applying its preset, retaining rollback responsibility if application fails partway through. Baselines and profile payloads omit each module's top-level `enabled` field: automatic profiles may alter settings, but module activation remains user-owned. A restore is considered complete only when the serialized category matches the saved baseline. Reloading Context Profile configuration while restoration is pending is rejected so in-memory recovery state is not discarded.
+

@@ -37,3 +37,12 @@ Status is intentionally conservative. A checked item requires recorded evidence.
 - [ ] Obtain explicit approval before any public release or merge.
 
 No public release or merge is part of this branch task.
+
+
+## Lifecycle hardening follow-up
+
+- [ ] Exercise queue rejection, delayed execution, callback failures and shutdown in a live client.
+- [ ] Verify Context Profile transitions after manually changing module enable states; profile switching must preserve those states.
+- [ ] Force a preset apply/restore failure and confirm the original baseline remains pending and is retried.
+- [ ] Verify recovery behavior after process termination while a Context Profile restoration is pending.
+
