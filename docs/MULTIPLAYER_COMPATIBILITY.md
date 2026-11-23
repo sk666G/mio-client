@@ -43,7 +43,7 @@ An optional conservative activation policy is available for user-toggleable modu
 - `;compat policy status` shows the current policy and explicit exceptions.
 - `;compat policy conservative` blocks enabling `SERVER_SENSITIVE`, `PACKET_AFFECTING` and `UNVERIFIED` modules while connected to a remote multiplayer server.
 - `;compat policy warn` returns to warning-only mode.
-- `;compat policy allow <ModuleClass>` adds an explicit class-level exception.
+- `;compat policy allow <ModuleClass>` adds an explicit class-level exception for user-toggleable modules. Permanent services cannot be excepted as a whole.
 - `;compat policy deny <ModuleClass>` removes that exception; `;compat policy clear` removes all exceptions.
 - `;compat policy reset <ModuleClass>` explicitly saves the module as disabled, clearing any preserved enable preference from a previous policy suspension.
 

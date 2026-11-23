@@ -14,6 +14,7 @@ import dev.schizo.client.integrations.ModuleCompatibility;
 import dev.schizo.client.integrations.MultiplayerCompatibilityPolicy;
 import dev.schizo.client.integrations.MultiplayerCompatibilityWarnings;
 import dev.schizo.client.modules.Module;
+import dev.schizo.client.modules.PermanentModule;
 import dev.schizo.client.settings.Setting;
 import dev.schizo.client.utils.chat.ChatUtils;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -91,6 +92,10 @@ public final class CompatibilityCommand extends Command {
          this.print("Module not found. Use ;compat list to browse module names.");
          return 0;
       }
+      if (module instanceof PermanentModule) {
+         this.print("Permanent service modules cannot be excepted as a whole; review their individual settings instead.");
+         return 0;
+      }
       boolean added = MultiplayerCompatibilityPolicy.GLOBAL.allowModule(module.getClass().getSimpleName());
       this.print(added
          ? module.getName() + " is now an explicit conservative-policy exception. It will not be auto-enabled; toggle it manually if needed."
@@ -102,6 +107,10 @@ public final class CompatibilityCommand extends Command {
       Module module = this.findModule(StringArgumentType.getString(context, "name"));
       if (module == null) {
          this.print("Module not found. Use ;compat list to browse module names.");
+         return 0;
+      }
+      if (module instanceof PermanentModule) {
+         this.print("Permanent service modules have no user-toggleable enabled preference; review their individual settings instead.");
          return 0;
       }
       module.resetCompatibilityPolicyPreference();
