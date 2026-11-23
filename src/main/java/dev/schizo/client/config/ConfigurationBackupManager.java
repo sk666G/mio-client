@@ -281,7 +281,7 @@ public final class ConfigurationBackupManager {
    }
 
    private String backupNamePattern(String configName) {
-      return java.util.regex.Pattern.quote(configName) + "\\\\.[0-9]{13}-[0-9a-f]{8}\\\\.bak";
+      return java.util.regex.Pattern.quote(configName) + "\\.[0-9]{13}-[0-9a-f]{8}\\.bak";
    }
 
    private long nextTimestampMillis(String configName) throws IOException {
