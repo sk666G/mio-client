@@ -10,13 +10,14 @@
 package dev.schizo.client.managers;
 
 import dev.schizo.client.config.LegacySocialMigration;
+import dev.schizo.client.config.ConfigFileReader;
 import dev.schizo.client.config.ConfigurationBackupManager;
 import dev.schizo.client.config.ModulePresetCodec;
 import dev.schizo.client.config.PresetUndoState;
 import dev.schizo.client.render.BundledResourceInstaller;
 import dev.schizo.client.utils.FileUtils;
-
 import dev.schizo.client.ClientAccess;
+import java.io.File;
 import dev.schizo.client.commands.PanicCommand;
 import dev.schizo.client.settings.JsonConfigurable;
 import dev.schizo.client.settings.options.PresetCategory;
@@ -25,9 +26,9 @@ import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import java.io.File;
 import java.nio.file.Path;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -101,9 +102,19 @@ public final class ConfigurationManager implements ClientAccess {
 
          try {
             Path configPath = ROOT_DIRECTORY.resolve(configurable.getConfigName());
-            File configFile = configPath.toFile();
-            if (configFile.exists()) {
-               String configText = FileUtils.readUtf8(configPath);
+            if (Files.exists(configPath, LinkOption.NOFOLLOW_LINKS)) {
+               if (Files.isSymbolicLink(configPath)
+                  || !Files.isRegularFile(configPath, LinkOption.NOFOLLOW_LINKS)) {
+                  ClientAccess.logger.warn(
+                     "Skipping configuration {} because it is not a regular file",
+                     configurable.getConfigName()
+                  );
+                  continue;
+               }
+               String configText = ConfigFileReader.readUtf8(
+                  configPath,
+                  (int)ConfigurationBackupManager.MAX_CONFIG_BYTES
+               );
                JsonElement configJson = JsonParser.parseString(configText);
                configurable.fromJson(configJson.getAsJsonObject());
             }
