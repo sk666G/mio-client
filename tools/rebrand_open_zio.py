@@ -161,7 +161,7 @@ def main() -> None:
     metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
     metadata["id"] = "schizo"
     metadata["name"] = "Schizo"
-    metadata["version"] = "\${version}"
+    metadata["version"] = "${version}"
     metadata["authors"] = ["Cypphi (Open Zio upstream)", "Schizo contributors"]
     metadata["description"] = "Schizo: an independent client-side Fabric fork built on the Open Zio source architecture."
     metadata["icon"] = "assets/schizo/textures/schizo.png"
