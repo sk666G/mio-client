@@ -106,12 +106,12 @@ public class WebhookNotifsModule extends Module {
       }
    }
 
-   private void enqueueLines(String[] lines) {
+   private boolean enqueueLines(String[] lines) {
       StringBuilder message = new StringBuilder();
       for (String line : lines) {
          if (!line.isEmpty()) message.append(ChatFormatting.stripFormatting(line)).append('\n');
       }
-      if (message.length() < 2) return;
+      if (message.length() < 2) return false;
 
       synchronized (this.pendingMessages) {
          if (this.pendingMessages.size() >= MAX_PENDING_MESSAGES) {
@@ -119,10 +119,11 @@ public class WebhookNotifsModule extends Module {
                ClientAccess.logger.warn("Webhook notification queue reached {} messages; new notifications are being dropped until it drains", MAX_PENDING_MESSAGES);
                this.queueOverflowWarned = true;
             }
-            return;
+            return false;
          }
 
          this.pendingMessages.add(message.substring(0, message.length() - 1));
+         return true;
       }
    }
 
@@ -193,17 +194,15 @@ public class WebhookNotifsModule extends Module {
       Setting<Boolean> chatMessagesOption = this.chatMessagesSetting;
       Boolean notifyChatMessages = chatMessagesOption.getValue();
       if (notifyChatMessages || stashMessage || visualRangeMessage) {
-         if (stashMessage) {
+         boolean queued = this.enqueueLines(lines);
+         if (queued && stashMessage) {
             Setting<Boolean> pingOption = this.pingSetting;
-            Boolean pingEveryone = pingOption.getValue();
-            if (pingEveryone) {
+            if (pingOption.getValue()) {
                synchronized (this.pendingMessages) {
                   this.pingPending = true;
                }
             }
          }
-
-         this.enqueueLines(lines);
       }
    }
 
