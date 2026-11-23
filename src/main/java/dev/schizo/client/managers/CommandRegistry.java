@@ -103,6 +103,7 @@ public final class CommandRegistry extends Registry<Command> implements ClientAc
       this.registerCommand(new dev.schizo.client.commands.PlaytimeCommand());
       this.registerCommand(new dev.schizo.client.commands.PluginsCommand());
       this.registerCommand(new dev.schizo.client.commands.PrefixCommand());
+      this.registerCommand(new dev.schizo.client.commands.ProfilerCommand());
       this.registerCommand(new dev.schizo.client.commands.PresetCommand());
       this.registerCommand(new dev.schizo.client.commands.PrintCommand());
       this.registerCommand(new dev.schizo.client.commands.QueueCommand());

@@ -10,6 +10,11 @@
 package dev.schizo.client.events.bus;
 
 public interface EventListener {
+   default dev.schizo.client.profiling.EventProfiler.CallbackHandle profileHandle() {
+      return null;
+   }
+
+
    boolean isStatic();
 
    Class<?> getEventType();

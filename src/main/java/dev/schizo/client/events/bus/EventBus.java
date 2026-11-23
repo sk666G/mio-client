@@ -11,6 +11,8 @@ package dev.schizo.client.events.bus;
 
 import dev.schizo.client.events.Cancellable;
 import dev.schizo.client.events.EventHandler;
+import dev.schizo.client.modules.Module;
+import dev.schizo.client.profiling.EventProfiler;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -20,10 +22,19 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class EventBus implements EventDispatcher {
+   private final EventProfiler profiler;
    private final Map<Object, List<EventListener>> instanceListenerCache =
       Collections.synchronizedMap(new IdentityHashMap<>());
    private final Map<Class<?>, List<EventListener>> staticListenerCache = new ConcurrentHashMap<>();
    private final Map<Class<?>, EventListener[]> listenersByEventClass = new ConcurrentHashMap<>();
+
+   public EventBus() {
+      this(EventProfiler.GLOBAL);
+   }
+
+   public EventBus(EventProfiler profiler) {
+      this.profiler = java.util.Objects.requireNonNull(profiler);
+   }
 
    @Override
    public void subscribe(Object subscriber) {
@@ -56,13 +67,15 @@ public class EventBus implements EventDispatcher {
 
    private List<EventListener> collectListeners(Class<?> listenerClass, Object subscriber) {
       List<EventListener> listeners = new ArrayList<>();
+      String moduleName = subscriber instanceof Module module ? module.getName() : null;
+      String ownerName = moduleName == null ? listenerClass.getSimpleName() : moduleName;
       for (Class<?> type = listenerClass; type != null; type = type.getSuperclass()) {
          for (Method method : type.getDeclaredMethods()) {
             if (method.isAnnotationPresent(EventHandler.class)
                && method.getReturnType() == void.class
                && method.getParameterCount() == 1
                && !method.getParameterTypes()[0].isPrimitive()) {
-               listeners.add(new MethodEventListener(type, subscriber, method));
+               listeners.add(new MethodEventListener(type, subscriber, method, this.profiler, ownerName, moduleName));
             }
          }
       }
@@ -142,8 +155,14 @@ public class EventBus implements EventDispatcher {
    public Object post(Object event) {
       EventListener[] listeners = this.listenersByEventClass.get(event.getClass());
       if (listeners != null) {
-         for (int index = 0; index < listeners.length; index++) {
-            listeners[index].call(event);
+         if (!this.profiler.isEnabled()) {
+            for (int index = 0; index < listeners.length; index++) {
+               listeners[index].call(event);
+            }
+         } else {
+            for (int index = 0; index < listeners.length; index++) {
+               this.callProfiled(listeners[index], event);
+            }
          }
       }
       return event;
@@ -154,14 +173,47 @@ public class EventBus implements EventDispatcher {
       EventListener[] listeners = this.listenersByEventClass.get(event.getClass());
       if (listeners != null) {
          event.setCancelled(false);
-         for (int index = 0; index < listeners.length; index++) {
-            EventListener listener = listeners[index];
-            listener.call(event);
-            if (event.isCancelled()) {
-               break;
+         if (!this.profiler.isEnabled()) {
+            for (int index = 0; index < listeners.length; index++) {
+               EventListener listener = listeners[index];
+               listener.call(event);
+               if (event.isCancelled()) {
+                  break;
+               }
+            }
+         } else {
+            for (int index = 0; index < listeners.length; index++) {
+               EventListener listener = listeners[index];
+               this.callProfiled(listener, event);
+               if (event.isCancelled()) {
+                  break;
+               }
             }
          }
       }
       return event;
    }
+   private void callProfiled(EventListener listener, Object event) {
+      EventProfiler.CallbackHandle handle = listener.profileHandle();
+      if (handle == null) {
+         listener.call(event);
+         return;
+      }
+      long startedAt = this.profiler.nanoTime();
+      Throwable callbackFailure = null;
+      try {
+         listener.call(event);
+      } catch (RuntimeException | Error failure) {
+         callbackFailure = failure;
+         throw failure;
+      } finally {
+         try {
+            this.profiler.recordCallback(handle, this.profiler.nanoTime() - startedAt);
+         } catch (RuntimeException | Error profilingFailure) {
+            if (callbackFailure == null) throw profilingFailure;
+            if (callbackFailure != profilingFailure) callbackFailure.addSuppressed(profilingFailure);
+         }
+      }
+   }
 }
+
