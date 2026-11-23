@@ -53,10 +53,15 @@ public class ClientScreen extends Screen implements ClientAccess {
    private static final Identifier AERO_TEXTURE = Identifier.fromNamespaceAndPath(
       "schizo", "textures/aero.png"
    );
-   private static final BlurModule BLUR = (BlurModule)ClientContext.getModule(BlurModule.class);
-   private static final UIModule UI = (UIModule)ClientContext.getModule(UIModule.class);
+   private static UIModule getUiModule() {
+      return ClientContext.getModule(UIModule.class);
+   }
+
+   private static BlurModule getBlurModule() {
+      return ClientContext.getModule(BlurModule.class);
+   }
    private static final long TRANSITION_DURATION_MILLIS = 150L;
-   private static final int MAX_SEASONAL_PARTICLES = 25;
+   private static final int MAX_SEASONAL_PARTICLES = 12;
    private static final int PANEL_START_X = 10;
    private static final int PANEL_START_Y = 5;
    private static final int PANEL_GAP = 3;
@@ -375,6 +380,12 @@ public class ClientScreen extends Screen implements ClientAccess {
 
    @Override
    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+      UIModule uiModule = getUiModule();
+      if (uiModule == null) {
+         return;
+      }
+      BlurModule blurModule = getBlurModule();
+      float transitionOpacity = this.getTransitionOpacity();
       PoseStack poseStack = GuiProjectionUtils.toPoseStack(graphics);
       this.hoverMouseX
          .setTarget(mouseX);
@@ -401,7 +412,7 @@ public class ClientScreen extends Screen implements ClientAccess {
          1.0F,
          1.0F,
          1.0F,
-         this.getTransitionOpacity()
+         transitionOpacity
       );
       float scale = (float)GuiScaleUtils.calculateScaleMultiplier(this.guiScale);
       GuiScaleUtils.applyGuiScale(this.guiScale);
@@ -416,14 +427,14 @@ public class ClientScreen extends Screen implements ClientAccess {
       hoverY /= scale;
       this.tooltipText = "";
       this.renderBackgroundOverlay(poseStack);
-      if (UI.aeroSetting.getValue()) {
+      if (uiModule.aeroSetting.getValue()) {
          this.renderAeroPanels(poseStack);
       }
 
-      float blurStrength = BLUR.getRadius()
-         * this.getTransitionOpacity();
+      float blurStrength = blurModule == null ? 0.0F : blurModule.getRadius() * transitionOpacity;
       if (!this.isClosing()
-         && BLUR.isToggled()) {
+         && blurModule != null
+         && blurModule.isToggled()) {
          GuiDrawUtils.flush();
          MaskShaderRenderer.renderBlur(
             () -> {
@@ -626,19 +637,23 @@ public class ClientScreen extends Screen implements ClientAccess {
    }
 
    public void renderAeroPanels(PoseStack poseStack) {
+      UIModule uiModule = getUiModule();
+      if (uiModule == null) {
+         return;
+      }
       int textureAlpha = RenderUtils.getRenderColor()[3]
          / (2);
       int textureColor = ARGB.color(textureAlpha, -1);
 
       for (Panel panel : this.getPanels()) {
-         int outlinePadding = UI.lineSetting.getValue() ? 2 : 0;
+         int outlinePadding = uiModule.lineSetting.getValue() ? 2 : 0;
          int panelX = panel.getX();
          int panelY = panel.getY();
          float expansion = panel.getExpansionValue();
          float contentHeight = panel.getHeight()
             - panel.getHeaderHeight();
          float panelWidth = panel.getWidth();
-         if (UI.lineSetting.getValue()) {
+         if (uiModule.lineSetting.getValue()) {
             panelX--;
             panelY--;
             panelWidth += 2.0F;
