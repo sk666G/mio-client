@@ -1,6 +1,13 @@
 package dev.schizo.client;
 
+import com.mojang.blaze3d.platform.InputConstants;
+import dev.schizo.client.feature.ExampleFeature;
+import dev.schizo.client.gui.ClickGuiScreen;
 import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.resources.Identifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -9,9 +16,29 @@ public final class SchizoClient implements ClientModInitializer {
     public static final String MOD_ID = "schizo";
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
+    private static final KeyMapping.Category KEY_CATEGORY = KeyMapping.Category.register(
+        Identifier.fromNamespaceAndPath(MOD_ID, "main")
+    );
+    private static final KeyMapping OPEN_GUI = KeyBindingHelper.registerKeyBinding(
+        new KeyMapping("key.schizo.open_gui", InputConstants.Type.KEYSYM,
+            InputConstants.KEY_RIGHT_SHIFT, KEY_CATEGORY)
+    );
+
     @Override
     public void onInitializeClient() {
-        LOGGER.info("Schizo client initialized");
+        FeatureRegistry.register(new ExampleFeature());
         FeatureRegistry.registerDefaults();
+
+        ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            while (OPEN_GUI.consumeClick()) {
+                if (client.screen instanceof ClickGuiScreen) {
+                    client.setScreen(null);
+                } else {
+                    client.setScreen(new ClickGuiScreen(client.screen));
+                }
+            }
+        });
+
+        LOGGER.info("Schizo client initialized");
     }
 }
