@@ -33,6 +33,7 @@ import dev.schizo.client.managers.InventoryStateManager;
 import dev.schizo.client.managers.KitRegistry;
 import dev.schizo.client.managers.MacroRegistry;
 import dev.schizo.client.managers.ModuleRegistry;
+import dev.schizo.client.modules.Module;
 import dev.schizo.client.managers.ModulePreferencesRegistry;
 import dev.schizo.client.managers.MovementPredictionManager;
 import dev.schizo.client.managers.RotationManager;
@@ -134,6 +135,14 @@ public final class ClientInitializer {
       } catch (IOException safeModeInitializationFailure) {
          SafeModeManager.GLOBAL.activateFailSafe();
          SchizoClient.LOGGER.error("Could not initialize configuration safety state; starting with modules disabled.", safeModeInitializationFailure);
+      }
+      if (SafeModeManager.GLOBAL.isActive()) {
+         for (Object entry : ClientContext.moduleRegistry.getRegistry()) {
+            Module module = (Module)entry;
+            if (module.isToggled()) {
+               module.disable();
+            }
+         }
       }
       ClientAccess.eventBus.post(new ClientInitializationEvent());
       ClientContext.soundManager.reload();

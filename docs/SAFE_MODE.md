@@ -10,7 +10,7 @@ From a normal session, run:
 ;safemode arm
 ```
 
-Restart Schizo. The client sees the `.safe-mode` marker in its configuration directory and starts with every module disabled. No module is enabled from `modules.json`, and module state is not overwritten when the client exits in Safe Mode.
+Restart Schizo. The client sees the `.safe-mode` marker in its configuration directory, performs a startup sweep to disable any module that may have enabled during construction, and blocks later module enable requests. No module is enabled from `modules.json`, and module state is not overwritten when the client exits in Safe Mode.
 
 ## Check or leave Safe Mode
 
