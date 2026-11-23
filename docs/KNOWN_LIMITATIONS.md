@@ -13,10 +13,8 @@ This file separates verified behavior from work that still needs runtime or arch
 
 - Event profiling is disabled by default. Callback timings can include nested event dispatch; sums are inclusive and are not total frame time.
 - Frame timing and profiler data require in-game capture to diagnose actual performance. No benchmark or module hot spot is claimed from static inspection.
-- `TaskScheduler` queues remain unbounded. Introducing a bound requires a defined rejection/backpressure contract and caller review.
+- `TaskScheduler` now has a shared 512-task capacity and a 64-item per-tick budget. Overflow rejects new submissions; old void scheduling calls log the rejection, and new `trySchedule…` calls return a cancellable handle. The Minecraft executor API exposes no acceptance return value, so executor rejection is detected through thrown failures and the client shutdown hooks close the queue before teardown. Runtime shutdown races still need in-game validation.
 - GC pressure, allocation rates, render cost and entity-loop costs have not been benchmarked in a live client.
-- The frame graph uses sample order horizontally and has no elapsed-seconds axis; pause and focus-loss behavior still needs runtime validation.
-- The Gradle build reports deprecated Gradle features that will not be compatible with Gradle 10 without cleanup. The remapped build also emits `Cannot remap schizo$bind…` warnings for custom mixin invokers declared with `remap = false`; the JAR builds, but those warnings still need remapper/mixin review.
 
 ## Persistence and rebuild
 

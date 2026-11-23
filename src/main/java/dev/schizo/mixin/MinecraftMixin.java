@@ -74,6 +74,9 @@ public class MinecraftMixin {
 
    @Inject(method = "destroy", at = @At("HEAD"))
    public void saveConfigurationOnDestroy(CallbackInfo callback) {
+      if (ClientContext.taskScheduler != null) {
+         ClientContext.taskScheduler.close();
+      }
       if (!shutdownSaveStarted
          && ClientContext.configurationManager != null) {
          shutdownSaveStarted = true;
@@ -199,6 +202,9 @@ public class MinecraftMixin {
 
    @Inject(method = "close", at = @At("HEAD"))
    public void closeDiscordClient(CallbackInfo callback) {
+      if (ClientContext.taskScheduler != null) {
+         ClientContext.taskScheduler.close();
+      }
       discordModule.closeClient();
    }
 
