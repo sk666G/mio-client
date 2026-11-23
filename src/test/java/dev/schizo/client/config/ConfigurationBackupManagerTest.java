@@ -23,7 +23,7 @@ class ConfigurationBackupManagerTest {
 
    @Test
    void backsUpBeforeSaveAndSkipsIdenticalSnapshots() throws IOException {
-      Files.writeString(this.configPath("modules.json"), "{\"modules\":[]}"); 
+      Files.writeString(this.configPath("modules.json"), "{\"modules\":[]}");
       ConfigurationBackupManager manager = this.manager();
 
       ConfigurationBackupManager.BackupRecord first = manager.backupBeforeSave("modules.json");
@@ -83,10 +83,14 @@ class ConfigurationBackupManagerTest {
       Path backups = manager.getBackupDirectory();
       Files.createDirectories(backups);
       Files.writeString(backups.resolve("modules.json.0000000000001-deadbeef.bak"), "{");
+      Files.writeString(backups.resolve("modules.json.0000000000002-feedface.bak"), "[]");
       Files.writeString(this.configPath("modules.json"), "{\"modules\":[]}");
 
       assertThrows(IOException.class, () -> manager.restoreBackup(
-         "modules.json", "modules.json.0000000000001-malformed.bak"
+         "modules.json", "modules.json.0000000000001-deadbeef.bak"
+      ));
+      assertThrows(IOException.class, () -> manager.restoreBackup(
+         "modules.json", "modules.json.0000000000002-feedface.bak"
       ));
    }
 
