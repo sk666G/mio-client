@@ -183,7 +183,9 @@ public class WebhookNotifsModule extends Module {
             Setting<Boolean> pingOption = this.pingSetting;
             Boolean pingEveryone = pingOption.getValue();
             if (pingEveryone) {
-               this.pingPending = true;
+               synchronized (this.pendingMessages) {
+                  this.pingPending = true;
+               }
             }
          }
 
