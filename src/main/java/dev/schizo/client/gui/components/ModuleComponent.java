@@ -34,6 +34,7 @@ import dev.schizo.client.ClientContext;
 import dev.schizo.client.gui.panels.Panel;
 import dev.schizo.client.modules.HudWidgetModule;
 import dev.schizo.client.modules.Module;
+import dev.schizo.client.managers.ModulePreferencesRegistry;
 import dev.schizo.client.modules.PermanentModule;
 import dev.schizo.client.modules.client.FontsModule;
 import dev.schizo.client.modules.client.UIModule;
@@ -88,6 +89,14 @@ public class ModuleComponent extends AbstractComponent implements CloseState {
 
    public void setOpen(boolean open) {
       this.requestedOpen = open;
+   }
+
+   private boolean isFavoriteHandleHovered(double mouseX, double mouseY) {
+      float right = this.panel.getX() + this.panel.getWidth() - 5.0F;
+      float left = right - 12.0F;
+      float top = this.panel.getY() + this.yOffset;
+      float bottom = top + this.getBaseHeight();
+      return mouseX >= left && mouseX <= right && mouseY >= top && mouseY <= bottom;
    }
 
    public void startSearchHighlight() {
@@ -480,6 +489,22 @@ public class ModuleComponent extends AbstractComponent implements CloseState {
             );
       }
 
+      ModulePreferencesRegistry preferences = ClientContext.modulePreferencesRegistry;
+      if (preferences != null) {
+         boolean favorite = preferences.isFavorite(this.module);
+         String favoriteGlyph = favorite ? "★" : "☆";
+         Color favoriteColor = favorite
+            ? ColorUtils.getThemeColor()
+            : ColorUtils.withAlpha(this.getUiModule().textColorSetting.getValue(), 125);
+         FontRenderer.INSTANCE.drawWithShadow(
+            poseStack,
+            favoriteGlyph,
+            this.panel.getX() + this.panel.getWidth() - 16.0F,
+            this.panel.getY() + this.getTextYOffset() + this.yOffset,
+            favoriteColor
+         );
+      }
+
       poseStack.pushPose();
       if (this.animatedHeight > baseHeight
          || this.requestedOpen) {
@@ -506,7 +531,13 @@ public class ModuleComponent extends AbstractComponent implements CloseState {
       }
 
       poseStack.popPose();
-      if (this.getUiModule().descriptionsSetting.getValue()
+      if (this.isFavoriteHandleHovered(mouseX, mouseY)) {
+         ModulePreferencesRegistry preferences = ClientContext.modulePreferencesRegistry;
+         boolean favorite = preferences != null && preferences.isFavorite(this.module);
+         ClientContext.getClickGui().setTooltipText(
+            favorite ? "Remove from favourites" : "Add to favourites"
+         );
+      } else if (this.getUiModule().descriptionsSetting.getValue()
          && this.isMouseOver(mouseX, mouseY)) {
          ClientContext.getClickGui()
             .setTooltipText(
@@ -531,11 +562,18 @@ public class ModuleComponent extends AbstractComponent implements CloseState {
          this.startSearchHighlight();
       }
 
+      if (button == 0 && this.isFavoriteHandleHovered(mouseX, mouseY)) {
+         ModulePreferencesRegistry preferences = ClientContext.modulePreferencesRegistry;
+         if (preferences != null) {
+            preferences.toggleFavorite(this.module);
+            return;
+         }
+      }
+
       if (this.isMouseOver(mouseX, mouseY)
          && button == 0
          && this.isLeftClickEligible()) {
-         this.module
-            .toggle();
+         this.module.toggle();
       }
 
       if (this.isMouseOver(mouseX, mouseY) && button == 1) {
