@@ -16,8 +16,10 @@ import dev.schizo.client.commands.BaritoneCommand;
 import dev.schizo.client.commands.ModuleCommand;
 import dev.schizo.client.commands.Command;
 import dev.schizo.client.commands.ContextProfileCommand;
+import dev.schizo.client.commands.ConfigBackupCommand;
 import dev.schizo.client.commands.EnemyFriendCommand;
 import dev.schizo.client.commands.FavoriteCommand;
+import dev.schizo.client.commands.ConfigBackupCommand;
 import dev.schizo.client.commands.HudLayoutCommand;
 import dev.schizo.client.commands.IntegrationCommand;
 import dev.schizo.client.events.CommandExecuteEvent;
@@ -83,6 +85,7 @@ public final class CommandRegistry extends Registry<Command> implements ClientAc
       this.registerCommand(new dev.schizo.client.commands.AutopotCommand());
       this.registerCommand(new dev.schizo.client.commands.AutopresetCommand());
       this.registerCommand(new ContextProfileCommand());
+      this.registerCommand(new ConfigBackupCommand());
       this.registerCommand(new dev.schizo.client.commands.BindCommand());
       this.registerCommand(new dev.schizo.client.commands.ChatfilterCommand());
       this.registerCommand(new dev.schizo.client.commands.CheststealerCommand());
@@ -94,6 +97,7 @@ public final class CommandRegistry extends Registry<Command> implements ClientAc
       this.registerCommand(new dev.schizo.client.commands.DrawnCommand());
       this.registerCommand(new dev.schizo.client.commands.FakeplayerCommand());
       this.registerCommand(new FavoriteCommand());
+      this.registerCommand(new ConfigBackupCommand());
       this.registerCommand(new dev.schizo.client.commands.FireworksCommand());
       this.registerCommand(new dev.schizo.client.commands.FolderCommand());
       this.registerCommand(new dev.schizo.client.commands.GlintCommand());

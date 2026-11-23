@@ -10,6 +10,7 @@
 package dev.schizo.client.managers;
 
 import dev.schizo.client.config.LegacySocialMigration;
+import dev.schizo.client.config.ConfigurationBackupManager;
 import dev.schizo.client.config.ModulePresetCodec;
 import dev.schizo.client.config.PresetUndoState;
 import dev.schizo.client.render.BundledResourceInstaller;
@@ -47,6 +48,7 @@ public final class ConfigurationManager implements ClientAccess {
    public static final Path SHADERS_DIRECTORY;
    public static final Path USER_HOME_MARKER_PATH;
    private static final List<Path> directories;
+   private final ConfigurationBackupManager backupManager = new ConfigurationBackupManager(ROOT_DIRECTORY);
    private final ModulePresetCodec modulePresetCodec = new ModulePresetCodec();
    private final Map<PresetCategory, PresetRegistry> presetRegistries = new HashMap<>();
    private final BundledResourceInstaller bundledResources = new BundledResourceInstaller();
@@ -55,6 +57,22 @@ public final class ConfigurationManager implements ClientAccess {
 
    public ModulePresetCodec getModulePresetCodec() {
       return this.modulePresetCodec;
+   }
+
+   public ConfigurationBackupManager getBackupManager() {
+      return this.backupManager;
+   }
+
+   public List<String> getConfigurableNames() {
+      List<String> names = new ArrayList<>();
+      for (JsonConfigurable configurable : this.configurables) {
+         names.add(configurable.getConfigName());
+      }
+      return List.copyOf(names);
+   }
+
+   public boolean isRegisteredConfig(String configName) {
+      return configName != null && this.getConfigurableNames().contains(configName);
    }
 
    public PresetUndoState getPresetUndoState() {
@@ -171,6 +189,15 @@ public final class ConfigurationManager implements ClientAccess {
 
             try {
                Path configPath = ROOT_DIRECTORY.resolve(configurable.getConfigName());
+               try {
+                  this.backupManager.backupBeforeSave(configurable.getConfigName());
+               } catch (IOException | IllegalArgumentException backupFailure) {
+                  ClientAccess.logger.warn(
+                     "Could not back up configuration {} before saving",
+                     configurable.getConfigName(),
+                     backupFailure
+                  );
+               }
                Gson gsonSnapshot = ClientAccess.gson;
                JsonElement serialized = configurable.toJson();
                JsonObject object = serialized.getAsJsonObject();
