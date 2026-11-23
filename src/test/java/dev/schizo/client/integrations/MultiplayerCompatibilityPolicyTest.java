@@ -94,6 +94,18 @@ class MultiplayerCompatibilityPolicyTest {
    }
 
    @Test
+   void ignoresLegacySimpleNameExceptionsFromSchemaOne() {
+      MultiplayerCompatibilityPolicy policy = new MultiplayerCompatibilityPolicy();
+
+      policy.fromJson(JsonParser.parseString("""
+         {"version":1,"mode":"conservative","allowedModules":["ReachModule"]}
+         """));
+
+      assertEquals(MultiplayerCompatibilityPolicy.Mode.WARN_ONLY, policy.getMode());
+      assertTrue(policy.getAllowedModules().isEmpty());
+   }
+
+   @Test
    void malformedConfigurationDoesNotPartiallyReplaceCurrentPolicy() {
       MultiplayerCompatibilityPolicy policy = new MultiplayerCompatibilityPolicy();
       policy.setMode(MultiplayerCompatibilityPolicy.Mode.CONSERVATIVE);
