@@ -41,7 +41,6 @@ import dev.schizo.client.modules.Module;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonPrimitive;
 import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
@@ -171,7 +170,8 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
    /** Validates a saved layout completely before changing the live widget groups. */
    public void applyLayoutPreset(JsonObject layout) {
       if (layout == null || !layout.has("version") || !layout.get("version").isJsonPrimitive()
-         || layout.get("version").getAsInt() != HudLayoutStore.CURRENT_SCHEMA_VERSION
+         || !layout.get("version").getAsJsonPrimitive().isNumber()
+         || layout.get("version").getAsDouble() != HudLayoutStore.CURRENT_SCHEMA_VERSION
          || !layout.has("widgets") || !layout.get("widgets").isJsonArray()) {
          throw new IllegalArgumentException("Unsupported or malformed HUD layout");
       }
