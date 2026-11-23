@@ -175,7 +175,7 @@ public final class UIModule extends Module {
    public UIModule() {
       super("UI", "Displays the client's click gui.", ModuleCategory.CLIENT, new String[0]);
       this.resetSetting = this.add(new BooleanSetting(("Reset"), true));
-      this.styleSetting = this.add(new EnumSetting<>(("Style"), UIModule.StyleChoice.PLAIN));
+      this.styleSetting = this.add(new EnumSetting<>(("Style"), UIModule.StyleChoice.SLIM));
       this.animSpeedSetting = this.add(new NumberSetting<>("AnimSpeed", 1.0F, 0.5F, 2.5F));
       this.scaleSetting = this.add(new NumberSetting<>("Scale", 1.0F, 0.1F, 2.0F));
       this.snowSetting = this.add(new BooleanSetting("Snow", true));
@@ -244,17 +244,17 @@ public final class UIModule extends Module {
       colorsOption.markVisibilityDependency();
       this.colorsSetting = this.add(colorsOption);
       Predicate<Object> colorVisibility = ignored -> this.colorsSetting.isExpanded();
-      this.colorSetting = this.add(new ColorSetting("Color", new Color(-2100849420, true), colorVisibility));
+      this.colorSetting = this.add(new ColorSetting("Color", new Color(194, 16, 37, 238), colorVisibility));
       Predicate<Object> backgroundVisibility = ignored -> this.colorsSetting.isExpanded();
-      this.backgroundSetting = this.add(new ColorSetting("Background", new Color(516396276, true), backgroundVisibility));
+      this.backgroundSetting = this.add(new ColorSetting("Background", new Color(8, 8, 12, 240), backgroundVisibility));
       Predicate<Object> buttonVisibility = ignored -> this.colorsSetting.isExpanded();
-      this.buttonSetting = this.add(new ColorSetting("Button", new Color(1942459636, true), buttonVisibility));
+      this.buttonSetting = this.add(new ColorSetting("Button", new Color(34, 17, 23, 236), buttonVisibility));
       Predicate<Object> enabledVisibility = ignored -> this.colorsSetting.isExpanded();
-      this.enabledSetting = this.add(new ColorSetting("Enabled", new Color(1523029236, true), enabledVisibility));
+      this.enabledSetting = this.add(new ColorSetting("Enabled", new Color(122, 10, 29, 238), enabledVisibility));
       Predicate<Object> tintVisibility = ignored -> this.colorsSetting.isExpanded();
-      this.tintSetting = this.add(new ColorSetting("Tint", new Color(1679822128, true), tintVisibility));
+      this.tintSetting = this.add(new ColorSetting("Tint", new Color(42, 3, 12, 118), tintVisibility));
       Predicate<Object> gradientColorVisibility = ignored -> this.colorsSetting.isExpanded();
-      this.gradientColorSetting = this.add(new ColorSetting("Gradient", new Color(264738036, true), gradientColorVisibility));
+      this.gradientColorSetting = this.add(new ColorSetting("Gradient", new Color(196, 12, 36, 218), gradientColorVisibility));
       Class<UIModule> eventOwner = UIModule.class;
       EventBus eventBus = ClientAccess.eventBus;
       eventBus.subscribeStatic(eventOwner);
