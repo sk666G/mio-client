@@ -10,6 +10,7 @@
 package dev.schizo.client.integrations;
 
 import dev.schizo.client.modules.Module;
+import dev.schizo.client.modules.PermanentModule;
 import dev.schizo.client.settings.JsonConfigurable;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -50,7 +51,9 @@ public final class MultiplayerCompatibilityPolicy implements JsonConfigurable {
 
    /** Pure policy decision, exposed separately so classification rules can be unit-tested. */
    public synchronized boolean blocksWhenConservative(Class<?> moduleType) {
-      if (this.mode != Mode.CONSERVATIVE || moduleType == null) {
+      if (this.mode != Mode.CONSERVATIVE || moduleType == null
+         || PermanentModule.class.isAssignableFrom(moduleType)) {
+         // Permanent service modules cannot be safely toggled as a whole; their settings need review.
          return false;
       }
       String moduleClass = moduleType.getSimpleName();

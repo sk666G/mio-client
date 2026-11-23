@@ -66,6 +66,7 @@ public final class CompatibilityCommand extends Command {
          .append(policy.getMode())
          .append("\nConservative mode blocks SERVER_SENSITIVE, PACKET_AFFECTING and UNVERIFIED modules in remote multiplayer.")
          .append("\nInput-modifying and world-interaction modules remain available with warnings.")
+         .append("\nAlways-on permanent service modules remain warning-only until their settings can be enforced safely.")
          .append("\nExplicit module exceptions: ").append(exceptions.size());
       for (String exception : exceptions) {
          output.append("\n- ").append(exception);

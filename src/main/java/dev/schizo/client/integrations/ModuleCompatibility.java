@@ -10,6 +10,7 @@
 package dev.schizo.client.integrations;
 
 import dev.schizo.client.modules.client.SettingsModule;
+import dev.schizo.client.modules.client.AntiCheatModule;
 import dev.schizo.client.modules.client.ColorsModule;
 import dev.schizo.client.modules.client.FontsModule;
 import dev.schizo.client.modules.client.HUDModule;
@@ -42,6 +43,10 @@ public final class ModuleCompatibility {
    );
 
    private static final Map<Class<?>, Assessment> REVIEWED = Map.ofEntries(
+      Map.entry(AntiCheatModule.class, assessed(
+         Classification.PACKET_AFFECTING,
+         "Permanent movement/mining coordination service that can alter packet timing and placement/mining behavior through individual settings; setting-level review remains incomplete."
+      )),
       Map.entry(SettingsModule.class, assessed(
          Classification.CLIENT_ONLY,
          "Local preferences and client settings only; no gameplay packet or server-state mutation was found."

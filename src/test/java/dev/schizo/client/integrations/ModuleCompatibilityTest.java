@@ -6,6 +6,7 @@ import dev.schizo.client.modules.client.ColorsModule;
 import dev.schizo.client.modules.client.FontsModule;
 import dev.schizo.client.modules.client.HUDModule;
 import dev.schizo.client.modules.client.SettingsModule;
+import dev.schizo.client.modules.client.AntiCheatModule;
 import dev.schizo.client.modules.combat.AntiPhaseModule;
 import dev.schizo.client.modules.combat.CriticalsModule;
 import dev.schizo.client.modules.exploit.AntiHungerModule;
@@ -26,6 +27,7 @@ class ModuleCompatibilityTest {
    @Test
    void classifiesEveryFirstPassModuleByExactClass() {
       assertClassification(SettingsModule.class, ModuleCompatibility.Classification.CLIENT_ONLY);
+      assertClassification(AntiCheatModule.class, ModuleCompatibility.Classification.PACKET_AFFECTING);
       assertClassification(ColorsModule.class, ModuleCompatibility.Classification.CLIENT_ONLY);
       assertClassification(FontsModule.class, ModuleCompatibility.Classification.CLIENT_ONLY);
       assertClassification(HUDModule.class, ModuleCompatibility.Classification.CLIENT_ONLY);

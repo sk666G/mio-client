@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.google.gson.JsonParser;
 import dev.schizo.client.modules.client.SettingsModule;
+import dev.schizo.client.modules.client.AntiCheatModule;
 import dev.schizo.client.modules.exploit.ReachModule;
 import dev.schizo.client.modules.movement.FastClimbModule;
 import dev.schizo.client.modules.movement.NoFallModule;
@@ -39,6 +40,16 @@ class MultiplayerCompatibilityPolicyTest {
       assertFalse(policy.blocksWhenConservative(FastClimbModule.class));
       assertFalse(policy.blocksWhenConservative(FastPlaceModule.class));
       assertFalse(policy.blocksWhenConservative(null));
+   }
+
+   @Test
+   void leavesPermanentServiceModulesWarningOnlyUntilSettingsCanBeControlled() {
+      MultiplayerCompatibilityPolicy policy = new MultiplayerCompatibilityPolicy();
+      policy.setMode(MultiplayerCompatibilityPolicy.Mode.CONSERVATIVE);
+
+      assertEquals(ModuleCompatibility.Classification.PACKET_AFFECTING,
+         ModuleCompatibility.assess(AntiCheatModule.class).classification());
+      assertFalse(policy.blocksWhenConservative(AntiCheatModule.class));
    }
 
    @Test

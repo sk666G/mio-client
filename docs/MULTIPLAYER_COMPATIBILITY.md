@@ -38,7 +38,7 @@ The first-pass registry labels only the modules listed above. **Every other modu
 
 The report does not modify packets or attempt to evade server validation. The default policy is **WARN_ONLY** and leaves module activation unchanged.
 
-An optional conservative activation policy is available:
+An optional conservative activation policy is available for user-toggleable modules. Always-on `PermanentModule` services cannot be safely disabled through the ordinary module lifecycle, so they remain warning-only until their individual settings have dedicated enforcement and tests:
 
 - `;compat policy status` shows the current policy and explicit exceptions.
 - `;compat policy conservative` blocks enabling `SERVER_SENSITIVE`, `PACKET_AFFECTING` and `UNVERIFIED` modules while connected to a remote multiplayer server.
