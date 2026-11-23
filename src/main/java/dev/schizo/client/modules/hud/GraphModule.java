@@ -26,51 +26,90 @@ import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexFormat.Mode;
 import java.awt.Color;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Arrays;
 import net.minecraft.util.Mth;
 
 public class GraphModule extends HudWidgetModule {
    private final Setting<Float> ceilSetting;
    private final Setting<Integer> heightSetting;
    private final Setting<Integer> widthSetting;
-   private final List<Double> speedSamples;
+   private double[] speedSamples;
+   private int sampleCount;
+   private int nextSampleIndex;
 
    @Override
    public void onEnable() {
-      this.speedSamples.clear();
-      for (int sampleIndex = 0; sampleIndex < 150; sampleIndex++) {
-         this.speedSamples.add(0.0D);
-      }
+      this.ensureSampleCapacity(this.widthSetting.getValue());
+      Arrays.fill(this.speedSamples, 0.0D);
+      this.sampleCount = this.speedSamples.length;
+      this.nextSampleIndex = 0;
    }
 
    @Override
    public float[] calculateDimensions() {
-
       float[] dimensions = new float[2];
-      Integer width = this.widthSetting.getValue();
-      dimensions[0] = width.intValue();
-      Integer height = this.heightSetting.getValue();
-      dimensions[1] = height.intValue();
+      dimensions[0] = this.widthSetting.getValue();
+      dimensions[1] = this.heightSetting.getValue();
       return dimensions;
    }
 
    @Override
    public void renderContent(PoseStack poses) {
-      if (this.speedSamples.size() < 2) {
+      this.ensureSampleCapacity(this.widthSetting.getValue());
+      if (this.sampleCount < 2) {
          return;
       }
+
       MeshBuffer buffer = MeshDrawContext.getBuffer();
       buffer.begin(Mode.LINES, DefaultVertexFormat.POSITION_COLOR_NORMAL_LINE_WIDTH);
-      for (int sampleIndex = 1; sampleIndex < this.speedSamples.size(); sampleIndex++) {
-         float previousY = this.getSampleY(this.speedSamples.get(sampleIndex - 1));
-         float currentY = this.getSampleY(this.speedSamples.get(sampleIndex));
+      for (int sampleIndex = 1; sampleIndex < this.sampleCount; sampleIndex++) {
+         float previousY = this.getSampleY(this.getSample(sampleIndex - 1));
+         float currentY = this.getSampleY(this.getSample(sampleIndex));
          VertexGeometry.appendLine(
             buffer, poses.last(), sampleIndex - 1, previousY, 0.0F, sampleIndex, currentY, 0.0F,
             1.0F, this.getSampleColor(previousY, sampleIndex - 1), this.getSampleColor(currentY, sampleIndex)
          );
       }
       buffer.draw(ClientRenderTypes.worldLines());
+   }
+
+   private double getSample(int chronologicalIndex) {
+      int oldestSampleIndex = Math.floorMod(this.nextSampleIndex - this.sampleCount, this.speedSamples.length);
+      return this.speedSamples[(oldestSampleIndex + chronologicalIndex) % this.speedSamples.length];
+   }
+
+   private void appendSample(double sample) {
+      this.speedSamples[this.nextSampleIndex] = sample;
+      this.nextSampleIndex = (this.nextSampleIndex + 1) % this.speedSamples.length;
+      if (this.sampleCount < this.speedSamples.length) {
+         this.sampleCount++;
+      }
+   }
+
+   private void ensureSampleCapacity(int capacity) {
+      int requestedCapacity = Math.max(2, capacity);
+      if (this.speedSamples != null && this.speedSamples.length == requestedCapacity) {
+         return;
+      }
+
+      double[] resizedSamples = new double[requestedCapacity];
+      if (this.speedSamples != null && this.sampleCount > 0) {
+         int retainedSamples = Math.min(this.sampleCount, requestedCapacity);
+         int oldestSampleIndex = Math.floorMod(this.nextSampleIndex - this.sampleCount, this.speedSamples.length);
+         int firstRetainedIndex = this.sampleCount - retainedSamples;
+         for (int index = 0; index < retainedSamples; index++) {
+            resizedSamples[index] = this.speedSamples[
+               (oldestSampleIndex + firstRetainedIndex + index) % this.speedSamples.length
+            ];
+         }
+         this.sampleCount = retainedSamples;
+         this.nextSampleIndex = retainedSamples % requestedCapacity;
+      } else {
+         this.sampleCount = 0;
+         this.nextSampleIndex = 0;
+      }
+
+      this.speedSamples = resizedSamples;
    }
 
    private float getSampleY(double sample) {
@@ -86,50 +125,24 @@ public class GraphModule extends HudWidgetModule {
 
    @EventHandler
    private void onLocalPlayerTickEvent(LocalPlayerTickEvent ignoredEvent) {
-      List<Double> samplesForAppend = this.speedSamples;
-      double speed = ClientContext.movementSpeedTracker.getDisplaySpeed();
-      samplesForAppend.add(speed);
-
-      while (this.speedSamples.size() > this.widthSetting.getValue()) {
-         this.speedSamples.remove(0);
-      }
+      this.ensureSampleCapacity(this.widthSetting.getValue());
+      this.appendSample(ClientContext.movementSpeedTracker.getDisplaySpeed());
    }
 
    private int getSampleAlpha(int sampleIndex) {
-
       if (sampleIndex <= 10) {
-         float leadingAlpha = sampleIndex;
-
-         leadingAlpha /= 10.0F;
-
-         leadingAlpha *= 255.0F;
-
-         float leadingMaximum = 255.0F;
-         return (int)Mth.clamp(leadingAlpha, 0.0F, leadingMaximum);
-      } else {
-         Integer widthForThreshold = this.widthSetting.getValue();
-         int fadePositionOperandScratch = widthForThreshold;
-
-         if (sampleIndex >= fadePositionOperandScratch - 10) {
-
-            float trailingStart = 1.0F;
-            Integer widthForRamp = this.widthSetting.getValue();
-            int relativePosition = sampleIndex - widthForRamp;
-
-            float trailingPosition = relativePosition
-               + 10;
-
-            float trailingProgress = trailingStart - trailingPosition / 10.0F;
-
-            float trailingAlpha = trailingProgress * 255.0F;
-
-            float trailingMaximum = 255.0F;
-            return (int)Mth.clamp(trailingAlpha, 0.0F, trailingMaximum);
-         } else {
-
-            return 255;
-         }
+         float leadingAlpha = sampleIndex / 10.0F * 255.0F;
+         return (int)Mth.clamp(leadingAlpha, 0.0F, 255.0F);
       }
+
+      int width = this.widthSetting.getValue();
+      if (sampleIndex >= width - 10) {
+         float trailingPosition = sampleIndex - width + 10;
+         float trailingAlpha = (1.0F - trailingPosition / 10.0F) * 255.0F;
+         return (int)Mth.clamp(trailingAlpha, 0.0F, 255.0F);
+      }
+
+      return 255;
    }
 
    public GraphModule() {
@@ -153,8 +166,7 @@ public class GraphModule extends HudWidgetModule {
          50,
          100
       ));
-      this.speedSamples = new ArrayList<>();
+      this.speedSamples = new double[this.widthSetting.getValue()];
       this.setRenderer(new ResizableHudWidgetRenderer(this));
    }
-
 }
