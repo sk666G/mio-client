@@ -26,7 +26,6 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexFormat.Mode;
 import java.awt.Color;
 import java.util.Arrays;
-import net.minecraft.util.Mth;
 
 public class FrameTimeGraphModule extends HudWidgetModule {
    private static final float DEFAULT_FRAME_TIME_MILLIS = 1000.0F / 60.0F;
