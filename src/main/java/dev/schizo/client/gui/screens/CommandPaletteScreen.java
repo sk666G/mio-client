@@ -83,6 +83,7 @@ public final class CommandPaletteScreen extends ClientScreen {
 
    private void rebuildIndex() {
       this.index.clear();
+      ModulePreferencesRegistry preferences = ClientContext.modulePreferencesRegistry;
 
       for (Object moduleElement : ClientContext.moduleRegistry.getRegistry()) {
          Module module = (Module)moduleElement;
