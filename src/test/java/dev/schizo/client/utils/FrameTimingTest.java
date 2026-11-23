@@ -93,4 +93,21 @@ class FrameTimingTest {
       timing.recordFrameAt(916_000_000L);
       assertEquals(16.0F, timing.getAverageFrameTimeMillis(), 0.01F);
    }
+
+   @Test
+   void countsHitchesAndExpiresThemFromTheRollingWindow() {
+      FrameTiming timing = new FrameTiming();
+      timing.recordFrameAt(1_000_000_000L);
+      timing.recordFrameAt(1_016_000_000L);
+      timing.recordFrameAt(1_116_000_000L);
+      timing.recordFrameAt(1_132_000_000L);
+
+      assertEquals(1, timing.getStuttersPerSecond());
+
+      for (int frame = 1; frame <= 64; frame++) {
+         timing.recordFrameAt(1_132_000_000L + frame * 16_000_000L);
+      }
+
+      assertEquals(0, timing.getStuttersPerSecond());
+   }
 }
