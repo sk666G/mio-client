@@ -32,10 +32,10 @@ public final class HudOverlay {
         Minecraft client = Minecraft.getInstance();
         if (client.player == null || client.options.hideGui) return;
 
-        // Keep the armor overlay independent from the general information HUD toggle.
         ArmorHudRenderer.render(graphics, client);
         EffectsHudRenderer.render(graphics, client);
         KeystrokesRenderer.render(graphics, client);
+        TotemCounterRenderer.render(graphics, client);
 
         Feature registered = FeatureRegistry.get("information-hud").orElse(null);
         if (!(registered instanceof HudFeature feature) || !feature.isEnabled()) return;

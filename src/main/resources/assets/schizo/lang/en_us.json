@@ -7,5 +7,7 @@
   "key.schizo.module.armor_hud": "Toggle Armor HUD",
   "key.schizo.module.effects_hud": "Toggle Effects HUD",
   "key.schizo.module.keystrokes": "Toggle Keystrokes",
-  "key.schizo.module.toggle_sprint": "Toggle Sprint"
+  "key.schizo.module.toggle_sprint": "Toggle Sprint",
+  "key.schizo.module.auto_tool": "Toggle Auto Tool",
+  "key.schizo.module.totem_counter": "Toggle Totem Counter"
 }
