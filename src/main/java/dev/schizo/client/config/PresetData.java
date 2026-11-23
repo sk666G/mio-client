@@ -17,6 +17,7 @@ import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.nio.file.Files;
 
 public record PresetData(String name, JsonObject contents) implements ClientAccess, NamedEntry {
    @Override
