@@ -15,6 +15,7 @@ import dev.schizo.client.config.ConfigurationBackupManager;
 import dev.schizo.client.config.ModulePresetCodec;
 import dev.schizo.client.config.PresetUndoState;
 import dev.schizo.client.render.BundledResourceInstaller;
+import dev.schizo.client.utils.FileUtils;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.commands.PanicCommand;
 import dev.schizo.client.settings.JsonConfigurable;
