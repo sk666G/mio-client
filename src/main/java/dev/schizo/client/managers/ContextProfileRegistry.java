@@ -16,7 +16,6 @@ import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.LocalPlayerPreTickEvent;
 import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.settings.JsonConfigurable;
-import dev.schizo.client.settings.options.DimensionType;
 import dev.schizo.client.settings.options.PresetCategory;
 import dev.schizo.client.utils.world.WorldUtils;
 
@@ -65,6 +64,8 @@ public final class ContextProfileRegistry implements ClientAccess, JsonConfigura
       }
       if (!enabled) {
          this.restoreActiveProfile();
+      } else if (this.isWorldUnavailable()) {
+         this.baseline.clear();
       }
       this.enabled = enabled;
       this.dirty = true;
@@ -211,7 +212,12 @@ public final class ContextProfileRegistry implements ClientAccess, JsonConfigura
    @EventHandler(priority = 100)
    private void beforeServerPresetChange(ConnectScreenConnectEvent event) {
       synchronized (this) {
-         this.restoreActiveProfile();
+         if (this.enabled) {
+            this.restoreActiveProfile();
+         } else {
+            this.modifiedCategories.clear();
+            this.baseline.clear();
+         }
          this.lastAppliedContext = null;
       }
    }
@@ -220,7 +226,12 @@ public final class ContextProfileRegistry implements ClientAccess, JsonConfigura
    @EventHandler(priority = -100)
    private void captureServerBaseline(ConnectScreenConnectEvent event) {
       synchronized (this) {
-         this.captureBaseline();
+         if (this.enabled) {
+            this.captureBaseline();
+         } else {
+            this.baseline.clear();
+            this.modifiedCategories.clear();
+         }
          this.lastAppliedContext = null;
          this.dirty = true;
       }
@@ -229,8 +240,11 @@ public final class ContextProfileRegistry implements ClientAccess, JsonConfigura
    @EventHandler(priority = 100)
    private void restoreOnDisconnect(MinecraftDisconnectEvent event) {
       synchronized (this) {
-         this.restoreActiveProfile();
+         if (this.enabled) {
+            this.restoreActiveProfile();
+         }
          this.baseline.clear();
+         this.modifiedCategories.clear();
          this.lastAppliedContext = null;
          this.dirty = true;
       }
