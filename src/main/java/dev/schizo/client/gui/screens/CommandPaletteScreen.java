@@ -15,6 +15,8 @@ import dev.schizo.client.commands.Command;
 import dev.schizo.client.gui.components.ModuleComponent;
 import dev.schizo.client.gui.panels.Panel;
 import dev.schizo.client.managers.CommandRegistry;
+import dev.schizo.client.managers.ModulePreferencesRegistry;
+import dev.schizo.client.config.ModuleQuickAccessRanking;
 import dev.schizo.client.modules.Module;
 import dev.schizo.client.modules.client.UIModule;
 import dev.schizo.client.render.ColorUtils;
@@ -60,7 +62,7 @@ public final class CommandPaletteScreen extends ClientScreen {
    ) {
    }
 
-   private record PaletteResult(PaletteEntry entry, int score) {
+   private record PaletteResult(PaletteEntry entry, int score, ModuleQuickAccessRanking.Rank quickAccessRank) {
    }
 
    private final List<PaletteEntry> index = new ArrayList<>();
@@ -81,13 +83,21 @@ public final class CommandPaletteScreen extends ClientScreen {
 
    private void rebuildIndex() {
       this.index.clear();
+      ModulePreferencesRegistry preferences = ClientContext.modulePreferencesRegistry;
 
       for (Object moduleElement : ClientContext.moduleRegistry.getRegistry()) {
          Module module = (Module)moduleElement;
+         int favoriteIndex = preferences == null ? -1 : preferences.getFavoriteIndex(module.getConfigName());
+         int recentIndex = preferences == null ? -1 : preferences.getRecentIndex(module.getConfigName());
+         String moduleSubtitle = favoriteIndex >= 0
+            ? "★ Favorite module"
+            : recentIndex >= 0
+               ? "Recently enabled · #" + (recentIndex + 1)
+               : module.isToggled() ? "Enabled module" : "Module";
          this.index.add(new PaletteEntry(
             EntryKind.MODULE,
             module.getName(),
-            module.isToggled() ? "Enabled module" : "Module",
+            moduleSubtitle,
             module,
             null
          ));
@@ -137,15 +147,25 @@ public final class CommandPaletteScreen extends ClientScreen {
          : this.searchBox.getValue().strip().toLowerCase(Locale.ROOT);
 
       this.results.clear();
+      ModulePreferencesRegistry preferences = ClientContext.modulePreferencesRegistry;
+      List<String> favorites = preferences == null ? List.of() : preferences.getFavorites();
+      List<String> recent = preferences == null ? List.of() : preferences.getRecentlyUsed();
       for (PaletteEntry entry : this.index) {
          int score = PaletteMatcher.score(entry.title(), entry.subtitle(), query);
          if (score >= 0) {
-            this.results.add(new PaletteResult(entry, score));
+            ModuleQuickAccessRanking.Rank rank = switch (entry.kind()) {
+               case MODULE -> ModuleQuickAccessRanking.rank(entry.module().getConfigName(), favorites, recent);
+               case COMMAND -> new ModuleQuickAccessRanking.Rank(3, Integer.MAX_VALUE);
+               case SETTING -> new ModuleQuickAccessRanking.Rank(4, Integer.MAX_VALUE);
+               case KEYBIND -> new ModuleQuickAccessRanking.Rank(5, Integer.MAX_VALUE);
+            };
+            this.results.add(new PaletteResult(entry, score, rank));
          }
       }
 
       this.results.sort(
          Comparator.comparingInt(PaletteResult::score)
+            .thenComparing(PaletteResult::quickAccessRank)
             .thenComparing(result -> result.entry().kind().ordinal())
             .thenComparing(result -> result.entry().title(), String.CASE_INSENSITIVE_ORDER)
       );

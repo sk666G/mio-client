@@ -2,7 +2,7 @@
 
 Open the global command palette with **Right Shift + K** while no other screen is open.
 
-The palette searches Schizo modules, registered commands, individual module settings and assigned module keybinds. Search is case-insensitive and supports exact, prefix, partial and fuzzy subsequence matches.
+The palette searches Schizo modules, registered commands, individual module settings and assigned module keybinds. Search is case-insensitive and supports exact, prefix, partial and fuzzy subsequence matches. With an empty query, favorite modules and recently enabled modules are listed before the rest.
 
 ## Keyboard controls
 
