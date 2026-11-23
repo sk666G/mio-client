@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "id": "schizo",
+  "version": "${version}",
+  "name": "Schizo",
+  "description": "A modular Fabric client foundation.",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["dev.schizo.client.SchizoClient"]
+  },
+  "depends": {
+    "fabricloader": ">=0.19.5",
+    "minecraft": "~1.21.11",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}

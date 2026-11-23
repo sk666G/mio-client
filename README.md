@@ -1,42 +1,23 @@
-# Mio Client — Static Analysis
+# Schizo Client
 
-Static security review of the Mio Client Minecraft mod. This repository documents observations from **static analysis only**; the client was not executed.
+Schizo is a clean-room Fabric client project for Minecraft 1.21.11. This repository starts with a modular client foundation: lifecycle/bootstrap, feature registration, configuration, and rendering hooks.
 
-<p align="center">
-  <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ5F1K8mGGc_9b82X-zjlDGGnt0bjuYV-ChsA&amp;s" alt="Mio Client logo" width="300">
-</p>
+## Build
 
-## Files
+- JDK 21
+- Gradle wrapper (or Gradle 8.14+)
 
-- `final-assessment.txt` — concise assessment and SHA-256 hashes for the 2.2.1 analysis.
-- `mio-2.1.7-assessment.txt` — separate static security assessment and hashes for Mio Client 2.1.7.
-- Original JARs are not included.
-## SHA-256
+```bash
+./gradlew build
+./gradlew runClient
+```
 
-| File | SHA-256 |
-|---|---|
-| `mio-loader.jar` | `e728ab4e52c25dbcbeac1b0f095c98333daf2c65e1c92fc7f6987b16aba1c7c4` |
-| `mio.jar` | `4eb2b23917e2db37cfa990245544c349bfc6301c0fa607347c9442767539c38d` |
+The remapped mod JAR is produced under `build/libs/`.
 
-These hashes matched the GitHub API release digests for Mio Client release `mio2.2.1` (published 2025-12-19).
+## Project status
 
-## Key observations
+This is the initial scaffold. Features are intentionally added as isolated modules with explicit settings and safe defaults. Network-protocol manipulation, stealth injection, and anti-cheat evasion are not part of the project.
 
-- Custom classloader, reflection, and use of `sun.misc.Unsafe`.
-- Country lookup via `https://api.country.is/`.
-- Screenshot upload functionality using Imgur; behavior is mode/state-dependent.
-- TCP connection probe to the current Minecraft server for latency measurement.
-- Explorer file-reveal behavior.
-- Reconstructed-source references to optional Discord webhook notifications and other external APIs require bytecode corroboration.
+## License
 
-## Assessment
-
-**Verdict: untrusted; not certified safe.** No definitive credential-theft or destructive-malware behavior was established in this review. Obfuscation and conditional behavior limit confidence; absence of a finding is not proof of absence.
-
-## Scope and limitations
-
-This is a static-analysis report, not a full audit. Some observations come from reconstructed third-party source and are explicitly distinguished from findings confirmed in the original bytecode. Do not treat this assessment as a guarantee of safety.
-
-## Attribution and redistribution
-
-Mio Client is third-party software. This repository's analysis does not imply ownership or endorsement. Obtain permission before redistributing the original JARs or third-party images.
+Add the license appropriate to the code you contribute. Third-party code and assets must retain their original licenses and notices.
