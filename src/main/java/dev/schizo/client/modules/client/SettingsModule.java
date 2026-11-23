@@ -9,6 +9,8 @@
 
 package dev.schizo.client.modules.client;
 
+import dev.schizo.client.compatibility.CompatibilityAssessment;
+import dev.schizo.client.compatibility.CompatibilityClass;
 import dev.schizo.client.gui.screens.PresetScreen;
 import dev.schizo.client.compatibility.MultiplayerCompatibilityPolicy;
 import dev.schizo.client.audio.BuiltinSound;
@@ -65,7 +67,14 @@ public class SettingsModule extends PermanentModule {
          }
       });
       this.prefixSetting.setExcludedFromConfig(true);
-   }
+   
+      CompatibilityAssessment assessment = CompatibilityAssessment.sourceReviewed(
+         CompatibilityClass.CLIENT_ONLY,
+         "Changes local client preferences and configuration; no gameplay packet behavior is present in this module."
+      );
+      this.setCompatibilityAssessment(assessment);
+      this.classifyAllSettings(assessment);
+}
 
    public enum MultiplierOption implements NamedEntry {
       NONE("None", 0),

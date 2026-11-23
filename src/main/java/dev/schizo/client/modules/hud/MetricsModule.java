@@ -9,6 +9,8 @@
 
 package dev.schizo.client.modules.hud;
 
+import dev.schizo.client.compatibility.CompatibilityAssessment;
+import dev.schizo.client.compatibility.CompatibilityClass;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.EventHandler;
@@ -339,5 +341,12 @@ public class MetricsModule extends HudWidgetModule {
 
       this.getRenderer()
          .setAnchor(HudAnchor.BOTTOM_RIGHT);
-   }
+   
+      CompatibilityAssessment assessment = CompatibilityAssessment.sourceReviewed(
+         CompatibilityClass.VISUAL_ONLY,
+         "Draws local metric values in the HUD; no outbound packet mutation is present in this module."
+      );
+      this.setCompatibilityAssessment(assessment);
+      this.classifyAllSettings(assessment);
+}
 }

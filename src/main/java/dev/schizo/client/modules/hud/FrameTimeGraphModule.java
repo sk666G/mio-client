@@ -9,6 +9,8 @@
 
 package dev.schizo.client.modules.hud;
 
+import dev.schizo.client.compatibility.CompatibilityAssessment;
+import dev.schizo.client.compatibility.CompatibilityClass;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.render.ColorUtils;
 import dev.schizo.client.render.ClientRenderTypes;
@@ -203,5 +205,12 @@ public class FrameTimeGraphModule extends HudWidgetModule {
       this.averageSetting = this.add(new BooleanSetting("AverageLine", false));
       this.frameTimeSamples = new float[this.widthSetting.getValue()];
       this.setRenderer(new ResizableHudWidgetRenderer(this));
-   }
+   
+      CompatibilityAssessment assessment = CompatibilityAssessment.sourceReviewed(
+         CompatibilityClass.VISUAL_ONLY,
+         "Renders locally recorded frame timings and does not alter outbound player state."
+      );
+      this.setCompatibilityAssessment(assessment);
+      this.classifyAllSettings(assessment);
+}
 }

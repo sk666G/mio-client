@@ -9,6 +9,8 @@
 
 package dev.schizo.client.modules.client;
 
+import dev.schizo.client.compatibility.CompatibilityAssessment;
+import dev.schizo.client.compatibility.CompatibilityClass;
 import dev.schizo.client.utils.collections.NamedIdentifier;
 
 import dev.schizo.client.ClientAccess;
@@ -407,7 +409,14 @@ public final class UIModule extends Module {
          this.snowSetting.setValue(false);
          this.unregister(this.snowSetting);
       }
-   }
+   
+      CompatibilityAssessment assessment = CompatibilityAssessment.sourceReviewed(
+         CompatibilityClass.VISUAL_ONLY,
+         "Controls local ClickGUI appearance and presentation; no outbound gameplay behavior is present in this module."
+      );
+      this.setCompatibilityAssessment(assessment);
+      this.classifyAllSettings(assessment);
+}
 
    public enum LanguageChoice implements NamedEntry {
       ENGLISH("English", "en_us"),
