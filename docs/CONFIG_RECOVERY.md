@@ -9,6 +9,7 @@ Before an existing config is overwritten during a normal configuration save, the
 | Command | Action |
 | --- | --- |
 | `;configbackup configs` | List valid configuration file names |
+| `;configbackup health` | Check every registered config file and show its backup count |
 | `;configbackup list` | List recent backups across all configuration files |
 | `;configbackup list modules.json` | List backups for one config |
 | `;configbackup create modules.json` | Manually create a backup of the current file |
@@ -18,6 +19,19 @@ Before an existing config is overwritten during a normal configuration save, the
 Aliases are `;configbackups` and `;cfgbackup`.
 
 After a restore, restart Minecraft to load the restored configuration. The current file is automatically backed up before it is replaced, so the restore can itself be undone by restoring that newer backup.
+
+## Configuration health states
+
+The `;configbackup health` report only prints filenames, status labels and backup counts:
+
+- **VALID** — a regular file containing a JSON object
+- **MISSING** — no current config file exists yet
+- **CORRUPT** — the file is not a valid JSON object
+- **TOO_LARGE** — the file exceeds the supported 8 MiB limit
+- **UNSAFE** — invalid config name, symbolic link or non-regular file
+- **UNREADABLE** — filesystem access failed while inspecting the file
+
+The report never prints configuration values or secrets.
 
 ## Safety and limits
 
