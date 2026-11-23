@@ -13,6 +13,7 @@ import dev.schizo.client.utils.FloatAnimation;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.modules.HudWidgetModule;
+import dev.schizo.client.gui.screens.HudEditorScreen;
 import dev.schizo.client.modules.client.HUDModule;
 import dev.schizo.client.settings.NumberSetting;
 import dev.schizo.client.settings.Setting;
@@ -45,6 +46,18 @@ public class ResizableHudWidgetRenderer extends HudWidgetRenderer {
          ? hudSettings.getTextScale()
          : 1.0F;
       return this.sizeSetting.getValue() * scaleMultiplier;
+   }
+
+   public float getSizeScale() {
+      return this.sizeSetting.getValue();
+   }
+
+   public void setSizeScale(float scale) {
+      this.sizeSetting.setValue(scale);
+   }
+
+   public static void cancelActiveResize() {
+      activeResizeRenderer = null;
    }
 
    private boolean isMouseButtonPressed(int button) {
@@ -90,31 +103,36 @@ public class ResizableHudWidgetRenderer extends HudWidgetRenderer {
       if (!renderingHud
          && this.resizingEnabled) {
          boolean handleHovered = this.isResizeHandleHovered(mouseX, mouseY);
-         if (activeResizeRenderer == this) {
-            double contentWidth = sourceDimensions[0];
-            double contentHeight = sourceDimensions[1];
-            double resizeScale = Math.min(
-               (mouseX - this.getX()) / contentWidth,
-               (mouseY - this.getY()) / contentHeight
-            );
-            this.sizeSetting
-               .setValue(
-                  (float)MathUtils.floorToDecimals(
-                     resizeScale,2)
-               );
+         boolean leftButtonPressed = this.isMouseButtonPressed(0);
+         boolean rightButtonPressed = this.isMouseButtonPressed(1);
+         HudEditorScreen editor = ClientContext.getHudEditor();
+
+         if (handleHovered && rightButtonPressed && activeResizeRenderer == null) {
+            editor.beginLayoutEdit();
+            this.sizeSetting.setValue(1.0F);
+            editor.finishLayoutEdit();
          }
 
-         if (handleHovered && this.isMouseButtonPressed(1)) {
-            this.sizeSetting
-               .setValue(
-                  1.0F
-               );
-         }
-
-         if (handleHovered && this.isMouseButtonPressed(0)) {
+         if (handleHovered && leftButtonPressed && activeResizeRenderer == null) {
+            editor.beginLayoutEdit();
             activeResizeRenderer = this;
-         } else if (!this.isMouseButtonPressed(0)) {
-            activeResizeRenderer = null;
+         }
+
+         if (activeResizeRenderer == this) {
+            if (leftButtonPressed) {
+               double contentWidth = sourceDimensions[0];
+               double contentHeight = sourceDimensions[1];
+               double resizeScale = Math.min(
+                  (mouseX - this.getX()) / contentWidth,
+                  (mouseY - this.getY()) / contentHeight
+               );
+               this.sizeSetting.setValue(
+                  (float)MathUtils.floorToDecimals(resizeScale, 2)
+               );
+            } else {
+               activeResizeRenderer = null;
+               editor.finishLayoutEdit();
+            }
          }
 
          if (activeResizeRenderer == this) {
