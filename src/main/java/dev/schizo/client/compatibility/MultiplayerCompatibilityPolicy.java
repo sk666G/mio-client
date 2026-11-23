@@ -26,7 +26,19 @@ public final class MultiplayerCompatibilityPolicy {
          return true;
       }
 
-      CompatibilityClass classification = module.getCompatibilityAssessment().classification();
+      return isActivationAllowed(
+         conservativeEnabled,
+         true,
+         module.getCompatibilityAssessment().classification()
+      );
+   }
+
+   static boolean isActivationAllowed(
+      boolean conservativeProfileEnabled, boolean multiplayer, CompatibilityClass classification
+   ) {
+      if (!conservativeProfileEnabled || !multiplayer) {
+         return true;
+      }
       return classification != CompatibilityClass.PACKET_AFFECTING
          && classification != CompatibilityClass.SERVER_SENSITIVE
          && classification != CompatibilityClass.UNVERIFIED;

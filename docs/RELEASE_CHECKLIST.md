@@ -62,3 +62,5 @@ No public release or merge is part of this branch task.
 - [ ] Confirm the Gradle 10 warning and GitHub Actions runtime warnings are cleared in the refreshed workflow.
 
 - [ ] Force Context Profile restore failure, verify the one-second retry and ensure recovery does not apply a new context before all pending categories restore.
+
+- [ ] Verify conservative policy decisions for all seven classifications and confirm disabled mode/singleplayer do not block module activation.
