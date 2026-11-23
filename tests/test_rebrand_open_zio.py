@@ -46,6 +46,33 @@ class RebuildSecurityTest(unittest.TestCase):
             with self.assertRaisesRegex(SystemExit, "Symbolic links"):
                 list(REBRAND.iter_source(archive_path))
 
+    def test_accepts_regular_zip_entries_with_permissions_but_no_type_bits(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            archive_path = Path(temporary) / "permissions-only.zip"
+            with zipfile.ZipFile(archive_path, "w") as archive:
+                archive.comment = REBRAND.EXPECTED_COMMIT.encode("ascii")
+                for index in range(1200):
+                    info = zipfile.ZipInfo(f"upstream/file-{index}.txt")
+                    info.external_attr = 0o600 << 16
+                    archive.writestr(info, "ok")
+
+            members = list(REBRAND.iter_source(archive_path))
+            self.assertEqual(1200, len(members))
+
+    def test_rejects_explicit_non_regular_unix_entry_types(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            archive_path = Path(temporary) / "special-file.zip"
+            with zipfile.ZipFile(archive_path, "w") as archive:
+                archive.comment = REBRAND.EXPECTED_COMMIT.encode("ascii")
+                for index in range(1200):
+                    archive.writestr(f"upstream/file-{index}.txt", "ok")
+                special = zipfile.ZipInfo("upstream/fifo")
+                special.external_attr = (stat.S_IFIFO | 0o600) << 16
+                archive.writestr(special, "not a regular file")
+
+            with self.assertRaisesRegex(SystemExit, "Unsupported archive entry type"):
+                list(REBRAND.iter_source(archive_path))
+
     def test_refuses_non_repository_destination(self):
         with tempfile.TemporaryDirectory() as temporary:
             with self.assertRaises(ValueError):

@@ -168,16 +168,19 @@ def iter_source(source: Path):
                 if safe_name != root and not safe_name.startswith(root + "/"):
                     raise SystemExit(f"Unexpected archive root entry: {item.filename!r}")
                 mode = (item.external_attr >> 16) & 0xFFFF
-                if stat.S_ISLNK(mode):
+                file_type = stat.S_IFMT(mode)
+                if file_type == stat.S_IFLNK:
                     raise SystemExit(f"Symbolic links are not allowed in archives: {item.filename!r}")
                 if item.is_dir():
-                    if mode and not stat.S_ISDIR(mode):
+                    if file_type not in (0, stat.S_IFDIR):
                         raise SystemExit(f"Unsupported archive entry type: {item.filename!r}")
                     continue
                 file_count += 1
                 rel = safe_name[len(root):].lstrip("/")
                 rel = safe_relative_member(rel)
-                if mode and not stat.S_ISREG(mode):
+                # ZIP entries commonly carry POSIX permission bits without S_IFREG.
+                # Treat a missing type as a normal file, but reject explicit special types.
+                if file_type not in (0, stat.S_IFREG):
                     raise SystemExit(f"Unsupported archive entry type: {item.filename!r}")
                 if rel.split("/", 1)[0] in PRESERVE_TOP_LEVEL:
                     continue
