@@ -20,11 +20,26 @@ class HudLayoutStoreTest {
       return layout;
    }
 
+   private JsonObject layoutWithWidget() {
+      JsonObject widget = new JsonObject();
+      widget.addProperty("module", "Metrics");
+      widget.addProperty("anchor", "TOP_LEFT");
+      widget.addProperty("x", 0.1F);
+      widget.addProperty("y", 0.2F);
+      widget.addProperty("horizontal", "LEFT");
+      widget.addProperty("vertical", "TOP");
+      widget.addProperty("scale", 1.0F);
+
+      JsonObject layout = this.emptyLayout();
+      layout.getAsJsonArray("widgets").add(widget);
+      return layout;
+   }
+
    @Test
    void savesListsLoadsRenamesAndDeletesLayouts() throws IOException {
       Path directory = this.temporaryDirectory.resolve("hud-layouts");
       HudLayoutStore store = new HudLayoutStore(directory);
-      JsonObject layout = this.emptyLayout();
+      JsonObject layout = this.layoutWithWidget();
 
       store.save("Gameplay", layout);
       assertEquals(java.util.List.of("Gameplay"), store.list());
@@ -59,6 +74,35 @@ class HudLayoutStoreTest {
       Files.createDirectories(store.getDirectory());
       Files.writeString(store.getDirectory().resolve("broken.json"), "{");
       assertThrows(IOException.class, () -> store.load("broken"));
+   }
+
+   @Test
+   void rejectsMalformedWidgetEntriesAndDuplicateModules() throws IOException {
+      HudLayoutStore store = new HudLayoutStore(this.temporaryDirectory.resolve("hud-layouts"));
+      JsonObject malformed = this.emptyLayout();
+      JsonObject widget = new JsonObject();
+      widget.addProperty("module", "Metrics");
+      malformed.getAsJsonArray("widgets").add(widget);
+      assertThrows(IOException.class, () -> store.save("malformed", malformed));
+
+      JsonObject duplicate = this.layoutWithWidget();
+      duplicate.getAsJsonArray("widgets").add(duplicate.getAsJsonArray("widgets").get(0).deepCopy());
+      assertThrows(IOException.class, () -> store.save("duplicate", duplicate));
+   }
+
+   @Test
+   void rejectsTooManyWidgetsAndOversizedLayoutFiles() throws IOException {
+      HudLayoutStore store = new HudLayoutStore(this.temporaryDirectory.resolve("hud-layouts"));
+      JsonObject tooMany = this.emptyLayout();
+      JsonArray widgets = tooMany.getAsJsonArray("widgets");
+      for (int index = 0; index < 513; index++) {
+         widgets.add(this.layoutWithWidget().getAsJsonArray("widgets").get(0));
+      }
+      assertThrows(IOException.class, () -> store.save("too-many", tooMany));
+
+      Files.createDirectories(store.getDirectory());
+      Files.write(store.getDirectory().resolve("large.json"), new byte[1_048_577]);
+      assertThrows(IOException.class, () -> store.load("large"));
    }
 
    @Test
