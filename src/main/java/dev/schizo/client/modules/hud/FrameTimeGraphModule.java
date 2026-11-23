@@ -80,6 +80,16 @@ public class FrameTimeGraphModule extends HudWidgetModule {
 
       MeshBuffer buffer = MeshDrawContext.getBuffer();
       buffer.begin(Mode.LINES, DefaultVertexFormat.POSITION_COLOR_NORMAL_LINE_WIDTH);
+
+      // A subtle 16.67 ms guide makes the 60 FPS frame budget easy to read.
+      float sixtyFpsY = this.getSampleY(DEFAULT_FRAME_TIME_MILLIS);
+      Color guideBaseColor = this.getHudColor(sixtyFpsY + this.getRenderer().getY());
+      int guideColor = ColorUtils.withAlpha(guideBaseColor, 72).hashCode();
+      VertexGeometry.appendLine(
+         buffer, poses.last(), 0.0F, sixtyFpsY, 0.0F,
+         this.widthSetting.getValue() - 1.0F, sixtyFpsY, 0.0F, 1.0F, guideColor
+      );
+
       for (int sampleIndex = 1; sampleIndex < this.sampleCount; sampleIndex++) {
          float previousY = this.getSampleY(this.getSample(sampleIndex - 1));
          float currentY = this.getSampleY(this.getSample(sampleIndex));
