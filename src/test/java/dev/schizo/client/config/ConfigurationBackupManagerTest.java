@@ -82,7 +82,7 @@ class ConfigurationBackupManagerTest {
       ConfigurationBackupManager manager = this.manager();
       Path backups = manager.getBackupDirectory();
       Files.createDirectories(backups);
-      Files.writeString(backups.resolve("modules.json.0000000000001-malformed.bak"), "{");
+      Files.writeString(backups.resolve("modules.json.0000000000001-deadbeef.bak"), "{");
       Files.writeString(this.configPath("modules.json"), "{\"modules\":[]}");
 
       assertThrows(IOException.class, () -> manager.restoreBackup(
