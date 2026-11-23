@@ -88,8 +88,11 @@ public final class FileUtils {
       if (parent == null) {
          throw new IOException("Cannot atomically write a path without a parent directory");
       }
+      if (Files.isSymbolicLink(parent)) {
+         throw new IOException("Refusing to write through a symbolic-link directory: " + parent.getFileName());
+      }
       Files.createDirectories(parent);
-      if (Files.isSymbolicLink(absolutePath)) {
+      if (Files.isSymbolicLink(parent) || Files.isSymbolicLink(absolutePath)) {
          throw new IOException("Refusing to replace a symbolic link: " + absolutePath.getFileName());
       }
 
