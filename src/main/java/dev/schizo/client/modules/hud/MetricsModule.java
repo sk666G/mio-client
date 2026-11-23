@@ -45,6 +45,7 @@ public class MetricsModule extends HudWidgetModule {
    private final Setting<Boolean> tpsSetting;
    private final Setting<Boolean> pingSetting;
    private final Setting<Boolean> fpsSetting;
+   private final Setting<Boolean> frameTimeSetting;
    private final Setting<Boolean> serverBrandSetting;
    private final Setting<Boolean> durabilitySetting;
    private final Setting<Boolean> shulkersSetting;
@@ -131,6 +132,10 @@ public class MetricsModule extends HudWidgetModule {
          String text = format.formatted(formatArguments);
          return Component.literal(text);
       }, this.fpsSetting::getValue);
+      HudTextRow frameTimeRow = new HudTextRow(() -> {
+         FrameTiming frameTiming = ClientContext.frameTiming;
+         return Component.literal("Frame %s%.2fms".formatted(ChatFormatting.WHITE, frameTiming.getFrameTimeMillis()));
+      }, this.frameTimeSetting::getValue);
       HudTextRow serverBrandRow = new HudTextRow(() -> {
 
          Object[] formatArguments = new Object[2];
@@ -175,7 +180,7 @@ public class MetricsModule extends HudWidgetModule {
          return Component.literal(text);
       }, this.shulkersSetting::getValue);
 
-      rowsForRegistration.addAll(List.of(speedRow, tpsRow, pingRow, fpsRow, serverBrandRow, durabilityRow, chestRow, shulkerRow));
+      rowsForRegistration.addAll(List.of(speedRow, tpsRow, pingRow, fpsRow, frameTimeRow, serverBrandRow, durabilityRow, chestRow, shulkerRow));
    }
 
    @EventHandler
@@ -267,6 +272,7 @@ public class MetricsModule extends HudWidgetModule {
       this.tpsSetting = this.add(new BooleanSetting("TPS", true));
       this.pingSetting = this.add(new BooleanSetting("Ping", true));
       this.fpsSetting = this.add(new BooleanSetting("FPS", true));
+      this.frameTimeSetting = this.add(new BooleanSetting("FrameTime", false));
       this.serverBrandSetting = this.add(new BooleanSetting("ServerBrand", true));
       this.durabilitySetting = this.add(new BooleanSetting("Durability", false));
       this.shulkersSetting = this.add(new BooleanSetting("Shulkers", false));
