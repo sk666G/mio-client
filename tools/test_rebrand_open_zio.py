@@ -60,6 +60,14 @@ class ArchivePathValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "same destination"):
             prepare_members(members)
 
+    def test_rejects_file_directory_prefix_collisions(self):
+        members = [
+            ("config", b"file"),
+            ("config/settings.json", b"child"),
+        ]
+        with self.assertRaisesRegex(ValueError, "conflicts with a required directory"):
+            prepare_members(members)
+
     def test_ignores_preserved_checkout_directories(self):
         members = [
             ("tools/keep.py", b"local tool"),
