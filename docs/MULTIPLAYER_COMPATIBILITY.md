@@ -35,7 +35,7 @@ Use:
 - `;compat list <CLASSIFICATION>` to filter the inventory.
 - `;compat module <ModuleClass>` for the module rationale and each setting's current review state.
 
-The first-pass registry labels the modules listed above, including the render-only group. **Every other module defaults to `UNVERIFIED`**. Runtime warnings are shown when a module in one of the warning-required classes is enabled in multiplayer; warnings are deduplicated per module per connection and capped in chat. The inventory identifies every individual setting as `UNVERIFIED` until that setting has received its own source review. A module-level label is not a per-setting certification.
+The first-pass registry labels the modules listed above, including the render-only group. **Every other module defaults to `UNVERIFIED`**. Runtime warnings are shown when a module in one of the warning-required classes is enabled in multiplayer; warnings are deduplicated per module per connection and capped in chat. The inventory identifies every individual setting as `UNVERIFIED` until that setting has received its own source review. A module-level label is not a per-setting certification. In remote multiplayer, hover any ClickGUI setting to see its explicit `UNVERIFIED` review state and the parent module classification in the existing tooltip; local and single-player tooltips remain unchanged.
 
 The report does not modify packets or attempt to evade server validation. The default policy is **WARN_ONLY** and leaves module activation unchanged.
 
