@@ -47,6 +47,7 @@ public class MetricsModule extends HudWidgetModule {
    private final Setting<Boolean> fpsSetting;
    private final Setting<Boolean> frameTimeSetting;
    private final Setting<Boolean> averageFrameTimeSetting;
+   private final Setting<Boolean> onePercentLowSetting;
    private final Setting<Boolean> serverBrandSetting;
    private final Setting<Boolean> durabilitySetting;
    private final Setting<Boolean> shulkersSetting;
@@ -141,6 +142,11 @@ public class MetricsModule extends HudWidgetModule {
          FrameTiming frameTiming = ClientContext.frameTiming;
          return Component.literal("AvgFrame %s%.2fms".formatted(ChatFormatting.WHITE, frameTiming.getAverageFrameTimeMillis()));
       }, this.averageFrameTimeSetting::getValue);
+      HudTextRow onePercentLowRow = new HudTextRow(() -> {
+         FrameTiming frameTiming = ClientContext.frameTiming;
+         String text = "1%% Low %s%.0f".formatted(ChatFormatting.WHITE, frameTiming.getOnePercentLowFramesPerSecond());
+         return Component.literal(text);
+      }, this.onePercentLowSetting::getValue);
       HudTextRow serverBrandRow = new HudTextRow(() -> {
 
          Object[] formatArguments = new Object[2];
@@ -185,7 +191,7 @@ public class MetricsModule extends HudWidgetModule {
          return Component.literal(text);
       }, this.shulkersSetting::getValue);
 
-      rowsForRegistration.addAll(List.of(speedRow, tpsRow, pingRow, fpsRow, frameTimeRow, averageFrameTimeRow, serverBrandRow, durabilityRow, chestRow, shulkerRow));
+      rowsForRegistration.addAll(List.of(speedRow, tpsRow, pingRow, fpsRow, frameTimeRow, averageFrameTimeRow, onePercentLowRow, serverBrandRow, durabilityRow, chestRow, shulkerRow));
    }
 
    @EventHandler
@@ -279,6 +285,7 @@ public class MetricsModule extends HudWidgetModule {
       this.fpsSetting = this.add(new BooleanSetting("FPS", true));
       this.frameTimeSetting = this.add(new BooleanSetting("FrameTime", false));
       this.averageFrameTimeSetting = this.add(new BooleanSetting("AverageFrameTime", false));
+      this.onePercentLowSetting = this.add(new BooleanSetting("OnePercentLow", false));
       this.serverBrandSetting = this.add(new BooleanSetting("ServerBrand", true));
       this.durabilitySetting = this.add(new BooleanSetting("Durability", false));
       this.shulkersSetting = this.add(new BooleanSetting("Shulkers", false));
