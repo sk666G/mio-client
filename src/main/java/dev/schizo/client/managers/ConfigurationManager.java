@@ -173,7 +173,7 @@ public final class ConfigurationManager implements ClientAccess {
                Gson gsonSnapshot = ClientAccess.gson;
                JsonElement serialized = configurable.toJson();
                JsonObject object = serialized.getAsJsonObject();
-               FileUtils.writeUtf8(configPath, gsonSnapshot.toJson(object));
+               FileUtils.writeUtf8Atomically(configPath, gsonSnapshot.toJson(object));
             } catch (Throwable saveFailure) {
                saveFailure.printStackTrace();
             }
