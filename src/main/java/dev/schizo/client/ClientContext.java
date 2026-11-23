@@ -29,6 +29,7 @@ import dev.schizo.client.managers.InventoryStateManager;
 import dev.schizo.client.managers.KitRegistry;
 import dev.schizo.client.managers.MacroRegistry;
 import dev.schizo.client.managers.ModuleRegistry;
+import dev.schizo.client.managers.ModulePreferencesRegistry;
 import dev.schizo.client.managers.MovementPredictionManager;
 import dev.schizo.client.managers.RotationManager;
 import dev.schizo.client.managers.ServerStateManager;
@@ -59,6 +60,7 @@ public final class ClientContext {
    public static ConfigurationManager configurationManager;
    public static RotationManager rotationManager;
    public static volatile ModuleRegistry moduleRegistry;
+   public static ModulePreferencesRegistry modulePreferencesRegistry;
    public static CommandRegistry commandRegistry;
    public static FrameTiming frameTiming;
    public static ServerStateManager serverStateManager;
