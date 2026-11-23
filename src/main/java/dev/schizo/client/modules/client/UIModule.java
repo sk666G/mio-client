@@ -238,7 +238,7 @@ public final class UIModule extends Module {
    public UIModule() {
       super("UI", "Displays the client's click gui.", ModuleCategory.CLIENT, new String[0]);
       this.resetSetting = this.add(new BooleanSetting(("Reset"), true));
-      this.styleSetting = this.add(new EnumSetting<>(("Style"), UIModule.StyleChoice.SLIM));
+      this.styleSetting = this.add(new EnumSetting<>(("Style"), UIModule.StyleChoice.SCHIZO));
       this.animSpeedSetting = this.add(new NumberSetting<>("AnimSpeed", 1.0F, 0.5F, 2.5F));
       this.scaleSetting = this.add(new NumberSetting<>("Scale", 1.0F, 0.1F, 2.0F));
       this.snowSetting = this.add(new BooleanSetting("Snow", true));
@@ -486,17 +486,25 @@ public final class UIModule extends Module {
    }
 
    public enum StyleChoice implements NamedEntry {
-      PLAIN("Plain"),
-      SLIM("Slim");
+      SCHIZO("Schizo", 15, 4, 8),
+      PLAIN("Plain", 14, 4, 7),
+      SLIM("Slim", 12, 3, 4);
 
       private final String displayName;
+      private final int headerHeight;
+      private final int heightPadding;
+      private final int widthPadding;
+
+      public int getHeaderHeight() {
+         return this.headerHeight;
+      }
 
       public int getHeightPadding() {
-         return this == SLIM ? 3 : 4;
+         return this.heightPadding;
       }
 
       public int getWidthPadding() {
-         return this == SLIM ? 4 : 7;
+         return this.widthPadding;
       }
 
       @Override
@@ -504,8 +512,11 @@ public final class UIModule extends Module {
          return this.displayName;
       }
 
-      StyleChoice(String displayName) {
+      StyleChoice(String displayName, int headerHeight, int heightPadding, int widthPadding) {
          this.displayName = displayName;
+         this.headerHeight = headerHeight;
+         this.heightPadding = heightPadding;
+         this.widthPadding = widthPadding;
       }
    }
 }

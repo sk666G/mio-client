@@ -2,6 +2,18 @@
 
 Schizo's default interface palette is designed to be recognizable without relying on generic cyberpunk styling: deep charcoal surfaces, clear typography and an electric-lime accent.
 
+## ClickGUI panel style
+
+The UI module's **Style** setting controls panel density and header treatment:
+
+| Style | Appearance |
+| --- | --- |
+| **Schizo** | Dark charcoal header, electric-lime edge rail and accent title; slightly more breathing room |
+| **Plain** | Existing standard panel layout |
+| **Slim** | Existing compact panel layout |
+
+Schizo is the default for new configurations. Existing configurations that already saved Plain or Slim keep that selection. The style changes presentation only; it does not move modules or alter settings.
+
 ## UI palette
 
 Open the **UI** module and find **Palette**:
