@@ -29,13 +29,14 @@ public final class HudOverlay {
     }
 
     private static void render(GuiGraphics graphics, net.minecraft.client.DeltaTracker tickCounter) {
-        Feature registered = FeatureRegistry.get("information-hud").orElse(null);
-        if (!(registered instanceof HudFeature feature) || !feature.isEnabled()) return;
-
         Minecraft client = Minecraft.getInstance();
         if (client.player == null || client.options.hideGui) return;
 
+        // Keep the armor overlay independent from the general information HUD toggle.
         ArmorHudRenderer.render(graphics, client);
+
+        Feature registered = FeatureRegistry.get("information-hud").orElse(null);
+        if (!(registered instanceof HudFeature feature) || !feature.isEnabled()) return;
 
         List<String> infoLines = new ArrayList<>();
         if (feature.showCoordinates().get()) {
