@@ -588,8 +588,16 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
          IntPair offset = this.getArrowKeyOffset(event.key());
          if (offset != null && widget != null && widget.isEnabled()) {
             this.beginLayoutEdit();
-            widget.setX(widget.getX() + offset.first(), true);
-            widget.setY(widget.getY() + offset.second(), true);
+            float currentX = widget.getX();
+            float currentY = widget.getY();
+            if (widget.getAnchor() != HudAnchor.NONE) {
+               this.removeWidget(widget);
+               this.addWidget(HudAnchor.NONE, widget);
+               widget.setAnchor(HudAnchor.NONE);
+            }
+            widget.resetSnapping();
+            widget.setX(currentX + offset.first(), true);
+            widget.setY(currentY + offset.second(), true);
             widget.updateDirections();
             this.finishLayoutEdit();
          } else {
