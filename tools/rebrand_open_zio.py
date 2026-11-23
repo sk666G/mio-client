@@ -205,7 +205,7 @@ def mapped_path(rel: str) -> str:
 
 def mapped_text(text: str) -> str:
     header = ""
-    match = re.match(r"\A/\*.*?Licensed under the MIT License\..*?\*/\s*", text, re.S)
+    match = re.match(r"\A/\*.*?Licensed under the (?:MIT License\.|Apache License, Version 2\.0).*?\*/\s*", text, re.S)
     if match:
         header, text = match.group(0), text[match.end():]
     urls = []

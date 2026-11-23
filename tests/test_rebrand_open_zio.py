@@ -12,6 +12,24 @@ SPEC.loader.exec_module(REBRAND)
 
 
 class RebuildSecurityTest(unittest.TestCase):
+
+    def test_preserves_apache_license_header_during_rebrand(self):
+        header = """/*
+ * Copyright 2017 John Grosh (john.a.grosh@gmail.com).
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+"""
+        source = header + "package dev.zio.example;\n\nclass ZioClient {}\n"
+        result = REBRAND.mapped_text(source)
+
+        self.assertTrue(result.startswith(header))
+        self.assertIn("package dev.schizo.example;", result)
+        self.assertIn("class SchizoClient", result)
+
     def test_rejects_unsafe_archive_paths(self):
         for path in ("../escape", "/absolute", r"C:\\outside", "root/../../escape", "root\\escape"):
             with self.subTest(path=path), self.assertRaises(ValueError):
