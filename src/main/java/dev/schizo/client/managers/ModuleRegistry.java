@@ -266,10 +266,7 @@ public final class ModuleRegistry extends Registry<Module> implements ClientAcce
    }
 
    public boolean unregisterModule(Module module) {
-      Object2ObjectOpenHashMap<Class<?>, Module> cache = this.modulesByClass;
-      Class moduleClass = module.getClass();
-      cache.remove(moduleClass, module);
-      return super.unregisterEntry(module);
+      return ModuleClassIndex.unregister(this.entries, this.modulesByClass, module);
    }
 
    @Override
@@ -412,10 +409,11 @@ public final class ModuleRegistry extends Registry<Module> implements ClientAcce
          return false;
       }
       ExperimentalFeatures.unregisterHiddenSettings(module);
-      Object2ObjectOpenHashMap<Class<?>, Module> cache = this.modulesByClass;
-      Class moduleClass = module.getClass();
-      cache.put(moduleClass, module);
-      return super.registerEntry(module);
+      return ModuleClassIndex.cacheSuccessfulRegistration(
+         this.modulesByClass,
+         module,
+         super.registerEntry(module)
+      );
    }
 
    @Deprecated
