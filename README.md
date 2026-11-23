@@ -1,54 +1,56 @@
 # Schizo Client
 
-Schizo is a client-only Fabric client for Minecraft 1.21.11, rebuilt on the Open Zio source architecture. This replaces the former minimal Schizo scaffold with the upstream module registry, event bus, managers, configuration and preset systems, ClickGUI/HUD editor, rendering pipeline, mixins, access widener, integrations and module implementations.
+Schizo is a client-side Fabric client for Minecraft Java Edition 1.21.11.
 
-## Upstream and attribution
+## Requirements
 
-This is an independent rebrand and derivative of Open Zio. See UPSTREAM.md for the pinned snapshot. Original upstream source headers are retained. Third-party notices and known license gaps are recorded in THIRD_PARTY_NOTICES.md.
-
-Schizo is not affiliated with or endorsed by Mio.
+- Minecraft Java Edition 1.21.11.
+- Fabric Loader 0.19.5 or newer.
+- Fabric API for Minecraft 1.21.11.
+- Java 21 or newer to run the client.
+- JDK 25 to run the Gradle build; Gradle compiles with the configured Java 21 toolchain.
 
 ## Build
 
-Use JDK 25 to run Gradle and have JDK 21 installed for the Java toolchain.
+From the repository root:
 
-    ./gradlew --no-daemon clean build
-    ./gradlew runClient
+```sh
+./gradlew --no-daemon clean build
+```
 
-The remapped client JAR is written to build/libs/.
+To launch a development client:
 
-## Performance HUD
+```sh
+./gradlew runClient
+```
 
-See [Performance HUD documentation](docs/PERFORMANCE_HUD.md) for frame-time metrics, 1% lows, hitch counting and the frame-time graph.
+The remapped client JAR is written to `build/libs/`. CI uploads a `schizo-client` artifact for branch review; this is not a published release.
 
-## Integration Center
+## Install
 
-See [Integration and Notification documentation](docs/INTEGRATIONS.md) for local integration status, delivery history and webhook retry controls.
+1. Create a Fabric installation for Minecraft 1.21.11 with Fabric Loader 0.19.5 or newer.
+2. Install Fabric API for Minecraft 1.21.11 in that profile.
+3. Place the remapped Schizo JAR in that profile's `mods` directory.
+4. Start the Fabric profile.
 
-## Automatic Context Profiles
+Other mods listed under `suggests` in `fabric.mod.json` are optional.
 
-See [Context Profiles documentation](docs/CONTEXT_PROFILES.md) for server, dimension and game-mode preset switching.
+## Guides
 
-## Configuration Recovery
+- [HUD Studio](docs/HUD_EDITOR.md)
+- [Performance HUD](docs/PERFORMANCE_HUD.md)
+- [Module and event profiler](docs/module-profiler.md)
+- [Command Palette](docs/COMMAND_PALETTE.md)
+- [Context Profiles](docs/CONTEXT_PROFILES.md)
+- [Integrations](docs/INTEGRATIONS.md)
+- [Visual identity and palettes](docs/VISUAL_IDENTITY.md)
+- [Multiplayer compatibility review](docs/MULTIPLAYER_COMPATIBILITY.md)
+- [Architecture review](docs/MASTER_ARCHITECTURE_REVIEW.md)
+- [Known limitations](docs/KNOWN_LIMITATIONS.md)
+- [Release checklist](docs/RELEASE_CHECKLIST.md)
 
-See [Configuration Backups and Recovery](docs/CONFIG_RECOVERY.md) for automatic backups and restore commands.
+## Upstream and attribution
 
-## Module Quick Access
+Schizo is an independent rebrand and derivative of Open Zio. See [UPSTREAM.md](UPSTREAM.md) for the pinned source snapshot. Upstream source headers are retained where the source remains in the project. [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) records vendor attribution and unresolved license questions.
 
-See [Module Favorites and Recent Access](docs/MODULE_QUICK_ACCESS.md) for favorites, recent modules and quick-access commands.
-
-## Command Palette
-
-See [Command Palette documentation](docs/COMMAND_PALETTE.md) for global search and actions using Right Shift + K.
-
-## Visual identity
-
-See [Schizo visual identity](docs/VISUAL_IDENTITY.md) for the default palette and customization behavior.
-
-## HUD Studio
-
-See [HUD Editor documentation](docs/HUD_EDITOR.md) for layout editing, undo/redo shortcuts and named layout profiles.
-
-## Original modules
-
-The original upstream module sources are included in the active Schizo source tree. Their implementations and original source notices are retained during the rebrand.
+Schizo is not affiliated with or endorsed by Mio. The two server-validation circumvention modules `GrimDisabler` and `RaytraceBypass` are excluded from the active source tree and rebuild import.
