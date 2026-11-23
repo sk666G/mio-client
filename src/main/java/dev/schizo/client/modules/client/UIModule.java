@@ -38,6 +38,8 @@ import dev.schizo.client.settings.NamedEntry;
 import dev.schizo.client.settings.NumberSetting;
 import dev.schizo.client.settings.Setting;
 
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import com.mojang.blaze3d.platform.Window;
 import java.awt.Color;
 import java.io.InputStream;
@@ -83,6 +85,7 @@ public final class UIModule extends Module {
    public final Setting<Color> textColorSetting;
    public final Setting<Color> enabledColorSetting;
    final Setting<Boolean> colorsSetting;
+   public final Setting<PaletteChoice> paletteSetting;
    public final Setting<Color> colorSetting;
    public final Setting<Color> backgroundSetting;
    public final Setting<Color> buttonSetting;
@@ -172,6 +175,51 @@ public final class UIModule extends Module {
       return this.animSpeedSetting.getValue();
    }
 
+   private boolean applyingPalette;
+
+   private void applySelectedPalette() {
+      if (this.paletteSetting.getValue() != PaletteChoice.SCHIZO) {
+         return;
+      }
+
+      this.applyingPalette = true;
+      try {
+         this.colorSetting.setValue(new Color(190, 255, 64, 220));
+         this.backgroundSetting.setValue(new Color(18, 22, 26, 230));
+         this.buttonSetting.setValue(new Color(32, 38, 42, 205));
+         this.enabledSetting.setValue(new Color(190, 255, 64, 120));
+         this.tintSetting.setValue(new Color(8, 12, 15, 150));
+         this.gradientColorSetting.setValue(new Color(105, 160, 35, 24));
+
+         NotificationsModule notifications = ClientContext.getModule(NotificationsModule.class);
+         if (notifications != null) {
+            Color accent = new Color(190, 255, 64);
+            notifications.watermarkSetting.setValue(accent);
+            notifications.bracketsSetting.setValue(accent);
+         }
+      } finally {
+         this.applyingPalette = false;
+      }
+   }
+
+   private void markPaletteCustom() {
+      if (!this.applyingPalette && this.paletteSetting.getValue() != PaletteChoice.CUSTOM) {
+         this.paletteSetting.setValue(PaletteChoice.CUSTOM);
+      }
+   }
+
+   @Override
+   public void fromJson(JsonElement json) {
+      super.fromJson(json);
+      if (!(json instanceof JsonObject configuration)
+         || !configuration.has("settings")
+         || !configuration.get("settings").isJsonObject()
+         || !configuration.getAsJsonObject("settings").has(this.paletteSetting.getConfigName())) {
+         // Older configurations have no palette marker; preserve their saved colors as Custom.
+         this.paletteSetting.setValue(PaletteChoice.CUSTOM);
+      }
+   }
+
    public UIModule() {
       super("UI", "Displays the client's click gui.", ModuleCategory.CLIENT, new String[0]);
       this.resetSetting = this.add(new BooleanSetting(("Reset"), true));
@@ -239,22 +287,34 @@ public final class UIModule extends Module {
          .dependsOn(this.textSetting));
       this.enabledColorSetting = this.add(new ColorSetting("EnabledColor", new Color(-1, true))
          .dependsOn(this.textSetting));
+      this.paletteSetting = this.add(new EnumSetting<>("Palette", PaletteChoice.SCHIZO));
       BooleanSetting colorsOption = new BooleanSetting("Colors", false);
       colorsOption.markAsGroup();
       colorsOption.markVisibilityDependency();
       this.colorsSetting = this.add(colorsOption);
       Predicate<Object> colorVisibility = ignored -> this.colorsSetting.isExpanded();
-      this.colorSetting = this.add(new ColorSetting("Color", new Color(-2100849420, true), colorVisibility));
+      this.colorSetting = this.add(new ColorSetting("Color", new Color(190, 255, 64, 220), colorVisibility));
       Predicate<Object> backgroundVisibility = ignored -> this.colorsSetting.isExpanded();
-      this.backgroundSetting = this.add(new ColorSetting("Background", new Color(516396276, true), backgroundVisibility));
+      this.backgroundSetting = this.add(new ColorSetting("Background", new Color(18, 22, 26, 230), backgroundVisibility));
       Predicate<Object> buttonVisibility = ignored -> this.colorsSetting.isExpanded();
-      this.buttonSetting = this.add(new ColorSetting("Button", new Color(1942459636, true), buttonVisibility));
+      this.buttonSetting = this.add(new ColorSetting("Button", new Color(32, 38, 42, 205), buttonVisibility));
       Predicate<Object> enabledVisibility = ignored -> this.colorsSetting.isExpanded();
-      this.enabledSetting = this.add(new ColorSetting("Enabled", new Color(1523029236, true), enabledVisibility));
+      this.enabledSetting = this.add(new ColorSetting("Enabled", new Color(190, 255, 64, 120), enabledVisibility));
       Predicate<Object> tintVisibility = ignored -> this.colorsSetting.isExpanded();
-      this.tintSetting = this.add(new ColorSetting("Tint", new Color(1679822128, true), tintVisibility));
+      this.tintSetting = this.add(new ColorSetting("Tint", new Color(8, 12, 15, 150), tintVisibility));
       Predicate<Object> gradientColorVisibility = ignored -> this.colorsSetting.isExpanded();
-      this.gradientColorSetting = this.add(new ColorSetting("Gradient", new Color(264738036, true), gradientColorVisibility));
+      this.gradientColorSetting = this.add(new ColorSetting("Gradient", new Color(105, 160, 35, 24), gradientColorVisibility));
+
+      this.paletteSetting.setChangeCallback(this::applySelectedPalette);
+      Runnable customPaletteCallback = this::markPaletteCustom;
+      this.colorSetting.setChangeCallback(customPaletteCallback);
+      this.backgroundSetting.setChangeCallback(customPaletteCallback);
+      this.buttonSetting.setChangeCallback(customPaletteCallback);
+      this.enabledSetting.setChangeCallback(customPaletteCallback);
+      this.tintSetting.setChangeCallback(customPaletteCallback);
+      this.gradientColorSetting.setChangeCallback(customPaletteCallback);
+      this.applySelectedPalette();
+
       Class<UIModule> eventOwner = UIModule.class;
       EventBus eventBus = ClientAccess.eventBus;
       eventBus.subscribeStatic(eventOwner);
@@ -354,6 +414,22 @@ public final class UIModule extends Module {
       LanguageChoice(String displayName, String languageCode) {
          this.displayName = displayName;
          this.languageCode = languageCode;
+      }
+   }
+
+   public enum PaletteChoice implements NamedEntry {
+      SCHIZO("Schizo"),
+      CUSTOM("Custom");
+
+      private final String displayName;
+
+      @Override
+      public String getName() {
+         return this.displayName;
+      }
+
+      PaletteChoice(String displayName) {
+         this.displayName = displayName;
       }
    }
 
