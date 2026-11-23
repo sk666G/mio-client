@@ -9,5 +9,6 @@
   "key.schizo.module.keystrokes": "Toggle Keystrokes",
   "key.schizo.module.toggle_sprint": "Toggle Sprint",
   "key.schizo.module.auto_tool": "Toggle Auto Tool",
-  "key.schizo.module.totem_counter": "Toggle Totem Counter"
+  "key.schizo.module.totem_counter": "Toggle Totem Counter",
+  "key.schizo.module.target_hud": "Toggle Target HUD"
 }

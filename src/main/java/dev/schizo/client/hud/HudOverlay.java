@@ -36,6 +36,7 @@ public final class HudOverlay {
         EffectsHudRenderer.render(graphics, client);
         KeystrokesRenderer.render(graphics, client);
         TotemCounterRenderer.render(graphics, client);
+        TargetHudRenderer.render(graphics, client);
 
         Feature registered = FeatureRegistry.get("information-hud").orElse(null);
         if (!(registered instanceof HudFeature feature) || !feature.isEnabled()) return;

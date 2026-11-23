@@ -8,6 +8,7 @@ import dev.schizo.client.feature.EffectsHudFeature;
 import dev.schizo.client.feature.ExampleFeature;
 import dev.schizo.client.feature.HudFeature;
 import dev.schizo.client.feature.KeystrokesFeature;
+import dev.schizo.client.feature.TargetHudFeature;
 import dev.schizo.client.feature.ToggleSprintFeature;
 import dev.schizo.client.feature.TotemCounterFeature;
 import dev.schizo.client.gui.ClickGuiScreen;
@@ -45,6 +46,7 @@ public final class SchizoClient implements ClientModInitializer {
         FeatureRegistry.register(new ToggleSprintFeature());
         FeatureRegistry.register(new AutoToolFeature());
         FeatureRegistry.register(new TotemCounterFeature());
+        FeatureRegistry.register(new TargetHudFeature());
         FeatureRegistry.registerDefaults();
         ModuleKeybinds.register();
         ClientConfig.load();
