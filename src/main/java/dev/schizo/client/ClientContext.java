@@ -19,6 +19,7 @@ import dev.schizo.client.managers.BlockColorRegistry;
 import dev.schizo.client.managers.ChatFilterRegistry;
 import dev.schizo.client.managers.CommandRegistry;
 import dev.schizo.client.managers.ConfigurationManager;
+import dev.schizo.client.managers.ContextProfileRegistry;
 import dev.schizo.client.managers.CrystalInteractionManager;
 import dev.schizo.client.managers.GlintRegistry;
 import dev.schizo.client.managers.HoleManager;
@@ -89,6 +90,7 @@ public final class ClientContext {
    public static TradeRegistry tradeRegistry;
    public static BlockColorRegistry blockColorRegistry;
    public static AutoPresetRegistry autoPresetRegistry;
+   public static ContextProfileRegistry contextProfileRegistry;
    public static InputOverrideManager inputOverrides;
    public static LanguageTable languageTable;
    public static SwingInteractionManager swingManager;
