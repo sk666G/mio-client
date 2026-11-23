@@ -11,6 +11,7 @@ package dev.schizo.client.bootstrap;
 
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
+import dev.schizo.client.config.SafeModeManager;
 import dev.schizo.client.SchizoClient;
 import dev.schizo.client.events.ClientInitializationEvent;
 import dev.schizo.client.integrations.baritone.BaritoneAdapter;
@@ -57,6 +58,7 @@ import dev.schizo.client.utils.movement.MovementSpeedTracker;
 import dev.schizo.client.utils.world.BlockBreakTracker;
 import dev.schizo.client.utils.world.MapDataCache;
 import java.util.Locale;
+import java.io.IOException;
 import java.util.Locale.Category;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.loader.api.FabricLoader;
@@ -127,6 +129,12 @@ public final class ClientInitializer {
          return;
       }
       ModuleDependencies.bind(ClientContext.moduleRegistry);
+      try {
+         SafeModeManager.GLOBAL.initialize(ConfigurationManager.ROOT_DIRECTORY);
+      } catch (IOException safeModeInitializationFailure) {
+         SafeModeManager.GLOBAL.activateFailSafe();
+         SchizoClient.LOGGER.error("Could not initialize configuration safety state; starting with modules disabled.", safeModeInitializationFailure);
+      }
       ClientAccess.eventBus.post(new ClientInitializationEvent());
       ClientContext.soundManager.reload();
       ClientContext.configurationManager = new ConfigurationManager();

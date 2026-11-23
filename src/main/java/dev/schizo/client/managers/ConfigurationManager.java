@@ -12,6 +12,7 @@ package dev.schizo.client.managers;
 import dev.schizo.client.config.LegacySocialMigration;
 import dev.schizo.client.config.LegacyDirectoryMigration;
 import dev.schizo.client.config.ConfigFileReader;
+import dev.schizo.client.config.SafeModeManager;
 import dev.schizo.client.config.ConfigurationBackupManager;
 import dev.schizo.client.config.ModulePresetCodec;
 import dev.schizo.client.config.PresetUndoState;
@@ -198,6 +199,10 @@ public final class ConfigurationManager implements ClientAccess {
 
          while (configurableIterator.hasNext()) {
             JsonConfigurable configurable = (JsonConfigurable)configurableIterator.next();
+            if (SafeModeManager.GLOBAL.isActive() && "modules.json".equals(configurable.getConfigName())) {
+               ClientAccess.logger.info("Preserving module enablement state while Safe Mode is active");
+               continue;
+            }
 
             try {
                Path configPath = ROOT_DIRECTORY.resolve(configurable.getConfigName());

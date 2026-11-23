@@ -46,6 +46,7 @@ Other mods listed under `suggests` in `fabric.mod.json` are optional.
 - [Visual identity and palettes](docs/VISUAL_IDENTITY.md)
 - [Multiplayer compatibility review](docs/MULTIPLAYER_COMPATIBILITY.md)
 - [Architecture review](docs/MASTER_ARCHITECTURE_REVIEW.md)
+- [Startup Safe Mode](docs/SAFE_MODE.md)
 - [Known limitations](docs/KNOWN_LIMITATIONS.md)
 - [Release checklist](docs/RELEASE_CHECKLIST.md)
 
