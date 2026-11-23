@@ -33,7 +33,7 @@ This file separates verified behavior from work that still needs runtime or arch
 
 - The scheduler treats an executor submission that throws or returns `false` as rejected and releases its reservation. Minecraft's production `executeIfPossible` does not expose an acceptance result; teardown closes the scheduler and cancels queued work. Work already accepted by the game executor immediately before shutdown may not run.
 - Context Profile category application is not transactional. A failure can partially mutate global settings; the registry keeps that category marked as modified and retries restoring the original baseline before applying another context. Module enabled states are excluded from profile ownership and remain user controlled.
-- Context Profile recovery is in-memory. A process termination during a failed restore cannot preserve the pending baseline across restart; no separate crash-recovery journal has been added yet.
+- Context Profile recovery is retried in-memory once per second after a failure. A process termination during a failed restore cannot preserve the pending baseline across restart; no crash-recovery journal or lifecycle integration test suite has been added yet.
 
 
 
@@ -42,4 +42,5 @@ This file separates verified behavior from work that still needs runtime or arch
 
 
 - Mixin remapping emits expected `Cannot remap schizo$bind...` warnings for 17 local `@Unique` helpers referenced by `remap = false` invokers. Their class/config presence is statically verified in the release JAR; applying the mixins in a live Minecraft runtime remains unverified.
-- Gradle deprecation details are now exposed by CI with `--warning-mode all`; the remaining warning sources still need attribution and remediation where safe.
+- A Gradle 10 deprecation in `processResources` was traced to execution-time `project.version` access and changed to a configuration-time value; the next CI run must confirm it is cleared. Java compiler notices about deprecated/unchecked existing APIs remain.
+

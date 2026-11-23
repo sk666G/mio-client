@@ -86,3 +86,13 @@ Modules and settings now have required classification, reason and evidence metad
 The 17 `*ModuleBindings` invoker mixins target project-defined `@Unique` helpers, not methods in Minecraft's mapped classes. The inspected pairs are Block, BundleContents, Entity, HoneyBlock, Level, LiquidBlock, LivingEntity, Material, Minecraft, Mob, Player, RenderTypeColor, SlimeBlock, SweetBerryBushBlock, TextureTransform, TridentItem and WebBlock. Each binding declares `@Invoker(..., remap = false)`; each corresponding target mixin contains the same helper name with `@Unique`, and both names are registered in `schizo.mixins.json`. The remapper warning that a `schizo$bind...` target is absent from the vanilla class is therefore expected from that design, not evidence of a Minecraft method mapping mismatch. Renaming or suppressing it would be incorrect. The release JAR verifier now checks that all 17 target and bridge class files, helper-name constants, config entries, metadata and access widener are packaged. This static check does not prove Mixin application at runtime.
 
 The build now uses Gradle `--warning-mode all` so deprecated build features are attributable in CI rather than hidden behind the aggregate Gradle 10 warning.
+
+
+## Build warning and action refresh
+
+The detailed Gradle warning report identified one Gradle 10 deprecation in `processResources`: reading `project.version` inside the file expansion action caused `Task.project` access during execution. The version is now captured during configuration and passed as a task input. CI actions were advanced to current major releases after GitHub reported the previous setup-java/action-runtime deprecations. CI with `--warning-mode all` verifies whether these warnings are cleared.
+
+
+## Context Profile retry behavior
+
+Failed category restoration remains pending and is retried from the regular client run-tick event with a one-second retry gate. Successful categories are removed from the pending set independently, so a later retry attempts only categories that did not restore. Disabling automatic profiles no longer clears the saved baseline merely because enabling or disabling changed the flag; the baseline is cleared only after restoration succeeds.

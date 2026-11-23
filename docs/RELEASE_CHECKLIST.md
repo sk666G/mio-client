@@ -58,3 +58,7 @@ No public release or merge is part of this branch task.
 - [x] CI checks remapped JAR metadata, mixin/access-widener resources, all 17 module-binding helper/invoker classes, and absence of GrimDisabler/RaytraceBypass classes.
 - [ ] Inspect the remapped JAR artifact from a successful CI run and test Mixin application in a live 1.21.11 client.
 - [ ] Attribute and resolve Gradle deprecations reported with `--warning-mode all`.
+
+- [ ] Confirm the Gradle 10 warning and GitHub Actions runtime warnings are cleared in the refreshed workflow.
+
+- [ ] Force Context Profile restore failure, verify the one-second retry and ensure recovery does not apply a new context before all pending categories restore.

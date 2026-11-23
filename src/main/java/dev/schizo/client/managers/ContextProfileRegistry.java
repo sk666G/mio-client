@@ -15,6 +15,7 @@ import dev.schizo.client.config.PresetData;
 import dev.schizo.client.events.ConnectScreenConnectEvent;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.LocalPlayerPreTickEvent;
+import dev.schizo.client.events.MinecraftRunTickEvent;
 import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.config.ContextProfileMatcher;
 import dev.schizo.client.settings.JsonConfigurable;
@@ -51,6 +52,8 @@ public final class ContextProfileRegistry implements ClientAccess, JsonConfigura
    private volatile boolean enabled;
    private boolean dirty = true;
    private String lastAppliedContext;
+   private final ContextProfileRestoreRetryGate restorationRetryGate =
+      new ContextProfileRestoreRetryGate(System::currentTimeMillis, 1000L);
 
    public ContextProfileRegistry() {
       ClientAccess.eventBus.subscribe(this);
@@ -64,9 +67,9 @@ public final class ContextProfileRegistry implements ClientAccess, JsonConfigura
       if (this.enabled == enabled) {
          return;
       }
-      boolean restored = enabled || this.restoreActiveProfile();
+      boolean restored = this.modifiedCategories.isEmpty() || this.restoreActiveProfileIfReady();
       this.enabled = enabled;
-      if (restored) {
+      if (!enabled && restored) {
          this.baseline.clear();
          this.modifiedCategories.clear();
       }
@@ -223,7 +226,7 @@ public final class ContextProfileRegistry implements ClientAccess, JsonConfigura
    @EventHandler(priority = 100)
    private void beforeServerPresetChange(ConnectScreenConnectEvent event) {
       synchronized (this) {
-         boolean restored = this.restoreActiveProfile();
+         boolean restored = this.restoreActiveProfileIfReady();
          if (!this.enabled && restored) {
             this.baseline.clear();
          }
@@ -250,7 +253,7 @@ public final class ContextProfileRegistry implements ClientAccess, JsonConfigura
    @EventHandler(priority = 100)
    private void restoreOnDisconnect(MinecraftDisconnectEvent event) {
       synchronized (this) {
-         boolean restored = this.restoreActiveProfile();
+         boolean restored = this.restoreActiveProfileIfReady();
          if (restored) {
             this.baseline.clear();
             this.modifiedCategories.clear();
@@ -259,6 +262,24 @@ public final class ContextProfileRegistry implements ClientAccess, JsonConfigura
          }
          this.lastAppliedContext = null;
          this.dirty = true;
+      }
+   }
+
+   @EventHandler
+   private void retryPendingRestore(MinecraftRunTickEvent event) {
+      synchronized (this) {
+         if (this.modifiedCategories.isEmpty()) {
+            return;
+         }
+         boolean restored = this.restoreActiveProfileIfReady();
+         if (restored) {
+            this.dirty = true;
+            if (!this.enabled) {
+               this.baseline.clear();
+               this.modifiedCategories.clear();
+               this.lastAppliedContext = null;
+            }
+         }
       }
    }
 
@@ -289,7 +310,7 @@ public final class ContextProfileRegistry implements ClientAccess, JsonConfigura
             return;
          }
 
-         if (!this.restoreActiveProfile()) {
+         if (!this.restoreActiveProfileIfReady()) {
             this.dirty = true;
             return;
          }
@@ -365,6 +386,24 @@ public final class ContextProfileRegistry implements ClientAccess, JsonConfigura
       }
       this.baseline.putAll(snapshots);
       return true;
+   }
+
+   private boolean restoreActiveProfileIfReady() {
+      if (this.modifiedCategories.isEmpty()) {
+         this.restorationRetryGate.recordSuccess();
+         return true;
+      }
+      if (!this.restorationRetryGate.isReady()) {
+         return false;
+      }
+
+      boolean restored = this.restoreActiveProfile();
+      if (restored) {
+         this.restorationRetryGate.recordSuccess();
+      } else {
+         this.restorationRetryGate.recordFailure();
+      }
+      return restored;
    }
 
    private boolean restoreActiveProfile() {
