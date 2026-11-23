@@ -242,6 +242,7 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
             for (Object widgetElement : group.getWidgets()) {
                HudWidgetRenderer otherWidget = (HudWidgetRenderer)widgetElement;
                if (otherWidget.getBounds().intersects(widget.getBounds())) {
+                  group.getWidgets().addLast(widget);
                   widget.setAnchor(group.getAnchor());
                   this.finishLayoutEdit();
                   return true;
@@ -251,6 +252,7 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
 
          for (HudAnchor anchor : HudAnchor.values()) {
             if (anchor.getBounds().intersects(widget.getBounds().expand(5.0F))) {
+               this.getAnchorGroup(anchor).getWidgets().addLast(widget);
                widget.setAnchor(anchor);
                this.finishLayoutEdit();
                return true;
@@ -258,6 +260,7 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
          }
 
          // A free widget that is not snapped to an anchor must remain in the free group.
+         freeGroup.getWidgets().addLast(widget);
          widget.setAnchor(HudAnchor.NONE);
          this.finishLayoutEdit();
          return true;
