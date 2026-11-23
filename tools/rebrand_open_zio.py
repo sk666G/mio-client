@@ -9,9 +9,11 @@ import zipfile
 from pathlib import Path
 
 EXPECTED_COMMIT = "2fec97aa0c52860f9252b61543dce8fc9825e081"
-EXCLUDED_PATHS = {
-    "src/main/java/dev/zio/client/modules/exploit/GrimDisablerModule.java",
-    "src/main/java/dev/zio/client/modules/exploit/RaytraceBypassModule.java",
+REFERENCE_ONLY_PATHS = {
+    "src/main/java/dev/zio/client/modules/exploit/GrimDisablerModule.java":
+        "reference-source/anti-cheat-modules/GrimDisablerModule.java",
+    "src/main/java/dev/zio/client/modules/exploit/RaytraceBypassModule.java":
+        "reference-source/anti-cheat-modules/RaytraceBypassModule.java",
 }
 PRESERVE_TOP_LEVEL = {".git", ".github", "tools"}
 
@@ -45,7 +47,7 @@ UPSTREAM = f"""# Upstream source and migration notes
 - Imported Java source files: 1,199 in the supplied archive; 1,179 carry the upstream MIT-license header.
 - Rebrand: dev.zio -> dev.schizo; mod id/resource namespace/artifact/root project renamed from zio to schizo; entrypoint renamed to SchizoClient.
 - The previous handcrafted Schizo scaffold is replaced by the upstream module, event, manager, UI and rendering architecture.
-- The GrimDisablerModule and RaytraceBypassModule are excluded from this build; the Raytrace Bypass registration is removed.
+- The original GrimDisablerModule and RaytraceBypassModule source files are preserved byte-for-byte under reference-source/anti-cheat-modules/. They remain reference-only and are not copied into the compiled source tree or registered in the client.
 - Vendored com.jagrosh.discordipc sources are from https://github.com/jagrosh/DiscordIPC and are Apache-2.0 licensed. Their license and attribution are included separately.
 
 Upstream source headers and attribution are retained. This file records provenance; it does not replace notices in individual source files.
@@ -123,7 +125,7 @@ def main() -> None:
 
         clean_destination(destination)
         copied = 0
-        skipped = []
+        archived = []
         for member in members:
             relative = member.filename[len(source_root):]
             if not relative or relative.startswith(".gitlab") or relative == ".gitlab-ci.yml":
