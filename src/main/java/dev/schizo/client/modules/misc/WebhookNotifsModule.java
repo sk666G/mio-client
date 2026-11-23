@@ -42,6 +42,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.util.ARGB;
 
 public class WebhookNotifsModule extends Module {
+   private static final int MAX_PENDING_MESSAGES = 1000;
 
    private static final Map<Color, String> ANSI_PALETTE = new HashMap<>();
    static {
@@ -69,6 +70,7 @@ public class WebhookNotifsModule extends Module {
    private final DateTimeFormatter timestampFormatter;
    private final List<String> pendingMessages;
    private boolean deliveryInFlight;
+   private boolean queueOverflowWarned;
    private boolean pingPending;
    private final ElapsedTimer notificationTimer;
    private String previousQueueMessage;
@@ -109,7 +111,19 @@ public class WebhookNotifsModule extends Module {
       for (String line : lines) {
          if (!line.isEmpty()) message.append(ChatFormatting.stripFormatting(line)).append('\n');
       }
-      if (message.length() >= 2) this.pendingMessages.add(message.substring(0, message.length() - 1));
+      if (message.length() < 2) return;
+
+      synchronized (this.pendingMessages) {
+         if (this.pendingMessages.size() >= MAX_PENDING_MESSAGES) {
+            if (!this.queueOverflowWarned) {
+               ClientAccess.logger.warn("Webhook notification queue reached {} messages; new notifications are being dropped until it drains", MAX_PENDING_MESSAGES);
+               this.queueOverflowWarned = true;
+            }
+            return;
+         }
+
+         this.pendingMessages.add(message.substring(0, message.length() - 1));
+      }
    }
 
    public static String getClosestAnsiColor(int rgb) {
@@ -249,6 +263,9 @@ public class WebhookNotifsModule extends Module {
                   if (failure == null && Boolean.TRUE.equals(delivered)) {
                      for (int index = 0; index < messagesInBatch && !this.pendingMessages.isEmpty(); index++) {
                         this.pendingMessages.remove(0);
+                     }
+                     if (this.pendingMessages.size() < MAX_PENDING_MESSAGES) {
+                        this.queueOverflowWarned = false;
                      }
                   } else if (hadPendingPing) {
                      this.pingPending = true;
