@@ -12,6 +12,7 @@ package dev.schizo.client.config;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -33,7 +34,7 @@ class ClientDataDirectoryTest {
 
       assertEquals(destination, ClientDataDirectory.migrateLegacy(destination));
       assertEquals("{\"enabled\":true}", Files.readString(destination.resolve("settings.json")));
-      assertFalse(Files.exists(legacy.resolve("settings.json")));
+      assertTrue(Files.exists(legacy.resolve("settings.json")));
    }
 
    @Test
