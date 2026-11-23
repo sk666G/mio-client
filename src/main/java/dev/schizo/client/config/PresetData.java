@@ -18,6 +18,7 @@ import com.google.gson.JsonObject;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 
 public record PresetData(String name, JsonObject contents) implements NamedEntry {
    @Override
