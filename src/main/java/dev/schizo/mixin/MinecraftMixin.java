@@ -77,6 +77,9 @@ public class MinecraftMixin {
       if (!shutdownSaveStarted
          && ClientContext.configurationManager != null) {
          shutdownSaveStarted = true;
+         if (ClientContext.taskScheduler != null) {
+            ClientContext.taskScheduler.shutdown();
+         }
          uiModule.disable();
          ClientContext.configurationManager
             .save();
