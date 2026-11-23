@@ -58,24 +58,38 @@ class MultiplayerCompatibilityPolicyTest {
       policy.setMode(MultiplayerCompatibilityPolicy.Mode.CONSERVATIVE);
 
       assertTrue(policy.blocksWhenConservative(ReachModule.class));
-      assertTrue(policy.allowModule("ReachModule"));
-      assertFalse(policy.allowModule("ReachModule"));
+      assertTrue(policy.allowModule(ReachModule.class.getName()));
+      assertFalse(policy.allowModule(ReachModule.class.getName()));
       assertFalse(policy.blocksWhenConservative(ReachModule.class));
-      assertTrue(policy.removeAllowedModule("ReachModule"));
+      assertTrue(policy.removeAllowedModule(ReachModule.class.getName()));
       assertTrue(policy.blocksWhenConservative(ReachModule.class));
+   }
+
+   @Test
+   void exceptionDoesNotApplyToAnotherClassWithTheSameSimpleName() {
+      MultiplayerCompatibilityPolicy policy = new MultiplayerCompatibilityPolicy();
+      policy.setMode(MultiplayerCompatibilityPolicy.Mode.CONSERVATIVE);
+
+      Class<?> explicitlyAllowed = HolderOne.ReachModule.class;
+      Class<?> sameSimpleNameButDifferentClass = HolderTwo.ReachModule.class;
+      assertEquals(explicitlyAllowed.getSimpleName(), sameSimpleNameButDifferentClass.getSimpleName());
+      assertTrue(policy.blocksWhenConservative(explicitlyAllowed));
+      assertTrue(policy.allowModule(explicitlyAllowed.getName()));
+      assertFalse(policy.blocksWhenConservative(explicitlyAllowed));
+      assertTrue(policy.blocksWhenConservative(sameSimpleNameButDifferentClass));
    }
 
    @Test
    void persistsPolicyModeAndExceptions() {
       MultiplayerCompatibilityPolicy source = new MultiplayerCompatibilityPolicy();
       source.setMode(MultiplayerCompatibilityPolicy.Mode.CONSERVATIVE);
-      source.allowModule("ReachModule");
+      source.allowModule(ReachModule.class.getName());
 
       MultiplayerCompatibilityPolicy restored = new MultiplayerCompatibilityPolicy();
       restored.fromJson(source.toJson());
 
       assertEquals(MultiplayerCompatibilityPolicy.Mode.CONSERVATIVE, restored.getMode());
-      assertEquals(java.util.List.of("ReachModule"), restored.getAllowedModules());
+      assertEquals(java.util.List.of(ReachModule.class.getName()), restored.getAllowedModules());
       assertFalse(restored.blocksWhenConservative(ReachModule.class));
    }
 
@@ -83,26 +97,34 @@ class MultiplayerCompatibilityPolicyTest {
    void malformedConfigurationDoesNotPartiallyReplaceCurrentPolicy() {
       MultiplayerCompatibilityPolicy policy = new MultiplayerCompatibilityPolicy();
       policy.setMode(MultiplayerCompatibilityPolicy.Mode.CONSERVATIVE);
-      policy.allowModule("ReachModule");
+      policy.allowModule(ReachModule.class.getName());
 
       policy.fromJson(JsonParser.parseString("""
-         {"version":1,"mode":"warn_only","allowedModules":["valid","../bad"]}
+         {"version":2,"mode":"warn_only","allowedModules":["example.Valid","../bad"]}
          """));
 
       assertEquals(MultiplayerCompatibilityPolicy.Mode.CONSERVATIVE, policy.getMode());
-      assertEquals(java.util.List.of("ReachModule"), policy.getAllowedModules());
+      assertEquals(java.util.List.of(ReachModule.class.getName()), policy.getAllowedModules());
    }
 
    @Test
    void rejectsInvalidExceptionNamesAndEnforcesTheExceptionLimit() {
       MultiplayerCompatibilityPolicy policy = new MultiplayerCompatibilityPolicy();
       assertThrows(IllegalArgumentException.class, () -> policy.allowModule("../ReachModule"));
-      assertThrows(IllegalArgumentException.class, () -> policy.allowModule("qualified.ReachModule"));
+      assertThrows(IllegalArgumentException.class, () -> policy.allowModule("bad-name"));
 
       for (int index = 0; index < MultiplayerCompatibilityPolicy.MAX_ALLOWED_MODULES; index++) {
-         policy.allowModule("Module" + index);
+         policy.allowModule("example.policy.Module" + index);
       }
-      assertThrows(IllegalStateException.class, () -> policy.allowModule("ModuleOverflow"));
+      assertThrows(IllegalStateException.class, () -> policy.allowModule("example.policy.ModuleOverflow"));
+   }
+
+   private static final class HolderOne {
+      private static final class ReachModule {}
+   }
+
+   private static final class HolderTwo {
+      private static final class ReachModule {}
    }
 
    private static final class UnreviewedModule {}

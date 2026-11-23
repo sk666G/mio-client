@@ -96,7 +96,7 @@ public final class CompatibilityCommand extends Command {
          this.print("Permanent service modules cannot be excepted as a whole; review their individual settings instead.");
          return 0;
       }
-      boolean added = MultiplayerCompatibilityPolicy.GLOBAL.allowModule(module.getClass().getSimpleName());
+      boolean added = MultiplayerCompatibilityPolicy.GLOBAL.allowModule(module.getClass().getName());
       this.print(added
          ? module.getName() + " is now an explicit conservative-policy exception. It will not be auto-enabled; toggle it manually if needed."
          : module.getName() + " is already an explicit policy exception.");
@@ -124,7 +124,7 @@ public final class CompatibilityCommand extends Command {
          this.print("Module not found. Use ;compat list to browse module names.");
          return 0;
       }
-      boolean removed = MultiplayerCompatibilityPolicy.GLOBAL.removeAllowedModule(module.getClass().getSimpleName());
+      boolean removed = MultiplayerCompatibilityPolicy.GLOBAL.removeAllowedModule(module.getClass().getName());
       MultiplayerCompatibilityWarnings.enforceActiveModules();
       this.print(removed
          ? module.getName() + " is no longer excepted by the conservative policy."

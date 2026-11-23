@@ -28,7 +28,7 @@ import java.util.Set;
  */
 public final class MultiplayerCompatibilityPolicy implements JsonConfigurable {
    public static final MultiplayerCompatibilityPolicy GLOBAL = new MultiplayerCompatibilityPolicy();
-   public static final int CURRENT_SCHEMA_VERSION = 1;
+   public static final int CURRENT_SCHEMA_VERSION = 2;
    public static final int MAX_ALLOWED_MODULES = 512;
 
    private Mode mode = Mode.WARN_ONLY;
@@ -56,7 +56,7 @@ public final class MultiplayerCompatibilityPolicy implements JsonConfigurable {
          // Permanent service modules cannot be safely toggled as a whole; their settings need review.
          return false;
       }
-      String moduleClass = moduleType.getSimpleName();
+      String moduleClass = moduleType.getName();
       if (this.allowedModules.contains(moduleClass)) {
          return false;
       }
@@ -157,8 +157,8 @@ public final class MultiplayerCompatibilityPolicy implements JsonConfigurable {
 
    private static String validateModuleClass(String value) {
       if (value == null || value.length() > 128
-         || !value.matches("[A-Za-z_$][A-Za-z0-9_$]*")) {
-         throw new IllegalArgumentException("Module class must be a simple Java class name");
+         || !value.matches("[A-Za-z_$][A-Za-z0-9_$]*(\\.[A-Za-z_$][A-Za-z0-9_$]*)+")) {
+         throw new IllegalArgumentException("Module class must be a fully qualified Java class name");
       }
       return value;
    }
