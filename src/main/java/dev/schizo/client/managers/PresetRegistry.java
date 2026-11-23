@@ -12,10 +12,11 @@ package dev.schizo.client.managers;
 import dev.schizo.client.config.PresetData;
 import dev.schizo.client.config.PresetNameValidator;
 
-import dev.schizo.client.ClientAccess;
 import dev.schizo.client.settings.options.PresetCategory;
 import dev.schizo.client.utils.FileUtils;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import java.io.IOException;
@@ -26,13 +27,25 @@ import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.Locale;
 import java.util.function.Consumer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-public final class PresetRegistry extends Registry<PresetData> implements ClientAccess {
+public final class PresetRegistry extends Registry<PresetData> {
+   private static final Logger LOGGER = LoggerFactory.getLogger(PresetRegistry.class);
+   private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
    private final PresetCategory category;
    private final Path directory;
 
    public PresetRegistry(PresetCategory category) {
-      this.directory = category.getDirectory().toAbsolutePath().normalize();
+      this(category, category.getDirectory());
+   }
+
+   PresetRegistry(Path directory) {
+      this(null, directory);
+   }
+
+   private PresetRegistry(PresetCategory category, Path directory) {
+      this.directory = directory.toAbsolutePath().normalize();
       this.category = category;
    }
 
@@ -205,11 +218,11 @@ public final class PresetRegistry extends Registry<PresetData> implements Client
                   JsonObject contents = JsonParser.parseString(FileUtils.readUtf8(file)).getAsJsonObject();
                   if (this.findPreset(name) == null) this.entries.add(new PresetData(name, contents));
                } catch (RuntimeException | IOException invalidPreset) {
-                  ClientAccess.logger.warn("Skipping invalid preset file {}", file.getFileName(), invalidPreset);
+                  LOGGER.warn("Skipping invalid preset file {}", file.getFileName(), invalidPreset);
                }
             }
          } catch (IOException directoryFailure) {
-            ClientAccess.logger.error("Could not read preset directory {}", this.directory, directoryFailure);
+            LOGGER.error("Could not read preset directory {}", this.directory, directoryFailure);
          }
       }
    }
@@ -221,7 +234,7 @@ public final class PresetRegistry extends Registry<PresetData> implements Client
       if (source == null) return false;
       ensureNoCollision(normalizedTarget, null);
       Path targetPath = PresetNameValidator.resolve(this.directory, normalizedTarget);
-      FileUtils.writeUtf8Atomically(targetPath, ClientAccess.gson.toJson(source.contents()));
+      FileUtils.writeUtf8Atomically(targetPath, GSON.toJson(source.contents()));
       synchronized (this.getRegistry()) {
          this.entries.add(new PresetData(normalizedTarget, source.contents().deepCopy()));
       }
@@ -292,7 +305,7 @@ public final class PresetRegistry extends Registry<PresetData> implements Client
             try {
                preset.saveToDirectory(this.directory);
             } catch (IOException failure) {
-               ClientAccess.logger.error("Could not save preset {}", preset.getName(), failure);
+               LOGGER.error("Could not save preset {}", preset.getName(), failure);
             }
          }
       }

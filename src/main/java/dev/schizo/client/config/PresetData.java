@@ -11,16 +11,17 @@ package dev.schizo.client.config;
 
 import dev.schizo.client.utils.FileUtils;
 
-import dev.schizo.client.ClientAccess;
 import dev.schizo.client.settings.NamedEntry;
 
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Objects;
 
-public record PresetData(String name, JsonObject contents) implements ClientAccess, NamedEntry {
+public record PresetData(String name, JsonObject contents) implements NamedEntry {
+   private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
    public PresetData {
       name = PresetNameValidator.normalize(name);
       contents = Objects.requireNonNull(contents, "Preset contents are required");
@@ -33,7 +34,6 @@ public record PresetData(String name, JsonObject contents) implements ClientAcce
 
    public void saveToDirectory(Path directory) throws IOException {
       Path targetPath = PresetNameValidator.resolve(directory, this.name);
-      Gson gson = ClientAccess.gson;
-      FileUtils.writeUtf8Atomically(targetPath, gson.toJson(this.contents));
+      FileUtils.writeUtf8Atomically(targetPath, GSON.toJson(this.contents));
    }
 }
