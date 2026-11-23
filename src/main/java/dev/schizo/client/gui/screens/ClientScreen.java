@@ -71,6 +71,7 @@ public class ClientScreen extends Screen implements ClientAccess {
    public static CursorType cursor = CursorType.STANDARD;
    protected final ArrayList<Panel> panels = new ArrayList<>();
    protected final List<SnowflakeParticle> seasonalParticles = new ArrayList<>();
+   private final boolean winterSeason;
    protected final InterpolatedFloat hoverMouseX = new InterpolatedFloat(
       2.5F,
       true
@@ -107,6 +108,9 @@ public class ClientScreen extends Screen implements ClientAccess {
 
    public void resetSeasonalParticles() {
       this.seasonalParticles.clear();
+      if (!this.winterSeason) {
+         return;
+      }
 
       for (int particleIndex = 0;
          particleIndex
@@ -157,6 +161,7 @@ public class ClientScreen extends Screen implements ClientAccess {
 
    protected ClientScreen() {
       super(Component.literal(SchizoClient.NAME));
+      this.winterSeason = Season.WINTER.containsMonth(LocalDate.now().getMonthValue());
       this.resetSeasonalParticles();
    }
 
@@ -402,10 +407,11 @@ public class ClientScreen extends Screen implements ClientAccess {
       );
       cursor.apply();
       cursor = CursorType.STANDARD;
-      this.seasonalParticles
-         .removeIf(SnowflakeParticle::isExpired);
-      if (this.seasonalParticles.size() < MAX_SEASONAL_PARTICLES) {
-         this.seasonalParticles.add(new SnowflakeParticle());
+      if (this.winterSeason) {
+         this.seasonalParticles.removeIf(SnowflakeParticle::isExpired);
+         if (this.seasonalParticles.size() < MAX_SEASONAL_PARTICLES) {
+            this.seasonalParticles.add(new SnowflakeParticle());
+         }
       }
 
       RenderUtils.setRenderColor(
@@ -464,8 +470,7 @@ public class ClientScreen extends Screen implements ClientAccess {
          );
       }
 
-      if (Season.WINTER
-         .containsMonth(LocalDate.now().getMonthValue())) {
+      if (this.winterSeason) {
          for (SnowflakeParticle particle : this.seasonalParticles) {
             particle.render(poseStack);
          }
