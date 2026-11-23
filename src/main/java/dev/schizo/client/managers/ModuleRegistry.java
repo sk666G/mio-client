@@ -412,10 +412,11 @@ public final class ModuleRegistry extends Registry<Module> implements ClientAcce
          return false;
       }
       ExperimentalFeatures.unregisterHiddenSettings(module);
-      Object2ObjectOpenHashMap<Class<?>, Module> cache = this.modulesByClass;
-      Class moduleClass = module.getClass();
-      cache.put(moduleClass, module);
-      return super.registerEntry(module);
+      boolean registered = super.registerEntry(module);
+      if (registered) {
+         this.modulesByClass.put(module.getClass(), module);
+      }
+      return registered;
    }
 
    @Deprecated
