@@ -21,6 +21,10 @@ The remapped client JAR is written to build/libs/.
 
 See [Performance HUD documentation](docs/PERFORMANCE_HUD.md) for frame-time metrics, 1% lows, hitch counting and the frame-time graph.
 
+## Automatic Context Profiles
+
+See [Context Profiles documentation](docs/CONTEXT_PROFILES.md) for server, dimension and game-mode preset switching.
+
 ## Command Palette
 
 See [Command Palette documentation](docs/COMMAND_PALETTE.md) for global search and actions using Right Shift + K.
