@@ -34,6 +34,17 @@ public final class FrameTiming implements ClientAccess {
       return this.lastFrameDurationNanos / 1_000_000.0F;
    }
 
+   /** Returns the average interval between frames in the current one-second sample window. */
+   public float getAverageFrameTimeMillis() {
+      if (this.sampleCount < 2) {
+         return this.getFrameTimeMillis();
+      }
+
+      long firstFrameTime = this.frameTimesNanos[this.oldestSampleIndex];
+      long elapsedNanos = this.frameTimesNanos[(this.oldestSampleIndex + this.sampleCount - 1) % SAMPLE_CAPACITY] - firstFrameTime;
+      return elapsedNanos / (float)(this.sampleCount - 1) / 1_000_000.0F;
+   }
+
    public float getFrameFactor(float rateScale) {
       return Mth.clamp(1.0F / ((float)this.lastFrameRate * rateScale), 0.0F, 1.0F);
    }
