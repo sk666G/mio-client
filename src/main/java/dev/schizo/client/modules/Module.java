@@ -13,6 +13,7 @@ import dev.schizo.client.ClientAccess;
 import dev.schizo.client.config.ModuleConfigLoadReport;
 import dev.schizo.client.config.SafeModeManager;
 import dev.schizo.client.integrations.MultiplayerCompatibilityWarnings;
+import dev.schizo.client.integrations.MultiplayerCompatibilityPolicy;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.NamedFeature;
 import dev.schizo.client.events.bus.EventBus;
