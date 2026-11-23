@@ -15,6 +15,7 @@ import dev.schizo.client.events.ConnectScreenConnectEvent;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.LocalPlayerPreTickEvent;
 import dev.schizo.client.events.MinecraftDisconnectEvent;
+import dev.schizo.client.config.ContextProfileMatcher;
 import dev.schizo.client.settings.JsonConfigurable;
 import dev.schizo.client.settings.options.PresetCategory;
 import dev.schizo.client.utils.world.WorldUtils;
@@ -416,23 +417,13 @@ public final class ContextProfileRegistry implements ClientAccess, JsonConfigura
    public static List<Rule> selectMatchingRules(
       List<Rule> rules, String server, String dimension, String gameMode
    ) {
-      List<RankedRule> matches = new ArrayList<>();
-      for (int index = 0; index < rules.size(); index++) {
-         Rule rule = rules.get(index);
-         if ((rule.server().equals("*") || rule.server().equals(server))
-            && (rule.dimension().equals("any") || rule.dimension().equals(dimension))
-            && (rule.gameMode().equals("any") || rule.gameMode().equals(gameMode))) {
-            int specificity = (rule.server().equals("*") ? 0 : 1)
-               + (rule.dimension().equals("any") ? 0 : 1)
-               + (rule.gameMode().equals("any") ? 0 : 1);
-            matches.add(new RankedRule(rule, specificity, index));
-         }
+      List<ContextProfileMatcher.Entry<Rule>> entries = new ArrayList<>(rules.size());
+      for (Rule rule : rules) {
+         entries.add(new ContextProfileMatcher.Entry<>(
+            rule.server(), rule.dimension(), rule.gameMode(), rule
+         ));
       }
-      matches.sort(Comparator.comparingInt(RankedRule::specificity).thenComparingInt(RankedRule::index));
-      return matches.stream().map(RankedRule::rule).toList();
-   }
-
-   private record RankedRule(Rule rule, int specificity, int index) {
+      return ContextProfileMatcher.select(entries, server, dimension, gameMode);
    }
 
    public record Rule(
