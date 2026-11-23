@@ -45,6 +45,7 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
    private boolean drawn;
    private boolean workInProgress;
    private boolean ignoreEnabledState;
+   private boolean compatibilityPolicySuppressed;
    private final List<ModuleConfigLoadReport.Issue> lastConfigLoadIssues = new ArrayList<>();
 
    public Module(String name, String description, ModuleCategory category, String... aliases) {
@@ -88,6 +89,11 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
          return;
       }
       MultiplayerCompatibilityWarnings.warnIfNeeded(this);
+      if (MultiplayerCompatibilityPolicy.GLOBAL.shouldBlock(this)) {
+         this.compatibilityPolicySuppressed = true;
+         return;
+      }
+      this.compatibilityPolicySuppressed = false;
       this.enabled = true;
       ClientAccess.eventBus.subscribe(this);
       EventBus eventBus = ClientAccess.eventBus;
@@ -107,6 +113,15 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
 
    public String getInfo() {
       return null;
+   }
+
+   @Override
+   public void setToggled(boolean toggled) {
+      if (!toggled && !this.enabled) {
+         this.compatibilityPolicySuppressed = false;
+         return;
+      }
+      Toggleable.super.setToggled(toggled);
    }
 
    @Override
@@ -211,7 +226,7 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
    public JsonElement toJson() {
       JsonObject moduleJson = new JsonObject();
       if (!this.ignoreEnabledState) {
-         moduleJson.addProperty("enabled", this.enabled);
+         moduleJson.addProperty("enabled", this.enabled || this.compatibilityPolicySuppressed);
       }
       moduleJson.addProperty("key", this.keybind.code());
       moduleJson.addProperty("state", this.keybind.mode().getSerializedName());
@@ -237,6 +252,20 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
 
    @Override
    public void disable() {
+      this.compatibilityPolicySuppressed = false;
+      this.disableInternal();
+   }
+
+   /** Disables a running module for policy reasons without overwriting its saved enable preference. */
+   public void suspendForCompatibilityPolicy() {
+      if (!this.enabled) {
+         return;
+      }
+      this.compatibilityPolicySuppressed = true;
+      this.disableInternal();
+   }
+
+   private void disableInternal() {
       if (!this.isToggled()) {
          return;
       }

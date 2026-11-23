@@ -36,7 +36,19 @@ Use:
 
 The first-pass registry labels only the modules listed above. **Every other module defaults to `UNVERIFIED`**. Runtime warnings are shown when a module in one of the warning-required classes is enabled in multiplayer; warnings are deduplicated per module per connection and capped in chat. The inventory identifies every individual setting as `UNVERIFIED` until that setting has received its own source review. A module-level label is not a per-setting certification.
 
-The report is informational only. It does not modify packets, attempt to evade server validation, or silently change module state. A strict activation profile is deliberately not enabled while the full module/setting matrix is incomplete; adding a deny policy before classifying the remaining modules would make the result misleading and could unexpectedly break user configurations.
+The report does not modify packets or attempt to evade server validation. The default policy is **WARN_ONLY** and leaves module activation unchanged.
+
+An optional conservative activation policy is available:
+
+- `;compat policy status` shows the current policy and explicit exceptions.
+- `;compat policy conservative` blocks enabling `SERVER_SENSITIVE`, `PACKET_AFFECTING` and `UNVERIFIED` modules while connected to a remote multiplayer server.
+- `;compat policy warn` returns to warning-only mode.
+- `;compat policy allow <ModuleClass>` adds an explicit class-level exception.
+- `;compat policy deny <ModuleClass>` removes that exception; `;compat policy clear` removes all exceptions.
+
+The conservative policy is opt-in because most modules and all individual settings have not completed source review. `CLIENT_ONLY`, `VISUAL_ONLY`, `INPUT_MODIFYING` and `WORLD_INTERACTION` modules are not blocked by this first policy; the latter two continue to show warnings. An exception is a user permission, not a compatibility certification.
+
+When the conservative policy is active, already-enabled blocked modules are suspended on the first player tick in a remote multiplayer session. Their saved enabled preference is preserved in the module config, but they are not automatically re-enabled on disconnect or when the policy changes to warning-only. Toggle them manually, or restart under warning-only mode to restore saved enable preferences. The policy and its explicit exceptions are stored separately in `multiplayer-compatibility.json`.
 
 ## Tests and evidence
 

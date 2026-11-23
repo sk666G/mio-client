@@ -47,6 +47,7 @@ public final class MultiplayerCompatibilityWarnings implements ClientAccess {
       }
 
       ModuleCompatibility.Assessment assessment = ModuleCompatibility.assess(module.getClass());
+      boolean policyBlocked = MultiplayerCompatibilityPolicy.GLOBAL.shouldBlock(module);
       if (!assessment.requiresMultiplayerWarning() || !WARNED_MODULES.add(module.getClass())) {
          return;
       }
@@ -66,6 +67,9 @@ public final class MultiplayerCompatibilityWarnings implements ClientAccess {
          }
          String message = "Multiplayer compatibility: " + module.getName()
             + " is " + assessment.classification() + ". " + assessment.reason()
+            + (policyBlocked
+               ? " Activation blocked by the conservative profile; use ;compat policy allow " + className + " only after reviewing it."
+               : "")
             + " See ;compat module " + className + ".";
          ChatUtils.printChat(Component.literal(message), ChatUtils.DEFAULT_SIGNATURE);
       } else if (warningsShown == MAX_CHAT_WARNINGS_PER_CONNECTION + 1) {
@@ -78,14 +82,23 @@ public final class MultiplayerCompatibilityWarnings implements ClientAccess {
 
    @EventHandler(priority = -100)
    private void inspectActiveModules(LocalPlayerPreTickEvent event) {
+      enforceActiveModules();
+   }
+
+   /** Applies a newly enabled policy to active modules. Suspended modules are not auto-reactivated. */
+   public static void enforceActiveModules() {
       if (!isMultiplayerSession() || ClientContext.moduleRegistry == null) {
          return;
       }
 
       for (Object entry : ClientContext.moduleRegistry.getRegistry()) {
          Module module = (Module)entry;
-         if (module.isToggled()) {
-            warnIfNeeded(module);
+         if (!module.isToggled()) {
+            continue;
+         }
+         warnIfNeeded(module);
+         if (MultiplayerCompatibilityPolicy.GLOBAL.shouldBlock(module)) {
+            module.suspendForCompatibilityPolicy();
          }
       }
    }
@@ -100,7 +113,7 @@ public final class MultiplayerCompatibilityWarnings implements ClientAccess {
       resetWarnings();
    }
 
-   private static boolean isMultiplayerSession() {
+   public static boolean isMultiplayerSession() {
       Minecraft minecraft = ClientAccess.schizoMinecraft;
       return minecraft != null
          && minecraft.isSameThread()
