@@ -3,7 +3,9 @@ package dev.schizo.client;
 import com.mojang.blaze3d.platform.InputConstants;
 import dev.schizo.client.config.ClientConfig;
 import dev.schizo.client.feature.ExampleFeature;
+import dev.schizo.client.feature.HudFeature;
 import dev.schizo.client.gui.ClickGuiScreen;
+import dev.schizo.client.hud.HudOverlay;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
@@ -29,8 +31,10 @@ public final class SchizoClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         FeatureRegistry.register(new ExampleFeature());
+        FeatureRegistry.register(new HudFeature());
         FeatureRegistry.registerDefaults();
         ClientConfig.load();
+        HudOverlay.register();
 
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> ClientConfig.save());
 

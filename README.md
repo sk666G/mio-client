@@ -1,6 +1,6 @@
 # Schizo Client
 
-Schizo is a clean-room Fabric client project for Minecraft 1.21.11. It provides a modular foundation for client-side gameplay modifications and utilities.
+Schizo is a Fabric client project for Minecraft 1.21.11. It provides a modular foundation for client-side gameplay modifications and utilities.
 
 ## Included
 
@@ -9,6 +9,7 @@ Schizo is a clean-room Fabric client project for Minecraft 1.21.11. It provides 
 - Category filters and module enable/disable buttons
 - Boolean, bounded-number, and mode setting controls
 - Feature lifecycle hooks and central registry
+- Configurable information HUD with coordinates and facing direction
 - JSON configuration saved in the Minecraft config directory
 - Module enabled states and supported setting values restored on startup
 
@@ -30,7 +31,7 @@ Schizo writes `config/schizo.json` in the active Minecraft game directory. Modul
 
 ## Project status
 
-This is an early client foundation. The ClickGUI currently provides basic module and setting controls. Persistent configuration is implemented; polished layouts, HUD rendering, and concrete gameplay modules remain future work. This project does not include stealth injection, anti-cheat circumvention, or detection-evasion mechanisms.
+The ClickGUI provides basic module and setting controls. The Information HUD can show block coordinates and facing direction, with each display option configurable in the GUI. Further work includes polished layouts, HUD customization, and additional gameplay modules. This project does not include stealth injection, anti-cheat circumvention, or detection-evasion mechanisms.
 
 ## License
 
