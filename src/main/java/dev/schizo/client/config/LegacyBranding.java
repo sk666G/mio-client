@@ -116,7 +116,6 @@ public final class LegacyBranding {
                     new int[]{32, 13, 48, 100});
                 replaceDefaultColor(settings, "GradientColor", new int[]{196, 12, 36, 218},
                     new int[]{199, 148, 244, 15});
-                replaceDefault(settings, "Style", "Slim", "Plain");
             }
             default -> throw new AssertionError(moduleName);
         }
