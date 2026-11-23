@@ -133,12 +133,29 @@ public final class ConfigurationBackupManager {
             return new ConfigDiagnostic(configName, ConfigStatus.TOO_LARGE, size, "File exceeds 8 MiB");
          }
 
-         this.requireJsonObject(file);
-         return new ConfigDiagnostic(configName, ConfigStatus.VALID, size, "Valid JSON object");
+         byte[] contents;
+         try (InputStream input = Files.newInputStream(file)) {
+            contents = input.readNBytes((int)MAX_CONFIG_BYTES + 1);
+         } catch (IOException readFailure) {
+            return new ConfigDiagnostic(configName, ConfigStatus.UNREADABLE, size, "File could not be read");
+         }
+         if (contents.length > MAX_CONFIG_BYTES) {
+            return new ConfigDiagnostic(configName, ConfigStatus.TOO_LARGE, size, "File exceeds 8 MiB");
+         }
+
+         try {
+            JsonElement json = JsonParser.parseString(new String(contents, StandardCharsets.UTF_8));
+            if (!json.isJsonObject()) {
+               return new ConfigDiagnostic(configName, ConfigStatus.CORRUPT, size, "JSON root is not an object");
+            }
+            return new ConfigDiagnostic(configName, ConfigStatus.VALID, size, "Valid JSON object");
+         } catch (RuntimeException malformed) {
+            return new ConfigDiagnostic(configName, ConfigStatus.CORRUPT, size, "Invalid JSON");
+         }
       } catch (IllegalArgumentException failure) {
          return new ConfigDiagnostic(configName, ConfigStatus.UNSAFE, -1L, "Invalid configuration name");
       } catch (IOException failure) {
-         return new ConfigDiagnostic(configName, ConfigStatus.CORRUPT, -1L, "File could not be read or parsed");
+         return new ConfigDiagnostic(configName, ConfigStatus.UNREADABLE, -1L, "File could not be inspected");
       }
    }
 
@@ -358,7 +375,8 @@ public final class ConfigurationBackupManager {
       MISSING,
       CORRUPT,
       TOO_LARGE,
-      UNSAFE
+      UNSAFE,
+      UNREADABLE
    }
 
    public record ConfigDiagnostic(String configName, ConfigStatus status, long sizeBytes, String detail) {
