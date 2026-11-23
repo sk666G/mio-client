@@ -253,7 +253,6 @@ public final class ContextProfileRegistry implements ClientAccess, JsonConfigura
             event.cancel();
             this.dirty = true;
             this.lastAppliedContext = null;
-         this.applyFailure.clear();
             ClientAccess.logger.error(
                "Cancelled server connection because the active context profile baseline could not be restored"
             );
@@ -263,6 +262,7 @@ public final class ContextProfileRegistry implements ClientAccess, JsonConfigura
             this.baseline.clear();
          }
          this.lastAppliedContext = null;
+         this.applyFailure.clear();
       }
    }
 
