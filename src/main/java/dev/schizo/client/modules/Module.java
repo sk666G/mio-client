@@ -10,6 +10,7 @@
 package dev.schizo.client.modules;
 
 import dev.schizo.client.ClientAccess;
+import dev.schizo.client.config.ModuleConfigLoadReport;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.NamedFeature;
 import dev.schizo.client.events.bus.EventBus;
@@ -42,6 +43,7 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
    private boolean drawn;
    private boolean workInProgress;
    private boolean ignoreEnabledState;
+   private final List<ModuleConfigLoadReport.Issue> lastConfigLoadIssues = new ArrayList<>();
 
    public Module(String name, String description, ModuleCategory category, String... aliases) {
       super(name);
@@ -147,8 +149,13 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
       return languageTable.getTranslationOrDefault(translationKey, defaultDescription);
    }
 
+   public List<ModuleConfigLoadReport.Issue> getLastConfigLoadIssues() {
+      return List.copyOf(this.lastConfigLoadIssues);
+   }
+
    @Override
    public void fromJson(JsonElement json) {
+      this.lastConfigLoadIssues.clear();
       json = dev.schizo.client.config.LegacyBranding.migrateModule(getName(), json);
       if (!(json instanceof JsonObject moduleJson)) {
          return;
@@ -163,6 +170,11 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
             try {
                setting.fromJson(settingsJson.get(setting.getConfigName()));
             } catch (Exception invalidSetting) {
+               this.lastConfigLoadIssues.add(new ModuleConfigLoadReport.Issue(
+                  this.getName(),
+                  setting.getConfigName(),
+                  invalidSetting.getClass().getSimpleName()
+               ));
             }
          }
       }

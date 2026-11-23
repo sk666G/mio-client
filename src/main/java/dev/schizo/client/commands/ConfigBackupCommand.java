@@ -11,6 +11,7 @@ package dev.schizo.client.commands;
 
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.config.ConfigurationBackupManager;
+import dev.schizo.client.config.ModuleConfigLoadReport;
 import dev.schizo.client.managers.ConfigurationManager;
 import dev.schizo.client.utils.chat.ChatUtils;
 
@@ -26,6 +27,7 @@ import net.minecraft.network.chat.Component;
 /** Lists, creates and restores bounded backups of client JSON configurations. */
 public final class ConfigBackupCommand extends Command {
    private static final int MAX_LISTED = 40;
+   private static final int MAX_DISPLAYED_MODULE_ISSUES = 12;
    private static final DateTimeFormatter TIME_FORMAT =
       DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
@@ -70,6 +72,9 @@ public final class ConfigBackupCommand extends Command {
    private int showConfigHealth() {
       List<String> names = this.configuration().getConfigurableNames();
       StringBuilder output = new StringBuilder("Schizo configuration health:");
+      ModuleConfigLoadReport.Snapshot moduleLoadReport = ClientContext.moduleRegistry == null
+         ? new ModuleConfigLoadReport().snapshot()
+         : ClientContext.moduleRegistry.getLastConfigLoadReport();
       int valid = 0;
       int issues = 0;
 
@@ -84,7 +89,10 @@ public final class ConfigBackupCommand extends Command {
             backupSummary = "backup directory unavailable";
          }
 
-         if (diagnostic.status() == ConfigurationBackupManager.ConfigStatus.VALID) {
+         boolean partialModuleLoad = configName.equals("modules.json")
+            && diagnostic.status() == ConfigurationBackupManager.ConfigStatus.VALID
+            && moduleLoadReport.totalIssueCount() > 0;
+         if (diagnostic.status() == ConfigurationBackupManager.ConfigStatus.VALID && !partialModuleLoad) {
             valid++;
          } else {
             issues++;
@@ -92,10 +100,30 @@ public final class ConfigBackupCommand extends Command {
 
          output.append("\n")
             .append(configName).append(": ")
-            .append(diagnostic.status()).append(" · ")
-            .append(backupSummary);
-         if (diagnostic.status() != ConfigurationBackupManager.ConfigStatus.VALID) {
+            .append(partialModuleLoad ? "PARTIAL_LOAD" : diagnostic.status())
+            .append(" · ").append(backupSummary);
+         if (partialModuleLoad) {
+            output.append(" · ")
+               .append(moduleLoadReport.totalIssueCount())
+               .append(" value(s) failed to apply during the last load");
+         } else if (diagnostic.status() != ConfigurationBackupManager.ConfigStatus.VALID) {
             output.append(" · ").append(diagnostic.detail());
+         }
+
+         if (partialModuleLoad) {
+            int displayed = Math.min(moduleLoadReport.issues().size(), MAX_DISPLAYED_MODULE_ISSUES);
+            for (int index = 0; index < displayed; index++) {
+               ModuleConfigLoadReport.Issue issue = moduleLoadReport.issues().get(index);
+               output.append("\n  ")
+                  .append(issue.moduleName()).append(" / ")
+                  .append(issue.settingName()).append(" (")
+                  .append(issue.failureType()).append(")");
+            }
+            if (moduleLoadReport.omittedIssueCount() > 0) {
+               output.append("\n  … and ")
+                  .append(moduleLoadReport.omittedIssueCount())
+                  .append(" additional issue(s)");
+            }
          }
       }
 
