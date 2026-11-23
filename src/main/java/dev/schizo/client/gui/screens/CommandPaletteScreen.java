@@ -209,11 +209,16 @@ public final class CommandPaletteScreen extends ClientScreen {
    protected void init() {
       super.init();
       this.rebuildIndex();
+      int screenWidth = GuiScaleUtils.getScaledWidth();
+      int screenHeight = GuiScaleUtils.getScaledHeight();
+      int width = Math.min(PANEL_WIDTH, screenWidth - 24);
+      int left = (screenWidth - width) / 2;
+      int top = Math.max(18, (int)(screenHeight * 0.22F));
       this.searchBox = new EditBox(
          ClientAccess.schizoMinecraft.font,
-         16,
-         16,
-         320,
+         left + 12,
+         top + 32,
+         Math.max(100, width - 24),
          18,
          Component.literal("Search modules, commands and settings")
       );
@@ -339,8 +344,6 @@ public final class CommandPaletteScreen extends ClientScreen {
          accent
       );
 
-      this.searchBox.setX((int)this.panelLeft + 12);
-      this.searchBox.setY((int)this.panelTop + 32);
       String searchValue = this.searchBox.getValue();
       String searchDisplay = searchValue.isEmpty()
          ? "Search modules, commands, settings..."
@@ -362,6 +365,15 @@ public final class CommandPaletteScreen extends ClientScreen {
       );
 
       this.keepSelectionVisible();
+      if (this.results.isEmpty()) {
+         font.drawWithShadow(
+            poseStack,
+            "No matching actions",
+            this.panelLeft + 14.0F,
+            this.resultsTop + 4.0F,
+            Color.GRAY
+         );
+      }
       for (int row = 0; row < VISIBLE_RESULTS; row++) {
          int resultIndex = this.firstVisibleIndex + row;
          if (resultIndex >= this.results.size()) {
