@@ -128,6 +128,11 @@ def validate_destination(destination: Path) -> Path:
         raise SystemExit("Destination is not a valid Git checkout.") from failure
     if repository_root != dest:
         raise SystemExit("Destination must be the root of its Git checkout.")
+    status = subprocess.check_output(
+        ["git", "-C", str(dest), "status", "--porcelain"], text=True
+    )
+    if status.strip():
+        raise SystemExit("Destination checkout must be clean before a destructive import.")
     return dest
 
 
