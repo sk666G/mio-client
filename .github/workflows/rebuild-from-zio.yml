@@ -41,8 +41,11 @@ jobs:
           git -C "$RUNNER_TEMP/open-zio" checkout --detach "$UPSTREAM_COMMIT"
           test "$(git -C "$RUNNER_TEMP/open-zio" rev-parse HEAD)" = "$UPSTREAM_COMMIT"
 
+      - name: Test upstream rebuild tooling
+        run: python3 -m unittest discover -s tools -p 'test_*.py'
+
       - name: Rebuild Schizo from upstream architecture
-        run: python3 tools/rebrand_open_zio.py "$RUNNER_TEMP/open-zio" .
+        run: python3 tools/rebrand_open_zio.py "$RUNNER_TEMP/open-zio" . --replace-existing
 
       - name: Ensure Gradle wrapper is executable
         run: chmod +x ./gradlew
