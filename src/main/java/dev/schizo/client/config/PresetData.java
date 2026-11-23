@@ -10,17 +10,13 @@
 package dev.schizo.client.config;
 
 import dev.schizo.client.ClientAccess;
+import dev.schizo.client.utils.FileUtils;
 import dev.schizo.client.settings.NamedEntry;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.AtomicMoveNotSupportedException;
-import java.nio.file.Files;
-import java.nio.file.LinkOption;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 
 public record PresetData(String name, JsonObject contents) implements ClientAccess, NamedEntry {
    @Override
@@ -50,21 +46,7 @@ public record PresetData(String name, JsonObject contents) implements ClientAcce
 
    public void saveToDirectory(Path directory) throws IOException {
       Path targetPath = resolvePresetPath(directory, this.name);
-      Path parent = targetPath.getParent();
-      Files.createDirectories(parent);
-
       Gson gson = ClientAccess.gson;
-      String serializedContents = gson.toJson(this.contents());
-      Path temporary = Files.createTempFile(parent, ".schizo-preset-", ".tmp");
-      try {
-         Files.writeString(temporary, serializedContents, StandardCharsets.UTF_8);
-         try {
-            Files.move(temporary, targetPath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-         } catch (AtomicMoveNotSupportedException unsupported) {
-            Files.move(temporary, targetPath, StandardCopyOption.REPLACE_EXISTING);
-         }
-      } finally {
-         Files.deleteIfExists(temporary);
-      }
+      FileUtils.writeUtf8Atomically(targetPath, gson.toJson(this.contents()));
    }
 }
