@@ -10,14 +10,16 @@
 package dev.schizo.client.utils;
 
 import dev.schizo.client.ClientAccess;
-
-import java.util.ArrayDeque;
-import java.util.Deque;
 import net.minecraft.util.Mth;
 
 public final class FrameTiming implements ClientAccess {
-   private static final long NANOS_PER_SECOND = 1000000000L;
-   private final Deque<Long> frameExpirationsNanos = new ArrayDeque<>();
+   private static final long NANOS_PER_SECOND = 1_000_000_000L;
+   private static final int SAMPLE_CAPACITY = 4096;
+
+   // A fixed ring avoids boxing and queue-node allocation once per rendered frame.
+   private final long[] frameTimesNanos = new long[SAMPLE_CAPACITY];
+   private int oldestSampleIndex;
+   private int sampleCount;
    private long lastFrameTimeNanos;
    private long lastFrameRate;
    private int framesPerSecond;
@@ -32,29 +34,32 @@ public final class FrameTiming implements ClientAccess {
 
    public void recordFrame() {
       long sampledTimeNanos = System.nanoTime();
-      Deque<Long> expirationQueue = this.frameExpirationsNanos;
 
-      long expirationNanos = sampledTimeNanos + NANOS_PER_SECOND;
-      expirationQueue.add(expirationNanos);
-
-      while (!this.frameExpirationsNanos.isEmpty()) {
-         Long headExpirationNanos = this.frameExpirationsNanos.peekFirst();
-         if (sampledTimeNanos <= headExpirationNanos) {
-            break;
-         }
-
-         this.frameExpirationsNanos.remove();
+      if (this.sampleCount == SAMPLE_CAPACITY) {
+         this.oldestSampleIndex = (this.oldestSampleIndex + 1) % SAMPLE_CAPACITY;
+         this.sampleCount--;
       }
 
-      this.framesPerSecond = this.frameExpirationsNanos.size();
+      int writeIndex = (this.oldestSampleIndex + this.sampleCount) % SAMPLE_CAPACITY;
+      this.frameTimesNanos[writeIndex] = sampledTimeNanos;
+      this.sampleCount++;
 
-      this.lastFrameRate = NANOS_PER_SECOND
-         / (sampledTimeNanos - this.lastFrameTimeNanos);
+      while (this.sampleCount > 0) {
+         long oldestFrameTime = this.frameTimesNanos[this.oldestSampleIndex];
+         if (sampledTimeNanos - oldestFrameTime <= NANOS_PER_SECOND) {
+            break;
+         }
+         this.oldestSampleIndex = (this.oldestSampleIndex + 1) % SAMPLE_CAPACITY;
+         this.sampleCount--;
+      }
+
+      this.framesPerSecond = this.sampleCount;
+      long elapsedNanos = Math.max(1L, sampledTimeNanos - this.lastFrameTimeNanos);
+      this.lastFrameRate = NANOS_PER_SECOND / elapsedNanos;
       this.lastFrameTimeNanos = sampledTimeNanos;
    }
 
    public FrameTiming() {
       this.lastFrameTimeNanos = System.nanoTime();
    }
-
 }
