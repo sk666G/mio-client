@@ -9,6 +9,7 @@
 
 package dev.schizo.mixin;
 
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
@@ -28,14 +29,13 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(Level.class)
 public class LevelMixin {
-   private static AmbienceModule ambience = ClientContext.getModule(AmbienceModule.class);
 
    @Inject(method = "getRainLevel", at = @At("HEAD"), cancellable = true)
    private void overrideRainLevel(CallbackInfoReturnable<Float> callback) {
-      if (ambience.worldWeatherSetting.getValue()
-         && ambience.isToggled()
-         && !ambience.isWeatherOverrideSuppressed()) {
-         callback.setReturnValue(ambience.weatherSetting.getValue() == AmbienceModule.WeatherChoice.CLEAR ? 0.0F : 1.0F);
+      if (MixinModuleRegistry.levelAmbience.worldWeatherSetting.getValue()
+         && MixinModuleRegistry.levelAmbience.isToggled()
+         && !MixinModuleRegistry.levelAmbience.isWeatherOverrideSuppressed()) {
+         callback.setReturnValue(MixinModuleRegistry.levelAmbience.weatherSetting.getValue() == AmbienceModule.WeatherChoice.CLEAR ? 0.0F : 1.0F);
          callback.cancel();
       }
    }
@@ -44,8 +44,8 @@ public class LevelMixin {
    private float readRainLevelForRainCheck(
       Level level, float partialTick, Operation original
    ) {
-      if (ambience.worldWeatherSetting.getValue() && ambience.isToggled() && ambience.weatherSetting.getValue() == AmbienceModule.WeatherChoice.CLEAR) {
-         return (Float)ambience.withWeatherOverrideSuppressed(
+      if (MixinModuleRegistry.levelAmbience.worldWeatherSetting.getValue() && MixinModuleRegistry.levelAmbience.isToggled() && MixinModuleRegistry.levelAmbience.weatherSetting.getValue() == AmbienceModule.WeatherChoice.CLEAR) {
+         return (Float)MixinModuleRegistry.levelAmbience.withWeatherOverrideSuppressed(
             () -> (Float)original.call(level, partialTick)
          );
       }
@@ -71,8 +71,4 @@ public class LevelMixin {
       }
    }
 
-   @Unique
-   private static void schizo$bindLevelModules(ModuleRegistry moduleRegistry) {
-      ambience = (AmbienceModule)moduleRegistry.getModule(AmbienceModule.class);
-   }
 }

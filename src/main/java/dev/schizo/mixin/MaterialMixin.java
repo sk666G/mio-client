@@ -9,6 +9,7 @@
 
 package dev.schizo.mixin;
 
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.render.RenderUtils;
 import dev.schizo.client.managers.ModuleRegistry;
@@ -31,11 +32,10 @@ public class MaterialMixin {
    @Shadow
    @Final
    private Identifier atlasLocation;
-   private static NoRenderModule noRenderModule = ClientContext.getModule(NoRenderModule.class);
 
    @Inject(method = "renderType", at = @At("HEAD"), cancellable = true)
    private void applyTranslucentHandMaterial(Function renderTypeFactory, CallbackInfoReturnable<RenderType> callback) {
-      if (noRenderModule.getHandOpacity()
+      if (MixinModuleRegistry.materialNoRenderModule.getHandOpacity()
             != 1.0F
          && RenderUtils.getRenderColor()[3]
             != 255) {
@@ -44,10 +44,4 @@ public class MaterialMixin {
       }
    }
 
-   @Unique
-   private static void schizo$bindMaterialModules(ModuleRegistry moduleRegistry) {
-      noRenderModule = (NoRenderModule)moduleRegistry.getModule(
-         NoRenderModule.class
-      );
-   }
 }
