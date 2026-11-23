@@ -32,6 +32,7 @@ import dev.schizo.client.managers.InventoryStateManager;
 import dev.schizo.client.managers.KitRegistry;
 import dev.schizo.client.managers.MacroRegistry;
 import dev.schizo.client.managers.ModuleRegistry;
+import dev.schizo.client.managers.ModulePreferencesRegistry;
 import dev.schizo.client.managers.MovementPredictionManager;
 import dev.schizo.client.managers.RotationManager;
 import dev.schizo.client.managers.ServerStateManager;
@@ -91,6 +92,7 @@ public final class ClientInitializer {
       ClientContext.featureBoxRenderer = new FeatureBoxRenderer();
       ClientContext.taskScheduler = new TaskScheduler();
       ClientContext.moduleRegistry = new ModuleRegistry();
+      ClientContext.modulePreferencesRegistry = new ModulePreferencesRegistry();
       ClientContext.hudModuleRegistry = new HudModuleRegistry();
       ClientContext.tradeRegistry = new TradeRegistry();
       ClientContext.commandRegistry = new CommandRegistry();
