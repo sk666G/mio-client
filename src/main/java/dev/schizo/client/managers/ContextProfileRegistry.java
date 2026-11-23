@@ -62,12 +62,22 @@ public final class ContextProfileRegistry implements ClientAccess, JsonConfigura
       if (this.enabled == enabled) {
          return;
       }
-      if (!enabled) {
-         this.restoreActiveProfile();
+      if (enabled) {
+         if (!this.restoreActiveProfile()) {
+            this.dirty = true;
+            return;
+         }
+         this.baseline.clear();
+         this.modifiedCategories.clear();
+         this.enabled = true;
+      } else {
+         boolean restored = this.restoreActiveProfile();
+         this.enabled = false;
+         if (restored) {
+            this.baseline.clear();
+            this.modifiedCategories.clear();
+         }
       }
-      this.enabled = enabled;
-      this.baseline.clear();
-      this.modifiedCategories.clear();
       this.lastAppliedContext = null;
       this.dirty = true;
    }
@@ -216,10 +226,8 @@ public final class ContextProfileRegistry implements ClientAccess, JsonConfigura
    @EventHandler(priority = 100)
    private void beforeServerPresetChange(ConnectScreenConnectEvent event) {
       synchronized (this) {
-         if (this.enabled) {
-            this.restoreActiveProfile();
-         } else {
-            this.modifiedCategories.clear();
+         boolean restored = this.restoreActiveProfile();
+         if (!this.enabled && restored) {
             this.baseline.clear();
          }
          this.lastAppliedContext = null;
@@ -231,10 +239,11 @@ public final class ContextProfileRegistry implements ClientAccess, JsonConfigura
    private void captureServerBaseline(ConnectScreenConnectEvent event) {
       synchronized (this) {
          if (this.enabled) {
-            this.captureBaseline();
-         } else {
+            if (this.modifiedCategories.isEmpty()) {
+               this.captureBaseline();
+            }
+         } else if (this.modifiedCategories.isEmpty()) {
             this.baseline.clear();
-            this.modifiedCategories.clear();
          }
          this.lastAppliedContext = null;
          this.dirty = true;
@@ -244,11 +253,13 @@ public final class ContextProfileRegistry implements ClientAccess, JsonConfigura
    @EventHandler(priority = 100)
    private void restoreOnDisconnect(MinecraftDisconnectEvent event) {
       synchronized (this) {
-         if (this.enabled) {
-            this.restoreActiveProfile();
+         boolean restored = this.restoreActiveProfile();
+         if (restored) {
+            this.baseline.clear();
+            this.modifiedCategories.clear();
+         } else {
+            ClientAccess.logger.error("Context profile baseline remains pending after disconnect");
          }
-         this.baseline.clear();
-         this.modifiedCategories.clear();
          this.lastAppliedContext = null;
          this.dirty = true;
       }
@@ -256,16 +267,22 @@ public final class ContextProfileRegistry implements ClientAccess, JsonConfigura
 
    @EventHandler
    private void applyForCurrentContext(LocalPlayerPreTickEvent event) {
-      if (!this.enabled) {
-         return;
-      }
       synchronized (this) {
+         if (!this.enabled && !this.modifiedCategories.isEmpty()) {
+            boolean restored = this.restoreActiveProfile();
+            if (restored) {
+               this.baseline.clear();
+               this.lastAppliedContext = null;
+            }
+            return;
+         }
          if (!this.enabled || this.isWorldUnavailable()) {
             return;
          }
 
-         if (this.baseline.isEmpty()) {
-            this.captureBaseline();
+         if (this.baseline.isEmpty() && !this.captureBaseline()) {
+            this.dirty = true;
+            return;
          }
 
          String server = currentServerKey();
@@ -280,7 +297,10 @@ public final class ContextProfileRegistry implements ClientAccess, JsonConfigura
             return;
          }
 
-         this.restoreActiveProfile();
+         if (!this.restoreActiveProfile()) {
+            this.dirty = true;
+            return;
+         }
          List<Rule> matching = selectMatchingRules(this.rules, server, dimension, gameMode);
          Map<PresetCategory, Rule> selected = new EnumMap<>(PresetCategory.class);
          for (Rule rule : matching) {
@@ -315,38 +335,55 @@ public final class ContextProfileRegistry implements ClientAccess, JsonConfigura
       }
    }
 
-   private void captureBaseline() {
+   private boolean captureBaseline() {
+      if (!this.modifiedCategories.isEmpty()) {
+         return false;
+      }
       this.baseline.clear();
+      Map<PresetCategory, JsonElement> snapshots = new EnumMap<>(PresetCategory.class);
       for (PresetCategory category : orderedCategories()) {
          try {
             JsonElement snapshot = category.toJson();
-            this.baseline.put(category, snapshot == null ? null : snapshot.deepCopy());
+            if (snapshot == null) {
+               throw new IllegalStateException("Preset category returned a null baseline");
+            }
+            snapshots.put(category, snapshot.deepCopy());
          } catch (RuntimeException failure) {
             ClientAccess.logger.warn("Could not snapshot baseline for {} context profiles", category.getName(), failure);
+            return false;
          }
       }
-      this.modifiedCategories.clear();
+      this.baseline.putAll(snapshots);
+      return true;
    }
 
-   private void restoreActiveProfile() {
+   private boolean restoreActiveProfile() {
       if (this.modifiedCategories.isEmpty()) {
-         return;
+         return true;
       }
+      boolean restored = true;
       for (PresetCategory category : orderedCategories()) {
          if (!this.modifiedCategories.contains(category)) {
             continue;
          }
          JsonElement snapshot = this.baseline.get(category);
          if (snapshot == null) {
+            ClientAccess.logger.error(
+               "Could not restore baseline for {} context profile because no snapshot exists",
+               category.getName()
+            );
+            restored = false;
             continue;
          }
          try {
             category.fromJson(snapshot.deepCopy());
+            this.modifiedCategories.remove(category);
          } catch (RuntimeException failure) {
+            restored = false;
             ClientAccess.logger.error("Could not restore baseline for {} context profile", category.getName(), failure);
          }
       }
-      this.modifiedCategories.clear();
+      return restored && this.modifiedCategories.isEmpty();
    }
 
    private static List<PresetCategory> orderedCategories() {

@@ -10,6 +10,8 @@
 package dev.schizo.client.managers;
 
 import dev.schizo.client.config.LegacySocialMigration;
+import dev.schizo.client.config.LegacyDirectoryMigration;
+import dev.schizo.client.config.ConfigFileReader;
 import dev.schizo.client.config.ConfigurationBackupManager;
 import dev.schizo.client.config.ModulePresetCodec;
 import dev.schizo.client.config.PresetUndoState;
@@ -28,6 +30,7 @@ import com.google.gson.JsonParser;
 import java.io.File;
 import java.nio.file.Path;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -101,9 +104,12 @@ public final class ConfigurationManager implements ClientAccess {
 
          try {
             Path configPath = ROOT_DIRECTORY.resolve(configurable.getConfigName());
-            File configFile = configPath.toFile();
-            if (configFile.exists()) {
-               String configText = FileUtils.readUtf8(configPath);
+            if (Files.exists(configPath, LinkOption.NOFOLLOW_LINKS)) {
+               if (Files.isSymbolicLink(configPath) || !Files.isRegularFile(configPath, LinkOption.NOFOLLOW_LINKS)) {
+                  ClientAccess.logger.warn("Skipping configuration {} because it is not a regular file", configurable.getConfigName());
+                  continue;
+               }
+               String configText = ConfigFileReader.readUtf8(configPath, (int)ConfigurationBackupManager.MAX_CONFIG_BYTES);
                JsonElement configJson = JsonParser.parseString(configText);
                configurable.fromJson(configJson.getAsJsonObject());
             }
@@ -122,15 +128,21 @@ public final class ConfigurationManager implements ClientAccess {
 
    public void prepareDirectories() {
       try {
-         Path legacyAutoEzPath = ROOT_DIRECTORY.resolve("autoez");
-         File legacyAutoEz = legacyAutoEzPath.toFile();
-         if (legacyAutoEz.isDirectory()) {
-            File killsayTarget = KILLSAY_DIRECTORY.toFile();
-            legacyAutoEz.renameTo(killsayTarget);
-         }
-      } catch (Exception ignoredMigrationFailure) {
+         if (Files.isSymbolicLink(ROOT_DIRECTORY)) throw new IOException("Configuration root must not be a symbolic link");
+         Files.createDirectories(ROOT_DIRECTORY);
+         if (!Files.isDirectory(ROOT_DIRECTORY, LinkOption.NOFOLLOW_LINKS)) throw new IOException("Configuration root is not a real directory");
+      } catch (IOException failure) {
+         ClientAccess.logger.error("Could not prepare configuration root {}", ROOT_DIRECTORY, failure);
+         return;
       }
-
+      try {
+         LegacyDirectoryMigration.Result result = LegacyDirectoryMigration.moveDirectory(ROOT_DIRECTORY, "autoez", "killsay");
+         if (result == LegacyDirectoryMigration.Result.MOVED) ClientAccess.logger.info("Migrated legacy autoez directory to killsay");
+         else if (result == LegacyDirectoryMigration.Result.TARGET_EXISTS) ClientAccess.logger.warn("Leaving legacy autoez directory in place because killsay already exists");
+         else if (result == LegacyDirectoryMigration.Result.UNSAFE_SOURCE) ClientAccess.logger.warn("Leaving legacy autoez directory in place because it contains unsafe entries");
+      } catch (IOException | IllegalArgumentException failure) {
+         ClientAccess.logger.warn("Could not migrate legacy autoez directory", failure);
+      }
       for (Path path : directories) {
          try {
             Files.createDirectories(path);

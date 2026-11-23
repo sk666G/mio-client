@@ -42,10 +42,12 @@ public final class FrameTiming implements ClientAccess {
    private int oldestFrameSampleIndex;
    private int frameSampleCount;
    private long totalFrameDurationNanos;
+   private double totalSquaredFrameDurationNanos;
    private int stuttersInWindow;
 
    private long lastLowFpsUpdateNanos = Long.MIN_VALUE;
    private float cachedOnePercentLowFramesPerSecond;
+   private float cachedOneTenthPercentLowFramesPerSecond;
 
    public int getFramesPerSecond() {
       return this.framesPerSecond;
@@ -82,11 +84,51 @@ public final class FrameTiming implements ClientAccess {
       return this.getOnePercentLowFramesPerSecondAt(System.nanoTime());
    }
 
+   public float getOneTenthPercentLowFramesPerSecond() {
+      return this.getOneTenthPercentLowFramesPerSecondAt(System.nanoTime());
+   }
+
+   /** Returns the harmonic average FPS across frame intervals retained in the rolling one-second window. */
+   public float getAverageFramesPerSecond() {
+      return this.totalFrameDurationNanos == 0L
+         ? 0.0F
+         : (float)(this.frameSampleCount * (double)NANOS_PER_SECOND / this.totalFrameDurationNanos);
+   }
+
+   /** Population variance of retained frame intervals, in milliseconds squared. */
+   public float getFrameTimeVarianceMillisSquared() {
+      if (this.frameSampleCount == 0) {
+         return 0.0F;
+      }
+      double mean = this.totalFrameDurationNanos / (double)this.frameSampleCount;
+      double varianceNanosSquared = this.totalSquaredFrameDurationNanos / this.frameSampleCount - mean * mean;
+      return (float)(Math.max(0.0D, varianceNanosSquared) / 1_000_000_000_000.0D);
+   }
+
+   /** True when the latest recorded frame exceeded the existing 50 ms hitch threshold. */
+   public boolean isLastFrameLong() {
+      return this.lastFrameDurationNanos > STUTTER_THRESHOLD_NANOS;
+   }
+
    float getOnePercentLowFramesPerSecondAt(long currentTimeNanos) {
+      this.refreshPercentiles(currentTimeNanos);
+      return this.cachedOnePercentLowFramesPerSecond;
+   }
+
+   float getOneTenthPercentLowFramesPerSecondAt(long currentTimeNanos) {
+      if (this.frameSampleCount < 10_000) {
+         return 0.0F;
+      }
+      this.refreshPercentiles(currentTimeNanos);
+      return this.cachedOneTenthPercentLowFramesPerSecond;
+   }
+
+   private void refreshPercentiles(long currentTimeNanos) {
       if (this.lastLowFpsUpdateNanos == Long.MIN_VALUE
          || currentTimeNanos - this.lastLowFpsUpdateNanos >= LOW_FPS_REFRESH_NANOS) {
          if (this.frameSampleCount == 0) {
             this.cachedOnePercentLowFramesPerSecond = 0.0F;
+            this.cachedOneTenthPercentLowFramesPerSecond = 0.0F;
          } else {
             for (int i = 0; i < this.frameSampleCount; i++) {
                int index = (this.oldestFrameSampleIndex + i) % FRAME_SAMPLE_CAPACITY;
@@ -100,12 +142,22 @@ public final class FrameTiming implements ClientAccess {
             );
             long percentileFrameTime = Math.max(1L, this.percentileScratch[percentileIndex]);
             this.cachedOnePercentLowFramesPerSecond = (float)(NANOS_PER_SECOND / (double)percentileFrameTime);
+            if (this.frameSampleCount < 10_000) {
+               this.cachedOneTenthPercentLowFramesPerSecond = 0.0F;
+            } else {
+               int oneTenthPercentIndex = Math.min(
+                  this.frameSampleCount - 1,
+                  (int)Math.ceil(this.frameSampleCount * 0.999D) - 1
+               );
+               long oneTenthPercentFrameTime = Math.max(1L, this.percentileScratch[oneTenthPercentIndex]);
+               this.cachedOneTenthPercentLowFramesPerSecond =
+                  (float)(NANOS_PER_SECOND / (double)oneTenthPercentFrameTime);
+            }
          }
 
          this.lastLowFpsUpdateNanos = currentTimeNanos;
       }
 
-      return this.cachedOnePercentLowFramesPerSecond;
    }
 
    public float getFrameFactor(float rateScale) {
@@ -185,6 +237,7 @@ public final class FrameTiming implements ClientAccess {
       this.frameDurationsNanos[writeIndex] = frameDurationNanos;
       this.frameSampleCount++;
       this.totalFrameDurationNanos += frameDurationNanos;
+      this.totalSquaredFrameDurationNanos += (double)frameDurationNanos * frameDurationNanos;
       if (frameDurationNanos > STUTTER_THRESHOLD_NANOS) {
          this.stuttersInWindow++;
       }
@@ -198,6 +251,7 @@ public final class FrameTiming implements ClientAccess {
    private void removeOldestFrameSample() {
       long expiredDuration = this.frameDurationsNanos[this.oldestFrameSampleIndex];
       this.totalFrameDurationNanos -= expiredDuration;
+      this.totalSquaredFrameDurationNanos -= (double)expiredDuration * expiredDuration;
       if (expiredDuration > STUTTER_THRESHOLD_NANOS) {
          this.stuttersInWindow--;
       }
@@ -209,9 +263,11 @@ public final class FrameTiming implements ClientAccess {
       this.oldestFrameSampleIndex = 0;
       this.frameSampleCount = 0;
       this.totalFrameDurationNanos = 0L;
+      this.totalSquaredFrameDurationNanos = 0.0D;
       this.stuttersInWindow = 0;
       this.lastLowFpsUpdateNanos = Long.MIN_VALUE;
       this.cachedOnePercentLowFramesPerSecond = 0.0F;
+      this.cachedOneTenthPercentLowFramesPerSecond = 0.0F;
    }
 
    public FrameTiming() {

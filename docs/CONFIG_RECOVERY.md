@@ -31,7 +31,7 @@ The `;configbackup health` report only prints filenames, status labels and backu
 - **UNSAFE** — invalid config name, symbolic link or non-regular file
 - **UNREADABLE** — filesystem access failed while inspecting the file
 
-The report never prints configuration values or secrets.
+For `modules.json`, the report also checks values rejected while modules loaded. A syntactically valid file may therefore show **PARTIAL_LOAD** with the affected module and setting names when one or more values failed to apply. Only the exception type is shown; configuration values, exception messages and secrets are never printed. At most 128 issue details are retained, with the total number reported.
 
 ## Safety and limits
 

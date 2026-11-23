@@ -57,6 +57,28 @@ class FrameTimingTest {
    }
 
    @Test
+   void reportsRollingAverageFpsAndFrameTimeVariance() {
+      FrameTiming timing = new FrameTiming();
+      timing.recordFrameAt(1_000_000_000L);
+      timing.recordFrameAt(1_010_000_000L);
+      timing.recordFrameAt(1_040_000_000L);
+
+      assertEquals(50.0F, timing.getAverageFramesPerSecond(), 0.01F);
+      assertEquals(100.0F, timing.getFrameTimeVarianceMillisSquared(), 0.01F);
+   }
+
+   @Test
+   void exposesLongFrameDetectionUsingTheHitchThreshold() {
+      FrameTiming timing = new FrameTiming();
+      timing.recordFrameAt(1_000_000_000L);
+      timing.recordFrameAt(1_049_000_000L);
+      assertFalse(timing.isLastFrameLong());
+
+      timing.recordFrameAt(1_100_000_000L);
+      assertTrue(timing.isLastFrameLong());
+   }
+
+   @Test
    void calculatesOnePercentLowFromTheNinetyNinthPercentile() {
       FrameTiming timing = new FrameTiming();
       timing.recordFrameAt(1_000_000_000L);
@@ -67,6 +89,28 @@ class FrameTimingTest {
 
       assertEquals(20.0F, timing.getOnePercentLowFramesPerSecondAt(2_000_000_000L), 0.01F);
       assertEquals(13.636F, timing.getAverageFrameTimeMillis(), 0.01F);
+   }
+
+   @Test
+   void reportsPointOnePercentLowOnlyWithEnoughTailSamples() {
+      FrameTiming timing = new FrameTiming();
+      long now = 0L;
+      timing.recordFrameAt(now);
+      for (int frame = 1; frame <= 100; frame++) {
+         now += 10_000_000L;
+         timing.recordFrameAt(now);
+      }
+      assertEquals(0.0F, timing.getOneTenthPercentLowFramesPerSecondAt(now));
+
+      FrameTiming saturated = new FrameTiming();
+      now = 0L;
+      saturated.recordFrameAt(now);
+      for (int frame = 1; frame <= 10_000; frame++) {
+         now += frame <= 9_988 ? 98_000L : 1_000_000L;
+         saturated.recordFrameAt(now);
+      }
+
+      assertEquals(1000.0F, saturated.getOneTenthPercentLowFramesPerSecondAt(now), 0.01F);
    }
 
    @Test
