@@ -38,6 +38,13 @@ import dev.schizo.client.modules.render.NameTagsModule;
 import dev.schizo.client.modules.render.ParticlesModule;
 import dev.schizo.client.modules.render.ShaderModule;
 import dev.schizo.client.modules.render.TracersModule;
+import dev.schizo.client.modules.render.NoBobModule;
+import dev.schizo.client.modules.render.ViewModelModule;
+import dev.schizo.client.modules.render.XrayModule;
+import dev.schizo.client.modules.render.LogoutSpotsModule;
+import dev.schizo.client.modules.render.SearchModule;
+import dev.schizo.client.modules.render.WaypointsModule;
+import dev.schizo.client.modules.render.ViewClipModule;
 import dev.schizo.client.modules.render.BlurModule;
 import dev.schizo.client.modules.render.BordersModule;
 import dev.schizo.client.modules.render.BreakHighlightModule;
@@ -122,6 +129,30 @@ public final class ModuleCompatibility {
       Map.entry(TracersModule.class, assessed(
          Classification.VISUAL_ONLY,
          "Draws world and HUD tracer lines from locally observed entity positions; no outgoing packet path was found."
+      )),
+      Map.entry(NoBobModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Adjusts the local player avatar walk animation state for first-person bobbing presentation."
+      )),
+      Map.entry(ViewModelModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Transforms first-person item and arm model position, scale, rotation and animation only."
+      )),
+      Map.entry(XrayModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Changes local block render filtering and reloads the client renderer; no block interaction or packet mutation path was found."
+      )),
+      Map.entry(LogoutSpotsModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Observes clientbound player-info changes and renders locally stored logout markers; it does not modify outgoing packets."
+      )),
+      Map.entry(SearchModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Scans already-loaded client chunk/entity data and renders local search overlays/sounds; no world interaction or outgoing packet path was found."
+      )),
+      Map.entry(WaypointsModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Renders user-saved local coordinate markers and tracer/beam overlays without modifying player position or packets."
       )),
       Map.entry(BlurModule.class, assessed(
          Classification.VISUAL_ONLY,
@@ -214,6 +245,10 @@ public final class ModuleCompatibility {
       Map.entry(ZoomModule.class, assessed(
          Classification.INPUT_MODIFYING,
          "Consumes mouse-wheel input to adjust local field of view and camera smoothing; it does not alter gameplay packets."
+      )),
+      Map.entry(ViewClipModule.class, assessed(
+         Classification.INPUT_MODIFYING,
+         "Changes third-person camera clipping and consumes configured mouse-wheel input; it does not change the local player position or movement packets."
       )),
       Map.entry(FastPlaceModule.class, assessed(
          Classification.WORLD_INTERACTION,
