@@ -14,8 +14,6 @@ import dev.schizo.client.utils.network.HttpRequests;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import dev.schizo.client.ClientAccess;
-import dev.schizo.client.SchizoClient;
 import dev.schizo.client.settings.JsonConfigurable;
 import java.net.URI;
 import java.io.IOException;
@@ -29,8 +27,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.Objects;
 import java.util.regex.Pattern;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public final class WebhookManager implements JsonConfigurable {
+   private static final Logger LOGGER = LoggerFactory.getLogger(WebhookManager.class);
    private static final Pattern TELEGRAM_PATH = Pattern.compile("/bot([0-9]+:[A-Za-z0-9_-]+)/sendMessage", Pattern.CASE_INSENSITIVE);
    private static final Pattern BOT_TOKEN = Pattern.compile("[0-9]+:[A-Za-z0-9_-]+");
    private static final Pattern CHAT_ID = Pattern.compile("-?[0-9]+|@[A-Za-z0-9_]+");
@@ -199,7 +200,7 @@ public final class WebhookManager implements JsonConfigurable {
             : target.uri();
          requests.add(HttpRequest.newBuilder(destinationUri)
             .timeout(java.time.Duration.ofSeconds(30))
-            .header("User-Agent", SchizoClient.USER_AGENT)
+            .header("User-Agent", "Schizo")
             .header("Content-Type", "application/json; charset=UTF-8")
             .POST(BodyPublishers.ofString(payload.toString())).build());
          start = end;
@@ -220,7 +221,7 @@ public final class WebhookManager implements JsonConfigurable {
                || cause instanceof java.util.concurrent.ExecutionException)) {
             cause = cause.getCause();
          }
-         ClientAccess.logger.warn("Webhook notification failed ({})", cause.getClass().getSimpleName());
+         LOGGER.warn("Webhook notification failed ({})", cause.getClass().getSimpleName());
          return CompletableFuture.failedFuture(cause);
       });
    }
