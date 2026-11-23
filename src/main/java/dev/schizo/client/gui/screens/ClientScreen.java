@@ -60,7 +60,7 @@ public class ClientScreen extends Screen implements ClientAccess {
    private static BlurModule getBlurModule() {
       return ClientContext.getModule(BlurModule.class);
    }
-   private static final long TRANSITION_DURATION_MILLIS = 150L;
+   private static final long TRANSITION_DURATION_MILLIS = 180L;
    private static final int MAX_SEASONAL_PARTICLES = 12;
    private static final int PANEL_START_X = 10;
    private static final int PANEL_START_Y = 5;
@@ -514,19 +514,21 @@ public class ClientScreen extends Screen implements ClientAccess {
                      + 1.0F
                )
                * tooltipLines.length;
-         MaskShaderRenderer.renderBlur(
-            () -> RenderUtils.INSTANCE
-               .fillRect(
-                  poseStack,
-                  blurLeft,
-                  blurY
-                     - 1.0F,
-                  blurRight,
-                  tooltipBottom,
-                  ColorUtils.packArgb(10, 10, 10, 140)
-               ),
-            6.0F
-         );
+         if (blurModule != null && blurModule.isToggled()) {
+            MaskShaderRenderer.renderBlur(
+               () -> RenderUtils.INSTANCE
+                  .fillRect(
+                     poseStack,
+                     blurLeft,
+                     blurY
+                        - 1.0F,
+                     blurRight,
+                     tooltipBottom,
+                     ColorUtils.packArgb(10, 10, 10, 140)
+                  ),
+               blurModule.getRadius()
+            );
+         }
          poseStack.pushPose();
          poseStack.translate(0.0F, 0.0F, TOOLTIP_BACKGROUND_DEPTH);
          RenderUtils.INSTANCE
