@@ -81,10 +81,14 @@ public class FrameTimeGraphModule extends HudWidgetModule {
       MeshBuffer buffer = MeshDrawContext.getBuffer();
       buffer.begin(Mode.LINES, DefaultVertexFormat.POSITION_COLOR_NORMAL_LINE_WIDTH);
 
+      Color graphBaseColor = this.getHudColor(
+         this.getRenderer().getY() + this.heightSetting.getValue() / 2.0F
+      );
+      int graphColor = ColorUtils.withAlpha(graphBaseColor, 255).hashCode();
+      int guideColor = ColorUtils.withAlpha(graphBaseColor, 72).hashCode();
+
       // A subtle 16.67 ms guide makes the 60 FPS frame budget easy to read.
       float sixtyFpsY = this.getSampleY(DEFAULT_FRAME_TIME_MILLIS);
-      Color guideBaseColor = this.getHudColor(sixtyFpsY + this.getRenderer().getY());
-      int guideColor = ColorUtils.withAlpha(guideBaseColor, 72).hashCode();
       VertexGeometry.appendLine(
          buffer, poses.last(), 0.0F, sixtyFpsY, 0.0F,
          this.widthSetting.getValue() - 1.0F, sixtyFpsY, 0.0F, 1.0F, guideColor
@@ -95,7 +99,7 @@ public class FrameTimeGraphModule extends HudWidgetModule {
          float currentY = this.getSampleY(this.getSample(sampleIndex));
          VertexGeometry.appendLine(
             buffer, poses.last(), sampleIndex - 1, previousY, 0.0F, sampleIndex, currentY, 0.0F,
-            1.0F, this.getSampleColor(previousY, sampleIndex - 1), this.getSampleColor(currentY, sampleIndex)
+            1.0F, graphColor
          );
       }
       buffer.draw(ClientRenderTypes.worldLines());
@@ -145,14 +149,6 @@ public class FrameTimeGraphModule extends HudWidgetModule {
       float ceiling = this.ceilingSetting.getValue();
       float clippedSample = Math.min(sample, ceiling);
       return 1.0F + (height - 2) * (1.0F - clippedSample / ceiling);
-   }
-
-   private int getSampleColor(float sampleY, int sampleIndex) {
-      Color baseColor = this.getHudColor(sampleY + this.getRenderer().getY());
-      int alpha = sampleIndex < 10
-         ? (int)Mth.clamp(sampleIndex / 10.0F * 255.0F, 0.0F, 255.0F)
-         : 255;
-      return ColorUtils.withAlpha(baseColor, alpha).hashCode();
    }
 
    public FrameTimeGraphModule() {
