@@ -3,6 +3,11 @@ package dev.schizo.client.integrations;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.google.gson.JsonParser;
+import dev.schizo.client.modules.client.SettingsModule;
+import dev.schizo.client.modules.exploit.ReachModule;
+import dev.schizo.client.modules.movement.FastClimbModule;
+import dev.schizo.client.modules.movement.NoFallModule;
+import dev.schizo.client.modules.player.FastPlaceModule;
 import org.junit.jupiter.api.Test;
 
 class MultiplayerCompatibilityPolicyTest {
@@ -82,12 +87,12 @@ class MultiplayerCompatibilityPolicyTest {
       MultiplayerCompatibilityPolicy policy = new MultiplayerCompatibilityPolicy();
       assertThrows(IllegalArgumentException.class, () -> policy.allowModule("../ReachModule"));
       assertThrows(IllegalArgumentException.class, () -> policy.allowModule("qualified.ReachModule"));
+
+      for (int index = 0; index < MultiplayerCompatibilityPolicy.MAX_ALLOWED_MODULES; index++) {
+         policy.allowModule("Module" + index);
+      }
+      assertThrows(IllegalStateException.class, () -> policy.allowModule("ModuleOverflow"));
    }
 
-   private static final class NoFallModule {}
-   private static final class ReachModule {}
-   private static final class SettingsModule {}
-   private static final class FastClimbModule {}
-   private static final class FastPlaceModule {}
    private static final class UnreviewedModule {}
 }

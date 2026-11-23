@@ -80,7 +80,7 @@ public final class MultiplayerCompatibilityWarnings implements ClientAccess {
       }
    }
 
-   @EventHandler(priority = -100)
+   @EventHandler(priority = 1000)
    private void inspectActiveModules(LocalPlayerPreTickEvent event) {
       enforceActiveModules();
    }
