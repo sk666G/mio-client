@@ -29,6 +29,10 @@ See [Integration and Notification documentation](docs/INTEGRATIONS.md) for local
 
 See [Context Profiles documentation](docs/CONTEXT_PROFILES.md) for server, dimension and game-mode preset switching.
 
+## Module Quick Access
+
+See [Module Favorites and Recent Access](docs/MODULE_QUICK_ACCESS.md) for favorites, recent modules and quick-access commands.
+
 ## Command Palette
 
 See [Command Palette documentation](docs/COMMAND_PALETTE.md) for global search and actions using Right Shift + K.
