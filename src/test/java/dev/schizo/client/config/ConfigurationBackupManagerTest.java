@@ -103,6 +103,56 @@ class ConfigurationBackupManagerTest {
    }
 
    @Test
+   void reportsConfigurationHealthWithoutExposingFileContents() throws IOException {
+      ConfigurationBackupManager manager = this.manager();
+      Files.writeString(this.configPath("valid.json"), "{\"secret\":\"not-in-report\"}");
+      Files.writeString(this.configPath("corrupt.json"), "{");
+      Files.write(this.configPath("large.json"),
+         new byte[(int)ConfigurationBackupManager.MAX_CONFIG_BYTES + 1]);
+
+      assertEquals(
+         ConfigurationBackupManager.ConfigStatus.VALID,
+         manager.inspectConfig("valid.json").status()
+      );
+      assertEquals(
+         ConfigurationBackupManager.ConfigStatus.CORRUPT,
+         manager.inspectConfig("corrupt.json").status()
+      );
+      assertEquals(
+         ConfigurationBackupManager.ConfigStatus.TOO_LARGE,
+         manager.inspectConfig("large.json").status()
+      );
+      assertEquals(
+         ConfigurationBackupManager.ConfigStatus.MISSING,
+         manager.inspectConfig("missing.json").status()
+      );
+      assertFalse(manager.inspectConfig("valid.json").detail().contains("not-in-report"));
+   }
+
+   @Test
+   void reportsUnsafeConfigNamesAndSymbolicLinks() throws IOException {
+      ConfigurationBackupManager manager = this.manager();
+      assertEquals(
+         ConfigurationBackupManager.ConfigStatus.UNSAFE,
+         manager.inspectConfig("../outside.json").status()
+      );
+
+      Path target = this.temporaryDirectory.resolve("outside.json");
+      Files.writeString(target, "{}");
+      Path link = this.configPath("linked.json");
+      try {
+         Files.createSymbolicLink(link, target);
+      } catch (UnsupportedOperationException | SecurityException | IOException unsupported) {
+         Assumptions.assumeTrue(false, "Symbolic links are unavailable on this platform");
+      }
+
+      assertEquals(
+         ConfigurationBackupManager.ConfigStatus.UNSAFE,
+         manager.inspectConfig("linked.json").status()
+      );
+   }
+
+   @Test
    void refusesSymbolicLinksForConfigAndBackupPaths() throws IOException {
       Path external = this.temporaryDirectory.resolveSibling("external-config.json");
       Files.writeString(external, "{\"modules\":[]}");
