@@ -1,6 +1,7 @@
 package dev.schizo.client.gui;
 
 import dev.schizo.client.FeatureRegistry;
+import dev.schizo.client.config.ClientConfig;
 import dev.schizo.client.feature.Feature;
 import dev.schizo.client.feature.FeatureCategory;
 import dev.schizo.client.setting.BooleanSetting;
@@ -11,8 +12,6 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
-
-import java.util.Arrays;
 
 /** Lightweight in-game screen for toggling modules and editing their settings. */
 public final class ClickGuiScreen extends Screen {
@@ -62,6 +61,7 @@ public final class ClickGuiScreen extends Screen {
             addRenderableWidget(Button.builder(moduleLabel(feature), button -> {
                 feature.toggle();
                 button.setMessage(moduleLabel(feature));
+                ClientConfig.save();
             }).bounds(left, y, BUTTON_WIDTH, BUTTON_HEIGHT).build());
             y += 23;
 
@@ -81,6 +81,7 @@ public final class ClickGuiScreen extends Screen {
         return Button.builder(settingLabel(setting), button -> {
             cycle(setting);
             button.setMessage(settingLabel(setting));
+            ClientConfig.save();
         }).bounds(x, y, BUTTON_WIDTH - 12, BUTTON_HEIGHT).build();
     }
 
