@@ -34,13 +34,24 @@ import dev.schizo.client.render.ResizableHudWidgetRenderer;
 import dev.schizo.client.gui.components.StringSettingComponent;
 import dev.schizo.client.modules.client.HUDModule;
 import dev.schizo.client.settings.options.HudAnchor;
+import dev.schizo.client.config.HudLayoutStore;
+import dev.schizo.client.modules.HudWidgetModule;
+import dev.schizo.client.modules.Module;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonPrimitive;
 import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
@@ -131,6 +142,140 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
       }
 
       this.requestDirectionRefresh();
+   }
+
+   /** Exports only widget placement and scale; module settings remain in the normal client config. */
+   public JsonObject exportLayoutPreset() {
+      this.finishLayoutEdit();
+      LayoutSnapshot snapshot = this.captureLayout();
+      JsonObject layout = new JsonObject();
+      layout.addProperty("version", HudLayoutStore.CURRENT_SCHEMA_VERSION);
+      JsonArray widgets = new JsonArray();
+
+      for (WidgetLayoutState state : snapshot.widgets()) {
+         JsonObject widget = new JsonObject();
+         widget.addProperty("module", state.widget().getWidgetModule().getConfigName());
+         widget.addProperty("anchor", state.groupAnchor().name());
+         widget.addProperty("x", state.relativeX());
+         widget.addProperty("y", state.relativeY());
+         widget.addProperty("horizontal", state.horizontalAlignment().name());
+         widget.addProperty("vertical", state.verticalAlignment().name());
+         widget.addProperty("scale", state.scale());
+         widgets.add(widget);
+      }
+
+      layout.add("widgets", widgets);
+      return layout;
+   }
+
+   /** Validates a saved layout completely before changing the live widget groups. */
+   public void applyLayoutPreset(JsonObject layout) {
+      if (layout == null || !layout.has("version") || !layout.get("version").isJsonPrimitive()
+         || layout.get("version").getAsInt() != HudLayoutStore.CURRENT_SCHEMA_VERSION
+         || !layout.has("widgets") || !layout.get("widgets").isJsonArray()) {
+         throw new IllegalArgumentException("Unsupported or malformed HUD layout");
+      }
+
+      Map<String, HudWidgetModule> modulesByName = new HashMap<>();
+      for (Object moduleElement : ClientContext.moduleRegistry.getRegistry()) {
+         Module module = (Module)moduleElement;
+         if (module instanceof HudWidgetModule widgetModule) {
+            modulesByName.putIfAbsent(widgetModule.getConfigName(), widgetModule);
+         }
+      }
+
+      JsonArray widgetArray = layout.getAsJsonArray("widgets");
+      if (widgetArray.size() > 512) {
+         throw new IllegalArgumentException("HUD layout contains too many widgets");
+      }
+
+      List<WidgetLayoutState> restoredStates = new ArrayList<>(widgetArray.size());
+      Set<String> restoredNames = new HashSet<>();
+      for (JsonElement element : widgetArray) {
+         if (!element.isJsonObject()) {
+            throw new IllegalArgumentException("HUD layout contains an invalid widget entry");
+         }
+         JsonObject widgetJson = element.getAsJsonObject();
+         String moduleName = readRequiredString(widgetJson, "module");
+         if (!restoredNames.add(moduleName)) {
+            throw new IllegalArgumentException("HUD layout contains a duplicate widget: " + moduleName);
+         }
+         HudWidgetModule widgetModule = modulesByName.get(moduleName);
+         if (widgetModule == null || widgetModule.getRenderer() == null) {
+            // A layout created by a newer client can contain widgets this client does not know.
+            continue;
+         }
+
+         HudAnchor anchor = readEnum(widgetJson, "anchor", HudAnchor.class);
+         HudHorizontalAlignment horizontal = readEnum(
+            widgetJson, "horizontal", HudHorizontalAlignment.class
+         );
+         HudVerticalAlignment vertical = readEnum(widgetJson, "vertical", HudVerticalAlignment.class);
+         float relativeX = readNormalizedCoordinate(widgetJson, "x");
+         float relativeY = readNormalizedCoordinate(widgetJson, "y");
+         float scale = readFloat(widgetJson, "scale");
+         if (scale < 0.5F || scale > 2.0F) {
+            throw new IllegalArgumentException("HUD widget scale is outside the supported range");
+         }
+
+         restoredStates.add(new WidgetLayoutState(
+            widgetModule.getRenderer(), anchor, relativeX, relativeY, horizontal, vertical, scale
+         ));
+      }
+
+      // Retain widgets introduced after a layout was saved instead of silently removing them.
+      LayoutSnapshot current = this.captureLayout();
+      for (WidgetLayoutState currentState : current.widgets()) {
+         String moduleName = currentState.widget().getWidgetModule().getConfigName();
+         if (restoredNames.add(moduleName)) {
+            restoredStates.add(currentState);
+         }
+      }
+
+      this.beginLayoutEdit();
+      this.restoreLayout(new LayoutSnapshot(List.copyOf(restoredStates)));
+      this.finishLayoutEdit();
+   }
+
+   private static String readRequiredString(JsonObject object, String key) {
+      JsonElement value = object.get(key);
+      if (value == null || !value.isJsonPrimitive() || !value.getAsJsonPrimitive().isString()) {
+         throw new IllegalArgumentException("HUD layout is missing a valid " + key + " value");
+      }
+      String text = value.getAsString();
+      if (text.isBlank() || text.length() > 128) {
+         throw new IllegalArgumentException("HUD layout contains an invalid " + key + " value");
+      }
+      return text;
+   }
+
+   private static float readNormalizedCoordinate(JsonObject object, String key) {
+      float value = readFloat(object, key);
+      if (value < 0.0F || value > 1.0F) {
+         throw new IllegalArgumentException("HUD layout coordinate is outside the supported range");
+      }
+      return value;
+   }
+
+   private static float readFloat(JsonObject object, String key) {
+      JsonElement value = object.get(key);
+      if (value == null || !value.isJsonPrimitive() || !value.getAsJsonPrimitive().isNumber()) {
+         throw new IllegalArgumentException("HUD layout is missing a valid " + key + " value");
+      }
+      float number = value.getAsFloat();
+      if (!Float.isFinite(number)) {
+         throw new IllegalArgumentException("HUD layout contains a non-finite " + key + " value");
+      }
+      return number;
+   }
+
+   private static <T extends Enum<T>> T readEnum(JsonObject object, String key, Class<T> enumType) {
+      String value = readRequiredString(object, key);
+      try {
+         return Enum.valueOf(enumType, value);
+      } catch (IllegalArgumentException invalidValue) {
+         throw new IllegalArgumentException("HUD layout contains an invalid " + key + " value", invalidValue);
+      }
    }
 
    /** Starts a layout gesture. Multiple calls during the same gesture share one snapshot. */
