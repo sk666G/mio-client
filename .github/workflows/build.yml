@@ -34,5 +34,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: schizo-client
-          path: build/libs/*-remapped.jar
+          path: build/libs/*.jar
           if-no-files-found: error
