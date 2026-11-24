@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test;
 class PistonCrystalModulePolicyTest {
    @Test
    void requiresARealPowerItemBeforeStartingTheBuildCycle() {
-      assertTrue(PistonCrystalModule.hasPowerSource(Items.REDSTONE_BLOCK));
+      assertTrue(PistonCrystalPlanner.hasPowerSource(Items.REDSTONE_BLOCK));
       assertTrue(PistonCrystalModule.hasPowerSource(Items.REDSTONE_TORCH));
       assertFalse(PistonCrystalModule.hasPowerSource(Items.AIR));
       assertFalse(PistonCrystalModule.hasPowerSource(null));
