@@ -88,6 +88,11 @@ public class TickRateController implements ClientAccess {
    public static class PlayerTicks extends TickRateController {
       private float fractionalTicks;
 
+      @EventHandler
+      private void resetFractionalTicksOnDisconnect(MinecraftDisconnectEvent event) {
+         this.fractionalTicks = 0.0F;
+      }
+
       @EventHandler(priority = -200)
       private void onLocalPlayerTickEvent(LocalPlayerTickEvent event) {
          float rate = this.getMultiplier();
