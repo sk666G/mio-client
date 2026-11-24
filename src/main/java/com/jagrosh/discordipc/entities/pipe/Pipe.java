@@ -137,6 +137,7 @@ public abstract class Pipe {
                throw cancelled;
             }
             if (pipe == null) {
+               closeCandidates(candidates, null, client);
                if (handshakeFailure instanceof IOException ioFailure) {
                   throw new RuntimeException("Failed to connect to a Discord IPC endpoint", ioFailure);
                }
