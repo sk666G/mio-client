@@ -549,7 +549,7 @@ public class AutoArmorModule extends Module {
                      InventoryUtils.clickSlot(0, 0, ClickType.PICKUP);
                   };
                   if (!ClientContext.taskScheduler.scheduleRotationTask(restoreCursorStack, 0)) {
-                     restoreCursorStack.run();
+                     ClientAccess.schizoMinecraft.execute(restoreCursorStack);
                   }
                }
             }
