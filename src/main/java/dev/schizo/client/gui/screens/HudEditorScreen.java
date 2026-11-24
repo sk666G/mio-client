@@ -82,7 +82,6 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
    private static final int LAYOUT_HISTORY_CAPACITY = 100;
    private final HudLayoutHistory<LayoutSnapshot> layoutHistory =
       new HudLayoutHistory<>(LAYOUT_HISTORY_CAPACITY);
-   private LayoutSnapshot pendingLayoutBefore;
 
    private record WidgetLayoutState(
       HudWidgetRenderer widget,
@@ -284,35 +283,28 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
 
    /** Starts a layout gesture. Multiple calls during the same gesture share one snapshot. */
    public void beginLayoutEdit() {
-      if (this.pendingLayoutBefore == null) {
-         this.pendingLayoutBefore = this.captureLayout();
+      if (!this.layoutHistory.hasPendingEdit()) {
+         this.layoutHistory.beginEdit(this.captureLayout());
       }
    }
 
    /** Commits one layout gesture, recording it only if something actually changed. */
    public void finishLayoutEdit() {
-      LayoutSnapshot previous = this.pendingLayoutBefore;
-      if (previous == null) {
-         return;
-      }
-      this.pendingLayoutBefore = null;
-      LayoutSnapshot current = this.captureLayout();
-      if (!previous.equals(current)) {
-         this.layoutHistory.record(previous);
+      if (this.layoutHistory.hasPendingEdit()) {
+         this.layoutHistory.finishEdit(this.captureLayout());
       }
    }
 
    /** Cancels the in-progress gesture and restores its starting layout. */
    public void cancelLayoutEdit() {
-      LayoutSnapshot previous = this.pendingLayoutBefore;
-      this.pendingLayoutBefore = null;
+      LayoutSnapshot previous = this.layoutHistory.cancelEdit();
       if (previous != null) {
          this.restoreLayout(previous);
       }
    }
 
    private boolean cancelPendingLayoutGesture() {
-      if (this.pendingLayoutBefore == null) {
+      if (!this.layoutHistory.hasPendingEdit()) {
          return false;
       }
 
@@ -330,6 +322,9 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
       if (this.cancelPendingLayoutGesture()) {
          return;
       }
+      if (!this.layoutHistory.canUndo()) {
+         return;
+      }
       LayoutSnapshot previous = this.layoutHistory.undo(this.captureLayout());
       if (previous != null) {
          this.restoreLayout(previous);
@@ -338,6 +333,9 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
 
    private void redoLayoutEdit() {
       if (this.cancelPendingLayoutGesture()) {
+         return;
+      }
+      if (!this.layoutHistory.canRedo()) {
          return;
       }
       LayoutSnapshot next = this.layoutHistory.redo(this.captureLayout());
