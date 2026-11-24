@@ -70,6 +70,7 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
    private final ElapsedTimer searchCursorTimer = new ElapsedTimer();
    public EditBox searchBox;
    private String searchCompletion;
+   private String normalizedSearchQuery = "";
    public List openModuleComponents = new ArrayList();
 
    private void handleSecretSequence(int keyCode) {
@@ -182,6 +183,10 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
             pasteException.printStackTrace();
          }
       }
+   }
+
+   public String getNormalizedSearchQuery() {
+      return this.normalizedSearchQuery;
    }
 
    public EditBox getSearchBox() {
@@ -326,6 +331,7 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
    public void init() {
       super.init();
       this.searchCompletion = "";
+      this.normalizedSearchQuery = "";
       this.searchBox = new EditBox(
          ClientAccess.schizoMinecraft.font,
          7,
@@ -342,6 +348,7 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
          .setResponder(
             searchText -> {
                String normalizedQuery = TextUtils.normalizeKeyboardLayout(searchText);
+               this.normalizedSearchQuery = normalizedQuery;
                if (!normalizedQuery.isEmpty()) {
                   for (Object moduleEntry : (List)ClientContext.moduleRegistry.getRegistry()) {
                      Module module = (Module)moduleEntry;
