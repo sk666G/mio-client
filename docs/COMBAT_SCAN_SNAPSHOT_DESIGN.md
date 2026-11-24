@@ -153,3 +153,10 @@ The armor step preserves the 1.21.11 client-side `CombatRules` operation order: 
 Focused tests cover armor/toughness reduction, resistance ordering, protection ordering and cap, the Assume Best Armor fallback, negative final damage, and the crossed armor-bound clamp edge case. These tests exercise the pure calculator; they do not yet prove the live-state adapter is safe on a worker thread.
 
 **Important remaining limitation:** `DamageUtils.applyDamageReduction` still reads live entity, inventory, effect, module, and registry state while obtaining those primitive inputs. This extraction makes the math reusable with an immutable snapshot but does not itself migrate AutoCrystal or AnchorAura off live world/entity references.
+## Third pure-calculation extraction
+
+`ExplosionBlockingDamageMath` now handles the `BlocksAttacks` damage-reduction rules using a primitive-only `Reduction` record: horizontal blocking angle, already-resolved damage-type eligibility, base reduction, and damage factor. It preserves the 1.21.11 component behavior: each matching rule contributes a clamped base-plus-factor value, contributions are summed, and the total is clamped to the incoming damage.
+
+`DamageUtils.resolveBlockingDamage` remains responsible for reading the active item component, comparing its optional damage-type holder set against the current explosion damage type, and calculating the entity-relative horizontal angle. Those are live inputs and still belong in the future client-thread snapshot builder. The new helper contains no Minecraft or item-component references.
+
+Together, the impact, armor/resistance/protection, and blocking arithmetic are now split into pure calculation classes. The full damage path is still not worker-safe: exposure requires block raycasts, and `DamageUtils` adapters still collect target, inventory, effect, item, module, and world data directly.
