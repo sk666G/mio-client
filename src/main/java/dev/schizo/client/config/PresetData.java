@@ -29,7 +29,7 @@ public record PresetData(String name, JsonObject contents) implements NamedEntry
 
    public PresetData {
       name = PresetNameValidator.normalize(name);
-      contents = Objects.requireNonNull(contents, "Preset contents are required");
+      contents = Objects.requireNonNull(contents, "Preset contents are required").deepCopy();
    }
 
    @Override
@@ -40,6 +40,12 @@ public record PresetData(String name, JsonObject contents) implements NamedEntry
    /** Returns an isolated JSON snapshot for filters and loaders that mutate their input. */
    public JsonObject copyContents() {
       return this.contents.deepCopy();
+   }
+
+   /** The record never exposes its mutable internal JSON object. */
+   @Override
+   public JsonObject contents() {
+      return this.copyContents();
    }
 
    public void saveToDirectory(Path directory) throws IOException {
