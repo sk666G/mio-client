@@ -149,14 +149,16 @@ public class ArrowsModule extends Module {
 
          temporarySlotIndex %= 9;
 
-         InventoryUtils.selectHotbarSlotForPlacement(temporarySlotIndex);
-         Direction releaseDirection = Direction.DOWN;
-         BlockPos releasePosition = BlockPos.ZERO;
-         Action releaseAction = Action.RELEASE_USE_ITEM;
-         PacketSender.sendPlayerAction(releaseAction, releasePosition, releaseDirection);
-
-         InventoryUtils.selectHotbarSlotForPlacement(previousHotbarSlot);
          event.cancel();
+         try {
+            InventoryUtils.selectHotbarSlotForPlacement(temporarySlotIndex);
+            Direction releaseDirection = Direction.DOWN;
+            BlockPos releasePosition = BlockPos.ZERO;
+            Action releaseAction = Action.RELEASE_USE_ITEM;
+            PacketSender.sendPlayerAction(releaseAction, releasePosition, releaseDirection);
+         } finally {
+            InventoryUtils.selectHotbarSlotForPlacement(previousHotbarSlot);
+         }
       }
    }
 
@@ -373,19 +375,49 @@ public class ArrowsModule extends Module {
                autoShotInProgress.set(true);
                TaskScheduler scheduler = ClientContext.taskScheduler;
                Runnable releaseShot = () -> {
-                  if (!autoShotInProgress.get() || this.isWorldUnavailable()) {
+                  if (!autoShotInProgress.get()) {
+                     return;
+                  }
+                  if (this.isWorldUnavailable()) {
+                     this.finishAutoShot();
                      return;
                   }
 
-                  ClientAccess.schizoMinecraft.gameMode.releaseUsingItem(ClientAccess.schizoMinecraft.player);
-                  InventoryUtils.selectHotbarSlot(previousHotbarSlot);
+                  boolean releaseSucceeded = false;
+                  boolean slotRestored = false;
+                  try {
+                     ClientAccess.schizoMinecraft.gameMode.releaseUsingItem(usePlayer);
+                     releaseSucceeded = true;
+                  } finally {
+                     try {
+                        InventoryUtils.selectHotbarSlot(previousHotbarSlot);
+                        slotRestored = true;
+                     } finally {
+                        if (!releaseSucceeded || !slotRestored) {
+                           this.finishAutoShot();
+                        }
+                     }
+                  }
+
                   TaskScheduler finishScheduler = ClientContext.taskScheduler;
                   Runnable finishShot = this::finishAutoShot;
-                  finishScheduler.scheduleRotationTask(finishShot, 1);
+                  if (!finishScheduler.scheduleRotationTask(finishShot, 1)) {
+                     this.finishAutoShot();
+                  }
                };
 
                int releaseDelay = this.speedSetting.getValue();
-               scheduler.scheduleRotationTask(releaseShot, releaseDelay);
+               if (!scheduler.scheduleRotationTask(releaseShot, releaseDelay)) {
+                  try {
+                     gameMode.releaseUsingItem(usePlayer);
+                  } finally {
+                     try {
+                        InventoryUtils.selectHotbarSlot(previousHotbarSlot);
+                     } finally {
+                        this.finishAutoShot();
+                     }
+                  }
+               }
             }
 
             return;
