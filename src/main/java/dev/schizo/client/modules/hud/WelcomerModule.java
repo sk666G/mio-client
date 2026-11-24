@@ -15,7 +15,6 @@ import dev.schizo.client.events.ScreenChangeEvent;
 import dev.schizo.client.events.ConnectScreenConnectEvent;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.managers.ServerStateManager;
-import dev.schizo.client.utils.collections.IntPair;
 import dev.schizo.client.utils.ElapsedTimer;
 import dev.schizo.client.render.ColorUtils;
 import dev.schizo.client.render.FontRenderer;
@@ -192,10 +191,23 @@ public class WelcomerModule extends HudWidgetModule {
          return false;
       }
 
-      IntPair welcomerPosition = new IntPair((int)this.renderer.getX(), (int)this.renderer.getY());
-      IntPair widgetPosition = new IntPair((int)widget.getRenderer().getX(), (int)widget.getRenderer().getY());
-      double distance = welcomerPosition.distanceTo(widgetPosition);
-      return distance <= 100.0D;
+      return isWithinOverlapDistance(
+         this.renderer.getX(), this.renderer.getY(),
+         widget.getRenderer().getX(), widget.getRenderer().getY(),
+         100.0D
+      );
+   }
+
+   static boolean isWithinOverlapDistance(
+      float firstX, float firstY, float secondX, float secondY, double maximumDistance
+   ) {
+      int firstPixelX = (int)firstX;
+      int firstPixelY = (int)firstY;
+      int secondPixelX = (int)secondX;
+      int secondPixelY = (int)secondY;
+      double deltaX = (double)firstPixelX - secondPixelX;
+      double deltaY = (double)firstPixelY - secondPixelY;
+      return deltaX * deltaX + deltaY * deltaY <= maximumDistance * maximumDistance;
    }
 
    private boolean slidesUp(HudNotification notification) {
