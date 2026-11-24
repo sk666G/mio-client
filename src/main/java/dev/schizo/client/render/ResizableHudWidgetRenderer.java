@@ -40,11 +40,12 @@ public class ResizableHudWidgetRenderer extends HudWidgetRenderer {
    private boolean applyHudScale;
    private boolean resizingEnabled;
 
+   private float getHudScaleMultiplier() {
+      return this.applyHudScale ? hudSettings.getTextScale() : 1.0F;
+   }
+
    public float getScale() {
-      float scaleMultiplier = this.applyHudScale
-         ? hudSettings.getTextScale()
-         : 1.0F;
-      return this.sizeSetting.getValue() * scaleMultiplier;
+      return this.sizeSetting.getValue() * this.getHudScaleMultiplier();
    }
 
    public float getSizeScale() {
@@ -126,7 +127,8 @@ public class ResizableHudWidgetRenderer extends HudWidgetRenderer {
                   this.getY(),
                   sourceDimensions[0],
                   sourceDimensions[1],
-                  this.getSizeScale()
+                  this.getSizeScale(),
+                  this.getHudScaleMultiplier()
                );
                this.sizeSetting.setValue(resizeScale);
             } else {
