@@ -27,6 +27,7 @@ import dev.schizo.client.render.FontRenderer;
 import dev.schizo.client.render.GuiProjectionUtils;
 import dev.schizo.client.gui.components.ModuleComponent;
 import dev.schizo.client.render.HudWidgetRenderer;
+import dev.schizo.client.render.HudWidgetDrag;
 import dev.schizo.client.render.HudHorizontalAlignment;
 import dev.schizo.client.render.HudVerticalAlignment;
 import dev.schizo.client.utils.KeyUtils;
@@ -71,8 +72,8 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
    private boolean draggingWidget;
    private boolean centerPanelPending;
    private boolean directionsRefreshPending;
-   private float dragOffsetX;
-   private float dragOffsetY;
+   private double dragOffsetX;
+   private double dragOffsetY;
    private float mouseX;
    private float mouseY;
    private static final int LAYOUT_HISTORY_CAPACITY = 100;
@@ -451,12 +452,8 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
                   this.beginLayoutEdit();
                   dragAnchor = group.getAnchor();
                   dragCandidate = widget;
-                  this.dragOffsetX = (int)(
-                     event.x() - widget.getX()
-                  );
-                  this.dragOffsetY = (int)(
-                     event.y() - widget.getY()
-                  );
+                  this.dragOffsetX = event.x() - widget.getX();
+                  this.dragOffsetY = event.y() - widget.getY();
                   this.draggingWidget = true;
                   widget.setSelected(true);
                   widget.resetSnapping();
@@ -858,23 +855,11 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
             .getLast();
          float[] size = widget.getDimensions();
          widget.setX(
-            Math.max(
-               0.0F,
-               Math.min(
-                  graphics.guiWidth() - size[0],
-                  mouseX - this.dragOffsetX
-               )
-            ),
+            HudWidgetDrag.clampCoordinate(mouseX, this.dragOffsetX, graphics.guiWidth(), size[0]),
             true
          );
          widget.setY(
-            Math.max(
-               0.0F,
-               Math.min(
-                  graphics.guiHeight() - size[1],
-                  mouseY - this.dragOffsetY
-               )
-            ),
+            HudWidgetDrag.clampCoordinate(mouseY, this.dragOffsetY, graphics.guiHeight(), size[1]),
             true
          );
          widget.updateDirections();
