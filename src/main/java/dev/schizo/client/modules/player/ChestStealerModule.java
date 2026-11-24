@@ -114,6 +114,7 @@ public class ChestStealerModule extends Module {
    private final ElapsedTimer idleCloseTimer;
    private BlockPos lastInteractedBlock;
    private ClientLevel observedSessionLevel;
+   private volatile long sessionGeneration;
    private ChestStealerModeChoice requestedMode;
    private boolean trackingQuickMove;
    private boolean hasTransferred;
@@ -281,12 +282,7 @@ public class ChestStealerModule extends Module {
 
    @EventHandler(priority = 200)
    private void onPlayerTick(LocalPlayerPreTickEvent event) {
-      ClientLevel currentLevel = ClientAccess.schizoMinecraft.level;
-      if (currentLevel != this.observedSessionLevel) {
-         this.observedSessionLevel = currentLevel;
-         this.resetSessionState();
-      }
-
+      this.synchronizeSessionLevel();
       if (this.fullSetting.getValue()) {
          this.cleanupController.tick();
       }
@@ -311,6 +307,7 @@ public class ChestStealerModule extends Module {
    private void onInventoryClick(
       MultiPlayerGameModeHandleInventoryMouseClickEvent event
    ) {
+      this.synchronizeSessionLevel();
       if (!this.shouldReturnAutomatically()) {
          return;
       }
@@ -322,6 +319,7 @@ public class ChestStealerModule extends Module {
    private void onMoveItemStack(
       AbstractContainerMenuMoveItemStackToEvent event
    ) {
+      this.synchronizeSessionLevel();
       if (this.trackingQuickMove) {
          ItemStack movedStack = event.getSlot().getItem();
          if (!movedStack.isEmpty()) {
@@ -333,6 +331,7 @@ public class ChestStealerModule extends Module {
 
    @EventHandler
    private void onUseItemOn(MultiPlayerGameModeUseItemOnEvent event) {
+      this.synchronizeSessionLevel();
       ClientLevel world = ClientAccess.schizoMinecraft.level;
       BlockPos blockState = event.getHitResult().getBlockPos();
       BlockState interactedState = world.getBlockState(blockState);
@@ -510,6 +509,7 @@ public class ChestStealerModule extends Module {
 
    @EventHandler
    private void onSendPosition(LocalPlayerSendPositionEvent event) {
+      this.synchronizeSessionLevel();
       if (event.getStage() == EventStage.Post) {
          return;
       }
@@ -696,6 +696,7 @@ public class ChestStealerModule extends Module {
 
    @EventHandler
    private void onRotationUpdate(RotationRequestEvent event) {
+      this.synchronizeSessionLevel();
       if (this.shouldReturnAutomatically()) {
          this.returnController.reopenRequestedShulker();
       }
@@ -712,7 +713,15 @@ public class ChestStealerModule extends Module {
       if (event.getPacket() instanceof ClientboundContainerSetSlotPacket packet) {
          if (this.shouldReturnAutomatically()) {
             Minecraft animationMinecraft = ClientAccess.schizoMinecraft;
+            long packetSessionGeneration = this.sessionGeneration;
             Runnable recordAnimation = () -> {
+               this.synchronizeSessionLevel();
+               if (packetSessionGeneration != this.sessionGeneration
+                  || ClientAccess.schizoMinecraft.level == null
+                  || ClientAccess.schizoMinecraft.player == null) {
+                  return;
+               }
+
                ShulkerReturnController returnHelper = this.returnController;
                int containerId = packet.getContainerId();
                ItemStack updatedStack = packet.getItem();
@@ -727,6 +736,7 @@ public class ChestStealerModule extends Module {
    private void onScreenChange(
       ScreenChangeEvent.AfterInit event
    ) {
+      this.synchronizeSessionLevel();
       this.hasTransferred = false;
 
       this.screenOpenTimer.reset();
@@ -736,14 +746,25 @@ public class ChestStealerModule extends Module {
 
    @EventHandler
    private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.sessionGeneration++;
       this.observedSessionLevel = null;
       this.resetSessionState();
    }
 
    @Override
    public void onDisable() {
+      this.sessionGeneration++;
       this.observedSessionLevel = null;
       this.resetSessionState();
+   }
+
+   private void synchronizeSessionLevel() {
+      ClientLevel currentLevel = ClientAccess.schizoMinecraft.level;
+      if (currentLevel != this.observedSessionLevel) {
+         this.observedSessionLevel = currentLevel;
+         this.sessionGeneration++;
+         this.resetSessionState();
+      }
    }
 
    private void resetSessionState() {
