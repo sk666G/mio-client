@@ -357,6 +357,7 @@ public final class PerformanceCenterScreen extends ClientScreen {
       if (this.closing) {
          return false;
       }
+      this.updateLayout();
 
       switch (event.key()) {
          case GLFW.GLFW_KEY_LEFT -> {
