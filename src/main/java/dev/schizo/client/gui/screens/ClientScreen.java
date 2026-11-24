@@ -60,7 +60,7 @@ public class ClientScreen extends Screen implements ClientAccess {
    private static BlurModule getBlurModule() {
       return ClientContext.getModule(BlurModule.class);
    }
-   private static final long TRANSITION_DURATION_MILLIS = 180L;
+   private static final long TRANSITION_DURATION_NANOS = 180_000_000L;
    private static final int MAX_SEASONAL_PARTICLES = 12;
    private static final int PANEL_START_X = 10;
    private static final int PANEL_START_Y = 5;
@@ -84,8 +84,8 @@ public class ClientScreen extends Screen implements ClientAccess {
    protected float guiScale;
    protected boolean closing;
    protected String tooltipText = "";
-   protected long lastHoverTime = 0L;
-   protected long transitionStartedAt;
+   protected long lastHoverNanos = 0L;
+   protected long transitionStartedNanos;
    private Screen parentScreen;
    protected boolean escapeCloseAllowed;
    private boolean skipOpeningTransition;
@@ -103,7 +103,7 @@ public class ClientScreen extends Screen implements ClientAccess {
    }
 
    public void markHovered() {
-      this.lastHoverTime = System.currentTimeMillis();
+      this.lastHoverNanos = System.nanoTime();
    }
 
    public void resetSeasonalParticles() {
@@ -122,8 +122,8 @@ public class ClientScreen extends Screen implements ClientAccess {
    }
 
    public float getTransitionOpacity() {
-      float opacity = (float)(System.currentTimeMillis() - this.transitionStartedAt)
-         / TRANSITION_DURATION_MILLIS;
+      float opacity = (float)(System.nanoTime() - this.transitionStartedNanos)
+         / TRANSITION_DURATION_NANOS;
       if (this.closing) {
          opacity = 1.0F
             - opacity;
@@ -166,7 +166,7 @@ public class ClientScreen extends Screen implements ClientAccess {
    }
 
    protected void reset() {
-      this.lastHoverTime = 0L;
+      this.lastHoverNanos = 0L;
    }
 
    public void onMouseClick(double mouseX, double mouseY, int button) {
@@ -179,7 +179,7 @@ public class ClientScreen extends Screen implements ClientAccess {
    @Override
    public void tick() {
       if (this.closing
-         && System.currentTimeMillis() - this.transitionStartedAt >= TRANSITION_DURATION_MILLIS) {
+         && System.nanoTime() - this.transitionStartedNanos >= TRANSITION_DURATION_NANOS) {
          for (Panel panel : this.panels) {
             panel.setDragging(false);
          }
@@ -365,10 +365,10 @@ public class ClientScreen extends Screen implements ClientAccess {
       }
 
       if (this.skipOpeningTransition) {
-         this.transitionStartedAt = -TRANSITION_DURATION_MILLIS;
+         this.transitionStartedNanos = System.nanoTime() - TRANSITION_DURATION_NANOS;
          this.skipOpeningTransition = false;
       } else {
-         this.transitionStartedAt = System.currentTimeMillis();
+         this.transitionStartedNanos = System.nanoTime();
       }
    }
 
@@ -584,13 +584,13 @@ public class ClientScreen extends Screen implements ClientAccess {
                lineIndex++;
             }
 
-            this.lastHoverTime = System.currentTimeMillis();
+            this.lastHoverNanos = System.nanoTime();
          } finally {
             poseStack.popPose();
          }
-      } else if (this.lastHoverTime != 0L
-         && System.currentTimeMillis() > this.lastHoverTime + 750L) {
-         this.lastHoverTime = 0L;
+      } else if (this.lastHoverNanos != 0L
+         && System.nanoTime() - this.lastHoverNanos > 750_000_000L) {
+         this.lastHoverNanos = 0L;
       }
 
       this.renderContents(graphics, poseStack, mouseX, mouseY, partialTick);
@@ -630,7 +630,7 @@ public class ClientScreen extends Screen implements ClientAccess {
    public void closeWithTransition() {
       if (!this.closing) {
          this.panelDragging = false;
-         this.transitionStartedAt = System.currentTimeMillis();
+         this.transitionStartedNanos = System.nanoTime();
          if (UIModule.INSTANCE.isToggled()) {
             UIModule.INSTANCE
                .toggle();
