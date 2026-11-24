@@ -72,6 +72,13 @@ public final class DiscordIpcFrameCodec {
       return payloadLength;
    }
 
+   public static int validateOpcode(int opcode, int opcodeCount) throws IOException {
+      if (opcodeCount < 1 || opcode < 0 || opcode >= opcodeCount) {
+         throw new IOException("Discord IPC opcode is outside the supported range");
+      }
+      return opcode;
+   }
+
    private static void readFully(ReadableByteChannel input, ByteBuffer target) throws IOException {
       while (target.hasRemaining()) {
          int read = input.read(target);
