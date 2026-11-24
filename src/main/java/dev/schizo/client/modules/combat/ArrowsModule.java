@@ -77,6 +77,7 @@ public class ArrowsModule extends Module {
    private int selectedArrowSlot;
    private Potion selectedArrowPotion;
    private boolean allowNextProjectileUse;
+   private long autoShotGeneration;
 
    static {
       autoShotInProgress = new AtomicBoolean();
@@ -84,6 +85,7 @@ public class ArrowsModule extends Module {
 
    @EventHandler
    private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.autoShotGeneration++;
       autoShotInProgress.set(false);
       this.recentEffectTimes.clear();
       this.pendingEffects.clear();
@@ -314,7 +316,10 @@ public class ArrowsModule extends Module {
       return false;
    }
 
-   private void finishAutoShot() {
+   private void finishAutoShot(long shotGeneration) {
+      if (shotGeneration != this.autoShotGeneration) {
+         return;
+      }
       autoShotInProgress.set(false);
       this.disable();
    }
@@ -372,14 +377,15 @@ public class ArrowsModule extends Module {
             }
 
             if (!autoShotInProgress.get()) {
+               long shotGeneration = ++this.autoShotGeneration;
                autoShotInProgress.set(true);
                TaskScheduler scheduler = ClientContext.taskScheduler;
                Runnable releaseShot = () -> {
-                  if (!autoShotInProgress.get()) {
+                  if (!autoShotInProgress.get() || shotGeneration != this.autoShotGeneration) {
                      return;
                   }
                   if (this.isWorldUnavailable()) {
-                     this.finishAutoShot();
+                     this.finishAutoShot(shotGeneration);
                      return;
                   }
 
@@ -394,15 +400,15 @@ public class ArrowsModule extends Module {
                         slotRestored = true;
                      } finally {
                         if (!releaseSucceeded || !slotRestored) {
-                           this.finishAutoShot();
+                           this.finishAutoShot(shotGeneration);
                         }
                      }
                   }
 
                   TaskScheduler finishScheduler = ClientContext.taskScheduler;
-                  Runnable finishShot = this::finishAutoShot;
+                  Runnable finishShot = () -> this.finishAutoShot(shotGeneration);
                   if (!finishScheduler.scheduleRotationTask(finishShot, 1)) {
-                     this.finishAutoShot();
+                     this.finishAutoShot(shotGeneration);
                   }
                };
 
@@ -414,7 +420,7 @@ public class ArrowsModule extends Module {
                      try {
                         InventoryUtils.selectHotbarSlot(previousHotbarSlot);
                      } finally {
-                        this.finishAutoShot();
+                        this.finishAutoShot(shotGeneration);
                      }
                   }
                }
