@@ -179,6 +179,9 @@ public class ChestStealerModule extends Module {
 
    private boolean moveRekitStack(ItemStack stack, int sourceSlotIndex, int containerSlotCount) {
       AbstractContainerMenu menu = ClientAccess.schizoMinecraft.player.containerMenu;
+      if (!menu.getCarried().isEmpty()) {
+         return false;
+      }
       InventoryStateManager inventoryCoordinator = ClientContext.inventoryStateManager;
 
       if (InventoryStateManager.wouldReachClickLimit(inventoryCoordinator, 3)) {
