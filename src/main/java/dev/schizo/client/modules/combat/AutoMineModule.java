@@ -13,7 +13,6 @@ import dev.schizo.client.utils.inventory.AutoMineProviderBase;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.RotationRequestEvent;
-import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.utils.inventory.AutoMineTerrainProvider;
 import dev.schizo.client.managers.RotationManager;
@@ -78,21 +77,6 @@ public final class AutoMineModule extends Module {
    public final AutoMineTargetSelector targetSelector;
    public final AutoMineMiningTracker miningTracker;
    private boolean miningActive;
-
-   private void clearPendingMining() {
-      this.pendingBreaks.clear();
-      this.miningActive = false;
-   }
-
-   @Override
-   public void onDisable() {
-      this.clearPendingMining();
-   }
-
-   @EventHandler
-   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
-      this.clearPendingMining();
-   }
 
    private float getBreakDelayValue() {
       Setting<Boolean> noDelaySetting = speedMine.noBreakDelaySetting;

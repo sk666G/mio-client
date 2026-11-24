@@ -94,12 +94,9 @@ public class PostProcessShaderPass extends BaseShaderPass {
             ShaderPassRenderState.INSTANCE
          );
 
-         try {
-            PostProcessShaderPass passForQuad = this;
-            passForQuad.drawFullscreenQuad();
-         } finally {
-            RenderStateManager.reset();
-         }
+         PostProcessShaderPass passForQuad = this;
+         passForQuad.drawFullscreenQuad();
+         RenderStateManager.reset();
       }
    }
 
@@ -112,16 +109,10 @@ public class PostProcessShaderPass extends BaseShaderPass {
          POST_TARGET
       );
       ClientContext.shaderRegistry.renderingIntoTarget = true;
-      try {
-         draw.run();
-      } finally {
-         try {
-            buffers.endBatchAndClean();
-         } finally {
-            ClientContext.shaderRegistry.renderingIntoTarget = false;
-            RenderTargetUtils.restoreRenderTargets();
-         }
-      }
+      draw.run();
+      buffers.endBatchAndClean();
+      ClientContext.shaderRegistry.renderingIntoTarget = false;
+      RenderTargetUtils.restoreRenderTargets();
    }
 
    private void drawFullscreenQuad() {

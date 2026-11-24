@@ -17,23 +17,32 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.AtomicMoveNotSupportedException;
-import java.nio.file.Files;
-import java.nio.file.LinkOption;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
-import java.nio.file.StandardOpenOption;
 
 public final class FileUtils {
-   private static final String suffixPathPattern = "\u0001\u0001";
+   private static final String suffixPathPattern;
 
-   private FileUtils() {
+   static {
+      suffixPathPattern = "\u0001\u0001";
    }
 
    public static byte[] readBytes(Path path) throws IOException {
-      try (FileInputStream input = new FileInputStream(path.toFile())) {
-         return input.readAllBytes();
+      FileInputStream input = null;
+
+      byte[] bytes;
+      try {
+         input = new FileInputStream(path.toFile());
+         bytes = input.readAllBytes();
+      } finally {
+         if (input != null) {
+            try {
+               input.close();
+            } catch (Exception ignoredCloseFailure) {
+            }
+         }
       }
+
+      return bytes;
    }
 
    public static Path findExistingWithSuffixes(Path path, String... suffixes) {
@@ -48,8 +57,9 @@ public final class FileUtils {
             .prepend(suffix)
             .prepend(pathText)
             .format(suffixPathPattern);
-         Path candidatePath = Path.of(candidatePathText);
-         if (candidatePath.toFile().exists()) {
+         Path candidatePath = Path.of(candidatePathText, new String[0]);
+         File candidateFile = candidatePath.toFile();
+         if (candidateFile.exists()) {
             return candidatePath;
          }
       }
@@ -64,55 +74,8 @@ public final class FileUtils {
    }
 
    public static void writeUtf8(Path path, String text) throws IOException {
-      writeBytes(path, text.getBytes(StandardCharsets.UTF_8));
-   }
-
-   public static void writeBytesAtomically(Path path, byte[] bytes) throws IOException {
-      Path target = path.toAbsolutePath().normalize();
-      Path parent = target.getParent();
-      if (parent == null) {
-         throw new IOException("Cannot write a file without a parent directory: " + target);
-      }
-      Files.createDirectories(parent);
-      Path temporary = Files.createTempFile(parent, "." + target.getFileName() + ".", ".tmp");
-      try {
-         Files.write(temporary, bytes, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING);
-         try {
-            Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-         } catch (AtomicMoveNotSupportedException unsupported) {
-            Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING);
-         }
-      } catch (IOException failure) {
-         throw new IOException("Unable to atomically write " + target, failure);
-      } finally {
-         Files.deleteIfExists(temporary);
-      }
-   }
-
-   public static void writeUtf8Atomically(Path path, String text) throws IOException {
-      Path target = path.toAbsolutePath().normalize();
-      Path parent = target.getParent();
-      if (parent == null) {
-         throw new IOException("Cannot write a file without a parent directory: " + target);
-      }
-      Files.createDirectories(parent);
-      Path temporary = Files.createTempFile(parent, "." + target.getFileName() + ".", ".tmp");
-      try {
-         try (var writer = Files.newBufferedWriter(temporary, StandardCharsets.UTF_8,
-            StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)) {
-            writer.write(text);
-            writer.flush();
-         }
-         try {
-            Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-         } catch (AtomicMoveNotSupportedException unsupported) {
-            Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING);
-         }
-      } catch (IOException failure) {
-         throw new IOException("Unable to atomically write " + target, failure);
-      } finally {
-         Files.deleteIfExists(temporary);
-      }
+      Charset charset = StandardCharsets.UTF_8;
+      writeBytes(path, text.getBytes(charset));
    }
 
    public static String readUtf8(Path path) throws IOException {

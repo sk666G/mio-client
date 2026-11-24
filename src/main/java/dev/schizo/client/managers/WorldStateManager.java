@@ -337,10 +337,6 @@ public final class WorldStateManager implements ClientAccess {
       this.confirmedPlacements.clear();
       this.blockEntities.clear();
       this.rollbackBlocks.clear();
-      this.currentTickPlacements.clear();
-      this.glassUpdateWindows.clear();
-      this.unconfirmedBreak = null;
-      this.extraBreak = null;
    }
 
    @EventHandler(priority = 200)

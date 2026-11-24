@@ -13,13 +13,13 @@ import dev.schizo.client.ClientContext;
 import dev.schizo.client.render.FontRenderer;
 import dev.schizo.client.render.ResizableHudWidgetRenderer;
 import dev.schizo.client.managers.ModuleRegistry;
-import dev.schizo.client.media.MediaSnapshot;
 import dev.schizo.client.modules.HudWidgetModule;
 import dev.schizo.client.settings.BooleanSetting;
 import dev.schizo.client.settings.Setting;
 import dev.schizo.client.settings.StringSetting;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import java.util.regex.Matcher;
 
 public class MusicModule extends HudWidgetModule {
    private final Setting<Boolean> prefixSetting;
@@ -27,7 +27,9 @@ public class MusicModule extends HudWidgetModule {
 
    private boolean shouldSkipMediaRendering() {
       if (!this.isInHudEditor()) {
-         return MediaSessionBridge.snapshot().playbackStatus() != MediaSnapshot.PLAYING;
+         int playbackStatus = MediaSessionBridge.playbackStatus;
+
+         return playbackStatus != 4;
       }
 
       return false;
@@ -48,14 +50,21 @@ public class MusicModule extends HudWidgetModule {
          WelcomerModule welcomer = (WelcomerModule)moduleRegistry.getModule(welcomerType);
          if (!welcomer.shouldHideWidget(this)) {
 
+            float[] dimensions = new float[2];
             FontRenderer textRenderer = FontRenderer.INSTANCE;
-            float width = textRenderer.getWidth(this.getMusicText());
-            float height = FontRenderer.INSTANCE.getHeight();
-            return this.dimensions(width, height);
+            dimensions[0] = textRenderer.getWidth(
+               this.getMusicText()
+            );
+            dimensions[1] = FontRenderer.INSTANCE
+               .getHeight();
+            return dimensions;
          }
       }
 
-      return this.dimensions(0.0F, 0.0F);
+      float[] hiddenDimensions = new float[2];
+      hiddenDimensions[0] = 0.0F;
+      hiddenDimensions[1] = 0.0F;
+      return hiddenDimensions;
    }
 
    @Override
@@ -85,17 +94,28 @@ public class MusicModule extends HudWidgetModule {
    }
 
    private String getMusicText() {
-      MediaSnapshot snapshot = MediaSessionBridge.snapshot();
-      String text = MediaSessionBridge.getDisplayText(snapshot);
-      if (this.isInHudEditor() && snapshot.playbackStatus() != MediaSnapshot.PLAYING) {
-         text = "HydrachFM - f3dot";
+      String text = MediaSessionBridge.getDisplayText();
+      if (this.isInHudEditor()) {
+         int playbackStatus = MediaSessionBridge.playbackStatus;
+
+         if (playbackStatus != 4) {
+
+            text = "HydrachFM - f3dot";
+         }
       }
 
-      return MusicDisplayText.format(
-         text,
-         this.prefixSetting.getValue(),
-         this.prefixTextSetting.getValue()
-      );
+      Setting<Boolean> prefixOption = this.prefixSetting;
+      Boolean prefixEnabled = prefixOption.getValue();
+      if (prefixEnabled) {
+         Setting<String> prefixTextOption = this.prefixTextSetting;
+         String musicText = String.valueOf(text);
+         String prefixText = String.valueOf(prefixTextOption.getValue());
+         text = "\u0001 \u0001"
+            .replaceFirst("\u0001", Matcher.quoteReplacement(prefixText))
+            .replaceFirst("\u0001", Matcher.quoteReplacement(musicText));
+      }
+
+      return text.trim();
    }
 
    public MusicModule() {

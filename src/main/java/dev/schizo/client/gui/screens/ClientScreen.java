@@ -12,7 +12,6 @@ package dev.schizo.client.gui.screens;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.gui.panels.Panel;
-import dev.schizo.client.gui.components.SettingComponent;
 import dev.schizo.client.gui.panels.ModuleCategoryPanel;
 import dev.schizo.client.render.GuiDrawUtils;
 import dev.schizo.client.utils.InterpolatedFloat;
@@ -54,15 +53,10 @@ public class ClientScreen extends Screen implements ClientAccess {
    private static final Identifier AERO_TEXTURE = Identifier.fromNamespaceAndPath(
       "schizo", "textures/aero.png"
    );
-   private static UIModule getUiModule() {
-      return ClientContext.getModule(UIModule.class);
-   }
-
-   private static BlurModule getBlurModule() {
-      return ClientContext.getModule(BlurModule.class);
-   }
-   private static final long TRANSITION_DURATION_NANOS = 180_000_000L;
-   private static final int MAX_SEASONAL_PARTICLES = 12;
+   private static final BlurModule BLUR = (BlurModule)ClientContext.getModule(BlurModule.class);
+   private static final UIModule UI = (UIModule)ClientContext.getModule(UIModule.class);
+   private static final long TRANSITION_DURATION_MILLIS = 150L;
+   private static final int MAX_SEASONAL_PARTICLES = 25;
    private static final int PANEL_START_X = 10;
    private static final int PANEL_START_Y = 5;
    private static final int PANEL_GAP = 3;
@@ -72,7 +66,6 @@ public class ClientScreen extends Screen implements ClientAccess {
    public static CursorType cursor = CursorType.STANDARD;
    protected final ArrayList<Panel> panels = new ArrayList<>();
    protected final List<SnowflakeParticle> seasonalParticles = new ArrayList<>();
-   private final boolean winterSeason;
    protected final InterpolatedFloat hoverMouseX = new InterpolatedFloat(
       2.5F,
       true
@@ -85,8 +78,8 @@ public class ClientScreen extends Screen implements ClientAccess {
    protected float guiScale;
    protected boolean closing;
    protected String tooltipText = "";
-   protected long lastHoverNanos = 0L;
-   protected long transitionStartedNanos;
+   protected long lastHoverTime = 0L;
+   protected long transitionStartedAt;
    private Screen parentScreen;
    protected boolean escapeCloseAllowed;
    private boolean skipOpeningTransition;
@@ -104,14 +97,11 @@ public class ClientScreen extends Screen implements ClientAccess {
    }
 
    public void markHovered() {
-      this.lastHoverNanos = System.nanoTime();
+      this.lastHoverTime = System.currentTimeMillis();
    }
 
    public void resetSeasonalParticles() {
       this.seasonalParticles.clear();
-      if (!this.winterSeason) {
-         return;
-      }
 
       for (int particleIndex = 0;
          particleIndex
@@ -123,8 +113,8 @@ public class ClientScreen extends Screen implements ClientAccess {
    }
 
    public float getTransitionOpacity() {
-      float opacity = (float)(System.nanoTime() - this.transitionStartedNanos)
-         / TRANSITION_DURATION_NANOS;
+      float opacity = (float)(System.currentTimeMillis() - this.transitionStartedAt)
+         / TRANSITION_DURATION_MILLIS;
       if (this.closing) {
          opacity = 1.0F
             - opacity;
@@ -162,12 +152,11 @@ public class ClientScreen extends Screen implements ClientAccess {
 
    protected ClientScreen() {
       super(Component.literal(SchizoClient.NAME));
-      this.winterSeason = Season.WINTER.containsMonth(LocalDate.now().getMonthValue());
       this.resetSeasonalParticles();
    }
 
    protected void reset() {
-      this.lastHoverNanos = 0L;
+      this.lastHoverTime = 0L;
    }
 
    public void onMouseClick(double mouseX, double mouseY, int button) {
@@ -180,7 +169,7 @@ public class ClientScreen extends Screen implements ClientAccess {
    @Override
    public void tick() {
       if (this.closing
-         && System.nanoTime() - this.transitionStartedNanos >= TRANSITION_DURATION_NANOS) {
+         && System.currentTimeMillis() - this.transitionStartedAt >= TRANSITION_DURATION_MILLIS) {
          for (Panel panel : this.panels) {
             panel.setDragging(false);
          }
@@ -210,9 +199,7 @@ public class ClientScreen extends Screen implements ClientAccess {
       for (int panelIndex = this.panels.size() - 1; panelIndex >= 0; panelIndex--) {
          Panel panel = this.panels
             .get(panelIndex);
-         if (event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
-            panel.setDragging(false);
-         }
+         panel.setDragging(false);
          panel.mouseReleased(
             event.x(), event.y(), event.button()
          );
@@ -226,20 +213,9 @@ public class ClientScreen extends Screen implements ClientAccess {
 
    @Override
    public boolean charTyped(CharacterEvent event) {
-      SettingComponent<?> editor = this.focusedSetting();
-      if (editor != null) {
-         String input = event.codepointAsString();
-         for (int index = 0; index < input.length(); index++) {
-            editor.charTyped(input.charAt(index));
-         }
-         return true;
-      }
-      String characters = event.codepointAsString();
       for (int panelIndex = this.panels.size() - 1; panelIndex >= 0; panelIndex--) {
-         Panel panel = this.panels.get(panelIndex);
-         for (int index = 0; index < characters.length(); index++) {
-            panel.charTyped(characters.charAt(index));
-         }
+         this.panels.get(panelIndex)
+            .charTyped(event.codepointAsString().charAt(0));
       }
 
       return super.charTyped(event);
@@ -264,12 +240,9 @@ public class ClientScreen extends Screen implements ClientAccess {
       for (int panelIndex = this.panels.size() - 1; panelIndex >= 0; panelIndex--) {
          Panel panel = this.panels
             .get(panelIndex);
-         if (!panel.isMouseOverHeader(event.x(), event.y()) && !panel.isMouseOver(event.x(), event.y())) {
-            continue;
-         }
          if (panel.isMouseOverHeader(event.x(), event.y())
             && event.button() == 0
-            && !panel.isDragging()) {
+            && draggedPanel == null) {
             draggedPanel = panel;
             panel.setDragging(true);
             panel.dragOffsetX = (int)(
@@ -285,7 +258,6 @@ public class ClientScreen extends Screen implements ClientAccess {
          panel.mouseClicked(
             event.x(), event.y(), event.button()
          );
-         break;
       }
 
       if (draggedPanel != null) {
@@ -306,13 +278,9 @@ public class ClientScreen extends Screen implements ClientAccess {
       mouseX /= scale;
       mouseY /= scale;
       if (verticalAmount != 0.0) {
-         for (int index = this.panels.size() - 1; index >= 0; index--) {
-            Panel panel = this.panels.get(index);
-            if (panel.isMouseOver(mouseX, mouseY)) {
-               if (!panel.isDragging()) {
-                  panel.mouseScrolled(mouseX, mouseY, verticalAmount);
-               }
-               return true;
+         for (Panel panel : this.panels) {
+            if (!panel.isDragging()) {
+               panel.mouseScrolled(mouseX, mouseY, verticalAmount);
             }
          }
       }
@@ -367,58 +335,21 @@ public class ClientScreen extends Screen implements ClientAccess {
          .getValue();
       this.closing = false;
 
-      double scale = GuiScaleUtils.calculateScaleMultiplier(this.guiScale);
       for (Panel panel : this.panels) {
          panel.init();
-         panel.placeWithinViewport(panel.getX(), panel.getY(), screenWidth / scale, screenHeight / scale);
       }
 
       if (this.skipOpeningTransition) {
-         this.transitionStartedNanos = System.nanoTime() - TRANSITION_DURATION_NANOS;
+         this.transitionStartedAt = -TRANSITION_DURATION_MILLIS;
          this.skipOpeningTransition = false;
       } else {
-         this.transitionStartedNanos = System.nanoTime();
+         this.transitionStartedAt = System.currentTimeMillis();
       }
-   }
-
-   protected SettingComponent<?> focusedSetting() {
-      ClickGuiScreen clickGui = ClientContext.getClickGui();
-      SettingComponent<?> editor = clickGui.getEditingSetting();
-      if (editor == null || !this.panels.contains(editor.getPanel())) {
-         return null;
-      }
-      if (editor.editing && editor.getPanel().acceptsSettingInput(editor) && !editor.isUnavailable()) {
-         return editor;
-      }
-      editor.editing = false;
-      clickGui.setEditingSetting(null);
-      return null;
-   }
-
-   @Override
-   public void removed() {
-      SettingComponent<?> editor = this.focusedSetting();
-      if (editor != null) {
-         editor.editing = false;
-         ClientContext.getClickGui().setEditingSetting(null);
-      }
-      for (Panel panel : this.panels) {
-         panel.setDragging(false);
-      }
-      super.removed();
    }
 
    @Override
    public boolean keyPressed(KeyEvent event) {
       this.escapeCloseAllowed = true;
-      SettingComponent<?> editor = this.focusedSetting();
-      if (editor != null) {
-         editor.keyPressed(event.key());
-         if (!editor.editing) {
-            ClientContext.getClickGui().setEditingSetting(null);
-         }
-         return true;
-      }
 
       for (int panelIndex = this.panels.size() - 1; panelIndex >= 0; panelIndex--) {
          this.panels.get(panelIndex)
@@ -444,12 +375,6 @@ public class ClientScreen extends Screen implements ClientAccess {
 
    @Override
    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-      UIModule uiModule = getUiModule();
-      if (uiModule == null) {
-         return;
-      }
-      BlurModule blurModule = getBlurModule();
-      float transitionOpacity = this.getTransitionOpacity();
       PoseStack poseStack = GuiProjectionUtils.toPoseStack(graphics);
       this.hoverMouseX
          .setTarget(mouseX);
@@ -466,23 +391,21 @@ public class ClientScreen extends Screen implements ClientAccess {
       );
       cursor.apply();
       cursor = CursorType.STANDARD;
-      if (this.winterSeason) {
-         this.seasonalParticles.removeIf(SnowflakeParticle::isExpired);
-         if (this.seasonalParticles.size() < MAX_SEASONAL_PARTICLES) {
-            this.seasonalParticles.add(new SnowflakeParticle());
-         }
+      this.seasonalParticles
+         .removeIf(SnowflakeParticle::isExpired);
+      if (this.seasonalParticles.size() < MAX_SEASONAL_PARTICLES) {
+         this.seasonalParticles.add(new SnowflakeParticle());
       }
 
-      try {
-         RenderUtils.setRenderColor(
-            1.0F,
-            1.0F,
-            1.0F,
-            transitionOpacity
-         );
-         float scale = (float)GuiScaleUtils.calculateScaleMultiplier(this.guiScale);
-         GuiScaleUtils.applyGuiScale(this.guiScale);
-         poseStack.scale(
+      RenderUtils.setRenderColor(
+         1.0F,
+         1.0F,
+         1.0F,
+         this.getTransitionOpacity()
+      );
+      float scale = (float)GuiScaleUtils.calculateScaleMultiplier(this.guiScale);
+      GuiScaleUtils.applyGuiScale(this.guiScale);
+      poseStack.scale(
          scale,
          scale,
          1.0F
@@ -493,14 +416,14 @@ public class ClientScreen extends Screen implements ClientAccess {
       hoverY /= scale;
       this.tooltipText = "";
       this.renderBackgroundOverlay(poseStack);
-      if (uiModule.aeroSetting.getValue()) {
+      if (UI.aeroSetting.getValue()) {
          this.renderAeroPanels(poseStack);
       }
 
-      float blurStrength = blurModule == null ? 0.0F : blurModule.getRadius() * transitionOpacity;
+      float blurStrength = BLUR.getRadius()
+         * this.getTransitionOpacity();
       if (!this.isClosing()
-         && blurModule != null
-         && blurModule.isToggled()) {
+         && BLUR.isToggled()) {
          GuiDrawUtils.flush();
          MaskShaderRenderer.renderBlur(
             () -> {
@@ -530,7 +453,8 @@ public class ClientScreen extends Screen implements ClientAccess {
          );
       }
 
-      if (this.winterSeason) {
+      if (Season.WINTER
+         .containsMonth(LocalDate.now().getMonthValue())) {
          for (SnowflakeParticle particle : this.seasonalParticles) {
             particle.render(poseStack);
          }
@@ -579,80 +503,73 @@ public class ClientScreen extends Screen implements ClientAccess {
                      + 1.0F
                )
                * tooltipLines.length;
-         if (blurModule != null && blurModule.isToggled()) {
-            MaskShaderRenderer.renderBlur(
-               () -> RenderUtils.INSTANCE
-                  .fillRect(
-                     poseStack,
-                     blurLeft,
-                     blurY
-                        - 1.0F,
-                     blurRight,
-                     tooltipBottom,
-                     ColorUtils.packArgb(10, 10, 10, 140)
-                  ),
-               blurModule.getRadius()
-            );
-         }
-         poseStack.pushPose();
-         try {
-            poseStack.translate(0.0F, 0.0F, TOOLTIP_BACKGROUND_DEPTH);
-            RenderUtils.INSTANCE
+         MaskShaderRenderer.renderBlur(
+            () -> RenderUtils.INSTANCE
                .fillRect(
                   poseStack,
-                  tooltipLeft,
-                  hoverY
+                  blurLeft,
+                  blurY
                      - 1.0F,
-                  tooltipRight,
+                  blurRight,
                   tooltipBottom,
-                  new Color(10, 10, 10, 80)
+                  ColorUtils.packArgb(10, 10, 10, 140)
+               ),
+            6.0F
+         );
+         poseStack.pushPose();
+         poseStack.translate(0.0F, 0.0F, TOOLTIP_BACKGROUND_DEPTH);
+         RenderUtils.INSTANCE
+            .fillRect(
+               poseStack,
+               tooltipLeft,
+               hoverY
+                  - 1.0F,
+               tooltipRight,
+               tooltipBottom,
+               new Color(10, 10, 10, 80)
+            );
+         int lineIndex = 0;
+
+         for (String tooltipLine : tooltipLines) {
+            FontRenderer.INSTANCE
+               .drawWithShadow(
+                  poseStack,
+                  tooltipLine,
+                  tooltipLeft
+                     + 1.0F,
+                  hoverY
+                     + (
+                           FontRenderer.INSTANCE
+                                 .getHeight()
+                              + 1.0F
+                        )
+                        * lineIndex,
+                  Color.white
                );
-            int lineIndex = 0;
-
-            for (String tooltipLine : tooltipLines) {
-               FontRenderer.INSTANCE
-                  .drawWithShadow(
-                     poseStack,
-                     tooltipLine,
-                     tooltipLeft
-                        + 1.0F,
-                     hoverY
-                        + (
-                              FontRenderer.INSTANCE
-                                    .getHeight()
-                                 + 1.0F
-                           )
-                           * lineIndex,
-                     Color.white
-                  );
-               lineIndex++;
-            }
-
-            this.lastHoverNanos = System.nanoTime();
-         } finally {
-            poseStack.popPose();
+            lineIndex++;
          }
-      } else if (this.lastHoverNanos != 0L
-         && System.nanoTime() - this.lastHoverNanos > 750_000_000L) {
-         this.lastHoverNanos = 0L;
+
+         this.lastHoverTime = System.currentTimeMillis();
+         poseStack.popPose();
+      } else if (this.lastHoverTime != 0L
+         && System.currentTimeMillis() > this.lastHoverTime + 750L) {
+         this.lastHoverTime = 0L;
       }
 
       this.renderContents(graphics, poseStack, mouseX, mouseY, partialTick);
-         GuiDrawUtils.flush();
-      } finally {
-         RenderUtils.setRenderColor(
-            1.0F,
-            1.0F,
-            1.0F,
-            1.0F
-         );
-         GuiScaleUtils.restoreGuiScale();
-         poseStack.translate(
-            0.0F,
-            0.0F,
-            -SCREEN_CONTENT_DEPTH
-         );
-      }
+      GuiDrawUtils.flush();
+      RenderUtils.setRenderColor(
+         1.0F,
+         1.0F,
+         1.0F,
+         1.0F
+      );
+      GuiScaleUtils.restoreGuiScale();
+      poseStack.translate(
+         0.0F,
+         0.0F,
+         -SCREEN_CONTENT_DEPTH
+      );
    }
 
    public void open() {
@@ -674,7 +591,7 @@ public class ClientScreen extends Screen implements ClientAccess {
    public void closeWithTransition() {
       if (!this.closing) {
          this.panelDragging = false;
-         this.transitionStartedNanos = System.nanoTime();
+         this.transitionStartedAt = System.currentTimeMillis();
          if (UIModule.INSTANCE.isToggled()) {
             UIModule.INSTANCE
                .toggle();
@@ -709,23 +626,19 @@ public class ClientScreen extends Screen implements ClientAccess {
    }
 
    public void renderAeroPanels(PoseStack poseStack) {
-      UIModule uiModule = getUiModule();
-      if (uiModule == null) {
-         return;
-      }
       int textureAlpha = RenderUtils.getRenderColor()[3]
          / (2);
       int textureColor = ARGB.color(textureAlpha, -1);
 
       for (Panel panel : this.getPanels()) {
-         int outlinePadding = uiModule.lineSetting.getValue() ? 2 : 0;
+         int outlinePadding = UI.lineSetting.getValue() ? 2 : 0;
          int panelX = panel.getX();
          int panelY = panel.getY();
          float expansion = panel.getExpansionValue();
          float contentHeight = panel.getHeight()
             - panel.getHeaderHeight();
          float panelWidth = panel.getWidth();
-         if (uiModule.lineSetting.getValue()) {
+         if (UI.lineSetting.getValue()) {
             panelX--;
             panelY--;
             panelWidth += 2.0F;
@@ -735,41 +648,35 @@ public class ClientScreen extends Screen implements ClientAccess {
 
          contentHeight *= expansion;
          poseStack.pushPose();
-         try {
-            poseStack.translate(panelX, panelY, 0.0F);
-            ScissorStack.push(
-               panelX,
-               panelY,
-               (int)panelWidth,
-               (int)Math.floor(
-                  panel.getHeaderHeight()
-                     + contentHeight
-                     + outlinePadding
-               )
-            );
-            try {
-               GuiDrawUtils.drawTexture(
-                  poseStack,
-                  AERO_TEXTURE,
-                  (int)(
-                     -300.0F + panelX / 3.0F
-                  ),
-                  0,
-                  0.0F,
-                  0.0F,
-                  600,
-                  450,
-                  600,
-                  450,
-                  textureColor
-               );
-               RenderUtils.getEntityBuffers().endBatch();
-            } finally {
-               ScissorStack.pop();
-            }
-         } finally {
-            poseStack.popPose();
-         }
+         poseStack.translate(panelX, panelY, 0.0F);
+         ScissorStack.push(
+            panelX,
+            panelY,
+            (int)panelWidth,
+            (int)Math.floor(
+               panel.getHeaderHeight()
+                  + contentHeight
+                  + outlinePadding
+            )
+         );
+         GuiDrawUtils.drawTexture(
+            poseStack,
+            AERO_TEXTURE,
+            (int)(
+               -300.0F + panelX / 3.0F
+            ),
+            0,
+            0.0F,
+            0.0F,
+            600,
+            450,
+            600,
+            450,
+            textureColor
+         );
+         RenderUtils.getEntityBuffers().endBatch();
+         ScissorStack.pop();
+         poseStack.popPose();
       }
    }
 

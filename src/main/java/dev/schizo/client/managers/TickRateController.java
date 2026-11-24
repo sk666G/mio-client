@@ -12,17 +12,17 @@ package dev.schizo.client.managers;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.LocalPlayerTickEvent;
-import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.events.ModuleToggleEvent;
 import dev.schizo.client.modules.Module;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.util.Mth;
 
 public class TickRateController implements ClientAccess {
-   private final Requests requests = new Requests();
+   private final ConcurrentHashMap<Module, Boolean> moduleReleaseStates = new ConcurrentHashMap<>();
+   private float multiplier;
 
    public TickRateController() {
+      this.multiplier = 1.0F;
       ClientAccess.eventBus.subscribe(this);
    }
 
@@ -35,66 +35,26 @@ public class TickRateController implements ClientAccess {
       }
    }
 
-   @EventHandler
-   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
-      this.requests.clear();
-   }
-
    public void requestMultiplier(Module module, float requestedMultiplier) {
-      this.requests.request(module, requestedMultiplier);
+      this.moduleReleaseStates.compute(module, (keyModule, previousReleased) -> false);
+      this.multiplier = requestedMultiplier;
    }
 
    public float getMultiplier() {
-      return this.requests.getMultiplier();
+      return this.multiplier;
    }
 
    public void releaseMultiplier(Module module) {
-      this.requests.release(module);
-   }
-
-   /**
-    * Keeps the most recently requested active multiplier while allowing older
-    * requests to resume when a newer owner releases its request.
-    */
-   static final class Requests {
-      private final Map<Object, Float> activeRequests = new LinkedHashMap<>();
-      private float multiplier = 1.0F;
-
-      synchronized void request(Object owner, float requestedMultiplier) {
-         if (!Float.isFinite(requestedMultiplier)) {
-            throw new IllegalArgumentException("Requested tick-rate multiplier must be finite");
+      this.moduleReleaseStates.compute(module, (keyModule, previousReleased) -> {
+         if (Boolean.FALSE.equals(previousReleased)) {
+            this.multiplier = 1.0F;
          }
-         this.activeRequests.remove(owner);
-         this.activeRequests.put(owner, requestedMultiplier);
-         this.multiplier = requestedMultiplier;
-      }
-
-      synchronized void release(Object owner) {
-         this.activeRequests.remove(owner);
-         this.multiplier = 1.0F;
-
-         for (Float requestedMultiplier : this.activeRequests.values()) {
-            this.multiplier = requestedMultiplier;
-         }
-      }
-
-      synchronized void clear() {
-         this.activeRequests.clear();
-         this.multiplier = 1.0F;
-      }
-
-      synchronized float getMultiplier() {
-         return this.multiplier;
-      }
+         return true;
+      });
    }
 
    public static class PlayerTicks extends TickRateController {
       private float fractionalTicks;
-
-      @EventHandler
-      private void resetFractionalTicksOnDisconnect(MinecraftDisconnectEvent event) {
-         this.fractionalTicks = 0.0F;
-      }
 
       @EventHandler(priority = -200)
       private void onLocalPlayerTickEvent(LocalPlayerTickEvent event) {

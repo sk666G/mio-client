@@ -57,6 +57,7 @@ public class ChatModule extends HudWidgetModule {
 
    @Override
    public float[] calculateDimensions() {
+      float[] dimensions = new float[2];
       Options options = ClientAccess.schizoMinecraft.options;
       OptionInstance chatWidth = options.chatWidth();
       Double widthOption = (Double)chatWidth.get();
@@ -64,10 +65,10 @@ public class ChatModule extends HudWidgetModule {
       sizeValue *= 280.0F;
       sizeValue += 40.0F;
       float scalePadding = 12.0F;
-      float width = sizeValue + scalePadding * this.getChatScale();
+      dimensions[0] = sizeValue + scalePadding * this.getChatScale();
       sizeValue = this.getUnfocusedChatHeight();
-      float height = sizeValue * this.getChatScale();
-      return this.dimensions(width, height);
+      dimensions[1] = sizeValue * this.getChatScale();
+      return dimensions;
    }
 
    private float getUnfocusedChatHeight() {

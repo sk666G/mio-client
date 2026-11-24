@@ -12,11 +12,9 @@ package dev.schizo.client.modules.combat;
 import dev.schizo.client.utils.math.MathConstants;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
-import dev.schizo.client.utils.network.ServerSideDeathState;
 import dev.schizo.client.events.CancellableEvent;
 import dev.schizo.client.events.RotationRequestEvent;
 import dev.schizo.client.events.EventHandler;
-import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.events.LocalPlayerPreTickEvent;
 import dev.schizo.client.events.MultiPlayerGameModeReleaseUsingItemEvent;
 import dev.schizo.client.events.MultiPlayerGameModeUseItemEvent;
@@ -77,22 +75,9 @@ public class ArrowsModule extends Module {
    private int selectedArrowSlot;
    private Potion selectedArrowPotion;
    private boolean allowNextProjectileUse;
-   private long autoShotGeneration;
 
    static {
       autoShotInProgress = new AtomicBoolean();
-   }
-
-   @EventHandler
-   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
-      this.autoShotGeneration++;
-      autoShotInProgress.set(false);
-      this.recentEffectTimes.clear();
-      this.pendingEffects.clear();
-      this.selectedArrowSlot = -1;
-      this.selectedArrowPotion = null;
-      this.allowNextProjectileUse = false;
-      this.arrowSwapTimer.clear();
    }
 
    @Override
@@ -151,16 +136,14 @@ public class ArrowsModule extends Module {
 
          temporarySlotIndex %= 9;
 
+         InventoryUtils.selectHotbarSlotForPlacement(temporarySlotIndex);
+         Direction releaseDirection = Direction.DOWN;
+         BlockPos releasePosition = BlockPos.ZERO;
+         Action releaseAction = Action.RELEASE_USE_ITEM;
+         PacketSender.sendPlayerAction(releaseAction, releasePosition, releaseDirection);
+
+         InventoryUtils.selectHotbarSlotForPlacement(previousHotbarSlot);
          event.cancel();
-         try {
-            InventoryUtils.selectHotbarSlotForPlacement(temporarySlotIndex);
-            Direction releaseDirection = Direction.DOWN;
-            BlockPos releasePosition = BlockPos.ZERO;
-            Action releaseAction = Action.RELEASE_USE_ITEM;
-            PacketSender.sendPlayerAction(releaseAction, releasePosition, releaseDirection);
-         } finally {
-            InventoryUtils.selectHotbarSlotForPlacement(previousHotbarSlot);
-         }
       }
    }
 
@@ -316,10 +299,7 @@ public class ArrowsModule extends Module {
       return false;
    }
 
-   private void finishAutoShot(long shotGeneration) {
-      if (shotGeneration != this.autoShotGeneration) {
-         return;
-      }
+   private void finishAutoShot() {
       autoShotInProgress.set(false);
       this.disable();
    }
@@ -377,53 +357,19 @@ public class ArrowsModule extends Module {
             }
 
             if (!autoShotInProgress.get()) {
-               long shotGeneration = ++this.autoShotGeneration;
                autoShotInProgress.set(true);
                TaskScheduler scheduler = ClientContext.taskScheduler;
                Runnable releaseShot = () -> {
-                  if (!autoShotInProgress.get() || shotGeneration != this.autoShotGeneration) {
-                     return;
-                  }
-                  if (this.isWorldUnavailable()) {
-                     this.finishAutoShot(shotGeneration);
-                     return;
-                  }
+                  ClientAccess.schizoMinecraft.gameMode.releaseUsingItem(ClientAccess.schizoMinecraft.player);
 
-                  boolean releaseSucceeded = false;
-                  boolean slotRestored = false;
-                  try {
-                     ClientAccess.schizoMinecraft.gameMode.releaseUsingItem(usePlayer);
-                     releaseSucceeded = true;
-                  } finally {
-                     try {
-                        InventoryUtils.selectHotbarSlot(previousHotbarSlot);
-                        slotRestored = true;
-                     } finally {
-                        if (!releaseSucceeded || !slotRestored) {
-                           this.finishAutoShot(shotGeneration);
-                        }
-                     }
-                  }
-
+                  InventoryUtils.selectHotbarSlot(previousHotbarSlot);
                   TaskScheduler finishScheduler = ClientContext.taskScheduler;
-                  Runnable finishShot = () -> this.finishAutoShot(shotGeneration);
-                  if (!finishScheduler.scheduleRotationTask(finishShot, 1)) {
-                     this.finishAutoShot(shotGeneration);
-                  }
+                  Runnable finishShot = this::finishAutoShot;
+                  finishScheduler.scheduleRotationTask(finishShot, 1);
                };
 
                int releaseDelay = this.speedSetting.getValue();
-               if (!scheduler.scheduleRotationTask(releaseShot, releaseDelay)) {
-                  try {
-                     gameMode.releaseUsingItem(usePlayer);
-                  } finally {
-                     try {
-                        InventoryUtils.selectHotbarSlot(previousHotbarSlot);
-                     } finally {
-                        this.finishAutoShot(shotGeneration);
-                     }
-                  }
-               }
+               scheduler.scheduleRotationTask(releaseShot, releaseDelay);
             }
 
             return;
@@ -450,15 +396,8 @@ public class ArrowsModule extends Module {
 
       while (players.hasNext()) {
          AbstractClientPlayer candidate = (AbstractClientPlayer)players.next();
-         if (CombatTargetPolicy.isEligible(
-            candidate.isAlive(),
-            candidate.isDeadOrDying(),
-            candidate == ClientAccess.schizoMinecraft.player,
-            candidate.isSpectator(),
-            candidate.isCreative(),
-            ClientContext.socialRegistry.isFriendPlayer(candidate),
-            ((ServerSideDeathState)candidate).isServerSideDead()
-         )) {
+         if (ClientAccess.schizoMinecraft.player != candidate) {
+            if (!ClientContext.socialRegistry.isFriendPlayer(candidate)) {
                float[] rotations = RotationManager.getRotationsToEntity(candidate);
 
                angleValue = ClientAccess.schizoMinecraft.player.getYRot();
@@ -496,6 +435,7 @@ public class ArrowsModule extends Module {
                }
             }
          }
+      }
 
       return bestPlayer;
    }

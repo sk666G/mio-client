@@ -134,13 +134,6 @@ public abstract class LevelRendererMixin implements ClientAccess, LevelRendererF
       boolean renderFlag2,
       CallbackInfo callback
    ) {
-      // Schizo's extra world passes clear the depth buffer twice. Avoid that
-      // GPU work entirely when no enabled feature has a world-render listener.
-      if (!ClientAccess.eventBus.hasListeners(WorldRenderEvent.BeforeDepthClear.class)
-         && !ClientAccess.eventBus.hasListeners(WorldRenderEvent.Main.class)
-         && !ClientAccess.eventBus.hasListeners(WorldRenderEvent.Overlay.class)) {
-         return;
-      }
       PoseStack poses = new PoseStack();
       float partialTick = RenderUtils.getPartialTick();
       GpuBufferSlice previousFog = RenderSystem.getShaderFog();
@@ -198,12 +191,12 @@ public abstract class LevelRendererMixin implements ClientAccess, LevelRendererF
       CallbackInfo callback,
       @Local PoseStack poses
    ) {
-      if (ClientAccess.eventBus.hasListeners(WorldRenderEvent.BeforeBufferSource.class)) {
-         WorldRenderEvent.BeforeBufferSource event = WorldRenderEvent.BeforeBufferSource.create(
-            poses, RenderUtils.getPartialTick()
-         );
-         ClientAccess.eventBus.post(event);
-      }
+      WorldRenderEvent.BeforeBufferSource event = WorldRenderEvent.BeforeBufferSource.create(
+         poses, RenderUtils.getPartialTick()
+      );
+      ClientAccess.eventBus.post(
+         event
+      );
    }
 
    @Inject(

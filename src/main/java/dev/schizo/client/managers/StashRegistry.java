@@ -24,8 +24,6 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import java.util.Iterator;
 import java.util.Collection;
-import java.util.ArrayList;
-import java.util.List;
 
 public final class StashRegistry extends Registry<StashEntry> implements ClientAccess, JsonConfigurable {
    private static StashFinderModule stashFinderModule;
@@ -45,29 +43,21 @@ public final class StashRegistry extends Registry<StashEntry> implements ClientA
          return;
       }
       JsonObject object = element.getAsJsonObject();
-      if (!object.has("stashes") || !object.get("stashes").isJsonArray()) {
+      if (!object.has("stashes")) {
          return;
       }
-
-      List<StashEntry> loaded = new ArrayList<>();
+      object = element.getAsJsonObject();
       JsonArray stashes = object.getAsJsonArray("stashes");
-      for (JsonElement stashElement : stashes) {
+      Iterator<JsonElement> iterator = stashes.iterator();
+      while (iterator.hasNext()) {
+         JsonElement stashElement = iterator.next();
          try {
-            StashEntry stash = ClientAccess.gson.fromJson(stashElement, StashEntry.class);
-            if (stash == null || !stash.isPersistable()) {
-               continue;
-            }
-            boolean duplicate = loaded.stream().anyMatch(existing -> existing.hasSameLocation(stash));
-            if (!duplicate) {
-               loaded.add(stash);
-            }
-         } catch (Exception invalidEntry) {
-            ClientAccess.logger.warn("Skipping invalid stash entry in stashfinder.json", invalidEntry);
+            Collection<StashEntry> stashEntries = this.entries;
+            Gson gson = ClientAccess.gson;
+            stashEntries.add((StashEntry)gson.fromJson(stashElement, StashEntry.class));
+         } catch (Exception ignored) {
          }
       }
-
-      this.entries.clear();
-      this.entries.addAll(loaded);
    }
 
    @Override

@@ -1233,20 +1233,18 @@ public class SpeedMineModule extends Module {
 
                   // Restore the same swap mechanism after the extra break has been sent.
                   Runnable restoreExtraSlot = () -> {
-                     try {
-                        if (useExtraInventorySwap) {
-                           InventoryUtils.swapIntoSelectedSlot(extraToolSlot);
-                        } else {
-                           InventoryUtils.selectHotbarSlot(extraPreviousSlot);
-                        }
-                     } finally {
-                        swapPending.set(false);
+                     if (useExtraInventorySwap) {
+                        InventoryUtils.swapIntoSelectedSlot(extraToolSlot);
+                     } else {
+                        PacketSender.sendSelectedSlot(extraPreviousSlot);
+                        LocalPlayer player = ClientAccess.schizoMinecraft.player;
+                        Inventory inventory = player.getInventory();
+                        inventory.setSelectedSlot(extraPreviousSlot);
                      }
+                     swapPending.set(false);
                   };
 
-                  if (!extraSwapScheduler.scheduleRotationTask(restoreExtraSlot, 2)) {
-                     restoreExtraSlot.run();
-                  }
+                  extraSwapScheduler.scheduleRotationTask(restoreExtraSlot, 2);
                   return;
                }
             }
@@ -1507,33 +1505,25 @@ public class SpeedMineModule extends Module {
                      int slotToRestore = selectedSlot;
 
                      Runnable restoreSlotTask = () -> {
-                        try {
-                           if (alternativeAllowed && this.autoSwapModeSetting.getValue() == SpeedMineAutoSwapChoice.SILENT) {
-                              InventoryUtils.swapIntoSelectedSlot(toolSlot);
-                           } else if (slotToRestore != toolSlot || this.value121Setting.getValue() == SpeedMineValue121Choice.TICK) {
-                              InventoryUtils.selectHotbarSlotForPlacement(slotToRestore);
-                           }
-                        } finally {
-                           autoCrystalModule.placementGate.set(false);
+                        if (alternativeAllowed && this.autoSwapModeSetting.getValue() == SpeedMineAutoSwapChoice.SILENT) {
+                           InventoryUtils.swapIntoSelectedSlot(toolSlot);
+                        } else if (slotToRestore != toolSlot || this.value121Setting.getValue() == SpeedMineValue121Choice.TICK) {
+                           InventoryUtils.selectHotbarSlotForPlacement(slotToRestore);
                         }
+                        autoCrystalModule.placementGate.set(false);
                      };
                      if (needsExtraTick && this.value121Setting.getValue() == SpeedMineValue121Choice.TICK
                         && WorldUtils.canMineBlock(brokenPosition)) {
                         swapPending.set(true);
                         TaskScheduler scheduler = ClientContext.taskScheduler;
                         Runnable delayedBreak = () -> {
-                           try {
-                              PacketSender.sendPlayerAction(Action.STOP_DESTROY_BLOCK, brokenPosition, destroyFace);
-                              WorldStateManager worldState = ClientContext.worldStateManager;
-                              worldState.destroyBlockPredicted(brokenPosition);
-                           } finally {
-                              swapPending.set(false);
-                              restoreSlotTask.run();
-                           }
+                           PacketSender.sendPlayerAction(Action.STOP_DESTROY_BLOCK, brokenPosition, destroyFace);
+                           WorldStateManager worldState = ClientContext.worldStateManager;
+                           worldState.destroyBlockPredicted(brokenPosition);
+                           swapPending.set(false);
+                           restoreSlotTask.run();
                         };
-                        if (!scheduler.scheduleRotationTask(delayedBreak, 1)) {
-                           delayedBreak.run();
-                        }
+                        scheduler.scheduleRotationTask(delayedBreak, 1);
                      } else {
                         restoreSlotTask.run();
                      }

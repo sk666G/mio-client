@@ -291,12 +291,6 @@ public class LongJumpModule extends Module {
       this.autoDisableSetting = this.add(new BooleanSetting("AutoDisable", true));
 
       this.movementStage = 4;
-      this.modeSetting.setChangeCallback(this::releaseTimerRequest);
-      this.useTimerSetting.setChangeCallback(this::releaseTimerRequest);
-   }
-
-   private void releaseTimerRequest() {
-      ClientContext.tickRateController.releaseMultiplier(this);
    }
 
    public enum ModeChoice implements NamedEntry {

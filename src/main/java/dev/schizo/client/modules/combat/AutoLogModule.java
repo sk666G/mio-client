@@ -88,33 +88,28 @@ public class AutoLogModule extends Module {
    private long disconnectTimeMillis;
 
    private void requestDisconnect(String reason) {
-      if (this.pendingDisconnect != null) {
-         return;
-      }
-
-      ClientPacketListener packetListener = ClientAccess.schizoMinecraft.player.connection;
-      Connection connection = packetListener.getConnection();
-      boolean useIllegalDisconnect = false;
-
-      if (connection != null) {
-         Setting<Boolean> ignoreProxySettingSource = illegalDisconnect.ignoreProxySetting;
-         boolean allowIllegalDisconnect = !ignoreProxySettingSource.getValue() || !IllegalDisconnectModule.isIgnoredProxy();
-         useIllegalDisconnect = illegalDisconnect.isToggled() && allowIllegalDisconnect;
-      }
-
-      if (shouldDisableImmediately(this.autoDisableSetting.getValue(), useIllegalDisconnect)) {
+      if (this.autoDisableSetting.getValue()) {
          this.disable();
       }
 
+      ClientPacketListener packetListener = ClientAccess.schizoMinecraft.player.connection;
+
+      Connection connection = packetListener.getConnection();
       if (connection != null) {
          this.disconnectTimeMillis = System.currentTimeMillis();
 
          if (!this.reconnectSetting.getValue()) {
             ClientContext.serverStateManager.autoLogged = true;
+
             autoReconnect.disable();
          }
 
-         if (useIllegalDisconnect) {
+         Setting<Boolean> ignoreProxySettingSource = illegalDisconnect.ignoreProxySetting;
+
+         boolean allowIllegalDisconnect = !ignoreProxySettingSource.getValue() || !IllegalDisconnectModule.isIgnoredProxy();
+
+         if (illegalDisconnect.isToggled() && allowIllegalDisconnect) {
+            IllegalDisconnectModule.sendInvalidChatPacket();
             if (this.pendingDisconnect == null) {
                this.disconnectTimer.reset();
             }
@@ -122,20 +117,11 @@ public class AutoLogModule extends Module {
             this.pendingDisconnect = () -> {
                connection.disconnect(this.buildDisconnectReason(reason));
             };
-            IllegalDisconnectModule.sendInvalidChatPacket();
             return;
          }
 
          connection.disconnect(this.buildDisconnectReason(reason));
       }
-   }
-
-   static boolean shouldDisableImmediately(boolean autoDisable, boolean deferredDisconnect) {
-      return autoDisable && !deferredDisconnect;
-   }
-
-   static boolean shouldDisableAfterPendingDisconnect(boolean autoDisable, boolean disconnectFinished) {
-      return autoDisable && disconnectFinished;
    }
 
    private Component buildDisconnectReason(String reason) {
@@ -355,23 +341,13 @@ public class AutoLogModule extends Module {
    @EventHandler
    private void onMinecraftRunTickEvent(MinecraftRunTickEvent event) {
       if (this.isWorldUnavailable()) {
-         boolean hadPendingDisconnect = this.pendingDisconnect != null;
          this.pendingDisconnect = null;
-         if (shouldDisableAfterPendingDisconnect(this.autoDisableSetting.getValue(), hadPendingDisconnect)) {
-            this.disable();
-         }
-         return;
       }
 
-      if (this.pendingDisconnect != null && this.disconnectTimer.hasElapsed(1500L)) {
-         Runnable disconnect = this.pendingDisconnect;
-         this.pendingDisconnect = null;
-         try {
-            disconnect.run();
-         } finally {
-            if (shouldDisableAfterPendingDisconnect(this.autoDisableSetting.getValue(), true)) {
-               this.disable();
-            }
+      if (this.pendingDisconnect != null) {
+         if (this.disconnectTimer.hasElapsed(1500L)) {
+            this.pendingDisconnect.run();
+            this.pendingDisconnect = null;
          }
       }
    }
@@ -425,17 +401,9 @@ public class AutoLogModule extends Module {
    private void onPacketReceived(
       PacketEvent.Receive event
    ) {
-      if (event.getPacket() instanceof ClientboundDisconnectPacket && this.pendingDisconnect != null) {
+      if (event.getPacket() instanceof ClientboundDisconnectPacket) {
          this.pendingDisconnect = null;
-         if (shouldDisableAfterPendingDisconnect(this.autoDisableSetting.getValue(), true)) {
-            this.disable();
-         }
       }
-   }
-
-   @Override
-   public void onDisable() {
-      this.pendingDisconnect = null;
    }
 
    public static void bindModules(ModuleRegistry modules) {

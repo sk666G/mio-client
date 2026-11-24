@@ -9,7 +9,6 @@
 
 package dev.schizo.mixin;
 
-import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import com.llamalad7.mixinextras.sugar.Local;
 import com.llamalad7.mixinextras.sugar.ref.LocalFloatRef;
@@ -68,6 +67,12 @@ public abstract class LivingEntityMixin extends Entity implements ServerSideDeat
    private float travelYaw;
    @Unique
    private float travelPitch;
+   private static ElytraFlyModule efly = ClientContext.getModule(ElytraFlyModule.class);
+   private static NoJumpDelayModule noJumpDelayModule = ClientContext.getModule(NoJumpDelayModule.class);
+   private static JesusModule jesusModule = ClientContext.getModule(JesusModule.class);
+   private static SwingModule swing = ClientContext.getModule(SwingModule.class);
+   private static FastClimbModule fastClimbModule = ClientContext.getModule(FastClimbModule.class);
+   private static HighJumpModule highJumpModule = ClientContext.getModule(HighJumpModule.class);
 
    public LivingEntityMixin(EntityType entityType, Level level) {
       super(entityType, level);
@@ -79,11 +84,11 @@ public abstract class LivingEntityMixin extends Entity implements ServerSideDeat
 
    @Inject(method = "getCurrentSwingDuration", at = @At("HEAD"), cancellable = true)
    private void overrideSwingDuration(CallbackInfoReturnable<Integer> callback) {
-      if (MixinModuleRegistry.livingEntitySwing.isToggled()) {
+      if (swing.isToggled()) {
          LivingEntity entity = (LivingEntity)(Object)this;
          callback.cancel();
-         boolean legacySwing = MixinModuleRegistry.livingEntitySwing.typeSetting.getValue() == SwingModule.TypeChoice.ONE_EIGHT;
-         int baseDuration = (int)((legacySwing ? 7 : 6) / MixinModuleRegistry.livingEntitySwing.speedSetting.getValue());
+         boolean legacySwing = swing.typeSetting.getValue() == SwingModule.TypeChoice.ONE_EIGHT;
+         int baseDuration = (int)((legacySwing ? 7 : 6) / swing.speedSetting.getValue());
          if (MobEffectUtil.hasDigSpeed(entity)) {
             callback.setReturnValue(baseDuration - (1 + MobEffectUtil.getDigSpeedAmplification(entity)));
          } else {
@@ -103,7 +108,7 @@ public abstract class LivingEntityMixin extends Entity implements ServerSideDeat
       if (!ClientAccess.isLocalPlayer(this)) {
          return;
       }
-      if (MixinModuleRegistry.livingEntityEfly.isPacketFlightActive() || MixinModuleRegistry.livingEntityEfly.isDurabilityBypassActive()) {
+      if (efly.isPacketFlightActive() || efly.isDurabilityBypassActive()) {
          callback.setReturnValue(false);
          callback.cancel();
       }
@@ -112,8 +117,8 @@ public abstract class LivingEntityMixin extends Entity implements ServerSideDeat
    @Inject(method = "canStandOnFluid", at = @At("HEAD"), cancellable = true)
    private void allowStandingOnWater(CallbackInfoReturnable<Boolean> callback) {
       if ((Object)this == Minecraft.getInstance().player
-         && MixinModuleRegistry.livingEntityJesusModule.isToggled()
-         && MixinModuleRegistry.livingEntityJesusModule.canWalkOnWater()
+         && jesusModule.isToggled()
+         && jesusModule.canWalkOnWater()
          && !Minecraft.getInstance().player.isInWater()) {
          callback.setReturnValue(true);
       }
@@ -205,12 +210,12 @@ public abstract class LivingEntityMixin extends Entity implements ServerSideDeat
    @Inject(method = "aiStep", at = @At("HEAD"))
    public void updateJumpDelay(CallbackInfo callback) {
       Minecraft client = Minecraft.getInstance();
-      if (MixinModuleRegistry.livingEntityEfly.isToggled()
-         && MixinModuleRegistry.livingEntityEfly.modeSetting.getValue() == ElytraFlyModule.ModeChoice.BOUNCE
+      if (efly.isToggled()
+         && efly.modeSetting.getValue() == ElytraFlyModule.ModeChoice.BOUNCE
          && this.equals(client.player)
          && this.noJumpDelay > 2) {
          this.noJumpDelay = 2;
-      } else if (MixinModuleRegistry.livingEntityNoJumpDelayModule.isToggled()
+      } else if (noJumpDelayModule.isToggled()
          && this.equals(client.player)
          && !client.player.isFallFlying()) {
          this.noJumpDelay = 0;
@@ -220,7 +225,7 @@ public abstract class LivingEntityMixin extends Entity implements ServerSideDeat
    @Inject(method = "isFallFlying", at = @At("TAIL"), cancellable = true)
    public void suppressFallFlyingForDurabilityBypass(CallbackInfoReturnable<Boolean> callback) {
       if (ClientAccess.isLocalPlayer(this)) {
-         if (MixinModuleRegistry.livingEntityEfly.isDurabilityBypassActive()) {
+         if (efly.isDurabilityBypassActive()) {
             callback.setReturnValue(false);
          }
       }
@@ -293,18 +298,18 @@ public abstract class LivingEntityMixin extends Entity implements ServerSideDeat
 
    @ModifyExpressionValue(method = "jumpFromGround", at = @At(value = "CONSTANT", args = "floatValue=1.0E-5"))
    private float modifyJumpThreshold(float originalThreshold) {
-      return MixinModuleRegistry.livingEntityHighJumpModule.isToggled() ? -1.0F : originalThreshold;
+      return highJumpModule.isToggled() ? -1.0F : originalThreshold;
    }
 
    @ModifyExpressionValue(method = "handleRelativeFrictionAndCalculateMovement", at = @At(value = "CONSTANT", args = "doubleValue=0.2"))
    private double modifyClimbSpeed(
       double originalSpeed, @Local(ordinal = 1) Vec3 movement
    ) {
-      if (MixinModuleRegistry.livingEntityFastClimbModule.canFastClimb()) {
-         return MixinModuleRegistry.livingEntityFastClimbModule.speedSetting
+      if (fastClimbModule.canFastClimb()) {
+         return fastClimbModule.speedSetting
                .isAtMinimum()
             ? movement.y
-            : (MixinModuleRegistry.livingEntityFastClimbModule.speedSetting.getValue())
+            : (fastClimbModule.speedSetting.getValue())
                .floatValue();
       } else {
          return originalSpeed;
@@ -315,8 +320,8 @@ public abstract class LivingEntityMixin extends Entity implements ServerSideDeat
    private void bypassClimbConstraints(
       Vec3 movement, CallbackInfoReturnable<Vec3> callback
    ) {
-      if (MixinModuleRegistry.livingEntityFastClimbModule.canFastClimb()
-         && MixinModuleRegistry.livingEntityFastClimbModule.speedSetting
+      if (fastClimbModule.canFastClimb()
+         && fastClimbModule.speedSetting
             .isAtMinimum()) {
          callback.setReturnValue(movement);
       }
@@ -385,4 +390,21 @@ public abstract class LivingEntityMixin extends Entity implements ServerSideDeat
       }
    }
 
+   @Unique
+   private static void schizo$bindLivingEntityModules(ModuleRegistry moduleRegistry) {
+      efly = (ElytraFlyModule)moduleRegistry.getModule(ElytraFlyModule.class);
+      noJumpDelayModule = (NoJumpDelayModule)moduleRegistry.getModule(
+         NoJumpDelayModule.class
+      );
+      jesusModule = (JesusModule)moduleRegistry.getModule(
+         JesusModule.class
+      );
+      swing = (SwingModule)moduleRegistry.getModule(SwingModule.class);
+      fastClimbModule = (FastClimbModule)moduleRegistry.getModule(
+         FastClimbModule.class
+      );
+      highJumpModule = (HighJumpModule)moduleRegistry.getModule(
+         HighJumpModule.class
+      );
+   }
 }

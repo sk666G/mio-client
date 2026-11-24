@@ -9,7 +9,6 @@
 
 package dev.schizo.mixin;
 
-import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import com.llamalad7.mixinextras.injector.v2.WrapWithCondition;
 import com.llamalad7.mixinextras.sugar.Local;
@@ -46,6 +45,16 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(Minecraft.class)
 public class MinecraftMixin {
+   private static UIModule uiModule = ClientContext.getModule(UIModule.class);
+   private static MultiTaskModule multiTaskModule = ClientContext.getModule(MultiTaskModule.class);
+   private static AutoEatModule autoEatModule = ClientContext.getModule(AutoEatModule.class);
+   private static AntiQuitModule antiQuitModule = ClientContext.getModule(AntiQuitModule.class);
+   private static NoHitDelayModule noHitDelayModule = ClientContext.getModule(NoHitDelayModule.class);
+   private static AutoClickerModule autoClickerModule = ClientContext.getModule(AutoClickerModule.class);
+   private static ArrowsModule arrowsModule = ClientContext.getModule(ArrowsModule.class);
+   private static AutoCrystalModule autoCrystalModule = ClientContext.getModule(AutoCrystalModule.class);
+   private static NoRenderModule noRenderModule = ClientContext.getModule(NoRenderModule.class);
+   private static DiscordModule discordModule = ClientContext.getModule(DiscordModule.class);
    @Unique
    private Screen previousScreen;
    @Shadow
@@ -57,8 +66,8 @@ public class MinecraftMixin {
 
    @Inject(method = "startAttack", at = @At("HEAD"))
    public void resetAttackMissTime(CallbackInfoReturnable<Boolean> callback) {
-      if (MixinModuleRegistry.minecraftNoHitDelayModule.isToggled()
-         || MixinModuleRegistry.minecraftAutoClickerModule.isToggled()) {
+      if (noHitDelayModule.isToggled()
+         || autoClickerModule.isToggled()) {
          this.missTime = 0;
       }
    }
@@ -68,17 +77,7 @@ public class MinecraftMixin {
       if (!shutdownSaveStarted
          && ClientContext.configurationManager != null) {
          shutdownSaveStarted = true;
-         if (ClientContext.taskScheduler != null) {
-            ClientContext.taskScheduler.shutdown();
-         }
-         if (ClientContext.contextProfileRegistry != null
-            && !ClientContext.contextProfileRegistry.restoreBeforeShutdown()) {
-            ClientAccess.logger.error(
-               "Skipping shutdown configuration save to protect the user's pre-profile settings"
-            );
-            return;
-         }
-         MixinModuleRegistry.minecraftUiModule.disable();
+         uiModule.disable();
          ClientContext.configurationManager
             .save();
       }
@@ -95,12 +94,12 @@ public class MinecraftMixin {
 
    @ModifyExpressionValue(method = "continueAttack", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/player/LocalPlayer;isUsingItem()Z"))
    public boolean bypassUsingItemForContinueAttack(boolean originalUsingItem) {
-      return !MixinModuleRegistry.minecraftMultiTaskModule.isToggled() && originalUsingItem;
+      return !multiTaskModule.isToggled() && originalUsingItem;
    }
 
    @ModifyExpressionValue(method = "startUseItem", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/multiplayer/MultiPlayerGameMode;isDestroying()Z"), require = 0)
    public boolean bypassDestroyingForStartUseItem(boolean originalDestroying) {
-      return MixinModuleRegistry.minecraftMultiTaskModule.isToggled() ? false : originalDestroying;
+      return multiTaskModule.isToggled() ? false : originalDestroying;
    }
 
    @Inject(method = "setScreen", at = @At("HEAD"), cancellable = true)
@@ -138,16 +137,16 @@ public class MinecraftMixin {
 
    @ModifyExpressionValue(method = "handleKeybinds", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/player/LocalPlayer;isUsingItem()Z"))
    private boolean bypassUsingItemForAutoEat(boolean originalUsingItem) {
-      return MixinModuleRegistry.minecraftAutoEatModule.isEating()
-            && MixinModuleRegistry.minecraftAutoEatModule.isToggled()
+      return autoEatModule.isEating()
+            && autoEatModule.isToggled()
          ? false
          : originalUsingItem;
    }
 
    @WrapWithCondition(method = "runTick", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/Minecraft;stop()V"))
    private boolean confirmGameClose(Minecraft client) {
-      if (MixinModuleRegistry.minecraftAntiQuitModule.isToggled()
-         && MixinModuleRegistry.minecraftAntiQuitModule.gameCloseSetting.getValue()) {
+      if (antiQuitModule.isToggled()
+         && antiQuitModule.gameCloseSetting.getValue()) {
          if (!(client.screen instanceof ConfirmGameCloseScreen)) {
             client.setScreen(new ConfirmGameCloseScreen());
          }
@@ -168,39 +167,72 @@ public class MinecraftMixin {
 
    @ModifyExpressionValue(method = "handleKeybinds", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/player/LocalPlayer;isUsingItem()Z"))
    private boolean bypassUsingItemForArrows(boolean originalUsingItem) {
-      return MixinModuleRegistry.minecraftArrowsModule.shouldBypassUsingItemCheck()
+      return arrowsModule.shouldBypassUsingItemCheck()
          ? false
          : originalUsingItem;
    }
 
    @Inject(method = "startUseItem", at = @At("HEAD"))
    private void completeCrystalCalculationBeforeUse(CallbackInfo callback) {
-      MixinModuleRegistry.minecraftAutoCrystalModule.completeCalculation();
+      autoCrystalModule.completeCalculation();
    }
 
    @ModifyExpressionValue(method = "startUseItem", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/player/LocalPlayer;isHandsBusy()Z"))
    private boolean bypassHandsBusyForStartUseItem(boolean originalHandsBusy) {
-      return MixinModuleRegistry.minecraftMultiTaskModule.isToggled() ? false : originalHandsBusy;
+      return multiTaskModule.isToggled() ? false : originalHandsBusy;
    }
 
    @ModifyExpressionValue(method = "startAttack", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/player/LocalPlayer;isHandsBusy()Z"))
    private boolean bypassHandsBusyForStartAttack(boolean originalHandsBusy) {
-      return MixinModuleRegistry.minecraftMultiTaskModule.isToggled() ? false : originalHandsBusy;
+      return multiTaskModule.isToggled() ? false : originalHandsBusy;
    }
 
    @Inject(method = "shouldEntityAppearGlowing", at = @At("HEAD"), cancellable = true)
    private void suppressEntityGlow(
       Entity entity, CallbackInfoReturnable<Boolean> callback
    ) {
-      if (MixinModuleRegistry.minecraftNoRenderModule.isToggled()
-         && MixinModuleRegistry.minecraftNoRenderModule.glowSetting.getValue()) {
+      if (noRenderModule.isToggled()
+         && noRenderModule.glowSetting.getValue()) {
          callback.setReturnValue(false);
       }
    }
 
    @Inject(method = "close", at = @At("HEAD"))
    public void closeDiscordClient(CallbackInfo callback) {
-      MixinModuleRegistry.minecraftDiscordModule.closeClient();
+      discordModule.closeClient();
    }
 
+   @Unique
+   private static void schizo$bindMinecraftModules(ModuleRegistry moduleRegistry) {
+      uiModule = (UIModule)moduleRegistry.getModule(
+         UIModule.class
+      );
+      multiTaskModule = (MultiTaskModule)moduleRegistry.getModule(
+         MultiTaskModule.class
+      );
+      autoEatModule = (AutoEatModule)moduleRegistry.getModule(
+         AutoEatModule.class
+      );
+      antiQuitModule = (AntiQuitModule)moduleRegistry.getModule(
+         AntiQuitModule.class
+      );
+      noHitDelayModule = (NoHitDelayModule)moduleRegistry.getModule(
+         NoHitDelayModule.class
+      );
+      autoClickerModule = (AutoClickerModule)moduleRegistry.getModule(
+         AutoClickerModule.class
+      );
+      arrowsModule = (ArrowsModule)moduleRegistry.getModule(
+         ArrowsModule.class
+      );
+      autoCrystalModule = (AutoCrystalModule)moduleRegistry.getModule(
+         AutoCrystalModule.class
+      );
+      noRenderModule = (NoRenderModule)moduleRegistry.getModule(
+         NoRenderModule.class
+      );
+      discordModule = (DiscordModule)moduleRegistry.getModule(
+         DiscordModule.class
+      );
+   }
 }

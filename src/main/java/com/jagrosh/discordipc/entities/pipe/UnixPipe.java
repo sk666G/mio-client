@@ -1,21 +1,3 @@
-/*
- * Copyright 2017 John Grosh (john.a.grosh@gmail.com).
- *
- * Downstream changes from the Open Zio and Schizo source snapshots are included.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package com.jagrosh.discordipc.entities.pipe;
 
 import com.google.gson.JsonObject;
@@ -25,8 +7,6 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 
-import java.net.UnixDomainSocketAddress;
-import java.nio.channels.SocketChannel;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.HashMap;
@@ -36,12 +16,11 @@ import org.slf4j.LoggerFactory;
 
 public class UnixPipe extends Pipe {
    private static final Logger LOGGER = LoggerFactory.getLogger(UnixPipe.class);
-   private final SocketChannel socket;
-   private final Object writeLock = new Object();
+   private final JavaUnixSocketTransport socket;
 
    UnixPipe(IPCClient client, HashMap callbacks, File endpoint) throws IOException {
       super(client, callbacks);
-      this.socket = SocketChannel.open(UnixDomainSocketAddress.of(endpoint.toPath()));
+      this.socket = JavaUnixSocketTransport.connect(endpoint.toPath());
    }
 
    @Override
@@ -49,12 +28,10 @@ public class UnixPipe extends Pipe {
       try {
          if (this.status == PipeStatus.DISCONNECTED) throw new IOException("Disconnected!");
          if (this.status == PipeStatus.CLOSED) return new Packet(Packet.OpCode.CLOSE, null, this.ipcClient.getEncoding());
-         dev.schizo.client.integrations.discord.DiscordIpcFrameCodec.Frame frame =
-            dev.schizo.client.integrations.discord.DiscordIpcFrameCodec.read(this.socket);
+         IpcFrameCodec.Frame frame = this.socket.read();
          Packet.OpCode[] codes = Packet.OpCode.values();
-         int opcodeId = dev.schizo.client.integrations.discord.DiscordIpcFrameCodec
-            .validateOpcode(frame.opcode(), codes.length);
-         return this.receive(codes[opcodeId], frame.body());
+         if (frame.opcode() < 0 || frame.opcode() >= codes.length) throw new IOException("Unknown IPC opcode: " + frame.opcode());
+         return this.receive(codes[frame.opcode()], frame.body());
       } catch (IOException failure) {
          if (this.status == PipeStatus.CLOSED) return new Packet(Packet.OpCode.CLOSE, null, this.ipcClient.getEncoding());
          throw failure;
@@ -63,15 +40,7 @@ public class UnixPipe extends Pipe {
 
    @Override
    public void write(byte[] packet) throws IOException {
-      synchronized (this.writeLock) {
-         dev.schizo.client.integrations.discord.DiscordIpcFrameCodec.writeFully(this.socket, packet);
-      }
-   }
-
-   @Override
-   public void abort() throws IOException {
-      this.status = PipeStatus.CLOSED;
-      this.socket.close();
+      this.socket.write(packet);
    }
 
    @Override

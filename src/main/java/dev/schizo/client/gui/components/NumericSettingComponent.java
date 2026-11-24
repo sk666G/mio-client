@@ -26,6 +26,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.text.NumberFormat;
 import net.minecraft.util.Mth;
+import java.util.regex.Matcher;
 public class NumericSettingComponent<N extends Number> extends SettingComponent<N> {
    private static final NumberFormat NUMBER_FORMAT;
    private final InterpolatedFloat sliderFillAnimation = new InterpolatedFloat(
@@ -199,26 +200,31 @@ public class NumericSettingComponent<N extends Number> extends SettingComponent<
             - 0.5F,
          this.getUiModule().colorSetting.getValue()
       );
+      String unitText = this.numberSetting.getUnit();
+      String valueText = ((NUMBER_FORMAT.format((this.setting.getValue()).doubleValue())) + "\u0001")
+         .replaceFirst("\u0001", Matcher.quoteReplacement(String.valueOf(unitText)));
+      if (this.setting
+         .shouldDisplayBoundaryLabel()) {
+         valueText = this.setting
+            .getBoundaryLabel();
+      }
+
       String displayText;
       if (this.editing) {
          displayText = this.inputText;
       } else {
-         String valueText = this.setting.shouldDisplayBoundaryLabel()
-            ? this.setting.getBoundaryLabel()
-            : NUMBER_FORMAT.format(this.setting.getValue().doubleValue()) + this.numberSetting.getUnit();
-         displayText = this.setting.getName() + ": " + valueText;
+         displayText = String.format("%s: %s", this.setting.getName(), valueText);
       }
 
-      String measuredText = this.editing ? displayText + "_" : displayText;
-      String drawnText = this.editing && !this.getBlinkingCursor().isEmpty() ? measuredText : displayText;
+      String editingCursorText = this.editing ? "_" : "";
 
       this.renderWithTextScroll(
          poseStack,
-         measuredText,
+         (String.valueOf(displayText) + "\u0001").replaceFirst("\u0001", editingCursorText),
          () -> FontRenderer.INSTANCE
             .drawWithShadow(
                poseStack,
-               drawnText,
+               (displayText + "\u0001").replaceFirst("\u0001", this.getBlinkingCursor()),
                this.panel
                      .getX()
                   + (4),
@@ -294,9 +300,8 @@ public class NumericSettingComponent<N extends Number> extends SettingComponent<
    @Override
    public void update(double mouseX, double mouseY) {
       if (this.isUnavailable()) {
-         this.dragging = false;
-         this.sliderFillAnimation.setValue(0.0F);
-         return;
+         InterpolatedFloat sliderAnimation = this.sliderFillAnimation;
+         sliderAnimation.setValue(0.0F);
       }
 
       this.sliderY = this.panel
@@ -388,9 +393,7 @@ public class NumericSettingComponent<N extends Number> extends SettingComponent<
 
    @Override
    public void mouseReleased(double mouseX, double mouseY, int button) {
-      if (button == 0) {
-         this.dragging = false;
-      }
+      this.dragging = false;
    }
 
    @Override
@@ -420,7 +423,10 @@ public class NumericSettingComponent<N extends Number> extends SettingComponent<
          return;
       }
 
-      this.inputText += (char)characterCode;
+      String previousInputText = this.inputText;
+
+      this.inputText = (String.valueOf(previousInputText) + "\u0001")
+         .replaceFirst("\u0001", String.valueOf((char)characterCode));
    }
 
 }

@@ -10,7 +10,6 @@
 package dev.schizo.client.utils.inventory;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -32,9 +31,6 @@ import net.minecraft.world.item.enchantment.Repairable;
 import net.minecraft.world.item.equipment.Equippable;
 
 public final class EquipmentUtils {
-   private static final EquipmentSlot[] HUMANOID_ARMOR_SLOTS = Arrays.stream(EquipmentSlot.values())
-      .filter(slot -> slot.getType() == Type.HUMANOID_ARMOR)
-      .toArray(EquipmentSlot[]::new);
    private static final Map<String, Item> REPAIR_MATERIALS_BY_TAG;
    private static final List<EnchantmentRequirement> HELMET_ENCHANTMENTS;
    private static final List<EnchantmentRequirement> CHESTPLATE_ENCHANTMENTS;
@@ -69,18 +65,18 @@ public final class EquipmentUtils {
    }
 
    public static List<ItemStack> getArmorStacks(Player player) {
-      ArrayList<ItemStack> armorStacks = new ArrayList<>(HUMANOID_ARMOR_SLOTS.length);
-      fillArmorStacks(player, armorStacks);
-      return armorStacks;
-   }
+      ArrayList<ItemStack> armorStacks = new ArrayList<>();
 
-   public static void fillArmorStacks(Player player, List<ItemStack> destination) {
-      destination.clear();
-      Inventory inventory = player.getInventory();
-      for (EquipmentSlot slot : HUMANOID_ARMOR_SLOTS) {
-         int inventoryIndex = slot.getIndex(36);
-         destination.add(inventory.getItem(inventoryIndex));
+      for (EquipmentSlot slot : EquipmentSlot.values()) {
+         if (slot.getType() == Type.HUMANOID_ARMOR) {
+            Inventory inventory = player.getInventory();
+
+            int inventoryIndex = slot.getIndex(36);
+            armorStacks.add(inventory.getItem(inventoryIndex));
+         }
       }
+
+      return armorStacks;
    }
 
    private static boolean matchesEnchantments(ItemStack stack, Iterable<EnchantmentRequirement> requirements) {

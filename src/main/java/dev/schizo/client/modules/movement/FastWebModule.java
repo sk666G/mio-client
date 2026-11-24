@@ -13,7 +13,6 @@ package dev.schizo.client.modules.movement;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.EventHandler;
-import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.events.LocalPlayerAiStepEvent;
 import dev.schizo.client.events.LocalPlayerMoveEvent;
 import dev.schizo.client.events.LocalPlayerSendPositionEvent;
@@ -59,11 +58,9 @@ public class FastWebModule extends Module {
       this.speedSetting = this.add(new NumberSetting<>("Speed", 1.0F, 1.0F, 2.0F, showMovement).dependsOn(this.horizontalSetting));
       this.verticalSetting = this.add(new BooleanSetting("Vertical", false, showMovement).markVisibilityDependency());
       this.vSpeedSetting = this.add(new NumberSetting<>("VSpeed", 1.0F, 1.0F, 2.0F, showMovement).dependsOn(this.verticalSetting));
-      this.verticalSetting.setChangeCallback(this::reset);
       Predicate<Object> showUpwards = ignored -> this.modeSetting.getValue() == FastWebModule.ModeChoice.PLAIN;
       this.upwardsSetting = this.add(new BooleanSetting("Upwards", false, showUpwards).dependsOn(this.verticalSetting));
       this.usingStrictTimer = false;
-      this.modeSetting.setChangeCallback(this::reset);
       this.setDrawn(false);
    }
 
@@ -72,22 +69,8 @@ public class FastWebModule extends Module {
       this.usingStrictTimer = false;
    }
 
-   @Override
-   public void onDisable() {
-      this.reset();
-   }
-
-   @EventHandler
-   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
-      this.reset();
-   }
-
    public boolean isUsingStrictTimer() {
-      return shouldReportStrictTimer(this.isToggled(), this.usingStrictTimer);
-   }
-
-   static boolean shouldReportStrictTimer(boolean toggled, boolean usingStrictTimer) {
-      return toggled && usingStrictTimer;
+      return this.usingStrictTimer;
    }
 
    private boolean isStrictMode() {

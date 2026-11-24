@@ -44,18 +44,15 @@ import net.minecraft.world.phys.Vec3;
 
 public final class BaritoneAdapter implements ClientAccess, BaritoneBridge {
    private final ObjectSet<NamedFeature> pauseRequests = ObjectSets.synchronize(new ObjectOpenHashSet<>());
-   private final BaritonePathOwnership pathOwnership = new BaritonePathOwnership();
 
    @Override
    public void pathElytraTo(BlockPos position) {
-      this.pathOwnership.clear();
       IElytraProcess process = BaritoneAPI.getProvider().getPrimaryBaritone().getElytraProcess();
       process.pathTo(position);
    }
 
    @Override
    public void setGoal(BlockPos position) {
-      this.pathOwnership.clear();
       GoalBlock goal = new GoalBlock(position);
       BaritoneAPI.getProvider().getPrimaryBaritone().getCustomGoalProcess().setGoal(goal);
    }
@@ -110,43 +107,12 @@ public final class BaritoneAdapter implements ClientAccess, BaritoneBridge {
 
    @Override
    public void pathTo(BlockPos position) {
-      this.pathOwnership.clear();
-      this.startPath(position);
-   }
-
-   @Override
-   public void pathTo(NamedFeature owner, BlockPos position) {
-      this.pathOwnership.acquire(owner, position);
-      this.startPath(position);
-   }
-
-   @Override
-   public boolean ownsPath(NamedFeature owner) {
-      return this.pathOwnership.owns(owner, this.getGoalPosition(), this.isPathingOrCalculating());
-   }
-
-   @Override
-   public void cancelPathing() {
-      this.pathOwnership.clear();
-      this.cancelAllPathing();
-   }
-
-   @Override
-   public boolean cancelPathing(NamedFeature owner) {
-      if (!this.ownsPath(owner)) {
-         return false;
-      }
-      this.pathOwnership.clear();
-      this.cancelAllPathing();
-      return true;
-   }
-
-   private void startPath(BlockPos position) {
       GoalBlock goal = new GoalBlock(position);
       BaritoneAPI.getProvider().getPrimaryBaritone().getCustomGoalProcess().setGoalAndPath(goal);
    }
 
-   private void cancelAllPathing() {
+   @Override
+   public void cancelPathing() {
       IPathingBehavior pathing = BaritoneAPI.getProvider().getPrimaryBaritone().getPathingBehavior();
       pathing.cancelEverything();
       pathing.forceCancel();
@@ -193,7 +159,6 @@ public final class BaritoneAdapter implements ClientAccess, BaritoneBridge {
 
    @Override
    public void pathForward() {
-      this.pathOwnership.clear();
       Vec3 playerPosition = ClientAccess.schizoMinecraft.player.position();
       float playerYaw = ClientAccess.schizoMinecraft.player.getYRot();
       GoalXZ goal = GoalXZ.fromDirection(playerPosition, playerYaw, 5.0D);

@@ -75,15 +75,17 @@ public class InterpolatedFloat {
       int frameLimit = ClientContext.frameTiming.getFramesPerSecond();
 
       if (frameLimit <= 15) {
-         this.setValue(this.targetValue);
+         this.currentValue = this.targetValue;
       }
       return this.currentValue;
    }
 
    public void setValue(float value) {
-      this.previousValue = value;
-      this.currentValue = value;
-      this.targetValue = value;
+      if (this.currentValue != value) {
+         this.previousValue = value;
+         this.currentValue = value;
+         this.targetValue = value;
+      }
    }
 
    public void setEasingEnabled(boolean easingEnabled) {

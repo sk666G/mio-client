@@ -9,7 +9,6 @@
 
 package dev.schizo.mixin;
 
-import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.managers.ModuleRegistry;
 import dev.schizo.client.modules.movement.NoSlowModule;
@@ -26,21 +25,26 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(SlimeBlock.class)
 public class SlimeBlockMixin {
+   private static NoSlowModule noslow = ClientContext.getModule(NoSlowModule.class);
 
    @Inject(method = "stepOn", at = @At("HEAD"), cancellable = true)
    private void suppressSlimeStepEffect(
       Level level, BlockPos blockPos, BlockState blockState, Entity entity, CallbackInfo callback
    ) {
-      if (MixinModuleRegistry.slimeBlockNoslow.isToggled() && MixinModuleRegistry.slimeBlockNoslow.slimeSetting.getValue()) {
+      if (noslow.isToggled() && noslow.slimeSetting.getValue()) {
          callback.cancel();
       }
    }
 
    @Inject(method = "bounceUp", at = @At("HEAD"), cancellable = true)
    private void suppressSlimeBounce(Entity entity, CallbackInfo callback) {
-      if (MixinModuleRegistry.slimeBlockNoslow.isToggled() && MixinModuleRegistry.slimeBlockNoslow.slimeSetting.getValue() && MixinModuleRegistry.slimeBlockNoslow.noSlimeBounceSetting.getValue()) {
+      if (noslow.isToggled() && noslow.slimeSetting.getValue() && noslow.noSlimeBounceSetting.getValue()) {
          callback.cancel();
       }
    }
 
+   @Unique
+   private static void schizo$bindSlimeBlockModules(ModuleRegistry moduleRegistry) {
+      noslow = (NoSlowModule)moduleRegistry.getModule(NoSlowModule.class);
+   }
 }

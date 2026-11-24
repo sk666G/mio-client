@@ -34,7 +34,10 @@ public class TotemsModule extends HudWidgetModule {
 
    @Override
    public float[] calculateDimensions() {
-      return this.dimensions(16.0F, 16.0F);
+      float[] dimensions = new float[2];
+      dimensions[0] = 16.0F;
+      dimensions[1] = 16.0F;
+      return dimensions;
    }
 
    @EventHandler
@@ -66,30 +69,28 @@ public class TotemsModule extends HudWidgetModule {
                int totemCount = this.totemStack.getCount();
                String countText = String.valueOf(totemCount);
                poses.pushPose();
-               try {
-                  double textDepth = 0.1D;
-                  double textTranslateY = 0.0;
-                  double textTranslateX = 0.0;
-                  poses.translate(textTranslateX, textTranslateY, textDepth);
-                  FontRenderer font = FontRenderer.INSTANCE;
 
-                  float textX = 17.0F
-                     - FontRenderer.INSTANCE.getWidth(countText);
-                  float textY = 9.0F;
-                  Setting<Boolean> whiteOption = this.whiteSetting;
-                  Boolean useWhite = whiteOption.getValue();
-                  Color textColor;
-                  if (useWhite) {
-                     textColor = Color.white;
-                  } else {
+               double textDepth = 0.1D;
+               double textTranslateY = 0.0;
+               double textTranslateX = 0.0;
+               poses.translate(textTranslateX, textTranslateY, textDepth);
+               FontRenderer font = FontRenderer.INSTANCE;
 
-                     textColor = this.getHudColor(9.0F);
-                  }
+               float textX = 17.0F
+                  - FontRenderer.INSTANCE.getWidth(countText);
+               float textY = 9.0F;
+               Setting<Boolean> whiteOption = this.whiteSetting;
+               Boolean useWhite = whiteOption.getValue();
+               Color textColor;
+               if (useWhite) {
+                  textColor = Color.white;
+               } else {
 
-                  font.drawWithShadow(poses, countText, textX, textY, textColor);
-               } finally {
-                  poses.popPose();
+                  textColor = this.getHudColor(9.0F);
                }
+
+               font.drawWithShadow(poses, countText, textX, textY, textColor);
+               poses.popPose();
             }
 
             return;

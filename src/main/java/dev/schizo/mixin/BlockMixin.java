@@ -9,7 +9,6 @@
 
 package dev.schizo.mixin;
 
-import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.managers.ModuleRegistry;
 import dev.schizo.client.modules.movement.NoSlowModule;
@@ -27,6 +26,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(Block.class)
 public class BlockMixin {
+   private static NoSlowModule noslow = ClientContext.getModule(NoSlowModule.class);
 
    @Inject(method = "shouldRenderFace", at = @At("HEAD"), cancellable = true)
    private static void overrideXrayFaceVisibility(
@@ -49,20 +49,24 @@ public class BlockMixin {
 
    @Inject(method = "getFriction", at = @At("HEAD"), cancellable = true)
    private void overrideNoSlowFriction(CallbackInfoReturnable<Float> callback) {
-      if (MixinModuleRegistry.blockNoslow.isToggled()) {
+      if (noslow.isToggled()) {
          Block block = (Block)(Object)this;
-         if (MixinModuleRegistry.blockNoslow.iceSetting.getValue() && (block == Blocks.ICE || block == Blocks.PACKED_ICE || block == Blocks.BLUE_ICE)) {
+         if (noslow.iceSetting.getValue() && (block == Blocks.ICE || block == Blocks.PACKED_ICE || block == Blocks.BLUE_ICE)) {
             callback.setReturnValue(0.6F);
          }
 
-         if (MixinModuleRegistry.blockNoslow.slimeSetting.getValue() && block == Blocks.SLIME_BLOCK) {
+         if (noslow.slimeSetting.getValue() && block == Blocks.SLIME_BLOCK) {
             callback.setReturnValue(0.6F);
          }
 
-         if (MixinModuleRegistry.blockNoslow.honeySetting.getValue() && block == Blocks.HONEY_BLOCK) {
+         if (noslow.honeySetting.getValue() && block == Blocks.HONEY_BLOCK) {
             callback.setReturnValue(0.6F);
          }
       }
    }
 
+   @Unique
+   private static void schizo$bindBlockModules(ModuleRegistry moduleRegistry) {
+      noslow = (NoSlowModule)moduleRegistry.getModule(NoSlowModule.class);
+   }
 }

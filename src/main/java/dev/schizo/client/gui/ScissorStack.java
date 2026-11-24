@@ -27,8 +27,8 @@ public final class ScissorStack implements ClientAccess {
    }
 
    public static void pop() {
-      regions.removeLast();
       getScissorState().disable();
+      regions.removeLast();
       if (!regions.isEmpty()) {
          ScissorStack.ScissorRegion previousRegion = regions.getLast();
          Vector4i framebufferBounds = previousRegion.framebufferBounds();
@@ -40,7 +40,7 @@ public final class ScissorStack implements ClientAccess {
       int x, int y, int width, int height
    ) {
       ScissorStack.ScissorRegion region = ScissorStack.ScissorRegion.create(
-         x, y, Math.max(0, width), Math.max(0, height)
+         x, y, width, height
       );
       Vector4i framebufferBounds = region.framebufferBounds();
       enableFramebufferScissor(framebufferBounds.x, framebufferBounds.y, framebufferBounds.z, framebufferBounds.w);
@@ -54,15 +54,17 @@ public final class ScissorStack implements ClientAccess {
    public static void pushIntersection(
       int x, int y, int width, int height
    ) {
-      ScissorStack.ScissorRegion previousRegion = regions.peekLast();
-      ScissorBounds requested = new ScissorBounds(x, y, width, height);
+      ScissorStack.ScissorRegion previousRegion = regions.getLast();
       if (previousRegion != null) {
          Vector4i previousBounds = previousRegion.guiBounds();
-         requested = requested.intersect(new ScissorBounds(
-            previousBounds.x, previousBounds.y, previousBounds.z, previousBounds.w
-         ));
+         int intersectionX = Math.max(previousBounds.x, x);
+         int intersectionY = Math.max(previousBounds.y, y);
+         int intersectionWidth = Math.min(previousBounds.x + previousBounds.z, x + width) - intersectionX;
+         int intersectionHeight = Math.min(previousBounds.y + previousBounds.w, y + height) - intersectionY;
+         push(intersectionX, intersectionY, intersectionWidth, intersectionHeight);
+      } else {
+         push(x, y, width, height);
       }
-      push(requested.x(), requested.y(), requested.width(), requested.height());
    }
 
    public static void enableFramebufferScissor(

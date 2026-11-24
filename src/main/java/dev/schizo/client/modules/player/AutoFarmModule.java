@@ -90,6 +90,7 @@ public class AutoFarmModule extends Module {
    private final Setting<Boolean> treesSetting;
    private final Setting<Boolean> mossSetting;
    private final ElapsedTimer harvestTimer;
+   private InventoryUtils.SwapSlot plantingItem;
    private int actionsThisTick;
 
    private boolean isEnabledPlantingItem(Item item) {
@@ -156,16 +157,19 @@ public class AutoFarmModule extends Module {
          Item plantingItemType = stack.getItem();
          return this.canPlantAt(position, state, plantingItemType);
       };
-      InventoryUtils.SwapSlot plantingItem = InventoryUtils.findSwapSlot(plantingPredicate, false);
-      boolean hasPlantingItem = plantingItem.isFound();
+      this.plantingItem = InventoryUtils.findSwapSlot(plantingPredicate, false);
+      boolean hasPlantingItem = this.plantingItem.isFound();
       if (this.swapSetting.getValue() == AutoFarmModule.SwapChoice.NONE) {
-         if (!plantingItem.isInHand()) {
+         InventoryUtils.SwapSlot heldItem = this.plantingItem;
+         if (!heldItem.isInHand()) {
             hasPlantingItem = false;
+            this.plantingItem = null;
          }
       }
 
       if ((this.placeSetting.getValue()) && hasPlantingItem) {
-         this.plantAt(position, plantingItem);
+         InventoryUtils.SwapSlot itemToPlant = this.plantingItem;
+         this.plantAt(position, itemToPlant);
          return;
       }
       Item itemType = state.getBlock().asItem();
@@ -365,32 +369,24 @@ public class AutoFarmModule extends Module {
    private void plantAt(
       BlockPos position, InventoryUtils.SwapSlot plantingItem
    ) {
-      Runnable plantAction = () -> {
-         BlockHitResult hitResult = new BlockHitResult(position.getCenter(), Direction.UP, position, false);
-         MultiPlayerGameMode gameMode = ClientAccess.schizoMinecraft.gameMode;
-         LocalPlayer player = ClientAccess.schizoMinecraft.player;
-         InteractionHand hand = plantingItem.hand();
-         gameMode.useItemOn(player, hand, hitResult);
-         LocalPlayer swingPlayer = ClientAccess.schizoMinecraft.player;
-         InteractionHand swingHand = plantingItem.hand();
-         swingPlayer.swing(swingHand);
+      InventoryUtils.swapTo(plantingItem);
+      BlockHitResult hitResult = new BlockHitResult(position.getCenter(), Direction.UP, position, false);
+      MultiPlayerGameMode gameMode = ClientAccess.schizoMinecraft.gameMode;
+      LocalPlayer player = ClientAccess.schizoMinecraft.player;
+      InteractionHand hand = plantingItem.hand();
+      gameMode.useItemOn(player, hand, hitResult);
+      LocalPlayer swingPlayer = ClientAccess.schizoMinecraft.player;
+      InteractionHand swingHand = plantingItem.hand();
+      swingPlayer.swing(swingHand);
 
-         this.actionsThisTick++;
-         if (this.rotateSetting.getValue()) {
-            RotationManager rotationManager = ClientContext.rotationManager;
-            Vec3 targetCenter = position.getCenter();
+      this.actionsThisTick++;
+      if (this.rotateSetting.getValue()) {
+         RotationManager rotationManager = ClientContext.rotationManager;
+         Vec3 targetCenter = position.getCenter();
 
-            float[] targetRotation = RotationManager.getRotationsToPosition(targetCenter);
-            byte rotationPriority = 0;
-            rotationManager.requestRotation(targetRotation, rotationPriority);
-         }
-      };
-
-      if (this.swapSetting.getValue() == AutoFarmModule.SwapChoice.SILENT) {
-         InventoryUtils.runWithSwap(InventoryUtils.getSelectedSlot(), plantingItem, plantAction);
-      } else {
-         InventoryUtils.swapTo(plantingItem);
-         plantAction.run();
+         float[] targetRotation = RotationManager.getRotationsToPosition(targetCenter);
+         byte rotationPriority = 0;
+         rotationManager.requestRotation(targetRotation, rotationPriority);
       }
    }
 
@@ -415,24 +411,32 @@ public class AutoFarmModule extends Module {
 
    @EventHandler
    private void updateFarm(RotationRequestEvent event) {
+      this.plantingItem = null;
+
       this.runFarmTick();
    }
 
    private void runFarmTick() {
-      try {
-         List<BlockPos> targetPositions = (this.modeSetting.getValue()).getTargets(this);
-         for (BlockPos position : targetPositions) {
-            int actionCount = this.actionsThisTick;
-            Integer blocksPerTickValue = this.blocksPerTickSetting.getValue();
-            if (actionCount >= blocksPerTickValue) {
-               break;
-            }
-
-            Direction harvestFace = this.findHarvestFace(position);
-            this.processFarmPosition(position, harvestFace);
+      int originalSlot = InventoryUtils.getSelectedSlot();
+      List<BlockPos> targetPositions = (this.modeSetting.getValue()).getTargets(this);
+      for (BlockPos position : targetPositions) {
+         int actionCount = this.actionsThisTick;
+         Integer blocksPerTickValue = this.blocksPerTickSetting.getValue();
+         if (actionCount >= blocksPerTickValue) {
+            break;
          }
-      } finally {
-         this.actionsThisTick = 0;
+
+         Direction harvestFace = this.findHarvestFace(position);
+
+         this.processFarmPosition(position, harvestFace);
+      }
+
+      this.actionsThisTick = 0;
+      if (this.plantingItem != null) {
+         if (this.swapSetting.getValue() == AutoFarmModule.SwapChoice.SILENT) {
+            InventoryUtils.SwapSlot selectedPlantingItem = this.plantingItem;
+            InventoryUtils.swapBack(originalSlot, selectedPlantingItem);
+         }
       }
    }
 

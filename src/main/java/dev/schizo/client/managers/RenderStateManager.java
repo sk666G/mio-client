@@ -68,11 +68,8 @@ public final class RenderStateManager {
       Runnable draw, RenderState... states
    ) {
       addStates(states);
-      try {
-         draw.run();
-      } finally {
-         reset();
-      }
+      draw.run();
+      reset();
    }
 
    public static void addStates(RenderState... states) {

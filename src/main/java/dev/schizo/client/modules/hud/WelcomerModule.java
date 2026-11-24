@@ -15,7 +15,7 @@ import dev.schizo.client.events.ScreenChangeEvent;
 import dev.schizo.client.events.ConnectScreenConnectEvent;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.managers.ServerStateManager;
-import dev.schizo.client.media.MediaSnapshot;
+import dev.schizo.client.utils.collections.IntPair;
 import dev.schizo.client.utils.ElapsedTimer;
 import dev.schizo.client.render.ColorUtils;
 import dev.schizo.client.render.FontRenderer;
@@ -176,9 +176,15 @@ public class WelcomerModule extends HudWidgetModule {
          }
       }
 
-      float width = maximumWidth * hudScale;
-      float height = (FontRenderer.INSTANCE.getHeight() + 1) * hudScale;
-      return this.dimensions(width, height);
+      float[] dimensions = new float[2];
+      dimensions[0] = maximumWidth * hudScale;
+      dimensions[1] = (
+            FontRenderer.INSTANCE
+                  .getHeight()
+               + 1
+         )
+         * hudScale;
+      return dimensions;
    }
 
    private boolean overlapsWidget(HudWidgetModule widget) {
@@ -192,37 +198,34 @@ public class WelcomerModule extends HudWidgetModule {
          return false;
       }
 
-      return isWithinOverlapDistance(
-         this.renderer.getX(), this.renderer.getY(),
-         widget.getRenderer().getX(), widget.getRenderer().getY(),
-         100.0D
-      );
-   }
-
-   static boolean isWithinOverlapDistance(
-      float firstX, float firstY, float secondX, float secondY, double maximumDistance
-   ) {
-      int firstPixelX = (int)firstX;
-      int firstPixelY = (int)firstY;
-      int secondPixelX = (int)secondX;
-      int secondPixelY = (int)secondY;
-      double deltaX = (double)firstPixelX - secondPixelX;
-      double deltaY = (double)firstPixelY - secondPixelY;
-      return deltaX * deltaX + deltaY * deltaY <= maximumDistance * maximumDistance;
+      IntPair welcomerPosition = new IntPair((int)this.renderer.getX(), (int)this.renderer.getY());
+      IntPair widgetPosition = new IntPair((int)widget.getRenderer().getX(), (int)widget.getRenderer().getY());
+      double distance = welcomerPosition.distanceTo(widgetPosition);
+      return distance <= 100.0D;
    }
 
    private boolean slidesUp(HudNotification notification) {
-      boolean evenStartTime = notification.hasEvenStartMillis();
-      long elapsedMillis = notification.getElapsedMillis();
-      return elapsedMillis <= 500L ? !evenStartTime : evenStartTime;
+
+      long time = notification.getStartTimeMillis();
+
+      boolean evenStartTime = time % 2L == 0L;
+      time = System.currentTimeMillis();
+
+      time -= notification.getStartTimeMillis();
+
+      return time <= 500L ? !evenStartTime : evenStartTime;
    }
 
    private float getNotificationProgress(
       HudNotification notification, float transitionMillis, float progressOffset
    ) {
 
-      long lifetimeMillis = notification.getLifetimeMillis();
-      long elapsedMillis = notification.getElapsedMillis();
+      long timestamp = notification.getEndTimeMillis();
+
+      long lifetimeMillis = timestamp - notification.getStartTimeMillis();
+      timestamp = System.currentTimeMillis();
+
+      long elapsedMillis = timestamp - notification.getStartTimeMillis();
 
       float progress = 1.0F;
       if ((float)elapsedMillis <= transitionMillis) {
@@ -244,7 +247,9 @@ public class WelcomerModule extends HudWidgetModule {
       this.updateSmartNotifications();
       this.notifications.removeIf(
          notification -> {
-            if (!notification.isExpired()) {
+            long nowMillis = System.currentTimeMillis();
+
+            if (nowMillis < notification.getEndTimeMillis()) {
                Setting<Boolean> smartOption = this.smartSetting;
                Boolean smartEnabled = smartOption.getValue();
                if (smartEnabled || notification instanceof GreetingNotification) {
@@ -357,30 +362,36 @@ public class WelcomerModule extends HudWidgetModule {
       ModuleRegistry moduleRegistry = ClientContext.moduleRegistry;
       MusicModule musicWidget = (MusicModule)moduleRegistry.getModule(musicWidgetType);
       if (!this.isInHudEditor()) {
-         MediaSnapshot snapshot = MediaSessionBridge.snapshot();
-         if (snapshot.playbackStatus() == MediaSnapshot.PLAYING && this.overlapsWidget(musicWidget)) {
-            String text = MediaSessionBridge.getDisplayText(snapshot).trim();
-            if (text.length() < 3) {
-               this.lastMusicNotificationText = null;
-               return;
-            }
+         int statusOrTextLength = MediaSessionBridge.playbackStatus;
 
-            if (text.equals(this.lastMusicNotificationText)) {
-               return;
-            }
+         if (statusOrTextLength == 4) {
+            if (this.overlapsWidget(musicWidget)) {
+               String mediaDisplayText = MediaSessionBridge.getDisplayText();
+               String text = mediaDisplayText.trim();
+               statusOrTextLength = text.length();
 
-            this.notifications.add(
-               new MusicNotification(
-                  "♪ " + text,
-                  3000L,
-                  this.getHudColor(
-                     this.renderer
-                        .getY()
+               if (statusOrTextLength < 3) {
+                  this.lastMusicNotificationText = null;
+                  return;
+               }
+
+               if (text.equals(this.lastMusicNotificationText)) {
+                  return;
+               }
+
+               this.notifications.add(
+                  new MusicNotification(
+                     "♪ " + text,
+                     3000L,
+                     this.getHudColor(
+                        this.renderer
+                           .getY()
+                     )
                   )
-               )
-            );
-            this.lastMusicNotificationText = text;
-            return;
+               );
+               this.lastMusicNotificationText = text;
+               return;
+            }
          }
 
          this.lastMusicNotificationText = null;

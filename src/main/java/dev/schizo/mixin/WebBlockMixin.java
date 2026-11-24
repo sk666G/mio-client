@@ -9,7 +9,6 @@
 
 package dev.schizo.mixin;
 
-import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.modules.movement.FastWebModule;
 import dev.schizo.client.managers.ModuleRegistry;
@@ -27,14 +26,21 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(WebBlock.class)
 public class WebBlockMixin {
+   private static FastWebModule fastWebModule = ClientContext.getModule(FastWebModule.class);
 
    @Inject(method = "entityInside", at = @At("HEAD"), cancellable = true)
    private void cancelGrimWebEffects(
       BlockState state, Level level, BlockPos position, Entity entity, InsideBlockEffectApplier effects, boolean bl, CallbackInfo callback
    ) {
-      if (MixinModuleRegistry.webBlockFastWebModule.isGrimEnabled()) {
+      if (fastWebModule.isGrimEnabled()) {
          callback.cancel();
       }
    }
 
+   @Unique
+   private static void schizo$bindWebBlockModules(ModuleRegistry moduleRegistry) {
+      fastWebModule = (FastWebModule)moduleRegistry.getModule(
+         FastWebModule.class
+      );
+   }
 }

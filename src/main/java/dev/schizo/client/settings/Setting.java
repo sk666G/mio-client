@@ -287,11 +287,20 @@ public abstract class Setting<T> extends NamedFeature implements ValueProvider<T
    public void setValue(T newValue) {
       this.setStagedValue(newValue);
       if (this.numericBoundsEnabled) {
-         double requested = ((Number)newValue).doubleValue();
-         if (requested < ((Number)this.minimumValue).doubleValue()) {
-            this.setStagedValue(this.minimumValue);
-         } else if (requested > ((Number)this.maximumValue).doubleValue()) {
-            this.setStagedValue(this.maximumValue);
+         Number minimum = (Number)this.minimumValue;
+         float minimumAsFloat = minimum.floatValue();
+         Number requestedMinimum = (Number)newValue;
+         if (minimumAsFloat > requestedMinimum.floatValue()) {
+            T lowerBound = this.minimumValue;
+            this.setStagedValue(lowerBound);
+         }
+
+         Number maximum = (Number)this.maximumValue;
+         float maximumAsFloat = maximum.floatValue();
+         Number requestedMaximum = (Number)newValue;
+         if (maximumAsFloat < requestedMaximum.floatValue()) {
+            T upperBound = this.maximumValue;
+            this.setStagedValue(upperBound);
          }
       }
 

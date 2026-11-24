@@ -10,10 +10,6 @@
 package dev.schizo.client.managers;
 
 import dev.schizo.client.config.LegacySocialMigration;
-import dev.schizo.client.config.LegacyDirectoryMigration;
-import dev.schizo.client.config.ConfigFileReader;
-import dev.schizo.client.config.SafeModeManager;
-import dev.schizo.client.config.ConfigurationBackupManager;
 import dev.schizo.client.config.ModulePresetCodec;
 import dev.schizo.client.config.PresetUndoState;
 import dev.schizo.client.render.BundledResourceInstaller;
@@ -31,7 +27,6 @@ import com.google.gson.JsonParser;
 import java.io.File;
 import java.nio.file.Path;
 import java.nio.file.Files;
-import java.nio.file.LinkOption;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -52,7 +47,6 @@ public final class ConfigurationManager implements ClientAccess {
    public static final Path SHADERS_DIRECTORY;
    public static final Path USER_HOME_MARKER_PATH;
    private static final List<Path> directories;
-   private final ConfigurationBackupManager backupManager = new ConfigurationBackupManager(ROOT_DIRECTORY);
    private final ModulePresetCodec modulePresetCodec = new ModulePresetCodec();
    private final Map<PresetCategory, PresetRegistry> presetRegistries = new HashMap<>();
    private final BundledResourceInstaller bundledResources = new BundledResourceInstaller();
@@ -61,22 +55,6 @@ public final class ConfigurationManager implements ClientAccess {
 
    public ModulePresetCodec getModulePresetCodec() {
       return this.modulePresetCodec;
-   }
-
-   public ConfigurationBackupManager getBackupManager() {
-      return this.backupManager;
-   }
-
-   public List<String> getConfigurableNames() {
-      List<String> names = new ArrayList<>();
-      for (JsonConfigurable configurable : this.configurables) {
-         names.add(configurable.getConfigName());
-      }
-      return List.copyOf(names);
-   }
-
-   public boolean isRegisteredConfig(String configName) {
-      return configName != null && this.getConfigurableNames().contains(configName);
    }
 
    public PresetUndoState getPresetUndoState() {
@@ -90,16 +68,11 @@ public final class ConfigurationManager implements ClientAccess {
       for (PresetCategory category : PresetCategory.values()) directories.add(category.getDirectory());
 
       this.prepareDirectories();
-      if (!isSafeRootDirectory()) {
-         ClientAccess.logger.error("Skipping configuration load because the data root is not a real directory");
-         return;
-      }
 
       try {
 
          LegacySocialMigration.migrate();
-      } catch (Exception migrationFailure) {
-         ClientAccess.logger.error("Could not migrate legacy social data", migrationFailure);
+      } catch (Throwable ignoredBootstrapFailure) {
       }
 
       Iterator<?> configurableIterator = this.configurables.iterator();
@@ -109,17 +82,14 @@ public final class ConfigurationManager implements ClientAccess {
 
          try {
             Path configPath = ROOT_DIRECTORY.resolve(configurable.getConfigName());
-            if (Files.exists(configPath, LinkOption.NOFOLLOW_LINKS)) {
-               if (Files.isSymbolicLink(configPath) || !Files.isRegularFile(configPath, LinkOption.NOFOLLOW_LINKS)) {
-                  ClientAccess.logger.warn("Skipping configuration {} because it is not a regular file", configurable.getConfigName());
-                  continue;
-               }
-               String configText = ConfigFileReader.readUtf8(configPath, (int)ConfigurationBackupManager.MAX_CONFIG_BYTES);
+            File configFile = configPath.toFile();
+            if (configFile.exists()) {
+               String configText = FileUtils.readUtf8(configPath);
                JsonElement configJson = JsonParser.parseString(configText);
                configurable.fromJson(configJson.getAsJsonObject());
             }
-         } catch (Exception loadFailure) {
-            ClientAccess.logger.error("Could not load configuration {}", configurable.getConfigName(), loadFailure);
+         } catch (Throwable loadFailure) {
+            loadFailure.printStackTrace();
          }
       }
 
@@ -131,50 +101,20 @@ public final class ConfigurationManager implements ClientAccess {
       }
    }
 
-   private static void createDirectoryTreeNoFollow(Path root, Path destination) throws IOException {
-      Path normalizedRoot = root.toAbsolutePath().normalize();
-      Path normalizedDestination = destination.toAbsolutePath().normalize();
-      if (!normalizedDestination.startsWith(normalizedRoot)) {
-         throw new IOException("Configuration directory escapes the data root: " + destination);
-      }
-      if (Files.isSymbolicLink(normalizedRoot)
-         || !Files.isDirectory(normalizedRoot, LinkOption.NOFOLLOW_LINKS)) {
-         throw new IOException("Configuration data root is not a real directory: " + normalizedRoot);
-      }
-
-      Path current = normalizedRoot;
-      for (Path component : normalizedRoot.relativize(normalizedDestination)) {
-         current = current.resolve(component);
-         if (!Files.exists(current, LinkOption.NOFOLLOW_LINKS)) {
-            Files.createDirectory(current);
-         }
-         if (Files.isSymbolicLink(current)
-            || !Files.isDirectory(current, LinkOption.NOFOLLOW_LINKS)) {
-            throw new IOException("Configuration directory component is not a real directory: " + current);
-         }
-      }
-   }
-
    public void prepareDirectories() {
       try {
-         if (Files.isSymbolicLink(ROOT_DIRECTORY)) throw new IOException("Configuration root must not be a symbolic link");
-         Files.createDirectories(ROOT_DIRECTORY);
-         if (!Files.isDirectory(ROOT_DIRECTORY, LinkOption.NOFOLLOW_LINKS)) throw new IOException("Configuration root is not a real directory");
-      } catch (IOException failure) {
-         ClientAccess.logger.error("Could not prepare configuration root {}", ROOT_DIRECTORY, failure);
-         return;
+         Path legacyAutoEzPath = ROOT_DIRECTORY.resolve("autoez");
+         File legacyAutoEz = legacyAutoEzPath.toFile();
+         if (legacyAutoEz.isDirectory()) {
+            File killsayTarget = KILLSAY_DIRECTORY.toFile();
+            legacyAutoEz.renameTo(killsayTarget);
+         }
+      } catch (Exception ignoredMigrationFailure) {
       }
-      try {
-         LegacyDirectoryMigration.Result result = LegacyDirectoryMigration.moveDirectory(ROOT_DIRECTORY, "autoez", "killsay");
-         if (result == LegacyDirectoryMigration.Result.MOVED) ClientAccess.logger.info("Migrated legacy autoez directory to killsay");
-         else if (result == LegacyDirectoryMigration.Result.TARGET_EXISTS) ClientAccess.logger.warn("Leaving legacy autoez directory in place because killsay already exists");
-         else if (result == LegacyDirectoryMigration.Result.UNSAFE_SOURCE) ClientAccess.logger.warn("Leaving legacy autoez directory in place because it contains unsafe entries");
-      } catch (IOException | IllegalArgumentException failure) {
-         ClientAccess.logger.warn("Could not migrate legacy autoez directory", failure);
-      }
+
       for (Path path : directories) {
          try {
-            createDirectoryTreeNoFollow(ROOT_DIRECTORY, path);
+            Files.createDirectories(path);
          } catch (IOException failure) {
             ClientAccess.logger.warn("Could not create configuration directory {}", path.getFileName(), failure);
          }
@@ -221,52 +161,21 @@ public final class ConfigurationManager implements ClientAccess {
       return this.presetRegistries.get(category);
    }
 
-   private static boolean isSafeRootDirectory() {
-      return !Files.isSymbolicLink(ROOT_DIRECTORY)
-         && Files.isDirectory(ROOT_DIRECTORY, LinkOption.NOFOLLOW_LINKS);
-   }
-
    public void save() {
-      if (!isSafeRootDirectory()) {
-         ClientAccess.logger.error("Skipping configuration save because the data root is not a real directory");
-         return;
-      }
       if (!PanicCommand.unloaded) {
          Iterator<?> configurableIterator = this.configurables.iterator();
 
          while (configurableIterator.hasNext()) {
             JsonConfigurable configurable = (JsonConfigurable)configurableIterator.next();
-            if (SafeModeManager.GLOBAL.isActive() && "modules.json".equals(configurable.getConfigName())) {
-               ClientAccess.logger.info("Preserving module enablement state while Safe Mode is active");
-               continue;
-            }
 
             try {
                Path configPath = ROOT_DIRECTORY.resolve(configurable.getConfigName());
-               if (Files.exists(configPath, LinkOption.NOFOLLOW_LINKS)
-                  && (Files.isSymbolicLink(configPath)
-                     || !Files.isRegularFile(configPath, LinkOption.NOFOLLOW_LINKS))) {
-                  ClientAccess.logger.warn(
-                     "Skipping configuration save because {} is not a regular file",
-                     configurable.getConfigName()
-                  );
-                  continue;
-               }
-               try {
-                  this.backupManager.backupBeforeSave(configurable.getConfigName());
-               } catch (IOException | IllegalArgumentException backupFailure) {
-                  ClientAccess.logger.warn(
-                     "Could not back up configuration {} before saving",
-                     configurable.getConfigName(),
-                     backupFailure
-                  );
-               }
                Gson gsonSnapshot = ClientAccess.gson;
                JsonElement serialized = configurable.toJson();
                JsonObject object = serialized.getAsJsonObject();
-               FileUtils.writeUtf8Atomically(configPath, gsonSnapshot.toJson(object));
-            } catch (Exception saveFailure) {
-               ClientAccess.logger.error("Could not save configuration {}", configurable.getConfigName(), saveFailure);
+               FileUtils.writeUtf8(configPath, gsonSnapshot.toJson(object));
+            } catch (Throwable saveFailure) {
+               saveFailure.printStackTrace();
             }
          }
       }

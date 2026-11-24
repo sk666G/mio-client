@@ -41,7 +41,7 @@ public class BlurModule extends Module {
       String radiusKey = new String("Radius");
       this.radiusSetting = this.add(new NumberSetting<>(radiusKey, 6, 1, 16));
       this.openingAnimation = new FloatAnimation();
-      this.setToggled(false);
+      this.setToggled(true);
    }
 
    static {
