@@ -32,63 +32,71 @@ public enum CrystalDamagePolicy implements ClientAccess, NamedEntry {
    }
 
    public double getMinimumDamage(LivingEntity target) {
-      if (!autoCrystal.obsidianDropNearTarget && !autoCrystal.quiverThreatActive) {
-         if (autoCrystal.isFacePlaceEnabled()) {
-            float health = EntityUtils.getHealthWithAbsorption(target);
-
-            Float healthLimit = autoCrystal.facePlaceHealthSetting.getValue();
-            if (health <= healthLimit) {
-               return 0.6;
-            }
-
-            if (target instanceof Player player) {
-               float armor = InventoryUtils.getLowestArmorDurabilityPercent(player);
-
-               Integer armorLimit = autoCrystal.facePlaceArmorThresholdSetting.getValue();
-               if (armor <= armorLimit.intValue()) {
-                  return 0.6;
-               }
-            }
-
-            if (target.isUsingItem()) {
-               ItemStack activeStack = target.getUseItem();
-               Item shield = Items.SHIELD;
-               if (activeStack.is(shield)) {
-                  if (autoCrystal.facePlaceShieldBreakerSetting.getValue()) {
-                     return 0.6;
-                  }
-               }
-            }
-         }
-
-         BlockState stateSnapshot = ClientAccess.schizoMinecraft.level.getBlockState(target.blockPosition());
-         Block portal = Blocks.NETHER_PORTAL;
-         if (stateSnapshot.is(portal)) {
-            return 0.6;
-         }
-
-         double placeMinimum = (autoCrystal.minPlaceDamageSetting.getValue()).floatValue();
-
-         double hitMinimum = (autoCrystal.minBreakDamageSetting.getValue()).floatValue();
-
-         if (autoCrystal.minPlaceDamageSetting.shouldDisplayBoundaryLabel()) {
-            placeMinimum = EntityUtils.getHealthWithAbsorption(target);
-         }
-
-         if (autoCrystal.shouldIgnoreMiningBlock()) {
-            double miningMinimum = autoCrystal.alwaysIgnoreMiningSetting.getValue() ? 0.6 : 5.0;
-
-            placeMinimum = Math.min(placeMinimum, miningMinimum);
-            hitMinimum = 3.0;
-         }
-
-         double selectedMinimum = this == HIT ? hitMinimum : placeMinimum;
-         double targetHealth = EntityUtils.getHealthWithAbsorption(target);
-         return Math.min(selectedMinimum, targetHealth);
-      } else {
-         return 0.1;
+      boolean obsidianDropNearTarget = autoCrystal.obsidianDropNearTarget;
+      boolean quiverThreatActive = autoCrystal.quiverThreatActive;
+      if (obsidianDropNearTarget || quiverThreatActive) {
+         return new CrystalDamageThresholds(
+            obsidianDropNearTarget,
+            quiverThreatActive,
+            false,
+            false,
+            EntityUtils.getHealthWithAbsorption(target),
+            0.0D,
+            0.0D,
+            false,
+            false,
+            false
+         ).minimumDamage(this == HIT);
       }
+
+      boolean facePlaceOverride = false;
+      if (autoCrystal.isFacePlaceEnabled()) {
+         float health = EntityUtils.getHealthWithAbsorption(target);
+         Float healthLimit = autoCrystal.facePlaceHealthSetting.getValue();
+         if (health <= healthLimit) {
+            facePlaceOverride = true;
+         }
+
+         if (!facePlaceOverride && target instanceof Player player) {
+            float armor = InventoryUtils.getLowestArmorDurabilityPercent(player);
+            Integer armorLimit = autoCrystal.facePlaceArmorThresholdSetting.getValue();
+            if (armor <= armorLimit.intValue()) {
+               facePlaceOverride = true;
+            }
+         }
+
+         if (!facePlaceOverride && target.isUsingItem()) {
+            ItemStack activeStack = target.getUseItem();
+            if (activeStack.is(Items.SHIELD) && autoCrystal.facePlaceShieldBreakerSetting.getValue()) {
+               facePlaceOverride = true;
+            }
+         }
+      }
+
+      BlockState stateSnapshot = ClientAccess.schizoMinecraft.level.getBlockState(target.blockPosition());
+      boolean targetInNetherPortal = stateSnapshot.is(Blocks.NETHER_PORTAL);
+      double placeMinimum = autoCrystal.minPlaceDamageSetting.getValue().floatValue();
+      double hitMinimum = autoCrystal.minBreakDamageSetting.getValue().floatValue();
+      boolean placeMinimumUsesTargetHealth = autoCrystal.minPlaceDamageSetting.shouldDisplayBoundaryLabel();
+      boolean ignoreMiningBlock = autoCrystal.shouldIgnoreMiningBlock();
+      boolean alwaysIgnoreMining = autoCrystal.alwaysIgnoreMiningSetting.getValue();
+      double targetHealth = EntityUtils.getHealthWithAbsorption(target);
+
+      CrystalDamageThresholds thresholds = new CrystalDamageThresholds(
+         false,
+         false,
+         facePlaceOverride,
+         targetInNetherPortal,
+         targetHealth,
+         placeMinimum,
+         hitMinimum,
+         placeMinimumUsesTargetHealth,
+         ignoreMiningBlock,
+         alwaysIgnoreMining
+      );
+      return thresholds.minimumDamage(this == HIT);
    }
+
    public double getMaximumSelfDamage() {
       if (autoCrystal.isSelfInvulnerable()) {
          return 999.0;
