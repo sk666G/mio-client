@@ -65,6 +65,20 @@ class PresetRegistryTest {
    }
 
    @Test
+   void isolatedPresetContentsPreventApplyingFiltersFromMutatingStoredData() {
+      JsonObject nested = new JsonObject();
+      nested.addProperty("setting", "original");
+      JsonObject contents = new JsonObject();
+      contents.add("nested", nested);
+      PresetData stored = new PresetData("isolated", contents);
+
+      JsonObject applied = stored.copyContents();
+      applied.getAsJsonObject("nested").addProperty("setting", "filtered");
+
+      assertEquals("original", stored.contents().getAsJsonObject("nested").get("setting").getAsString());
+   }
+
+   @Test
    void skipsOversizedPresetFilesDuringStartupLoad() throws IOException {
       Files.write(directory.resolve("oversized.json"),
          new byte[dev.schizo.client.config.PresetData.MAX_PRESET_BYTES + 1]);
