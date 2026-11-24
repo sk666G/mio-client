@@ -81,6 +81,33 @@ class ExplosionRaycastSnapshotBuilderTest {
    }
 
    @Test
+   void acceptsCaptureLimitsAtOrBelowTheDefaults() {
+      ExplosionRaycastSnapshotBuilder.validateCaptureLimits(1, 1L);
+      ExplosionRaycastSnapshotBuilder.validateCaptureLimits(
+         ExplosionRaycastSnapshotBuilder.DEFAULT_MAX_CAPTURED_BLOCKS,
+         ExplosionRaycastSnapshotBuilder.DEFAULT_MAX_CAPTURE_NANOS
+      );
+      ExplosionRaycastSnapshotBuilder.validateCaptureLimits(
+         256,
+         2_000_000L
+      );
+   }
+
+   @Test
+   void rejectsCaptureLimitsThatWouldDisableOrRaiseTheHardCaps() {
+      assertThrows(IllegalArgumentException.class, () ->
+         ExplosionRaycastSnapshotBuilder.validateCaptureLimits(0, 1L));
+      assertThrows(IllegalArgumentException.class, () ->
+         ExplosionRaycastSnapshotBuilder.validateCaptureLimits(
+            ExplosionRaycastSnapshotBuilder.DEFAULT_MAX_CAPTURED_BLOCKS + 1, 1L));
+      assertThrows(IllegalArgumentException.class, () ->
+         ExplosionRaycastSnapshotBuilder.validateCaptureLimits(1, 0L));
+      assertThrows(IllegalArgumentException.class, () ->
+         ExplosionRaycastSnapshotBuilder.validateCaptureLimits(
+            1, ExplosionRaycastSnapshotBuilder.DEFAULT_MAX_CAPTURE_NANOS + 1L));
+   }
+
+   @Test
    void captureBudgetExceptionReportsPartialWorkWithoutPublishingASnapshot() {
       ExplosionRaycastSnapshotBuilder.CaptureBudgetExceededException failure =
          new ExplosionRaycastSnapshotBuilder.CaptureBudgetExceededException(64, 256L, 8_000_000L);
