@@ -19,7 +19,6 @@
 package com.jagrosh.discordipc.entities.pipe;
 
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
 import com.jagrosh.discordipc.IPCClient;
 import com.jagrosh.discordipc.IPCListener;
@@ -118,14 +117,15 @@ public abstract class Pipe {
             } else if (client.isDebugMode()) {
                client.getCurrentLogger(LOGGER).info(String.format("[DEBUG] Unable to locate IPC Pipe: \"%s\"", location));
             }
-         } catch (IOException | JsonParseException handshakeFailure) {
-            if (pipe != null) {
-               try {
-                  pipe.close();
-               } catch (IOException closeFailure) {
-                  if (client.isDebugMode()) {
-                     client.getCurrentLogger(LOGGER).warn("Failed to close an IPC pipe after handshake failure", closeFailure);
-                  }
+         } catch (IOException | RuntimeException handshakeFailure) {
+            if (pipe == null) {
+               throw handshakeFailure;
+            }
+            try {
+               pipe.close();
+            } catch (IOException | RuntimeException closeFailure) {
+               if (client.isDebugMode()) {
+                  client.getCurrentLogger(LOGGER).warn("Failed to close an IPC pipe after handshake failure", closeFailure);
                }
             }
             pipe = null;
