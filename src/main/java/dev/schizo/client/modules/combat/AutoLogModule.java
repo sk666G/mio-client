@@ -88,6 +88,10 @@ public class AutoLogModule extends Module {
    private long disconnectTimeMillis;
 
    private void requestDisconnect(String reason) {
+      if (this.pendingDisconnect != null) {
+         return;
+      }
+
       ClientPacketListener packetListener = ClientAccess.schizoMinecraft.player.connection;
       Connection connection = packetListener.getConnection();
       boolean useIllegalDisconnect = false;
