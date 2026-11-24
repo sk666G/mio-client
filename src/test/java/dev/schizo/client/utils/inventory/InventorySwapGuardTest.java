@@ -8,6 +8,70 @@ import org.junit.jupiter.api.Test;
 
 class InventorySwapGuardTest {
    @Test
+   void runsCleanupAfterTheActionInOrder() {
+      List<String> calls = new ArrayList<>();
+
+      InventorySwapGuard.runWithCleanup(
+         () -> calls.add("clicks"),
+         () -> calls.add("cursor-restore")
+      );
+
+      assertEquals(List.of("clicks", "cursor-restore"), calls);
+   }
+
+   @Test
+   void restoresCursorAfterAnActionFailureAndPropagatesTheSameFailure() {
+      List<String> calls = new ArrayList<>();
+      IllegalStateException expected = new IllegalStateException("second click failed");
+
+      IllegalStateException actual = assertThrows(
+         IllegalStateException.class,
+         () -> InventorySwapGuard.runWithCleanup(
+            () -> {
+               calls.add("first click");
+               throw expected;
+            },
+            () -> calls.add("restore cursor")
+         )
+      );
+
+      assertSame(expected, actual);
+      assertEquals(List.of("first click", "restore cursor"), calls);
+   }
+
+   @Test
+   void keepsActionFailureAndSuppressesCursorRestoreFailure() {
+      IllegalStateException actionFailure = new IllegalStateException("click failed");
+      IllegalArgumentException restoreFailure = new IllegalArgumentException("cursor restore failed");
+
+      IllegalStateException actual = assertThrows(
+         IllegalStateException.class,
+         () -> InventorySwapGuard.runWithCleanup(
+            () -> { throw actionFailure; },
+            () -> { throw restoreFailure; }
+         )
+      );
+
+      assertSame(actionFailure, actual);
+      assertArrayEquals(new Throwable[]{restoreFailure}, actual.getSuppressed());
+   }
+
+   @Test
+   void propagatesCursorRestoreFailureAfterSuccessfulClicks() {
+      IllegalArgumentException expected = new IllegalArgumentException("cursor restore failed");
+
+      IllegalArgumentException actual = assertThrows(
+         IllegalArgumentException.class,
+         () -> InventorySwapGuard.runWithCleanup(
+            () -> { },
+            () -> { throw expected; }
+         )
+      );
+
+      assertSame(expected, actual);
+   }
+
+   @Test
    void runsSwapActionAndRestoreInOrder() {
       List<String> calls = new ArrayList<>();
 
@@ -95,6 +159,14 @@ class InventorySwapGuardTest {
       );
 
       assertSame(expected, actual);
+   }
+
+   @Test
+   void requiresBothCleanupOperations() {
+      assertThrows(NullPointerException.class,
+         () -> InventorySwapGuard.runWithCleanup(null, () -> { }));
+      assertThrows(NullPointerException.class,
+         () -> InventorySwapGuard.runWithCleanup(() -> { }, null));
    }
 
    @Test
