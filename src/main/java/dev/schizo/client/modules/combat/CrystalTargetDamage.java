@@ -14,11 +14,9 @@ import dev.schizo.client.ClientContext;
 import dev.schizo.client.utils.combat.BoundingBoxUtils;
 import dev.schizo.client.utils.entity.EntityUtils;
 import dev.schizo.client.utils.entity.PlayerStateUtils;
-import dev.schizo.client.utils.math.MathConstants;
 import dev.schizo.client.utils.network.ServerSideDeathState;
 import java.util.List;
 import net.minecraft.core.BlockPos;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
@@ -147,5 +145,5 @@ public record CrystalTargetDamage(
       }
 
       return bestTargetDamage;
-   }}
+   }
 }
