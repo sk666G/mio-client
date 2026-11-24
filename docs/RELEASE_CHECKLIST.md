@@ -9,7 +9,7 @@ Status is intentionally conservative. A checked item requires recorded evidence.
 - [x] Keep the reliability-hardening stack in branch ancestry.
 - [x] Remove GrimDisabler and RaytraceBypass implementations, registration and rebuild-script reinjection.
 - [ ] Complete per-module multiplayer compatibility matrix and authorized controlled-server scenarios.
-- [ ] Complete visual QA across ClickGUI, HUD Studio, command palette, integration/profile screens and all theme presets.
+- [ ] Complete visual QA across ClickGUI, HUD Studio, command palette, integration/profile screens, Performance Center (profiler start/stop/reset and frame-history graph) and all theme presets.
 
 ## Build and tests
 
