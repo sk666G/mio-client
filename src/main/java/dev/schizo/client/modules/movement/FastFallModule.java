@@ -13,6 +13,7 @@ package dev.schizo.client.modules.movement;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.EventHandler;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.events.LocalPlayerMoveEvent;
 import dev.schizo.client.events.LocalPlayerTickEvent;
 import dev.schizo.client.events.LocalPlayerPreTickEvent;
@@ -78,7 +79,7 @@ public class FastFallModule extends Module {
    private final ElapsedTimer strictPulseTimer;
 
    private boolean canUseStrictTimer() {
-      if (!this.canFastFall() || !this.isStrictMode()
+      if (!this.canFastFall()
          || this.collisionBlockYOffset == 0.0 || this.groundDistance == 0.0) {
          return false;
       }
@@ -88,10 +89,28 @@ public class FastFallModule extends Module {
    }
 
    private void releaseStrictTimer() {
-      if (this.isStrictMode()) {
-         this.strictTimerArmed = false;
-         ClientContext.playerTickController.releaseMultiplier(this);
-      }
+      this.strictTimerArmed = false;
+      ClientContext.playerTickController.releaseMultiplier(this);
+   }
+
+   static boolean shouldReleaseStrictTimer(
+      boolean strictMode, boolean canUseTimer, boolean onlyHole, boolean holeBelow
+   ) {
+      return !strictMode || !canUseTimer || (onlyHole && !holeBelow);
+   }
+
+   private void resetTransientState() {
+      this.suppressSprint = false;
+      this.strictTimerArmed = false;
+      this.strictTimerPulse = true;
+      this.holeBelow = false;
+      this.acceleratingFall = false;
+      this.hasFastFallen = false;
+      this.steppedThisTick = false;
+      this.collisionBlockYOffset = 0.0D;
+      this.groundDistance = 0.0D;
+      this.strictPulseTimer.reset();
+      ClientContext.playerTickController.releaseMultiplier(this);
    }
 
    private boolean isUnsupportedAtEdge() {
@@ -200,8 +219,12 @@ public class FastFallModule extends Module {
 
    @Override
    public void onToggle() {
-      this.suppressSprint = false;
-      this.hasFastFallen = false;
+      this.resetTransientState();
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.resetTransientState();
    }
 
    private boolean isStrictMode() {
@@ -373,8 +396,12 @@ public class FastFallModule extends Module {
             return;
          }
       }
-      if (!this.canUseStrictTimer()
-         || (!this.holeBelow && this.onlyHoleSetting.getValue())) {
+      if (shouldReleaseStrictTimer(
+         this.isStrictMode(),
+         this.canUseStrictTimer(),
+         this.onlyHoleSetting.getValue(),
+         this.holeBelow
+      )) {
          this.releaseStrictTimer();
          return;
       }
@@ -419,6 +446,8 @@ public class FastFallModule extends Module {
       this.onlyHoleSetting = this.add(new BooleanSetting("OnlyHole", false));
       this.safeDisableSetting = this.add(new BooleanSetting("SafeDisable", false));
       this.strictPulseTimer = new ElapsedTimer();
+      this.strictTimerPulse = true;
+      this.modeSetting.setChangeCallback(this::releaseStrictTimer);
    }
    public enum ModeChoice implements NamedEntry {
       PLAIN("Plain"),
