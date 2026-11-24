@@ -39,4 +39,30 @@ final class InventorySwapGuard {
 
       swapBack.run();
    }
+
+   static void runWithCleanup(Runnable action, Runnable cleanup) {
+      Objects.requireNonNull(action, "action");
+      Objects.requireNonNull(cleanup, "cleanup");
+
+      Throwable actionFailure = null;
+      try {
+         action.run();
+      } catch (RuntimeException | Error failure) {
+         actionFailure = failure;
+         throw failure;
+      } finally {
+         if (actionFailure == null) {
+            cleanup.run();
+         } else {
+            try {
+               cleanup.run();
+            } catch (RuntimeException | Error cleanupFailure) {
+               if (cleanupFailure != actionFailure) {
+                  actionFailure.addSuppressed(cleanupFailure);
+               }
+            }
+         }
+      }
+   }
+
 }
