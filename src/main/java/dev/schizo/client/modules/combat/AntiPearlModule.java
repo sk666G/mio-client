@@ -60,6 +60,7 @@ public class AntiPearlModule extends PlacementModule {
    private final Map<BlockPos, Long> placementExpiryByPosition;
    private final Map<Integer, AbstractClientPlayer> nearbyPlayerByPearlId;
    private final Map<Integer, PendingPlacement> pendingPlacementByPearlId;
+   private volatile long sessionGeneration;
 
    private void prependSupportPositions(List<BlockPos> positions) {
       List<BlockPos> supportPositions = null;
@@ -90,6 +91,7 @@ public class AntiPearlModule extends PlacementModule {
    }
 
    private void clearPearlSessionState() {
+      this.sessionGeneration++;
       this.nearbyPlayerByPearlId.clear();
       this.pendingPlacementByPearlId.clear();
       this.placementExpiryByPosition.clear();
@@ -316,7 +318,16 @@ public class AntiPearlModule extends PlacementModule {
          if (spawnPacket.getType() == EntityType.ENDER_PEARL) {
             Vec3 spawnPosition = new Vec3(spawnPacket.getX(), spawnPacket.getY(), spawnPacket.getZ());
             var taskExecutor = ClientAccess.schizoMinecraft;
+            var levelSnapshot = ClientAccess.schizoMinecraft.level;
+            long generationSnapshot = this.sessionGeneration;
             Runnable processSpawn = () -> {
+               if (!this.isToggled()
+                  || this.isWorldUnavailable()
+                  || ClientAccess.schizoMinecraft.level != levelSnapshot
+                  || this.sessionGeneration != generationSnapshot) {
+                  return;
+               }
+
                int queuedIdSnapshot = spawnPacket.getId();
                Vec3 queuedMovement = spawnPacket.getMovement();
                this.processPearlSpawn(queuedIdSnapshot, spawnPosition, queuedMovement);
