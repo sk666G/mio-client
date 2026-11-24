@@ -59,7 +59,7 @@ public final class PresetRegistry extends Registry<PresetData> {
       synchronized (this.getRegistry()) {
          PresetData preset = this.findPreset(normalized);
          if (preset == null) return false;
-         this.category.fromJson(preset.contents());
+         this.category.fromJson(preset.copyContents());
          return true;
       }
    }
@@ -258,7 +258,7 @@ public final class PresetRegistry extends Registry<PresetData> {
       PresetData source = this.getPreset(normalizedSource);
       if (source == null) return false;
       ensureNoCollision(normalizedTarget, null);
-      PresetData copy = new PresetData(normalizedTarget, source.contents().deepCopy());
+      PresetData copy = new PresetData(normalizedTarget, source.copyContents());
       copy.saveToDirectory(this.directory);
       synchronized (this.getRegistry()) {
          this.entries.add(copy);
