@@ -45,7 +45,7 @@ class CrystalTargetSelectionPolicyTest {
    void rejectsInsufficientVerticalClearanceWithoutAnExistingCrystalBase() {
       assertEquals(
          CrystalTargetSelectionPolicy.Decision.REJECT,
-         candidate(6.6D, 5.0D, false, false, true, 1.0D, 4.0D,
+         candidate(6.6D, 5.0D, false, false, true, false, 1.0D, 4.0D,
             false, false, false, false, false, 10.0D, 20.0D, 1.0D)
       );
    }
@@ -54,7 +54,7 @@ class CrystalTargetSelectionPolicyTest {
    void allowsInsufficientVerticalClearanceWhenBaseAlreadyContainsCrystal() {
       assertEquals(
          CrystalTargetSelectionPolicy.Decision.ACCEPT,
-         candidate(6.6D, 5.0D, true, false, true, 1.0D, 4.0D,
+         candidate(6.6D, 5.0D, true, false, true, false, 1.0D, 4.0D,
             false, false, false, false, false, 10.0D, 20.0D, 1.0D)
       );
    }
