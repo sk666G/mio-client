@@ -234,6 +234,13 @@ Focused tests cover local/dead/friend/server-dead/spectator/creative exclusions,
 
 **Not a worker migration:** `AnchorTargetDamage.calculateForBase` still enumerates live `ClientLevel.players()`, reads live player and module settings, and calls `DamageUtils` from the async worker. The policy is pure, but its current adapter remains live-state-bound until the scan snapshot is built on the client thread.
 
+## AutoCrystal bounded scan executor
+
+AutoCrystal's private executor now permits only one active scan and uses a `SynchronousQueue`, so it cannot accumulate pending replacement scans behind a timed-out task. If a cancelled scan is still unwinding a live Minecraft helper, the next submission is rejected and retried on a later client tick. The scheduler never runs the expensive scan inline on the client thread. Its worker thread is allowed to expire after 30 seconds idle. A focused concurrency test holds one worker active and verifies that an overlapping submission is rejected with no queued task.
+
+This bound is local to AutoCrystal. The shared `ClientAccess.executorService` used by other modules is intentionally unchanged because its full consumer set has not been audited.
+
+
 
 ## Cooperative scan cancellation
 
