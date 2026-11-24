@@ -12,14 +12,12 @@ package dev.schizo.client.config;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.FileVisitResult;
-import java.nio.file.FileVisitOption;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.util.EnumSet;
 
 public final class ClientDataDirectory {
     private ClientDataDirectory() {
@@ -30,7 +28,7 @@ public final class ClientDataDirectory {
         Path staging = null;
         try {
             if (Files.exists(destination, LinkOption.NOFOLLOW_LINKS)) {
-                if (!Files.isDirectory(destination)) {
+                if (!Files.isDirectory(destination, LinkOption.NOFOLLOW_LINKS)) {
                     throw new IOException("Schizo data path is not a directory: " + destination);
                 }
                 return destination;
@@ -38,12 +36,12 @@ public final class ClientDataDirectory {
             if (!Files.exists(legacy, LinkOption.NOFOLLOW_LINKS)) {
                 return destination;
             }
-            if (!Files.isDirectory(legacy)) {
+            if (!Files.isDirectory(legacy, LinkOption.NOFOLLOW_LINKS)) {
                 throw new IOException("Legacy data path is not a directory: " + legacy);
             }
             staging = Files.createTempDirectory(destination.toAbsolutePath().getParent(), ".schizo-migration-");
             Path copied = staging;
-            Files.walkFileTree(legacy, EnumSet.of(FileVisitOption.FOLLOW_LINKS), Integer.MAX_VALUE, new SimpleFileVisitor<>() {
+            Files.walkFileTree(legacy, new SimpleFileVisitor<>() {
                 @Override
                 public FileVisitResult preVisitDirectory(Path directory, BasicFileAttributes attributes) throws IOException {
                     if (!directory.equals(legacy)) {
@@ -54,8 +52,14 @@ public final class ClientDataDirectory {
 
                 @Override
                 public FileVisitResult visitFile(Path file, BasicFileAttributes attributes) throws IOException {
+                    if (attributes.isSymbolicLink()) {
+                        throw new IOException("Legacy data contains a symbolic link: " + legacy.relativize(file));
+                    }
+                    if (!attributes.isRegularFile()) {
+                        throw new IOException("Legacy data contains an unsupported file: " + legacy.relativize(file));
+                    }
 
-                    Files.copy(file, copied.resolve(legacy.relativize(file)), StandardCopyOption.COPY_ATTRIBUTES);
+                    Files.copy(file, copied.resolve(legacy.relativize(file)), StandardCopyOption.COPY_ATTRIBUTES, LinkOption.NOFOLLOW_LINKS);
                     return FileVisitResult.CONTINUE;
                 }
             });

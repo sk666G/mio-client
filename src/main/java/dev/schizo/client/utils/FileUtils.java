@@ -17,6 +17,10 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.Files;
+import java.nio.file.LinkOption;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.Path;
 
 public final class FileUtils {
@@ -76,6 +80,37 @@ public final class FileUtils {
    public static void writeUtf8(Path path, String text) throws IOException {
       Charset charset = StandardCharsets.UTF_8;
       writeBytes(path, text.getBytes(charset));
+   }
+
+   public static void writeBytesAtomically(Path path, byte[] bytes) throws IOException {
+      Path absolutePath = path.toAbsolutePath().normalize();
+      Path parent = absolutePath.getParent();
+      if (parent == null) {
+         throw new IOException("Cannot atomically write a path without a parent directory");
+      }
+      if (Files.isSymbolicLink(parent)) {
+         throw new IOException("Refusing to write through a symbolic-link directory: " + parent.getFileName());
+      }
+      Files.createDirectories(parent);
+      if (Files.isSymbolicLink(parent) || Files.isSymbolicLink(absolutePath)) {
+         throw new IOException("Refusing to replace a symbolic link: " + absolutePath.getFileName());
+      }
+
+      Path temporary = Files.createTempFile(parent, ".schizo-write-", ".tmp");
+      try {
+         Files.write(temporary, bytes);
+         try {
+            Files.move(temporary, absolutePath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+         } catch (AtomicMoveNotSupportedException unsupported) {
+            Files.move(temporary, absolutePath, StandardCopyOption.REPLACE_EXISTING);
+         }
+      } finally {
+         Files.deleteIfExists(temporary);
+      }
+   }
+
+   public static void writeUtf8Atomically(Path path, String text) throws IOException {
+      writeBytesAtomically(path, text.getBytes(StandardCharsets.UTF_8));
    }
 
    public static String readUtf8(Path path) throws IOException {

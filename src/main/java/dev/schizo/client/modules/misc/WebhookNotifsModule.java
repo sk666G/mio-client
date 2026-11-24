@@ -42,6 +42,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.util.ARGB;
 
 public class WebhookNotifsModule extends Module {
+   private static final int MAX_PENDING_MESSAGES = 1000;
 
    private static final Map<Color, String> ANSI_PALETTE = new HashMap<>();
    static {
@@ -68,7 +69,8 @@ public class WebhookNotifsModule extends Module {
    private final Setting<Boolean> pingSetting;
    private final DateTimeFormatter timestampFormatter;
    private final List<String> pendingMessages;
-   private final List<String> includedMessages;
+   private boolean deliveryInFlight;
+   private boolean queueOverflowWarned;
    private boolean pingPending;
    private final ElapsedTimer notificationTimer;
    private String previousQueueMessage;
@@ -104,12 +106,25 @@ public class WebhookNotifsModule extends Module {
       }
    }
 
-   private void enqueueLines(String[] lines) {
+   private boolean enqueueLines(String[] lines) {
       StringBuilder message = new StringBuilder();
       for (String line : lines) {
          if (!line.isEmpty()) message.append(ChatFormatting.stripFormatting(line)).append('\n');
       }
-      if (message.length() >= 2) this.pendingMessages.add(message.substring(0, message.length() - 1));
+      if (message.length() < 2) return false;
+
+      synchronized (this.pendingMessages) {
+         if (this.pendingMessages.size() >= MAX_PENDING_MESSAGES) {
+            if (!this.queueOverflowWarned) {
+               ClientAccess.logger.warn("Webhook notification queue reached {} messages; new notifications are being dropped until it drains", MAX_PENDING_MESSAGES);
+               this.queueOverflowWarned = true;
+            }
+            return false;
+         }
+
+         this.pendingMessages.add(message.substring(0, message.length() - 1));
+         return true;
+      }
    }
 
    public static String getClosestAnsiColor(int rgb) {
@@ -179,15 +194,15 @@ public class WebhookNotifsModule extends Module {
       Setting<Boolean> chatMessagesOption = this.chatMessagesSetting;
       Boolean notifyChatMessages = chatMessagesOption.getValue();
       if (notifyChatMessages || stashMessage || visualRangeMessage) {
-         if (stashMessage) {
+         boolean queued = this.enqueueLines(lines);
+         if (queued && stashMessage) {
             Setting<Boolean> pingOption = this.pingSetting;
-            Boolean pingEveryone = pingOption.getValue();
-            if (pingEveryone) {
-               this.pingPending = true;
+            if (pingOption.getValue()) {
+               synchronized (this.pendingMessages) {
+                  this.pingPending = true;
+               }
             }
          }
-
-         this.enqueueLines(lines);
       }
    }
 
@@ -207,28 +222,62 @@ public class WebhookNotifsModule extends Module {
       WebhookManager manager = ClientContext.webhookManager;
       if (!manager.isConfigured() || !this.notificationTimer.hasElapsed(this.timeoutSetting.getValue(), TimeUnit.SECONDS)
          || this.pendingMessages.isEmpty()) return;
+
       this.notificationTimer.reset();
       synchronized (this.pendingMessages) {
-         if (this.pendingMessages.isEmpty()) return;
-         String mention = this.pingPending && !manager.isTelegram() ? "@everyone\n" : "";
+         if (this.deliveryInFlight || this.pendingMessages.isEmpty()) return;
+
+         boolean hadPendingPing = this.pingPending;
+         String mention = hadPendingPing && !manager.isTelegram() ? "@everyone\n" : "";
          this.pingPending = false;
+
          StringBuilder batch = new StringBuilder();
+         int includedCount = 0;
          String timestamp = "[" + this.timestampFormatter.format(LocalDateTime.now()) + "] ";
          for (String message : this.pendingMessages) {
             if (batch.length() > 1900) break;
             if (this.timestampSetting.getValue()) batch.append(timestamp);
             batch.append(message).append('\n');
-            this.includedMessages.add(message);
+            includedCount++;
          }
+         if (includedCount == 0) {
+            if (hadPendingPing) this.pingPending = true;
+            return;
+         }
+
          String text = batch.substring(0, batch.length() - 1).replace("`", "'");
+         String payload;
          if (manager.isTelegram()) {
-            manager.sendContent(text);
+            payload = text;
          } else {
             String language = this.colorSetting.getValue() ? "ansi\n" : "";
-            manager.sendContent(mention + "```" + language + text + "```");
+            payload = mention + "```" + language + text + "```";
          }
-         for (String message : this.includedMessages) this.pendingMessages.remove(message);
-         this.includedMessages.clear();
+
+         this.deliveryInFlight = true;
+         final int messagesInBatch = includedCount;
+         try {
+            manager.sendContent(payload).whenComplete((delivered, failure) -> {
+               synchronized (this.pendingMessages) {
+                  if (failure == null && Boolean.TRUE.equals(delivered)) {
+                     for (int index = 0; index < messagesInBatch && !this.pendingMessages.isEmpty(); index++) {
+                        this.pendingMessages.remove(0);
+                     }
+                     if (this.pendingMessages.size() < MAX_PENDING_MESSAGES) {
+                        this.queueOverflowWarned = false;
+                     }
+                  } else if (hadPendingPing) {
+                     this.pingPending = true;
+                  }
+
+                  this.deliveryInFlight = false;
+               }
+            });
+         } catch (RuntimeException sendFailure) {
+            if (hadPendingPing) this.pingPending = true;
+            this.deliveryInFlight = false;
+            ClientAccess.logger.warn("Webhook notification could not be queued ({})", sendFailure.getClass().getSimpleName());
+         }
       }
    }
 
@@ -254,7 +303,6 @@ public class WebhookNotifsModule extends Module {
       this.pingSetting = this.add(new BooleanSetting("Ping", false).dependsOn(registeredTypes, registeredStash));
       this.timestampFormatter = DateTimeFormatter.ofPattern("HH:mm");
       this.pendingMessages = Collections.synchronizedList(new ArrayList<>());
-      this.includedMessages = new ArrayList<>();
       this.notificationTimer = new ElapsedTimer();
    }
 

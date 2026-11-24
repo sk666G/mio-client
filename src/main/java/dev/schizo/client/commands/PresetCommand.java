@@ -198,64 +198,47 @@ public final class PresetCommand extends Command {
 
    private static int savePreset(CommandContext context) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
       String presetName = (String)(context.getArgument("preset", String.class));
-
       PresetRegistry presetManager = PresetCategoryArgument.getManager(context, "category");
       PresetUndoAction undoAction = PresetUndoAction.beforeSave(presetManager, presetName);
 
       try {
-
          presetManager.savePreset(presetName);
          ClientContext.configurationManager.getPresetUndoState().push(undoAction);
+         ChatUtils.printChat(Component.literal("Preset " + presetName + " has been saved."), ChatUtils.createSignature(-1));
       } catch (IOException saveFailure) {
-         saveFailure.printStackTrace();
+         ChatUtils.printChat(Component.literal("Could not save preset " + presetName + ": " + saveFailure.getMessage()), ChatUtils.createSignature(-1));
       }
-
-      String savedMessage = "Preset " + String.valueOf(presetName) + " has been saved.";
-      MutableComponent savedMessageComponent = Component.literal(savedMessage);
-
-      ChatUtils.printChat(savedMessageComponent, ChatUtils.createSignature(-1));
       return 1;
    }
 
    private static int deletePreset(CommandContext context) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
       PresetData preset = PresetArgumentType.getPreset(context, "category", "preset");
-
       PresetRegistry presetManager = PresetCategoryArgument.getManager(context, "category");
-
       String presetName = preset.getName();
-
       PresetUndoAction undoAction = PresetUndoAction.beforeDelete(presetManager, presetName);
+
       if (presetManager.deletePreset(presetName)) {
          ClientContext.configurationManager.getPresetUndoState().push(undoAction);
+         ChatUtils.printChat(Component.literal("Preset " + presetName + " has been deleted."), ChatUtils.createSignature(-1));
+      } else {
+         ChatUtils.printChat(Component.literal("Could not delete preset " + presetName + "."), ChatUtils.createSignature(-1));
       }
-
-      String deletedMessage = "Preset " + String.valueOf(preset.getName()) + " has been deleted.";
-      MutableComponent deletedMessageComponent = Component.literal(deletedMessage);
-
-      ChatUtils.printChat(deletedMessageComponent, ChatUtils.createSignature(-1));
       return 1;
    }
 
    private static int renamePreset(CommandContext context) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
       PresetData preset = PresetArgumentType.getPreset(context, "category", "preset");
-
       PresetRegistry presetManager = PresetCategoryArgument.getManager(context, "category");
-
       String oldName = preset.getName();
-
       String newName = (String)(context.getArgument("name", String.class));
-
       PresetUndoAction undoAction = PresetUndoAction.beforeRename(presetManager, oldName, newName);
+
       if (presetManager.renamePreset(oldName, newName)) {
          ClientContext.configurationManager.getPresetUndoState().push(undoAction);
+         ChatUtils.printChat(Component.literal("The name of " + oldName + " has been set to " + newName + "."), ChatUtils.createSignature(-1));
+      } else {
+         ChatUtils.printChat(Component.literal("Could not rename preset " + oldName + " to " + newName + ". Check the name and destination."), ChatUtils.createSignature(-1));
       }
-
-      String reportedOldName = preset.getName();
-
-      String renamedMessage = "The name of " + String.valueOf(reportedOldName) + " has been set to " + String.valueOf((String)(context.getArgument("name", String.class))) + ".";
-      MutableComponent renamedMessageComponent = Component.literal(renamedMessage);
-
-      ChatUtils.printChat(renamedMessageComponent, ChatUtils.createSignature(-1));
       return 1;
    }
 
