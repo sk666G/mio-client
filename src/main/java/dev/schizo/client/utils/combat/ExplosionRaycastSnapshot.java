@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.phys.AABB;
@@ -91,6 +92,8 @@ public final class ExplosionRaycastSnapshot {
    private final long worldGeneration;
    private final long captureTick;
    private final String dimensionId;
+   private final int collisionEntityId;
+   private final UUID collisionEntityUuid;
    private final Map<Long, BlockGeometry> blocks;
 
    public ExplosionRaycastSnapshot(
@@ -99,9 +102,22 @@ public final class ExplosionRaycastSnapshot {
       String dimensionId,
       Map<Long, BlockGeometry> blocks
    ) {
+      this(worldGeneration, captureTick, dimensionId, Integer.MIN_VALUE, null, blocks);
+   }
+
+   public ExplosionRaycastSnapshot(
+      long worldGeneration,
+      long captureTick,
+      String dimensionId,
+      int collisionEntityId,
+      UUID collisionEntityUuid,
+      Map<Long, BlockGeometry> blocks
+   ) {
       this.worldGeneration = worldGeneration;
       this.captureTick = captureTick;
       this.dimensionId = Objects.requireNonNull(dimensionId, "dimensionId");
+      this.collisionEntityId = collisionEntityId;
+      this.collisionEntityUuid = collisionEntityUuid;
       this.blocks = Map.copyOf(Objects.requireNonNull(blocks, "blocks"));
    }
 
@@ -115,6 +131,20 @@ public final class ExplosionRaycastSnapshot {
 
    public String dimensionId() {
       return this.dimensionId;
+   }
+
+   public int collisionEntityId() {
+      return this.collisionEntityId;
+   }
+
+   public UUID collisionEntityUuid() {
+      return this.collisionEntityUuid;
+   }
+
+   public boolean matchesCollisionEntity(int entityId, UUID entityUuid) {
+      return this.collisionEntityId == entityId
+         && this.collisionEntityUuid != null
+         && this.collisionEntityUuid.equals(entityUuid);
    }
 
    public int capturedBlockCount() {
