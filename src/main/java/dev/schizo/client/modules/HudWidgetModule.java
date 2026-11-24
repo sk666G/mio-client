@@ -133,17 +133,10 @@ public abstract class HudWidgetModule extends Module {
    }
 
    public void setAnchor(HudAnchor anchor) {
-      this.renderer
-         .setAnchor(anchor);
-      HudEditorScreen editorForRemoval = ClientContext.getHudEditor();
-      HudWidgetRenderer rendererForRemoval = this.renderer;
-
-      editorForRemoval.removeWidget(rendererForRemoval);
-
-      ClientContext.getHudEditor()
-         .addWidget(
-            anchor, this.renderer
-         );
+      HudEditorScreen editor = ClientContext.getHudEditor();
+      editor.removeWidget(this.renderer);
+      this.renderer.setAnchor(anchor);
+      editor.addWidget(anchor, this.renderer);
    }
 
    protected void setRenderer(HudWidgetRenderer renderer) {

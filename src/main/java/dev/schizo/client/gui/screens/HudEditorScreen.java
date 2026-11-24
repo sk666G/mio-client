@@ -14,6 +14,7 @@ import dev.schizo.client.ClientContext;
 import dev.schizo.client.gui.components.HudModulePanel;
 import dev.schizo.client.gui.panels.Panel;
 import dev.schizo.client.render.GuiDrawUtils;
+import dev.schizo.client.render.GuiScaleUtils;
 import dev.schizo.client.render.MaskShaderRenderer;
 import dev.schizo.client.render.ClientRenderPipelines;
 import dev.schizo.client.render.RenderTargetUtils;
@@ -71,6 +72,7 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
    );
    private final HudModulePanel modulePanel = new HudModulePanel();
    private HudWidgetRenderer draggedWidget;
+   private ResizableHudWidgetRenderer resizedWidget;
    private boolean centerPanelPending;
    private boolean directionsRefreshPending;
    private double dragOffsetX;
@@ -319,7 +321,7 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
          this.draggedWidget = null;
       }
 
-      ResizableHudWidgetRenderer.cancelActiveResize();
+      this.resizedWidget = null;
       this.cancelLayoutEdit();
       return true;
    }
@@ -342,6 +344,20 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
       if (next != null) {
          this.restoreLayout(next);
       }
+   }
+
+   public boolean isResizing(ResizableHudWidgetRenderer widget) {
+      return this.resizedWidget == widget;
+   }
+
+   private boolean pointerOverPanel(double x, double y) {
+      double scale = GuiScaleUtils.calculateScaleMultiplier(this.guiScale);
+      for (Panel panel : this.panels) {
+         if (panel.isMouseOver(x / scale, y / scale)) {
+            return true;
+         }
+      }
+      return false;
    }
 
    private IntPair getArrowKeyOffset(int keyCode) {
@@ -373,14 +389,22 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
 
    @Override
    public boolean mouseDragged(MouseButtonEvent event, double dragX, double dragY) {
+      if (this.resizedWidget != null && event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+         if (this.resizedWidget.isEnabled()) {
+            this.resizedWidget.resizeTo(event.x(), event.y());
+         } else {
+            this.cancelPendingLayoutGesture();
+         }
+         return true;
+      }
       if (this.draggedWidget != null && event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
          HudWidgetRenderer widget = this.draggedWidget;
          float[] size = widget.getDimensions();
-            float screenWidth = ClientAccess.schizoMinecraft.getWindow().getGuiScaledWidth();
-            float screenHeight = ClientAccess.schizoMinecraft.getWindow().getGuiScaledHeight();
-            widget.setX(HudWidgetDrag.clampCoordinate(event.x(), this.dragOffsetX, screenWidth, size[0]), true);
-            widget.setY(HudWidgetDrag.clampCoordinate(event.y(), this.dragOffsetY, screenHeight, size[1]), true);
-            this.applyDragSnapping(widget, size, screenWidth, screenHeight);
+         float screenWidth = ClientAccess.schizoMinecraft.getWindow().getGuiScaledWidth();
+         float screenHeight = ClientAccess.schizoMinecraft.getWindow().getGuiScaledHeight();
+         widget.setX(HudWidgetDrag.clampCoordinate(event.x(), this.dragOffsetX, screenWidth, size[0]), true);
+         widget.setY(HudWidgetDrag.clampCoordinate(event.y(), this.dragOffsetY, screenHeight, size[1]), true);
+         this.applyDragSnapping(widget, size, screenWidth, screenHeight);
          widget.updateDirections();
          return true;
       }
@@ -389,6 +413,15 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
 
    @Override
    public boolean mouseReleased(MouseButtonEvent event) {
+      if (this.resizedWidget != null && event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+         if (this.resizedWidget.isEnabled()) {
+            this.resizedWidget = null;
+            this.finishLayoutEdit();
+         } else {
+            this.cancelPendingLayoutGesture();
+         }
+         return true;
+      }
       this.marginController.mouseReleased(event.button());
       boolean released = super.mouseReleased(event);
       if (this.draggedWidget != null && event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
@@ -443,67 +476,41 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
 
    @Override
    public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
-      HudAnchor dragAnchor = null;
-      HudWidgetRenderer dragCandidate = null;
-
-      for (HudAnchorGroup group : anchorGroups) {
-         for (int widgetIndex = group.getWidgets()
-                  .size()
-               - 1;
-            widgetIndex >= 0;
-            widgetIndex--
-         ) {
-            HudWidgetRenderer widget = (HudWidgetRenderer)group.getWidgets()
-               .get(widgetIndex);
-            if (widget.isEnabled()
-               && dragCandidate == null
-               && widget.isMouseOver(event.x(), event.y())
-               && !(
-                  widget instanceof ResizableHudWidgetRenderer resizableWidget
-                     && resizableWidget.isResizeHandleHovered(
-                        event.x(), event.y()
-                     )
-               )) {
-               if (event.button() == 0) {
-                  this.beginLayoutEdit();
-                  dragAnchor = group.getAnchor();
-                  dragCandidate = widget;
-                  this.dragOffsetX = event.x() - widget.getX();
-                  this.dragOffsetY = event.y() - widget.getY();
-                  this.draggedWidget = widget;
-                  widget.setSelected(true);
-                  widget.resetSnapping();
-               } else if (event.button() == 1) {
-                  ModuleComponent moduleRow = this.findModuleRow(widget);
-                  if (moduleRow != null) {
-                     moduleRow.toggleOpen();
-                  }
-               }
+      if (this.closing || this.draggedWidget != null || this.resizedWidget != null) {
+         return true;
+      }
+      if (this.pointerOverPanel(event.x(), event.y())) {
+         return super.mouseClicked(event, doubleClick);
+      }
+      HudWidgetRenderer widget = this.findHoveredWidget(event.x(), event.y());
+      if (widget != null && (event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT || event.button() == GLFW.GLFW_MOUSE_BUTTON_RIGHT)) {
+         if (widget instanceof ResizableHudWidgetRenderer resizable && resizable.isResizeHandleHovered(event.x(), event.y())) {
+            this.beginLayoutEdit();
+            if (event.button() == GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
+               resizable.setSizeScale(1.0F);
+               this.finishLayoutEdit();
+            } else {
+               this.resizedWidget = resizable;
+            }
+         } else if (event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+            this.beginLayoutEdit();
+            this.dragOffsetX = event.x() - widget.getX();
+            this.dragOffsetY = event.y() - widget.getY();
+            this.getAnchorGroup(widget.getAnchor()).getWidgets().remove(widget);
+            this.addWidget(HudAnchor.NONE, widget);
+            widget.setAnchor(HudAnchor.NONE);
+            widget.setSelected(true);
+            widget.resetSnapping();
+            this.draggedWidget = widget;
+         } else {
+            ModuleComponent row = this.findModuleRow(widget);
+            if (row != null) {
+               row.toggleOpen();
             }
          }
+         return true;
       }
-
-      if (dragCandidate != null) {
-         this.getAnchorGroup(
-               dragAnchor
-            )
-            .getWidgets()
-            .remove(
-               dragCandidate
-            );
-         this.getAnchorGroup(HudAnchor.NONE)
-            .getWidgets()
-            .addLast(
-               dragCandidate
-            );
-         dragCandidate
-            .setAnchor(HudAnchor.NONE);
-      } else {
-         this.marginController
-            .mouseClicked(
-               event.x(), event.y(), event.button()
-            );
-      }
+      this.marginController.mouseClicked(event.x(), event.y(), event.button());
 
       return super.mouseClicked(event, doubleClick);
    }
@@ -684,6 +691,9 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
    }
 
    public void removeWidget(HudWidgetRenderer widget) {
+      if (this.draggedWidget == widget || this.resizedWidget == widget) {
+         this.cancelPendingLayoutGesture();
+      }
       for (HudAnchorGroup group : this.getAnchorGroups()) {
          if (group.getWidgets()
             .remove(widget)) {
@@ -694,23 +704,15 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
 
    @Override
    protected void init() {
+      this.cancelPendingLayoutGesture();
+      this.marginController.mouseReleased(GLFW.GLFW_MOUSE_BUTTON_LEFT);
       super.init();
       this.centerPanelPending = true;
    }
 
    @Override
    public boolean keyPressed(KeyEvent event) {
-      boolean overPanel = false;
-
-      for (Object panelElement : this.panels) {
-         Panel panel = (Panel)panelElement;
-         if (panel.isMouseOver(this.mouseX, this.mouseY)) {
-            overPanel = true;
-            break;
-         }
-      }
-
-      if (!overPanel) {
+      if (!this.pointerOverPanel(this.mouseX, this.mouseY)) {
          if (KeyUtils.isControlDown() && event.key() == GLFW.GLFW_KEY_Z) {
             if (KeyUtils.isShiftDown()) {
                this.redoLayoutEdit();
@@ -724,7 +726,10 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
             return true;
          }
 
-         HudWidgetRenderer widget = this.findHoveredWidget();
+         if (this.draggedWidget != null || this.resizedWidget != null) {
+            return super.keyPressed(event);
+         }
+         HudWidgetRenderer widget = this.findHoveredWidget(this.mouseX, this.mouseY);
          IntPair offset = this.getArrowKeyOffset(event.key());
          if (offset != null && widget != null && widget.isEnabled()) {
             this.beginLayoutEdit();
@@ -764,18 +769,21 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
    }
 
    @Override
-   public void onClose() {
-      super.onClose();
-      if (this.draggedWidget != null) {
-         this.draggedWidget.setSelected(false);
-         this.draggedWidget = null;
+   public void removed() {
+      try {
+         this.cancelPendingLayoutGesture();
+         this.marginController.mouseReleased(GLFW.GLFW_MOUSE_BUTTON_LEFT);
+      } finally {
+         super.removed();
       }
-      ResizableHudWidgetRenderer.cancelActiveResize();
-      this.cancelLayoutEdit();
    }
 
    @Override
    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+      if ((this.draggedWidget != null && !this.draggedWidget.isEnabled())
+         || (this.resizedWidget != null && !this.resizedWidget.isEnabled())) {
+         this.cancelPendingLayoutGesture();
+      }
       PoseStack poseStack = GuiProjectionUtils.toPoseStack(graphics);
       RenderUtils.setRenderColor(
          1.0F,
@@ -885,19 +893,17 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
       this.directionsRefreshPending = true;
    }
 
-   private HudWidgetRenderer findHoveredWidget() {
-      for (HudAnchorGroup group : anchorGroups) {
-         for (Object widgetElement : group.getWidgets()) {
-            HudWidgetRenderer widget = (HudWidgetRenderer)widgetElement;
-            if (widget.isMouseOver(
-               this.mouseX,
-               this.mouseY
-            )) {
+   private HudWidgetRenderer findHoveredWidget(double x, double y) {
+      for (int groupIndex = anchorGroups.size() - 1; groupIndex >= 0; groupIndex--) {
+         List widgets = anchorGroups.get(groupIndex).getWidgets();
+         for (int index = widgets.size() - 1; index >= 0; index--) {
+            HudWidgetRenderer widget = (HudWidgetRenderer)widgets.get(index);
+            if (widget.isEnabled() && (widget.isMouseOver(x, y)
+               || widget instanceof ResizableHudWidgetRenderer resizable && resizable.isResizeHandleHovered(x, y))) {
                return widget;
             }
          }
       }
-
       return null;
    }
 
