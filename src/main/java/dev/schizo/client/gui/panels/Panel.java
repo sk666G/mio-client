@@ -428,95 +428,102 @@ public class Panel implements RegistryContainer, GuiElement, NamedEntry {
          );
       }
 
-      Color backgroundColor = UIModule.INSTANCE
-         .backgroundSetting
-         .getValue();
-      if (expansionValue > 0.0F && !this.children.isEmpty()) {
-         GuiDrawUtils.fillRect(
-            poseStack,
-            this.x,
-            this.y
-               + this.getHeaderHeight(),
-            this.x
-               + this.getWidth(),
-            this.y
-                  + this.height
-               + 0.5F,
-            backgroundColor
-         );
-         this.children
-            .forEach(
-               child -> {
-                  if (this.isChildVisible(child)) {
-                     child.update(mouseX, mouseY);
-                     int childYOffset = child.getYOffset();
-                     if (childYOffset <= this.height
-                        && childYOffset + child.getHeight() >= 0) {
-                        child.render(poseStack, mouseX, mouseY);
+      try {
+         Color backgroundColor = UIModule.INSTANCE
+            .backgroundSetting
+            .getValue();
+         if (expansionValue > 0.0F && !this.children.isEmpty()) {
+            GuiDrawUtils.fillRect(
+               poseStack,
+               this.x,
+               this.y
+                  + this.getHeaderHeight(),
+               this.x
+                  + this.getWidth(),
+               this.y
+                     + this.height
+                  + 0.5F,
+               backgroundColor
+            );
+            this.children
+               .forEach(
+                  child -> {
+                     if (this.isChildVisible(child)) {
+                        child.update(mouseX, mouseY);
+                        int childYOffset = child.getYOffset();
+                        if (childYOffset <= this.height
+                           && childYOffset + child.getHeight() >= 0) {
+                           child.render(poseStack, mouseX, mouseY);
+                        }
                      }
                   }
-               }
-            );
-      }
-
-      if (expansionValue != 0.0F) {
-         GuiDrawUtils.flush();
-         ScissorStack.pop();
+               );
+         }
+      } finally {
+         if (expansionValue != 0.0F) {
+            try {
+               GuiDrawUtils.flush();
+            } finally {
+               ScissorStack.pop();
+            }
+         }
       }
 
       poseStack.pushPose();
-      poseStack.translate(
-         0.0F,
-         0.0F,
-         500.0F
-      );
-      this.bottomScrollFadeAnimation
-         .setTarget(
-            this.scrollOffset
-               > Math.min(
-                  -this.contentHeight
-                     + this.height,
-                  0
-               ),
-            200L
+      try {
+         poseStack.translate(
+            0.0F,
+            0.0F,
+            500.0F
          );
-      this.topScrollFadeAnimation
-         .setTarget(
-            this.scrollOffset < 0, 200L
-         );
-      this.renderScrollFade(
-         poseStack,
          this.bottomScrollFadeAnimation
-            .getValue(),
-         false
-      );
-      this.renderScrollFade(
-         poseStack,
+            .setTarget(
+               this.scrollOffset
+                  > Math.min(
+                     -this.contentHeight
+                        + this.height,
+                     0
+                  ),
+               200L
+            );
          this.topScrollFadeAnimation
-            .getValue(),
-         true
-      );
-      if (UIModule.INSTANCE.lineSetting.getValue()) {
-         float outlineHeight = (int)(this.height * expansionValue)
-            + 0.5F;
-         if (outlineHeight
-            <= this.getHeaderHeight()
-               + (2)) {
-            outlineHeight = this.getHeaderHeight();
-         }
-
-         GuiDrawUtils.drawRectOutline(
+            .setTarget(
+               this.scrollOffset < 0, 200L
+            );
+         this.renderScrollFade(
             poseStack,
-            this.x - 1,
-            this.y - 1,
-            this.x
-               + this.getWidth(),
-            this.y + outlineHeight,
-            this.applyHeaderAlpha(uiColor)
+            this.bottomScrollFadeAnimation
+               .getValue(),
+            false
          );
-      }
+         this.renderScrollFade(
+            poseStack,
+            this.topScrollFadeAnimation
+               .getValue(),
+            true
+         );
+         if (UIModule.INSTANCE.lineSetting.getValue()) {
+            float outlineHeight = (int)(this.height * expansionValue)
+               + 0.5F;
+            if (outlineHeight
+               <= this.getHeaderHeight()
+                  + (2)) {
+               outlineHeight = this.getHeaderHeight();
+            }
 
-      poseStack.popPose();
+            GuiDrawUtils.drawRectOutline(
+               poseStack,
+               this.x - 1,
+               this.y - 1,
+               this.x
+                  + this.getWidth(),
+               this.y + outlineHeight,
+               this.applyHeaderAlpha(uiColor)
+            );
+         }
+      } finally {
+         poseStack.popPose();
+      }
       this.recoverScrollOffset();
       this.updateLayout();
       GuiDrawUtils.flush();
