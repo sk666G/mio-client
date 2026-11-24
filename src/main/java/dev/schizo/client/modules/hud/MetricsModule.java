@@ -243,8 +243,12 @@ public class MetricsModule extends HudWidgetModule {
 
       rowsToSort.sort(metricComparator);
       this.shulkerCount = this.chestAndBarrelCount = 0;
-      WorldStateManager worldTracker = ClientContext.worldStateManager;
-      countContainers(this, worldTracker);
+      boolean countChests = this.chestSetting.getValue();
+      boolean countShulkers = this.shulkersSetting.getValue();
+      if (countChests || countShulkers) {
+         WorldStateManager worldTracker = ClientContext.worldStateManager;
+         countContainers(this, worldTracker, countChests, countShulkers);
+      }
    }
 
    private static Component formatSpeedMetric(MetricsModule owner, boolean useBpsSuffix) {
@@ -284,24 +288,22 @@ public class MetricsModule extends HudWidgetModule {
       return -textRenderer.getWidth(rowText.getString());
    }
 
-   private static void countContainers(MetricsModule owner, WorldStateManager worldTracker) {
+   private static void countContainers(
+      MetricsModule owner, WorldStateManager worldTracker, boolean countChests, boolean countShulkers
+   ) {
       for (BlockEntity blockEntity : worldTracker.getBlockEntities()) {
-         if (blockEntity instanceof ChestBlockEntity || blockEntity instanceof BarrelBlockEntity) {
+         if (countChests && (blockEntity instanceof ChestBlockEntity || blockEntity instanceof BarrelBlockEntity)) {
             owner.chestAndBarrelCount++;
          }
 
-         if (blockEntity instanceof ShulkerBoxBlockEntity) {
+         if (countShulkers && blockEntity instanceof ShulkerBoxBlockEntity) {
             owner.shulkerCount++;
          }
       }
 
-      Setting<Boolean> doubleChestOption = owner.doubleChestSetting;
-      Boolean combineChestPairs = doubleChestOption.getValue();
-      if (combineChestPairs) {
+      if (countChests && owner.doubleChestSetting.getValue()) {
          int combinedContainerCount = owner.chestAndBarrelCount;
-
-         owner.chestAndBarrelCount = combinedContainerCount
-            / 2;
+         owner.chestAndBarrelCount = combinedContainerCount / 2;
       }
    }
 

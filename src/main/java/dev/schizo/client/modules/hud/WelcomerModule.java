@@ -199,27 +199,17 @@ public class WelcomerModule extends HudWidgetModule {
    }
 
    private boolean slidesUp(HudNotification notification) {
-
-      long time = notification.getStartTimeMillis();
-
-      boolean evenStartTime = time % 2L == 0L;
-      time = System.currentTimeMillis();
-
-      time -= notification.getStartTimeMillis();
-
-      return time <= 500L ? !evenStartTime : evenStartTime;
+      boolean evenStartTime = notification.hasEvenStartMillis();
+      long elapsedMillis = notification.getElapsedMillis();
+      return elapsedMillis <= 500L ? !evenStartTime : evenStartTime;
    }
 
    private float getNotificationProgress(
       HudNotification notification, float transitionMillis, float progressOffset
    ) {
 
-      long timestamp = notification.getEndTimeMillis();
-
-      long lifetimeMillis = timestamp - notification.getStartTimeMillis();
-      timestamp = System.currentTimeMillis();
-
-      long elapsedMillis = timestamp - notification.getStartTimeMillis();
+      long lifetimeMillis = notification.getLifetimeMillis();
+      long elapsedMillis = notification.getElapsedMillis();
 
       float progress = 1.0F;
       if ((float)elapsedMillis <= transitionMillis) {
@@ -241,9 +231,7 @@ public class WelcomerModule extends HudWidgetModule {
       this.updateSmartNotifications();
       this.notifications.removeIf(
          notification -> {
-            long nowMillis = System.currentTimeMillis();
-
-            if (nowMillis < notification.getEndTimeMillis()) {
+            if (!notification.isExpired()) {
                Setting<Boolean> smartOption = this.smartSetting;
                Boolean smartEnabled = smartOption.getValue();
                if (smartEnabled || notification instanceof GreetingNotification) {
