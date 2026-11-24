@@ -1,6 +1,7 @@
 package dev.schizo.client.managers;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.junit.jupiter.api.Test;
 
@@ -67,5 +68,16 @@ class TickRateControllerTest {
       requests.clear();
 
       assertEquals(1.0F, requests.getMultiplier(), EPSILON);
+   }
+
+   @Test
+   void rejectsNonFiniteRequestsWithoutChangingTheActiveOwner() {
+      TickRateController.Requests requests = new TickRateController.Requests();
+      Object owner = new Object();
+      requests.request(owner, 1.25F);
+
+      assertThrows(IllegalArgumentException.class, () -> requests.request(new Object(), Float.NaN));
+      assertThrows(IllegalArgumentException.class, () -> requests.request(new Object(), Float.POSITIVE_INFINITY));
+      assertEquals(1.25F, requests.getMultiplier(), EPSILON);
    }
 }
