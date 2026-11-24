@@ -37,6 +37,7 @@ public class ResizableHudWidgetRenderer extends HudWidgetRenderer {
       2.0F
    );
    private final FloatAnimation handleAnimation = new FloatAnimation();
+   private final float[] scaledDimensions = new float[2];
    private boolean applyHudScale;
    private boolean resizingEnabled;
 
@@ -73,11 +74,11 @@ public class ResizableHudWidgetRenderer extends HudWidgetRenderer {
 
    @Override
    public float[] calculateDimensions() {
-      float[] dimensions = this.widget
-         .calculateDimensions();
-      dimensions[0] *= this.getScale();
-      dimensions[1] *= this.getScale();
-      return dimensions;
+      float[] sourceDimensions = this.widget.calculateDimensions();
+      float scale = this.getScale();
+      this.scaledDimensions[0] = sourceDimensions[0] * scale;
+      this.scaledDimensions[1] = sourceDimensions[1] * scale;
+      return this.scaledDimensions;
    }
 
    @Override
