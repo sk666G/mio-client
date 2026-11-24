@@ -276,15 +276,15 @@ public class NoFallModule extends Module {
                      LocalPlayer pitchPlayer = ClientAccess.schizoMinecraft.player;
                      float pitch = MathConstants.NINETY_DEGREES;
                      pitchPlayer.setXRot(pitch);
-                     InventoryUtils.swapTo(bucket);
                      MultiPlayerGameMode gameMode = ClientAccess.schizoMinecraft.gameMode;
                      LocalPlayer usePlayer = ClientAccess.schizoMinecraft.player;
                      InteractionHand hand = bucket.hand();
-                     gameMode.useItem(usePlayer, hand);
                      LocalPlayer swingPlayer = ClientAccess.schizoMinecraft.player;
                      InteractionHand swingHand = bucket.hand();
-                     swingPlayer.swing(swingHand);
-                     InventoryUtils.swapBack(selectedSlot, bucket);
+                     InventoryUtils.runWithSwap(selectedSlot, bucket, () -> {
+                        gameMode.useItem(usePlayer, hand);
+                        swingPlayer.swing(swingHand);
+                     });
                      this.skipNextMlgTick = true;
                      return;
                   }
