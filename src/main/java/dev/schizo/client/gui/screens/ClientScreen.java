@@ -223,9 +223,12 @@ public class ClientScreen extends Screen implements ClientAccess {
 
    @Override
    public boolean charTyped(CharacterEvent event) {
+      String characters = event.codepointAsString();
       for (int panelIndex = this.panels.size() - 1; panelIndex >= 0; panelIndex--) {
-         this.panels.get(panelIndex)
-            .charTyped(event.codepointAsString().charAt(0));
+         Panel panel = this.panels.get(panelIndex);
+         for (int index = 0; index < characters.length(); index++) {
+            panel.charTyped(characters.charAt(index));
+         }
       }
 
       return super.charTyped(event);
