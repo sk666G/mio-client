@@ -59,10 +59,7 @@ public class FrameTimeGraphModule extends HudWidgetModule {
 
    @Override
    public float[] calculateDimensions() {
-      float[] dimensions = new float[2];
-      dimensions[0] = this.widthSetting.getValue();
-      dimensions[1] = this.heightSetting.getValue();
-      return dimensions;
+      return this.dimensions(this.widthSetting.getValue(), this.heightSetting.getValue());
    }
 
    @Override

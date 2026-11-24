@@ -75,10 +75,7 @@ public class EntityListModule extends HudWidgetModule {
          }
       }
 
-      float[] dimensions = new float[2];
-      dimensions[0] = maximumWidth;
-      dimensions[1] = totalHeight;
-      return dimensions;
+      return this.dimensions(maximumWidth, totalHeight);
    }
 
    @EventHandler

@@ -196,19 +196,10 @@ public class InventoryModule extends HudWidgetModule {
 
          float rowCount = (float)Math.max(roundedRows, 1.0D);
 
-         int dimensionCount = 2;
-         float[] selectedDimensions = new float[dimensionCount];
-         selectedDimensions[0] = slotSize * columnCount;
-         selectedDimensions[1] = slotSize * rowCount;
-         return selectedDimensions;
+         return this.dimensions(slotSize * columnCount, slotSize * rowCount);
       } else {
 
-         int dimensionCount = 2;
-         float[] slotDimensions = new float[dimensionCount];
-         slotDimensions[0] = slotSize * 9.0F;
-
-         slotDimensions[1] = slotSize * 3.0F;
-         return slotDimensions;
+         return this.dimensions(slotSize * 9.0F, slotSize * 3.0F);
       }
    }
 

@@ -37,6 +37,7 @@ public class ResizableHudWidgetRenderer extends HudWidgetRenderer {
       2.0F
    );
    private final FloatAnimation handleAnimation = new FloatAnimation();
+   private final float[] sourceDimensions = new float[2];
    private final float[] scaledDimensions = new float[2];
    private boolean applyHudScale;
    private boolean resizingEnabled;
@@ -74,18 +75,19 @@ public class ResizableHudWidgetRenderer extends HudWidgetRenderer {
 
    @Override
    public float[] calculateDimensions() {
-      float[] sourceDimensions = this.widget.calculateDimensions();
+      float[] calculatedDimensions = this.widget.calculateDimensions();
+      this.sourceDimensions[0] = calculatedDimensions[0];
+      this.sourceDimensions[1] = calculatedDimensions[1];
       float scale = this.getScale();
-      this.scaledDimensions[0] = sourceDimensions[0] * scale;
-      this.scaledDimensions[1] = sourceDimensions[1] * scale;
+      this.scaledDimensions[0] = this.sourceDimensions[0] * scale;
+      this.scaledDimensions[1] = this.sourceDimensions[1] * scale;
       return this.scaledDimensions;
    }
 
    @Override
    public void render(PoseStack poses, double mouseX, double mouseY) {
       super.render(poses, mouseX, mouseY);
-      float[] sourceDimensions = this.widget
-         .calculateDimensions();
+      float[] sourceDimensions = this.sourceDimensions;
       poses.pushPose();
       try {
          poses.scale(

@@ -50,21 +50,14 @@ public class MusicModule extends HudWidgetModule {
          WelcomerModule welcomer = (WelcomerModule)moduleRegistry.getModule(welcomerType);
          if (!welcomer.shouldHideWidget(this)) {
 
-            float[] dimensions = new float[2];
             FontRenderer textRenderer = FontRenderer.INSTANCE;
-            dimensions[0] = textRenderer.getWidth(
-               this.getMusicText()
-            );
-            dimensions[1] = FontRenderer.INSTANCE
-               .getHeight();
-            return dimensions;
+            float width = textRenderer.getWidth(this.getMusicText());
+            float height = FontRenderer.INSTANCE.getHeight();
+            return this.dimensions(width, height);
          }
       }
 
-      float[] hiddenDimensions = new float[2];
-      hiddenDimensions[0] = 0.0F;
-      hiddenDimensions[1] = 0.0F;
-      return hiddenDimensions;
+      return this.dimensions(0.0F, 0.0F);
    }
 
    @Override
