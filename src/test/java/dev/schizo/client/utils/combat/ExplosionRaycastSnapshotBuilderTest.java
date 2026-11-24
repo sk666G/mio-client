@@ -81,6 +81,17 @@ class ExplosionRaycastSnapshotBuilderTest {
    }
 
    @Test
+   void captureBudgetExceptionReportsPartialWorkWithoutPublishingASnapshot() {
+      ExplosionRaycastSnapshotBuilder.CaptureBudgetExceededException failure =
+         new ExplosionRaycastSnapshotBuilder.CaptureBudgetExceededException(64, 256L, 8_000_000L);
+
+      assertEquals(64, failure.capturedBlocks());
+      assertEquals(256L, failure.requestedBlocks());
+      assertEquals(8_000_000L, failure.budgetNanos());
+      assertEquals(true, failure.getMessage().contains("64 of 256 blocks"));
+   }
+
+   @Test
    void exposesInclusiveMinimumAndMaximumPositions() {
       ExplosionRaycastSnapshotBuilder.Region region =
          new ExplosionRaycastSnapshotBuilder.Region(-2, 3, -4, 5, 6, 7);
