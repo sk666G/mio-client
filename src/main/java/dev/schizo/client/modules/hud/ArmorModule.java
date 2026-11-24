@@ -33,6 +33,7 @@ import dev.schizo.client.settings.options.ColorsSchemeChoice;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
+import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.player.LocalPlayer;
@@ -51,6 +52,7 @@ public class ArmorModule extends HudWidgetModule {
       new FloatAnimation(), new FloatAnimation(), new FloatAnimation(), new FloatAnimation()
    };
    private final boolean[] durabilityInitialized = new boolean[4];
+   private final List<ItemStack> armorStacks = new ArrayList<>(4);
 
    static {
       hudModule = ClientContext.getModule(HUDModule.class);
@@ -140,7 +142,8 @@ public class ArmorModule extends HudWidgetModule {
          );
          try {
             LocalPlayer playerForArmor = ClientAccess.schizoMinecraft.player;
-         List<ItemStack> armorStacks = EquipmentUtils.getArmorStacks(playerForArmor);
+            EquipmentUtils.fillArmorStacks(playerForArmor, this.armorStacks);
+            List<ItemStack> armorStacks = this.armorStacks;
 
          for (int armorIndex = 3; armorIndex >= 0; armorIndex--) {
             ItemStack stack = armorStacks.get(armorIndex);
