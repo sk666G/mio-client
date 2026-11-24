@@ -12,6 +12,7 @@ package dev.schizo.client.modules.combat;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.RotationRequestEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.utils.entity.PlayerStateTracker;
 import dev.schizo.client.utils.network.ServerSideDeathState;
@@ -258,6 +259,15 @@ public final class BedAuraModule extends Module {
    }
 
    @EventHandler
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.target = null;
+      this.placement = null;
+      this.breakPosition = null;
+      this.placeTimer.clear();
+      this.breakTimer.clear();
+   }
+
    private void onPlayerUpdate(RotationRequestEvent event) {
       DimensionType dimension = WorldUtils.getDimension();
       if (dimension.isOverworld()) {
