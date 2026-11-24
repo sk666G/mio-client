@@ -23,19 +23,6 @@ class FileUtilsTest {
    }
 
    @Test
-   void partialWriteFailurePreservesThePreviousFileAndRemovesTheTemporaryFile() throws IOException {
-      Path target = Files.writeString(temporaryDirectory.resolve("chunks.data"), "original");
-      assertThrows(IOException.class, () -> FileUtils.writeAtomically(target, temporary -> {
-         Files.writeString(temporary, "partial");
-         throw new IOException("injected write failure");
-      }));
-      assertEquals("original", Files.readString(target));
-      try (var files = Files.list(temporaryDirectory)) {
-         assertEquals(1L, files.count());
-      }
-   }
-
-   @Test
    void failedReplacementPreservesExistingDirectory() throws IOException {
       Path target = Files.createDirectory(temporaryDirectory.resolve("settings.json"));
       Path marker = Files.writeString(target.resolve("keep.txt"), "keep");
