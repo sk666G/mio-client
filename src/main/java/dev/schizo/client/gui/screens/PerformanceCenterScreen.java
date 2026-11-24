@@ -9,7 +9,6 @@
 
 package dev.schizo.client.gui.screens;
 
-import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.profiling.EventProfiler;
 import dev.schizo.client.render.ColorUtils;
@@ -25,7 +24,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.network.chat.Component;
 
 /**
  * Live view over Schizo's existing frame telemetry and opt-in profiler.
@@ -34,7 +32,7 @@ import net.minecraft.network.chat.Component;
  * inclusive callback timings and are a separate view; they must not be added
  * together to produce a frame-time total.
  */
-public final class PerformanceCenterScreen extends ClientScreen implements ClientAccess {
+public final class PerformanceCenterScreen extends ClientScreen {
    private static final int VISIBLE_ROWS = 7;
    private static final int MAX_STORED_ROWS = 64;
    private static final long REFRESH_INTERVAL_MILLIS = 250L;
@@ -135,10 +133,11 @@ public final class PerformanceCenterScreen extends ClientScreen implements Clien
          muted,
          false
       );
+      String profilerStatus = EventProfiler.GLOBAL.isEnabled() ? "SAMPLING ON" : "PROFILER IDLE";
       font.drawWithShadow(
          poseStack,
-         EventProfiler.GLOBAL.isEnabled() ? "PROFILER SAMPLING" : "PROFILER IDLE",
-         this.panelLeft + this.panelWidth - font.getWidth("PROFILER SAMPLING") - 16.0F,
+         profilerStatus,
+         this.panelLeft + this.panelWidth - font.getWidth(profilerStatus) - 16.0F,
          this.panelTop + 53.0F,
          EventProfiler.GLOBAL.isEnabled() ? accent : muted
       );
