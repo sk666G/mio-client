@@ -48,11 +48,7 @@ public class HudTextListRenderer extends HudWidgetRenderer {
             easedVisibility = (float)Mth.clamp(
                1.0D - Math.pow(1.0F - easedVisibility, 4.0D), 0.0, 1.0D
             );
-            float textWidth = FontRenderer.INSTANCE
-               .getWidth(
-                  row.getText()
-                     .getString()
-               );
+            float textWidth = row.measureTextWidth(FontRenderer.INSTANCE);
             height += this.getHeight() * easedVisibility + 1;
             if (textWidth > width) {
                width = textWidth;
@@ -81,28 +77,29 @@ public class HudTextListRenderer extends HudWidgetRenderer {
          float easedVisibility = row.getVisibility();
          if (easedVisibility != 0.0F) {
             poses.pushPose();
-            easedVisibility = (float)Mth.clamp(
-               1.0D - Math.pow(1.0F - easedVisibility, 4.0D), 0.0, 1.0D
-            );
-            Color rowColor = this.getRowColor(rowY, row);
-            float animatedWidth = row.widthAnimation
-                  .updateAndGet()
-               * scale;
-            float hiddenWidth = animatedWidth * (1.0F - easedVisibility);
-            poses.translate(
-               this.getContentX(animatedWidth)
-                  - hiddenWidth * this.getHorizontalDirection(),
-               rowY,
-               0.0F
-            );
-            poses.scale(scale, scale, 1.0F);
-            row.renderRow(poses, 0.0F, 0.0F, rowColor, hudSettings.shouldDrawTextShadow());
-            if (easedVisibility != 0.0F) {
+            try {
+               easedVisibility = (float)Mth.clamp(
+                  1.0D - Math.pow(1.0F - easedVisibility, 4.0D), 0.0, 1.0D
+               );
+               Color rowColor = this.getRowColor(rowY, row);
+               float animatedWidth = row.widthAnimation
+                     .updateAndGet()
+                  * scale;
+               float hiddenWidth = animatedWidth * (1.0F - easedVisibility);
+               poses.translate(
+                  this.getContentX(animatedWidth)
+                     - hiddenWidth * this.getHorizontalDirection(),
+                  rowY,
+                  0.0F
+               );
+               poses.scale(scale, scale, 1.0F);
+               row.renderRow(poses, 0.0F, 0.0F, rowColor, hudSettings.shouldDrawTextShadow());
                rowY += (this.getHeight() * easedVisibility + 1)
                   * this.getVerticalDirection()
                   * scale;
+            } finally {
+               poses.popPose();
             }
-            poses.popPose();
          }
       }
    }
