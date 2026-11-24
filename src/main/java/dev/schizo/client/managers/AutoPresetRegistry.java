@@ -53,12 +53,33 @@ public final class AutoPresetRegistry implements ClientAccess, JsonConfigurable 
 
    @Override
    public void fromJson(JsonElement json) {
-      Map<String, AutoPresetServerEntry> loaded;
+      Map<String, ParsedServerEntry> parsed;
       try {
-         loaded = parseSettings(json);
+         parsed = parseSettings(json);
       } catch (IllegalArgumentException invalidRoot) {
          ClientAccess.logger.warn("Ignoring malformed auto-preset configuration", invalidRoot);
          return;
+      }
+
+      Map<String, AutoPresetServerEntry> loaded = new LinkedHashMap<>();
+      for (Entry<String, ParsedServerEntry> serverEntry : parsed.entrySet()) {
+         String server = serverEntry.getKey();
+         ParsedServerEntry parsedEntry = serverEntry.getValue();
+         AutoPresetServerEntry resolved = new AutoPresetServerEntry(server);
+
+         for (Entry<String, String> presetEntry : parsedEntry.presets().entrySet()) {
+            PresetCategory category = PresetCategory.findByName(presetEntry.getKey());
+            if (category != null) {
+               resolved.getPresets().put(category, presetEntry.getValue());
+            }
+         }
+
+         if (parsedEntry.kitName() != null) {
+            resolved.setKitName(parsedEntry.kitName());
+         }
+         if (!resolved.getPresets().isEmpty() || resolved.hasKit()) {
+            loaded.put(server, resolved);
+         }
       }
 
       this.serverSettings.clear();
@@ -66,12 +87,12 @@ public final class AutoPresetRegistry implements ClientAccess, JsonConfigurable 
       this.lastServer = null;
    }
 
-   static Map<String, AutoPresetServerEntry> parseSettings(JsonElement json) {
+   static Map<String, ParsedServerEntry> parseSettings(JsonElement json) {
       if (json == null || !json.isJsonObject()) {
          throw new IllegalArgumentException("Auto-preset configuration must be a JSON object");
       }
 
-      Map<String, AutoPresetServerEntry> loaded = new LinkedHashMap<>();
+      Map<String, ParsedServerEntry> loaded = new LinkedHashMap<>();
       for (Entry<String, JsonElement> serverEntry : json.getAsJsonObject().entrySet()) {
          String server = serverEntry.getKey();
          if (server == null || server.isBlank() || server.length() > 255) {
@@ -83,7 +104,8 @@ public final class AutoPresetRegistry implements ClientAccess, JsonConfigurable 
             continue;
          }
 
-         AutoPresetServerEntry parsed = new AutoPresetServerEntry(server);
+         Map<String, String> presets = new LinkedHashMap<>();
+         String kitName = null;
          JsonObject settingsJson = serverJson.getAsJsonObject();
          for (Entry<String, JsonElement> settingEntry : settingsJson.entrySet()) {
             String categoryName = settingEntry.getKey();
@@ -91,33 +113,39 @@ public final class AutoPresetRegistry implements ClientAccess, JsonConfigurable 
             if ("kit".equalsIgnoreCase(categoryName)) {
                if (value != null && value.isJsonPrimitive()
                   && value.getAsJsonPrimitive().isString()) {
-                  String kitName = value.getAsString();
-                  if (!kitName.isBlank() && kitName.length() <= 255) {
-                     parsed.setKitName(kitName);
+                  String candidateKit = value.getAsString();
+                  if (!candidateKit.isBlank() && candidateKit.length() <= 255) {
+                     kitName = candidateKit;
                   }
                }
                continue;
             }
 
-            PresetCategory category = PresetCategory.findByName(categoryName);
-            if (category == null || value == null || !value.isJsonPrimitive()
+            if (categoryName == null || categoryName.isBlank() || categoryName.length() > 64
+               || value == null || !value.isJsonPrimitive()
                || !value.getAsJsonPrimitive().isString()) {
                continue;
             }
 
             try {
                String presetName = PresetNameValidator.normalize(value.getAsString());
-               parsed.getPresets().put(category, presetName);
+               presets.put(categoryName, presetName);
             } catch (IllegalArgumentException invalidPresetName) {
                // Skip only the invalid mapping; other server/category entries remain loadable.
             }
          }
 
-         if (!parsed.getPresets().isEmpty() || parsed.hasKit()) {
-            loaded.put(server, parsed);
+         if (!presets.isEmpty() || kitName != null) {
+            loaded.put(server, new ParsedServerEntry(presets, kitName));
          }
       }
-      return loaded;
+      return Map.copyOf(loaded);
+   }
+
+   record ParsedServerEntry(Map<String, String> presets, String kitName) {
+      ParsedServerEntry {
+         presets = Map.copyOf(presets);
+      }
    }
 
    @Override
