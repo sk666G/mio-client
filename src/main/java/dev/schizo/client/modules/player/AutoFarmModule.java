@@ -419,8 +419,8 @@ public class AutoFarmModule extends Module {
    }
 
    private void runFarmTick() {
-      List<BlockPos> targetPositions = (this.modeSetting.getValue()).getTargets(this);
       try {
+         List<BlockPos> targetPositions = (this.modeSetting.getValue()).getTargets(this);
          for (BlockPos position : targetPositions) {
             int actionCount = this.actionsThisTick;
             Integer blocksPerTickValue = this.blocksPerTickSetting.getValue();
