@@ -328,19 +328,18 @@ public final class AutoMaceModule extends Module {
       if (!rocketSlot.isFound()) {
          return;
       }
-      InventoryUtils.swapTo(rocketSlot);
       MultiPlayerGameMode gameMode = ClientAccess.schizoMinecraft.gameMode;
       LocalPlayer usePlayer = ClientAccess.schizoMinecraft.player;
       InteractionHand useHand = rocketSlot.hand();
-
-      gameMode.useItem(usePlayer, useHand);
       SwingInteractionManager swingManager = ClientContext.swingManager;
       InteractionHand swingHand = rocketSlot.hand();
       SwingAction swingAction = SwingAction.INTERACT;
 
-      swingManager.swing(swingHand, swingAction);
-      InventoryUtils.swapBack(previousSlot, rocketSlot);
-      this.boostTimer.reset();
+      InventoryUtils.runWithSwap(previousSlot, rocketSlot, () -> {
+         gameMode.useItem(usePlayer, useHand);
+         swingManager.swing(swingHand, swingAction);
+         this.boostTimer.reset();
+      });
    }
 
    private void selectTarget() {
