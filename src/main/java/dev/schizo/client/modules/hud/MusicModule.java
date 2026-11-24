@@ -20,7 +20,6 @@ import dev.schizo.client.settings.Setting;
 import dev.schizo.client.settings.StringSetting;
 
 import com.mojang.blaze3d.vertex.PoseStack;
-import java.util.regex.Matcher;
 
 public class MusicModule extends HudWidgetModule {
    private final Setting<Boolean> prefixSetting;
@@ -92,18 +91,11 @@ public class MusicModule extends HudWidgetModule {
          text = "HydrachFM - f3dot";
       }
 
-      Setting<Boolean> prefixOption = this.prefixSetting;
-      Boolean prefixEnabled = prefixOption.getValue();
-      if (prefixEnabled) {
-         Setting<String> prefixTextOption = this.prefixTextSetting;
-         String musicText = String.valueOf(text);
-         String prefixText = String.valueOf(prefixTextOption.getValue());
-         text = "\u0001 \u0001"
-            .replaceFirst("\u0001", Matcher.quoteReplacement(prefixText))
-            .replaceFirst("\u0001", Matcher.quoteReplacement(musicText));
-      }
-
-      return text.trim();
+      return MusicDisplayText.format(
+         text,
+         this.prefixSetting.getValue(),
+         this.prefixTextSetting.getValue()
+      );
    }
 
    public MusicModule() {
