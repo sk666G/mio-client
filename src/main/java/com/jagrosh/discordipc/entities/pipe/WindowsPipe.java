@@ -18,6 +18,8 @@
 
 package com.jagrosh.discordipc.entities.pipe;
 
+import dev.schizo.client.integrations.discord.DiscordIpcFrameCodec;
+
 import com.google.gson.JsonObject;
 import com.jagrosh.discordipc.IPCClient;
 import com.jagrosh.discordipc.entities.Packet;
