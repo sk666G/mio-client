@@ -325,32 +325,36 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
    private void swapAnchorContents(HudAnchor firstAnchor, HudAnchor secondAnchor) {
       HudAnchorGroup firstGroup = this.getAnchorGroup(firstAnchor);
       HudAnchorGroup secondGroup = this.getAnchorGroup(secondAnchor);
-      ArrayList firstWidgets = new ArrayList(
-         firstGroup.getWidgets()
-      );
-      firstGroup.getWidgets()
-         .clear();
+      List<HudWidgetRenderer> firstWidgets = new ArrayList<>();
+      List<HudWidgetRenderer> secondWidgets = new ArrayList<>();
 
-      for (Object secondWidgetElement : secondGroup.getWidgets()) {
-         HudWidgetRenderer secondWidget = (HudWidgetRenderer)secondWidgetElement;
-         firstGroup.getWidgets()
-            .add(secondWidget);
+      for (Object widget : firstGroup.getWidgets()) {
+         firstWidgets.add((HudWidgetRenderer)widget);
+      }
+      for (Object widget : secondGroup.getWidgets()) {
+         secondWidgets.add((HudWidgetRenderer)widget);
       }
 
-      secondGroup.getWidgets()
-         .clear();
+      firstGroup.getWidgets().clear();
+      secondGroup.getWidgets().clear();
 
-      for (Object firstWidgetElement : firstWidgets) {
-         HudWidgetRenderer firstWidget = (HudWidgetRenderer)firstWidgetElement;
-         secondGroup.getWidgets()
-            .add(firstWidget);
+      // Update each renderer's anchor as well as its group so the layout persists to hud.json.
+      for (HudWidgetRenderer widget : secondWidgets) {
+         widget.setAnchor(firstAnchor);
+      }
+      for (HudWidgetRenderer widget : firstWidgets) {
+         widget.setAnchor(secondAnchor);
       }
    }
 
    public void addWidget(HudAnchor anchor, HudWidgetRenderer widget) {
-      this.getAnchorGroup(anchor)
-         .getWidgets()
-         .add(widget);
+      HudAnchorGroup group = this.getAnchorGroup(anchor);
+      if (group == null) {
+         throw new IllegalArgumentException("Unknown HUD anchor: " + anchor);
+      }
+
+      this.removeWidget(widget);
+      group.getWidgets().add(widget);
    }
 
    public void addWidget(HudWidgetRenderer widget) {
@@ -414,9 +418,8 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
 
    public void removeWidget(HudWidgetRenderer widget) {
       for (HudAnchorGroup group : this.getAnchorGroups()) {
-         if (group.getWidgets()
-            .remove(widget)) {
-            return;
+         while (group.getWidgets().remove(widget)) {
+            // Remove duplicates from older editor state as well as the first occurrence.
          }
       }
    }
