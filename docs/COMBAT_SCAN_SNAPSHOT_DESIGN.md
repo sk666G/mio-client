@@ -226,6 +226,8 @@ This is deliberately only a stale-result fence. The calculation still receives a
 
 This is also a publication/revalidation guard, not a worker isolation change. `AnchorTargetDamage.calculateForBase`, placement occupancy/support checks, ray visibility and explosion damage still access live world/entity/module state from the async scan. The immutable capture migration must cover those dependencies before the worker can safely become data-only.
 
+AnchorAura now also owns a one-worker, no-queue executor for its placement scans. A replacement is rejected while a timed-out/cancelled scan is still unwinding, then retried from a later client tick; it never performs the expensive scan synchronously on the client thread. The executor can retire its worker after 30 seconds idle, and a concurrency test verifies that overlap is rejected without queue growth. This keeps its scan pool isolated from unrelated users of the shared `ClientAccess.executorService`.
+
 ## AnchorAura target policy extraction
 
 `AnchorTargetSelectionPolicy` now contains the pure target-validity and damage-threshold decisions. The adapter in `AnchorTargetDamage` captures the current player eligibility flags and distance, rejects targets from a replaced world or removed entities, and delegates the value-only decision. Damage acceptance requires finite nonnegative damage and minimum values, and preserves the exact inclusive boundaries: damage must be at least both the configured minimum and 0.5.
