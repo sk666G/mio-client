@@ -362,7 +362,7 @@ public final class PerformanceCenterScreen extends ClientScreen {
          this.metrics = MetricsSnapshot.EMPTY;
          this.frameHistorySamples = new float[0];
       } else {
-         this.frameHistorySamples = timing.getRecentFrameTimesMillis(160);
+         this.frameHistorySamples = timing.getRecentFrameTimesMillis(512);
          this.metrics = new MetricsSnapshot(
             Integer.toString(timing.getFramesPerSecond()),
             formatMilliseconds(timing.getFrameTimeMillis()),
@@ -422,7 +422,7 @@ public final class PerformanceCenterScreen extends ClientScreen {
          ColorUtils.withAlpha(accent, 72)
       );
 
-      String label = "FRAME HISTORY · LAST 1S";
+      String label = "RECENT FRAME HISTORY";
       String scaleLabel = "50 ms SCALE";
       font.drawWithShadow(poseStack, label, left + 8.0F, top + 5.0F, muted);
       this.drawRightAligned(font, poseStack, scaleLabel, left + width - 8.0F, top + 5.0F, muted);
