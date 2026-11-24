@@ -1,22 +1,57 @@
 # Schizo Client
 
-Schizo is a client-only Fabric client for Minecraft 1.21.11, rebuilt on the Open Zio source architecture. This replaces the former minimal Schizo scaffold with the upstream module registry, event bus, managers, configuration and preset systems, ClickGUI/HUD editor, rendering pipeline, mixins, access widener, integrations and module implementations.
+Schizo is a client-side Fabric client for Minecraft Java Edition 1.21.11.
 
-## Upstream and attribution
+## Requirements
 
-This is an independent rebrand and derivative of Open Zio. See UPSTREAM.md for the pinned snapshot. Original upstream source headers are retained. Third-party notices and known license gaps are recorded in THIRD_PARTY_NOTICES.md.
-
-Schizo is not affiliated with or endorsed by Mio.
+- Minecraft Java Edition 1.21.11.
+- Fabric Loader 0.19.5 or newer.
+- Fabric API for Minecraft 1.21.11.
+- Java 21 or newer to run the client.
+- JDK 25 to run the Gradle build; Gradle compiles with the configured Java 21 toolchain.
 
 ## Build
 
-Use JDK 25 to run Gradle and have JDK 21 installed for the Java toolchain.
+From the repository root:
 
-    ./gradlew --no-daemon clean build
-    ./gradlew runClient
+```sh
+./gradlew --no-daemon clean build
+```
 
-The remapped client JAR is written to build/libs/.
+To launch a development client:
 
-## Original modules
+```sh
+./gradlew runClient
+```
 
-The original upstream module sources are included in the active Schizo source tree. Their implementations and original source notices are retained during the rebrand.
+The remapped client JAR is written to `build/libs/`. CI uploads a `schizo-client` artifact for branch review; this is not a published release.
+
+## Install
+
+1. Create a Fabric installation for Minecraft 1.21.11 with Fabric Loader 0.19.5 or newer.
+2. Install Fabric API for Minecraft 1.21.11 in that profile.
+3. Place the remapped Schizo JAR in that profile's `mods` directory.
+4. Start the Fabric profile.
+
+Other mods listed under `suggests` in `fabric.mod.json` are optional.
+
+## Guides
+
+- [HUD Studio](docs/HUD_EDITOR.md)
+- [Performance HUD](docs/PERFORMANCE_HUD.md)
+- [Module and event profiler](docs/module-profiler.md)
+- [Command Palette](docs/COMMAND_PALETTE.md)
+- [Context Profiles](docs/CONTEXT_PROFILES.md)
+- [Integrations](docs/INTEGRATIONS.md)
+- [Visual identity and palettes](docs/VISUAL_IDENTITY.md)
+- [Multiplayer compatibility review](docs/MULTIPLAYER_COMPATIBILITY.md)
+- [Architecture review](docs/MASTER_ARCHITECTURE_REVIEW.md)
+- [Startup Safe Mode](docs/SAFE_MODE.md)
+- [Known limitations](docs/KNOWN_LIMITATIONS.md)
+- [Release checklist](docs/RELEASE_CHECKLIST.md)
+
+## Upstream and attribution
+
+Schizo is an independent rebrand and derivative of Open Zio. See [UPSTREAM.md](UPSTREAM.md) for the pinned source snapshot. Upstream source headers are retained where the source remains in the project. [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) records vendor attribution and unresolved license questions.
+
+Schizo is not affiliated with or endorsed by Mio. The two server-validation circumvention modules `GrimDisabler` and `RaytraceBypass` are excluded from the active source tree and rebuild import.

@@ -9,6 +9,7 @@
 
 package dev.schizo.mixin;
 
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.modules.render.ChamsModule;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
@@ -23,7 +24,6 @@ import org.spongepowered.asm.mixin.injection.invoke.arg.Args;
 
 @Mixin(TextureTransform.class)
 public class TextureTransformMixin {
-   private static ChamsModule chamsModule = ClientContext.getModule(ChamsModule.class);
 
    @ModifyArgs(method = "setupGlintTexturing", at = @At(value = "INVOKE", target = "Lorg/joml/Matrix4f;scale(F)Lorg/joml/Matrix4f;", remap = false))
    private static void modifyGlintScale(Args arguments) {
@@ -34,10 +34,10 @@ public class TextureTransformMixin {
 
    @ModifyArgs(method = "setupGlintTexturing", at = @At(value = "INVOKE", target = "Lorg/joml/Matrix4f;translation(FFF)Lorg/joml/Matrix4f;", remap = false))
    private static void applyGlintProgressTranslation(Args arguments) {
-      if (chamsModule.speedSetting
+      if (MixinModuleRegistry.textureTransformChamsModule.speedSetting
             .isAtMinimum()
          && ChamsModule.renderingGlintBatch) {
-         float progress = (chamsModule.progressSetting.getValue())
+         float progress = (MixinModuleRegistry.textureTransformChamsModule.progressSetting.getValue())
                .intValue()
             / 100.0F;
          arguments.set(0, -progress);
@@ -45,10 +45,4 @@ public class TextureTransformMixin {
       }
    }
 
-   @Unique
-   private static void schizo$bindTextureTransformModules(ModuleRegistry moduleRegistry) {
-      chamsModule = (ChamsModule)moduleRegistry.getModule(
-         ChamsModule.class
-      );
-   }
 }

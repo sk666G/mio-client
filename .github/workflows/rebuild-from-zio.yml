@@ -10,6 +10,7 @@ permissions:
 
 jobs:
   import-and-build:
+    if: github.ref_name == 'zio-rebuild'
     runs-on: ubuntu-latest
     steps:
       - name: Check out Schizo staging branch
@@ -41,8 +42,15 @@ jobs:
           git -C "$RUNNER_TEMP/open-zio" checkout --detach "$UPSTREAM_COMMIT"
           test "$(git -C "$RUNNER_TEMP/open-zio" rev-parse HEAD)" = "$UPSTREAM_COMMIT"
 
+      - name: Run rebuild security tests
+        env:
+          PYTHONDONTWRITEBYTECODE: 1
+        run: python3 -m unittest discover -s tests -v
+
       - name: Rebuild Schizo from upstream architecture
-        run: python3 tools/rebrand_open_zio.py "$RUNNER_TEMP/open-zio" .
+        env:
+          PYTHONDONTWRITEBYTECODE: 1
+        run: python3 tools/rebrand_open_zio.py "$RUNNER_TEMP/open-zio" . --replace-existing
 
       - name: Ensure Gradle wrapper is executable
         run: chmod +x ./gradlew

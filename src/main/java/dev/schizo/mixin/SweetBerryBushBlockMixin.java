@@ -9,6 +9,7 @@
 
 package dev.schizo.mixin;
 
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import com.llamalad7.mixinextras.injector.v2.WrapWithCondition;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.managers.ModuleRegistry;
@@ -23,7 +24,6 @@ import org.spongepowered.asm.mixin.injection.At;
 
 @Mixin(SweetBerryBushBlock.class)
 public class SweetBerryBushBlockMixin {
-   private static NoSlowModule noSlowModule = ClientContext.getModule(NoSlowModule.class);
 
    @WrapWithCondition(
       method = "entityInside",
@@ -32,14 +32,8 @@ public class SweetBerryBushBlockMixin {
    private boolean allowBerryBushSlowdown(
       Entity entity, BlockState blockState, Vec3 slowdown
    ) {
-      return !noSlowModule.isToggled()
-         || !noSlowModule.berryBushSetting.getValue();
+      return !MixinModuleRegistry.sweetBerryBushBlockNoSlowModule.isToggled()
+         || !MixinModuleRegistry.sweetBerryBushBlockNoSlowModule.berryBushSetting.getValue();
    }
 
-   @Unique
-   private static void schizo$bindSweetBerryBushBlockModules(ModuleRegistry moduleRegistry) {
-      noSlowModule = (NoSlowModule)moduleRegistry.getModule(
-         NoSlowModule.class
-      );
-   }
 }

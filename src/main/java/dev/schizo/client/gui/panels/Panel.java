@@ -248,10 +248,7 @@ public class Panel implements RegistryContainer, GuiElement, NamedEntry {
    }
 
    public int getHeaderHeight() {
-      return this.getUiModule().styleSetting.getValue()
-            == UIModule.StyleChoice.SLIM
-         ? (int)(12L)
-         : (int)(14L);
+      return this.getUiModule().styleSetting.getValue().getHeaderHeight();
    }
 
    @Override
@@ -372,6 +369,11 @@ public class Panel implements RegistryContainer, GuiElement, NamedEntry {
                || this.isMouseOverHeader(mouseX, mouseY),
             200L
          );
+      UIModule.StyleChoice style = this.getUiModule().styleSetting.getValue();
+      boolean schizoStyle = style == UIModule.StyleChoice.SCHIZO;
+      Color headerSurface = schizoStyle
+         ? this.getUiModule().buttonSetting.getValue()
+         : uiColor;
       float headerVerticalOffset = this.getUiModule().lineSetting.getValue()
          ? 0.0F
          : 0.5F;
@@ -379,28 +381,40 @@ public class Panel implements RegistryContainer, GuiElement, NamedEntry {
          poseStack,
          this.x,
          this.y,
-         this.x
-            + this.getWidth(),
-         this.y
-               + this.getHeaderHeight()
-            + headerVerticalOffset,
-         this.applyHeaderAlpha(uiColor)
+         this.x + this.getWidth(),
+         this.y + this.getHeaderHeight() + headerVerticalOffset,
+         this.applyHeaderAlpha(headerSurface)
       );
-      FontRenderer.INSTANCE
-         .drawWithShadow(
+      if (schizoStyle) {
+         Color railColor = this.applyHeaderAlpha(uiColor);
+         GuiDrawUtils.fillRect(
             poseStack,
-            this.name,
-            this.x
-               + (2),
-            this.y
-               + this.getHeaderHeight()
-                  / 2.0F
-               - FontRenderer.INSTANCE
-                     .getHeight()
-                  / 2.0F
-               + headerVerticalOffset,
-            this.applyHeaderAlpha(Color.white)
+            this.x,
+            this.y,
+            this.x + 2.0F,
+            this.y + this.getHeaderHeight(),
+            railColor
          );
+         GuiDrawUtils.fillRect(
+            poseStack,
+            this.x + 2.0F,
+            this.y + this.getHeaderHeight() - 1.0F,
+            this.x + this.getWidth(),
+            this.y + this.getHeaderHeight(),
+            ColorUtils.withAlpha(railColor, 90)
+         );
+      }
+
+      FontRenderer.INSTANCE.drawWithShadow(
+         poseStack,
+         this.name,
+         this.x + (schizoStyle ? 7.0F : 2.0F),
+         this.y
+            + this.getHeaderHeight() / 2.0F
+            - FontRenderer.INSTANCE.getHeight() / 2.0F
+            + headerVerticalOffset,
+         this.applyHeaderAlpha(schizoStyle ? uiColor : Color.white)
+      );
       if (expansionValue != 0.0F) {
          GuiDrawUtils.flush();
          ScissorStack.push(

@@ -2,7 +2,7 @@ name: Build
 
 on:
   push:
-    branches: [main]
+    branches: [main, codex/reliability-hardening, codex/schizo-master-integration, lunyx/integration-candidate]
   pull_request:
   workflow_dispatch:
 
@@ -15,6 +15,9 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v4
+
+      - name: Run rebuild security tests
+        run: python3 -m unittest discover -s tests -v
 
       - name: Install Java 21 toolchain
         uses: actions/setup-java@v4

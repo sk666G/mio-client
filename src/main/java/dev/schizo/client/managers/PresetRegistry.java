@@ -9,62 +9,78 @@
 
 package dev.schizo.client.managers;
 
+import dev.schizo.client.config.ConfigFileReader;
 import dev.schizo.client.config.PresetData;
+import dev.schizo.client.config.PresetNameValidator;
+
+import dev.schizo.client.settings.options.PresetCategory;
 import dev.schizo.client.utils.FileUtils;
 
-import dev.schizo.client.ClientAccess;
-import dev.schizo.client.managers.Registry;
-import dev.schizo.client.settings.options.PresetCategory;
-
-import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import java.io.File;
 import java.io.IOException;
-import java.nio.file.Path;
+import java.io.InputStream;
+import java.nio.file.DirectoryStream;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
-import java.nio.file.StandardCopyOption;
-import java.util.Iterator;
-import java.util.Collection;
-import java.util.Objects;
+import java.nio.file.LinkOption;
+import java.nio.file.Path;
+import java.util.Locale;
 import java.util.function.Consumer;
-import java.util.function.Predicate;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-public final class PresetRegistry extends Registry<PresetData> implements ClientAccess {
+public final class PresetRegistry extends Registry<PresetData> {
+   private static final Logger LOGGER = LoggerFactory.getLogger(PresetRegistry.class);
    private final PresetCategory category;
    private final Path directory;
+   private static final int MAX_PRESET_BYTES = PresetData.MAX_PRESET_BYTES;
 
    public PresetRegistry(PresetCategory category) {
-      this.directory = category.getDirectory();
+      this(category, category.getDirectory());
+   }
+
+   PresetRegistry(Path directory) {
+      this(null, directory);
+   }
+
+   private PresetRegistry(PresetCategory category, Path directory) {
+      this.directory = directory.toAbsolutePath().normalize();
       this.category = category;
    }
 
    public boolean applyPreset(String name) {
-      synchronized (this.getRegistry()) {
-         Iterator<PresetData> presets = this.getRegistry().iterator();
-         while (presets.hasNext()) {
-            PresetData preset = presets.next();
-            String presetName = preset.getName();
-            if (presetName.equalsIgnoreCase(name)) {
-               PresetCategory category = this.category;
-               JsonObject contents = preset.contents();
-               category.fromJson(contents);
-               return true;
-            }
-         }
+      final String normalized;
+      try {
+         normalized = PresetNameValidator.normalize(name);
+      } catch (IllegalArgumentException invalidName) {
          return false;
+      }
+      synchronized (this.getRegistry()) {
+         PresetData preset = this.findPreset(normalized);
+         if (preset == null) return false;
+         this.category.fromJson(preset.copyContents());
+         return true;
       }
    }
 
    public PresetData getPreset(String name) {
-      synchronized (this.getRegistry()) {
-         for (PresetData preset : this.entries) {
-            if (preset.getName().equalsIgnoreCase(name)) {
-               return preset;
-            }
-         }
+      final String normalized;
+      try {
+         normalized = PresetNameValidator.normalize(name);
+      } catch (IllegalArgumentException invalidName) {
          return null;
       }
+      synchronized (this.getRegistry()) {
+         return this.findPreset(normalized);
+      }
+   }
+
+   private PresetData findPreset(String name) {
+      for (PresetData candidate : this.entries) {
+         if (candidate.getName().equalsIgnoreCase(name)) return candidate;
+      }
+      return null;
    }
 
    public void restorePreset(PresetData preset) throws IOException {
@@ -72,51 +88,75 @@ public final class PresetRegistry extends Registry<PresetData> implements Client
    }
 
    public void restorePreset(PresetData preset, String replacedName) throws IOException {
-      this.writePresetForUndo(preset);
-      Path replacedPath = this.directory.resolve(replacedName + ".json");
-      Path restoredPath = this.directory.resolve(preset.getName() + ".json");
-      if (!replacedName.equals(preset.getName()) && Files.exists(replacedPath)
-         && !Files.isSameFile(replacedPath, restoredPath)) {
-         Files.delete(replacedPath);
+      this.requireRealDirectory();
+      Path restoredPath = PresetNameValidator.resolve(this.directory, preset.getName());
+      Path replacedPath = PresetNameValidator.resolve(this.directory, replacedName);
+      byte[] previousBytes = null;
+      if (Files.exists(restoredPath, LinkOption.NOFOLLOW_LINKS)) {
+         if (Files.isSymbolicLink(restoredPath)
+            || !Files.isRegularFile(restoredPath, LinkOption.NOFOLLOW_LINKS)) {
+            throw new IOException("Preset path is not a regular file: " + restoredPath.getFileName());
+         }
+         try (InputStream input = Files.newInputStream(restoredPath, LinkOption.NOFOLLOW_LINKS)) {
+            previousBytes = input.readNBytes(MAX_PRESET_BYTES + 1);
+         }
+         if (previousBytes.length > MAX_PRESET_BYTES) {
+            throw new IOException("Existing preset exceeds the supported size limit");
+         }
       }
-      this.entries.removeIf(candidate -> candidate.getName().equalsIgnoreCase(preset.getName()));
-      this.entries.add(preset);
-   }
-
-   private void writePresetForUndo(PresetData preset) throws IOException {
-      Path temporary = Files.createTempFile(this.directory, ".schizo-preset-", ".tmp");
+      preset.saveToDirectory(this.directory);
       try {
-         FileUtils.writeUtf8(temporary, ClientAccess.gson.toJson(preset.contents()));
-         Files.move(temporary, this.directory.resolve(preset.getName() + ".json"),
-            StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-      } finally {
-         Files.deleteIfExists(temporary);
+         if (!replacedPath.equals(restoredPath) && Files.exists(replacedPath, LinkOption.NOFOLLOW_LINKS)) {
+            if (Files.isSymbolicLink(replacedPath)
+               || !Files.isRegularFile(replacedPath, LinkOption.NOFOLLOW_LINKS)) {
+               throw new IOException("Replaced preset path is not a regular file: " + replacedPath.getFileName());
+            }
+            Files.delete(replacedPath);
+         }
+      } catch (IOException failure) {
+         try {
+            if (previousBytes == null) Files.deleteIfExists(restoredPath);
+            else FileUtils.writeUtf8Atomically(restoredPath, new String(previousBytes, java.nio.charset.StandardCharsets.UTF_8));
+         } catch (IOException rollbackFailure) {
+            failure.addSuppressed(rollbackFailure);
+         }
+         throw failure;
+      }
+      synchronized (this.getRegistry()) {
+         this.entries.removeIf(candidate -> candidate.getName().equalsIgnoreCase(preset.getName()));
+         this.entries.add(preset);
       }
    }
 
    public void deletePresetForUndo(String name) throws IOException {
-      Path path = this.directory.resolve(name + ".json");
-      if (Files.isDirectory(path)) {
-         throw new IOException("Preset path is a directory: " + path.getFileName());
+      this.requireRealDirectory();
+      String normalized = PresetNameValidator.normalize(name);
+      Path path = PresetNameValidator.resolve(this.directory, normalized);
+      if (Files.exists(path, LinkOption.NOFOLLOW_LINKS)) {
+         if (!Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)) {
+            throw new IOException("Preset path is not a regular file: " + path.getFileName());
+         }
+         Files.delete(path);
       }
-      Files.deleteIfExists(path);
-      this.entries.removeIf(candidate -> candidate.getName().equalsIgnoreCase(name));
+      synchronized (this.getRegistry()) {
+         this.entries.removeIf(candidate -> candidate.getName().equalsIgnoreCase(normalized));
+      }
    }
 
    public void renamePresetForUndo(String sourceName, String targetName, PresetData previousTarget, PresetData source) throws IOException {
-      if (source == null) {
-         throw new IOException("Preset no longer exists: " + sourceName);
-      }
-      Path sourcePath = this.directory.resolve(sourceName + ".json");
-      Path targetPath = this.directory.resolve(targetName + ".json");
-      if (!Files.isRegularFile(sourcePath)) {
+      this.requireRealDirectory();
+      if (source == null) throw new IOException("Preset no longer exists: " + sourceName);
+      String normalizedSource = PresetNameValidator.normalize(sourceName);
+      String normalizedTarget = PresetNameValidator.normalize(targetName);
+      Path sourcePath = PresetNameValidator.resolve(this.directory, normalizedSource);
+      Path targetPath = PresetNameValidator.resolve(this.directory, normalizedTarget);
+      if (!Files.isRegularFile(sourcePath, LinkOption.NOFOLLOW_LINKS)) {
          throw new IOException("Preset file no longer exists: " + sourcePath.getFileName());
       }
+      ensureNoCollision(normalizedTarget, normalizedSource);
       Files.move(sourcePath, targetPath);
       try {
-         if (previousTarget != null) {
-            this.writePresetForUndo(previousTarget);
-         }
+         if (previousTarget != null) previousTarget.saveToDirectory(this.directory);
       } catch (IOException failure) {
          try {
             Files.move(targetPath, sourcePath);
@@ -125,101 +165,169 @@ public final class PresetRegistry extends Registry<PresetData> implements Client
          }
          throw failure;
       }
-      this.entries.removeIf(candidate -> candidate.getName().equalsIgnoreCase(sourceName));
-      this.entries.add(new PresetData(targetName, source.contents()));
-      if (previousTarget != null) {
-         this.entries.add(previousTarget);
+      synchronized (this.getRegistry()) {
+         this.entries.removeIf(candidate -> candidate.getName().equalsIgnoreCase(normalizedSource)
+            || candidate.getName().equalsIgnoreCase(normalizedTarget));
+         this.entries.add(source);
+         if (previousTarget != null) this.entries.add(previousTarget);
       }
    }
 
    public void savePreset(String name) throws IOException {
-      this.entries.removeIf((Predicate<PresetData>)candidate -> candidate.getName().equalsIgnoreCase(name));
-      PresetData preset = new PresetData(name, this.category.toJson().getAsJsonObject());
+      this.requireRealDirectory();
+      String normalized = this.canonicalExistingName(PresetNameValidator.normalize(name));
+      Path path = PresetNameValidator.resolve(this.directory, normalized);
+      ensureNoCollision(normalized, normalized);
+      PresetData preset = new PresetData(normalized, this.category.toJson().getAsJsonObject());
       preset.saveToDirectory(this.directory);
-      this.entries.add(preset);
+      synchronized (this.getRegistry()) {
+         this.entries.removeIf(candidate -> candidate.getName().equalsIgnoreCase(normalized));
+         this.entries.add(preset);
+      }
    }
 
-   public boolean deletePreset(String name) {
-      File file = this.directory.resolve(name + ".json").toFile();
-      file.delete();
-      return this.entries.removeIf((Predicate<PresetData>)candidate -> candidate.getName().equalsIgnoreCase(name));
+   public boolean deletePreset(String name) throws IOException {
+      this.requireRealDirectory();
+      String normalized = PresetNameValidator.normalize(name);
+      Path path = PresetNameValidator.resolve(this.directory, normalized);
+      if (!Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)) {
+         throw new IOException("Preset file does not exist: " + path.getFileName());
+      }
+      Files.delete(path);
+      synchronized (this.getRegistry()) {
+         return this.entries.removeIf(candidate -> candidate.getName().equalsIgnoreCase(normalized));
+      }
    }
 
-   public boolean renamePreset(String oldName, String newName) {
-      if (oldName.equalsIgnoreCase(newName)) {
-         return false;
-      }
+   public boolean renamePreset(String oldName, String newName) throws IOException {
+      this.requireRealDirectory();
+      String normalizedOld = PresetNameValidator.normalize(oldName);
+      String normalizedNew = PresetNameValidator.normalize(newName);
+      if (normalizedOld.equalsIgnoreCase(normalizedNew)) return false;
 
-      File sourceFile = this.directory.resolve(oldName + ".json").toFile();
-      if (sourceFile.exists()) {
-         File fileToRename = this.directory.resolve(oldName + ".json").toFile();
-         File targetFile = this.directory.resolve(newName + ".json").toFile();
-         fileToRename.renameTo(targetFile);
+      PresetData source = this.getPreset(normalizedOld);
+      if (source == null) throw new IOException("Preset does not exist: " + normalizedOld);
+      Path sourcePath = PresetNameValidator.resolve(this.directory, normalizedOld);
+      Path targetPath = PresetNameValidator.resolve(this.directory, normalizedNew);
+      if (!Files.isRegularFile(sourcePath, LinkOption.NOFOLLOW_LINKS)) {
+         throw new IOException("Preset file does not exist: " + sourcePath.getFileName());
       }
-
-      return this.copyPreset(oldName, newName)
-         && this.entries.removeIf((Predicate<PresetData>)candidate -> candidate.getName().equalsIgnoreCase(oldName));
+      ensureNoCollision(normalizedNew, normalizedOld);
+      Files.move(sourcePath, targetPath);
+      synchronized (this.getRegistry()) {
+         this.entries.removeIf(candidate -> candidate.getName().equalsIgnoreCase(normalizedOld));
+         this.entries.add(new PresetData(normalizedNew, source.contents()));
+      }
+      return true;
    }
 
    public void loadPresets() {
       synchronized (this.getRegistry()) {
          this.entries.clear();
          try {
-            File directoryFile = this.directory.toFile();
-            File[] files = directoryFile.listFiles();
-            for (File file : Objects.requireNonNull(files)) {
-               String fileName = file.getName();
-               if (fileName.endsWith(".json") && file.length() > 0L) {
+            this.requireRealDirectory();
+            try (DirectoryStream<Path> files = Files.newDirectoryStream(this.directory)) {
+               for (Path file : files) {
+                  String fileName = file.getFileName().toString();
+                  if (!fileName.toLowerCase(Locale.ROOT).endsWith(".json")
+                     || Files.isSymbolicLink(file)
+                     || !Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)) continue;
+                  String rawName = fileName.substring(0, fileName.length() - 5);
+                  if (rawName.toLowerCase(Locale.ROOT).endsWith(".json")) continue;
                   try {
-                     String jsonText = FileUtils.readUtf8(file.toPath());
-                     JsonObject contents = JsonParser.parseString(jsonText).getAsJsonObject();
-                     if (contents != null) {
-                        Collection<PresetData> loadedPresets = this.entries;
-                        loadedPresets.add(new PresetData(file.getName().replace(".json", ""), contents));
-                     }
-                  } catch (Throwable entryFailure) {
-                     entryFailure.printStackTrace();
+                     String name = PresetNameValidator.normalize(rawName);
+                     String serialized = ConfigFileReader.readUtf8(file, MAX_PRESET_BYTES);
+                     if (serialized.isEmpty()) continue;
+                     JsonObject contents = JsonParser.parseString(serialized).getAsJsonObject();
+                     if (this.findPreset(name) == null) this.entries.add(new PresetData(name, contents));
+                  } catch (RuntimeException | IOException invalidPreset) {
+                     LOGGER.warn("Skipping invalid preset file {}", file.getFileName(), invalidPreset);
                   }
                }
             }
-         } catch (Exception directoryFailure) {
-            directoryFailure.printStackTrace();
+         } catch (IOException directoryFailure) {
+            LOGGER.error("Could not read preset directory {}", this.directory, directoryFailure);
          }
       }
    }
 
-   public boolean copyPreset(String sourceName, String targetName) {
-      Iterator<PresetData> presets = this.entries.iterator();
-      while (presets.hasNext()) {
-         PresetData preset = presets.next();
-         String presetName = preset.getName();
-         if (presetName.equalsIgnoreCase(sourceName)) {
-            try {
-               Path copyDirectory = this.directory;
-               Gson gson = ClientAccess.gson;
-               JsonObject contents = preset.contents();
-               String serializedContents = gson.toJson(contents);
-               FileUtils.writeUtf8(copyDirectory.resolve(targetName), serializedContents);
-               Collection<PresetData> copiedPresets = this.entries;
-               copiedPresets.add(new PresetData(targetName, preset.contents()));
-               return true;
-            } catch (IOException writeFailure) {
-               writeFailure.printStackTrace();
-               return false;
+   public boolean copyPreset(String sourceName, String targetName) throws IOException {
+      this.requireRealDirectory();
+      String normalizedSource = PresetNameValidator.normalize(sourceName);
+      String normalizedTarget = PresetNameValidator.normalize(targetName);
+      PresetData source = this.getPreset(normalizedSource);
+      if (source == null) return false;
+      ensureNoCollision(normalizedTarget, null);
+      PresetData copy = new PresetData(normalizedTarget, source.copyContents());
+      copy.saveToDirectory(this.directory);
+      synchronized (this.getRegistry()) {
+         this.entries.add(copy);
+      }
+      return true;
+   }
+
+   private void requireRealDirectory() throws IOException {
+      Path parent = this.directory.getParent();
+      if (Files.isSymbolicLink(this.directory)
+         || !Files.isDirectory(this.directory, LinkOption.NOFOLLOW_LINKS)
+         || (parent != null && Files.isSymbolicLink(parent))) {
+         throw new IOException("Preset directory is not a safe real directory: " + this.directory);
+      }
+   }
+
+   private String canonicalExistingName(String requested) throws IOException {
+      this.requireRealDirectory();
+      synchronized (this.getRegistry()) {
+         PresetData existing = this.findPreset(requested);
+         if (existing != null) return existing.getName();
+      }
+      if (!Files.isDirectory(this.directory)) return requested;
+      try (DirectoryStream<Path> files = Files.newDirectoryStream(this.directory)) {
+         for (Path file : files) {
+            String fileName = file.getFileName().toString();
+            if (fileName.toLowerCase(Locale.ROOT).endsWith(".json")) {
+               String existing = fileName.substring(0, fileName.length() - 5);
+               if (existing.equalsIgnoreCase(requested)) return existing;
             }
          }
       }
-      return false;
+      return requested;
+   }
+
+   private void ensureNoCollision(String name, String ignoredName) throws IOException {
+      this.requireRealDirectory();
+      Path target = PresetNameValidator.resolve(this.directory, name);
+      if (Files.exists(target, LinkOption.NOFOLLOW_LINKS)
+         && (ignoredName == null || !name.equalsIgnoreCase(ignoredName))) {
+         throw new FileAlreadyExistsException(target.toString());
+      }
+      if (!Files.isDirectory(this.directory)) return;
+      try (DirectoryStream<Path> files = Files.newDirectoryStream(this.directory)) {
+         for (Path file : files) {
+            String fileName = file.getFileName().toString();
+            if (!fileName.toLowerCase(Locale.ROOT).endsWith(".json")) continue;
+            String existing = fileName.substring(0, fileName.length() - 5);
+            if (existing.equalsIgnoreCase(name) && (ignoredName == null || !existing.equalsIgnoreCase(ignoredName))) {
+               throw new FileAlreadyExistsException(file.toString());
+            }
+         }
+      }
+      synchronized (this.getRegistry()) {
+         for (PresetData existing : this.entries) {
+            if (existing.getName().equalsIgnoreCase(name)
+               && (ignoredName == null || !existing.getName().equalsIgnoreCase(ignoredName))) {
+               throw new FileAlreadyExistsException(target.toString());
+            }
+         }
+      }
    }
 
    public void savePresetByExactName(String name) throws IOException {
-      Iterator<PresetData> presets = this.entries.iterator();
-      while (presets.hasNext()) {
-         PresetData preset = presets.next();
-         if (preset.getName().equals(name)) {
-            preset.saveToDirectory(this.directory);
-         }
-      }
+      this.requireRealDirectory();
+      String normalized = PresetNameValidator.normalize(name);
+      PresetData preset = this.getPreset(normalized);
+      if (preset == null) throw new IOException("Preset does not exist: " + normalized);
+      preset.saveToDirectory(this.directory);
    }
 
    public void forEachPreset(Consumer consumer) {
@@ -229,13 +337,19 @@ public final class PresetRegistry extends Registry<PresetData> implements Client
    }
 
    public void saveAllPresets() {
-      Iterator<PresetData> presets = this.entries.iterator();
-      while (presets.hasNext()) {
-         PresetData preset = presets.next();
+      synchronized (this.getRegistry()) {
          try {
-            preset.saveToDirectory(this.directory);
-         } catch (IOException writeFailure) {
-            writeFailure.printStackTrace();
+            this.requireRealDirectory();
+         } catch (IOException unsafeDirectory) {
+            LOGGER.error("Could not save presets in unsafe directory {}", this.directory, unsafeDirectory);
+            return;
+         }
+         for (PresetData preset : this.entries) {
+            try {
+               preset.saveToDirectory(this.directory);
+            } catch (IOException failure) {
+               LOGGER.error("Could not save preset {}", preset.getName(), failure);
+            }
          }
       }
    }

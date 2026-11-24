@@ -10,6 +10,8 @@
 package dev.schizo.client.gui.components;
 
 import dev.schizo.client.render.GuiDrawUtils;
+import dev.schizo.client.integrations.ModuleCompatibility;
+import dev.schizo.client.integrations.MultiplayerCompatibilityWarnings;
 import dev.schizo.client.gui.CloseState;
 import dev.schizo.client.render.text.LanguageTable;
 import dev.schizo.client.gui.components.EnumSettingComponent;
@@ -149,21 +151,40 @@ public abstract class SettingComponent<T> extends AbstractComponent {
 
    @Override
    public void render(PoseStack poseStack, double mouseX, double mouseY) {
-      if (this.getUiModule().descriptionsSetting.getValue()
-         && this.getUiModule().settingsSetting.getValue()
-         && this.isMouseOver(mouseX, mouseY)
+      if (this.isMouseOver(mouseX, mouseY)
          && this.parentCloseState instanceof ModuleComponent parentModule) {
-         String moduleConfigName = parentModule.getModule()
-            .getConfigName();
-         String settingConfigName = this.setting.getConfigName();
-         LanguageTable translations = ClientContext.languageTable;
-         String description = translations.getTranslation(
-            "descriptions.settings.%s.%s".formatted(moduleConfigName, settingConfigName));
-         if (description != null) {
-            ClientContext.getClickGui()
-               .setTooltipText(
-                  description
-               );
+         String tooltip = null;
+         if (this.getUiModule().descriptionsSetting.getValue()
+            && this.getUiModule().settingsSetting.getValue()) {
+            String moduleConfigName = parentModule.getModule().getConfigName();
+            String settingConfigName = this.setting.getConfigName();
+            LanguageTable translations = ClientContext.languageTable;
+            tooltip = translations.getTranslation(
+               "descriptions.settings.%s.%s".formatted(moduleConfigName, settingConfigName)
+            );
+         }
+
+         if (MultiplayerCompatibilityWarnings.isMultiplayerSession()) {
+            ModuleCompatibility.SettingAssessment assessment = ModuleCompatibility.assessSetting(
+               parentModule.getModule().getClass(),
+               this.setting.getConfigName()
+            );
+            if (!assessment.individuallyReviewed()) {
+               String className = parentModule.getModule().getClass().getSimpleName();
+               String compatibilityWarning = "Multiplayer review: "
+                  + assessment.classification() + " setting '"
+                  + this.setting.getConfigName() + "'. Parent module: "
+                  + assessment.inheritedModuleClassification() + ". "
+                  + assessment.reason()
+                  + " See ;compat module " + className + ".";
+               tooltip = tooltip == null || tooltip.isBlank()
+                  ? compatibilityWarning
+                  : tooltip + "\n\n" + compatibilityWarning;
+            }
+         }
+
+         if (tooltip != null && !tooltip.isBlank()) {
+            ClientContext.getClickGui().setTooltipText(tooltip);
          }
       }
 

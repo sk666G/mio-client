@@ -9,6 +9,7 @@
 
 package dev.schizo.mixin;
 
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.managers.ModuleRegistry;
 import dev.schizo.client.modules.render.TooltipsModule;
@@ -22,23 +23,16 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(BundleContents.class)
 public abstract class BundleContentsMixin {
-   private static TooltipsModule tooltipsModule = ClientContext.getModule(TooltipsModule.class);
 
    @Shadow
    public abstract int size();
 
    @Inject(method = "getNumberOfItemsToShow", at = @At("HEAD"), cancellable = true)
    private void overrideBundlePreviewItemCount(CallbackInfoReturnable<Integer> callback) {
-      if (tooltipsModule.isToggled()
-         && tooltipsModule.bundleContentSetting.getValue()) {
+      if (MixinModuleRegistry.bundleContentsTooltipsModule.isToggled()
+         && MixinModuleRegistry.bundleContentsTooltipsModule.bundleContentSetting.getValue()) {
          callback.setReturnValue(this.size());
       }
    }
 
-   @Unique
-   private static void schizo$bindBundleContentsModules(ModuleRegistry moduleRegistry) {
-      tooltipsModule = (TooltipsModule)moduleRegistry.getModule(
-         TooltipsModule.class
-      );
-   }
 }

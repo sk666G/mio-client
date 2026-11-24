@@ -11,6 +11,7 @@ package dev.schizo.client.managers;
 
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
+import dev.schizo.client.config.ModuleConfigLoadReport;
 import dev.schizo.client.NamedFeature;
 import dev.schizo.client.events.InputPressEvent;
 import dev.schizo.client.events.WorldRenderEvent;
@@ -42,6 +43,7 @@ import java.util.stream.Stream;
 
 public final class ModuleRegistry extends Registry<Module> implements ClientAccess, JsonConfigurable {
    private final Object2ObjectOpenHashMap<Class<?>, Module> modulesByClass = new Object2ObjectOpenHashMap<>();
+   private final ModuleConfigLoadReport lastConfigLoadReport = new ModuleConfigLoadReport();
 
    public List<PlacementModule> getPlacementModules() {
       ArrayList<PlacementModule> placementModules = new ArrayList<>();
@@ -201,8 +203,6 @@ public final class ModuleRegistry extends Registry<Module> implements ClientAcce
       if (!this.registerModule(new dev.schizo.client.modules.exploit.PortalGodModeModule())) throw new IllegalStateException("Registration rejected PortalGodModeModule");
       if (!this.registerModule(new dev.schizo.client.modules.combat.PistonCrystalModule())) throw new IllegalStateException("Registration rejected PistonCrystalModule");
       if (!this.registerModule(new dev.schizo.client.modules.combat.PusherModule())) throw new IllegalStateException("Registration rejected PusherModule");
-      if (!this.registerModule(new dev.schizo.client.modules.exploit.RaytraceBypassModule())) throw new IllegalStateException("Registration rejected RaytraceBypassModule");
-      if (!this.registerModule(new dev.schizo.client.modules.exploit.GrimDisablerModule())) throw new IllegalStateException("Registration rejected GrimDisablerModule");
       if (!this.registerModule(new dev.schizo.client.modules.exploit.ReachModule())) throw new IllegalStateException("Registration rejected ReachModule");
       if (!this.registerModule(new dev.schizo.client.modules.player.ReplenishModule())) throw new IllegalStateException("Registration rejected ReplenishModule");
       if (!this.registerModule(new dev.schizo.client.modules.exploit.RocketExtenderModule())) throw new IllegalStateException("Registration rejected RocketExtenderModule");
@@ -266,26 +266,34 @@ public final class ModuleRegistry extends Registry<Module> implements ClientAcce
    }
 
    public boolean unregisterModule(Module module) {
-      Object2ObjectOpenHashMap<Class<?>, Module> cache = this.modulesByClass;
-      Class moduleClass = module.getClass();
-      cache.remove(moduleClass, module);
-      return super.unregisterEntry(module);
+      return ModuleClassIndex.unregister(this.entries, this.modulesByClass, module);
+   }
+
+   public ModuleConfigLoadReport.Snapshot getLastConfigLoadReport() {
+      return this.lastConfigLoadReport.snapshot();
    }
 
    @Override
    public void fromJson(JsonElement config) {
+      this.lastConfigLoadReport.clear();
       List<Module> registeredModules = (List<Module>)this.getRegistry();
       Iterator<Module> modulesIterator = registeredModules.iterator();
 
       while (modulesIterator.hasNext()) {
          Module module = modulesIterator.next();
-         if (!(module instanceof HudWidgetModule)) {
-            try {
-               JsonObject configObject = config.getAsJsonObject();
-               String moduleConfigName = module.getConfigName();
-               JsonElement moduleConfig = dev.schizo.client.config.LegacyBranding.findModuleConfig(configObject, moduleConfigName);
-               module.fromJson(moduleConfig);
-            } catch (Exception ignoredFailure) {
+         if (module instanceof HudWidgetModule) continue;
+         try {
+            JsonObject configObject = config.getAsJsonObject();
+            String moduleConfigName = module.getConfigName();
+            JsonElement moduleConfig = dev.schizo.client.config.LegacyBranding.findModuleConfig(configObject, moduleConfigName);
+            module.fromJson(moduleConfig);
+         } catch (Exception moduleFailure) {
+            this.lastConfigLoadReport.record(module.getName(), "(module)", moduleFailure);
+            ClientAccess.logger.warn("Could not fully apply configuration for module {} ({})", module.getName(), moduleFailure.getClass().getSimpleName());
+         } finally {
+            for (ModuleConfigLoadReport.Issue issue : module.getLastConfigLoadIssues()) {
+               this.lastConfigLoadReport.record(issue);
+               ClientAccess.logger.warn("Ignoring invalid configuration value for module {} setting {} ({})", issue.moduleName(), issue.settingName(), issue.failureType());
             }
          }
       }
@@ -412,10 +420,7 @@ public final class ModuleRegistry extends Registry<Module> implements ClientAcce
          return false;
       }
       ExperimentalFeatures.unregisterHiddenSettings(module);
-      Object2ObjectOpenHashMap<Class<?>, Module> cache = this.modulesByClass;
-      Class moduleClass = module.getClass();
-      cache.put(moduleClass, module);
-      return super.registerEntry(module);
+      return ModuleClassIndex.cacheSuccessfulRegistration(this.modulesByClass, module, super.registerEntry(module));
    }
 
    @Deprecated

@@ -10,6 +10,10 @@
 package dev.schizo.client.modules;
 
 import dev.schizo.client.ClientAccess;
+import dev.schizo.client.config.ModuleConfigLoadReport;
+import dev.schizo.client.config.SafeModeManager;
+import dev.schizo.client.integrations.MultiplayerCompatibilityWarnings;
+import dev.schizo.client.integrations.MultiplayerCompatibilityPolicy;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.NamedFeature;
 import dev.schizo.client.events.bus.EventBus;
@@ -42,6 +46,8 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
    private boolean drawn;
    private boolean workInProgress;
    private boolean ignoreEnabledState;
+   private boolean compatibilityPolicySuppressed;
+   private final List<ModuleConfigLoadReport.Issue> lastConfigLoadIssues = new ArrayList<>();
 
    public Module(String name, String description, ModuleCategory category, String... aliases) {
       super(name);
@@ -77,9 +83,18 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
 
    @Override
    public void enable() {
+      if (SafeModeManager.GLOBAL.isActive()) {
+         return;
+      }
       if (this.isToggled()) {
          return;
       }
+      MultiplayerCompatibilityWarnings.warnIfNeeded(this);
+      if (MultiplayerCompatibilityPolicy.GLOBAL.shouldBlock(this)) {
+         this.compatibilityPolicySuppressed = true;
+         return;
+      }
+      this.compatibilityPolicySuppressed = false;
       this.enabled = true;
       ClientAccess.eventBus.subscribe(this);
       EventBus eventBus = ClientAccess.eventBus;
@@ -99,6 +114,15 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
 
    public String getInfo() {
       return null;
+   }
+
+   @Override
+   public void setToggled(boolean toggled) {
+      if (!toggled && !this.enabled) {
+         this.compatibilityPolicySuppressed = false;
+         return;
+      }
+      Toggleable.super.setToggled(toggled);
    }
 
    @Override
@@ -147,8 +171,13 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
       return languageTable.getTranslationOrDefault(translationKey, defaultDescription);
    }
 
+   public List<ModuleConfigLoadReport.Issue> getLastConfigLoadIssues() {
+      return List.copyOf(this.lastConfigLoadIssues);
+   }
+
    @Override
    public void fromJson(JsonElement json) {
+      this.lastConfigLoadIssues.clear();
       json = dev.schizo.client.config.LegacyBranding.migrateModule(getName(), json);
       if (!(json instanceof JsonObject moduleJson)) {
          return;
@@ -163,6 +192,11 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
             try {
                setting.fromJson(settingsJson.get(setting.getConfigName()));
             } catch (Exception invalidSetting) {
+               this.lastConfigLoadIssues.add(new ModuleConfigLoadReport.Issue(
+                  this.getName(),
+                  setting.getConfigName(),
+                  invalidSetting.getClass().getSimpleName()
+               ));
             }
          }
       }
@@ -193,7 +227,7 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
    public JsonElement toJson() {
       JsonObject moduleJson = new JsonObject();
       if (!this.ignoreEnabledState) {
-         moduleJson.addProperty("enabled", this.enabled);
+         moduleJson.addProperty("enabled", this.enabled || this.compatibilityPolicySuppressed);
       }
       moduleJson.addProperty("key", this.keybind.code());
       moduleJson.addProperty("state", this.keybind.mode().getSerializedName());
@@ -219,6 +253,29 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
 
    @Override
    public void disable() {
+      this.compatibilityPolicySuppressed = false;
+      this.disableInternal();
+   }
+
+   /** Disables a running module for policy reasons without overwriting its saved enable preference. */
+   public void suspendForCompatibilityPolicy() {
+      if (!this.enabled) {
+         return;
+      }
+      this.compatibilityPolicySuppressed = true;
+      this.disableInternal();
+   }
+
+   /** Explicitly clears a policy-suspended module's saved enabled preference. */
+   public void resetCompatibilityPolicyPreference() {
+      if (this.enabled) {
+         this.disable();
+      } else {
+         this.compatibilityPolicySuppressed = false;
+      }
+   }
+
+   private void disableInternal() {
       if (!this.isToggled()) {
          return;
       }
