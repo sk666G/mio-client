@@ -59,14 +59,26 @@ public final class ContextProfileRegistry implements ClientAccess, JsonConfigura
       return this.enabled;
    }
 
-   public synchronized void setEnabled(boolean enabled) {
+   public synchronized boolean setEnabled(boolean enabled) {
       if (this.enabled == enabled) {
-         return;
+         if (!enabled && !this.modifiedCategories.isEmpty()) {
+            boolean restored = this.restoreActiveProfile();
+            if (restored) {
+               this.baseline.clear();
+               this.modifiedCategories.clear();
+               this.applyFailure.clear();
+            }
+            this.lastAppliedContext = null;
+            this.dirty = true;
+            return restored;
+         }
+         return true;
       }
+
       if (enabled) {
          if (!this.restoreActiveProfile()) {
             this.dirty = true;
-            return;
+            return false;
          }
          this.baseline.clear();
          this.modifiedCategories.clear();
@@ -78,10 +90,16 @@ public final class ContextProfileRegistry implements ClientAccess, JsonConfigura
             this.baseline.clear();
             this.modifiedCategories.clear();
          }
+         this.lastAppliedContext = null;
+         this.applyFailure.clear();
+         this.dirty = true;
+         return restored;
       }
+
       this.lastAppliedContext = null;
       this.applyFailure.clear();
       this.dirty = true;
+      return true;
    }
 
    /** Requests one retry for the current context after a preset has been repaired. */
