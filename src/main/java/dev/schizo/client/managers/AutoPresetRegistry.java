@@ -10,6 +10,7 @@
 package dev.schizo.client.managers;
 
 import dev.schizo.client.utils.chat.ChatUtils;
+import dev.schizo.client.config.PresetNameValidator;
 import dev.schizo.client.utils.inventory.Kit;
 import dev.schizo.client.utils.network.AutoPresetServerEntry;
 
@@ -25,6 +26,7 @@ import com.google.gson.JsonObject;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Iterator;
 import java.util.Locale;
 import java.util.Map;
@@ -51,32 +53,71 @@ public final class AutoPresetRegistry implements ClientAccess, JsonConfigurable 
 
    @Override
    public void fromJson(JsonElement json) {
-      JsonObject root = json.getAsJsonObject();
-      Iterator serverIterator = root.entrySet().iterator();
+      Map<String, AutoPresetServerEntry> loaded;
+      try {
+         loaded = parseSettings(json);
+      } catch (IllegalArgumentException invalidRoot) {
+         ClientAccess.logger.warn("Ignoring malformed auto-preset configuration", invalidRoot);
+         return;
+      }
 
-      while (serverIterator.hasNext()) {
-         Entry serverEntry = (Entry)serverIterator.next();
-         String server = (String)serverEntry.getKey();
-         JsonElement serverJson = (JsonElement)serverEntry.getValue();
+      this.serverSettings.clear();
+      this.serverSettings.putAll(loaded);
+      this.lastServer = null;
+   }
+
+   static Map<String, AutoPresetServerEntry> parseSettings(JsonElement json) {
+      if (json == null || !json.isJsonObject()) {
+         throw new IllegalArgumentException("Auto-preset configuration must be a JSON object");
+      }
+
+      Map<String, AutoPresetServerEntry> loaded = new LinkedHashMap<>();
+      for (Entry<String, JsonElement> serverEntry : json.getAsJsonObject().entrySet()) {
+         String server = serverEntry.getKey();
+         if (server == null || server.isBlank() || server.length() > 255) {
+            continue;
+         }
+
+         JsonElement serverJson = serverEntry.getValue();
+         if (serverJson == null || !serverJson.isJsonObject()) {
+            continue;
+         }
+
+         AutoPresetServerEntry parsed = new AutoPresetServerEntry(server);
          JsonObject settingsJson = serverJson.getAsJsonObject();
-         Iterator settingIterator = settingsJson.entrySet().iterator();
+         for (Entry<String, JsonElement> settingEntry : settingsJson.entrySet()) {
+            String categoryName = settingEntry.getKey();
+            JsonElement value = settingEntry.getValue();
+            if ("kit".equalsIgnoreCase(categoryName)) {
+               if (value != null && value.isJsonPrimitive()
+                  && value.getAsJsonPrimitive().isString()) {
+                  String kitName = value.getAsString();
+                  if (!kitName.isBlank() && kitName.length() <= 255) {
+                     parsed.setKitName(kitName);
+                  }
+               }
+               continue;
+            }
 
-         while (settingIterator.hasNext()) {
-            Entry settingEntry = (Entry)settingIterator.next();
-            String categoryName = (String)settingEntry.getKey();
             PresetCategory category = PresetCategory.findByName(categoryName);
-            JsonElement presetJson = (JsonElement)settingEntry.getValue();
-            String presetName = presetJson.getAsString();
-            if (category != null) {
-               this.setPreset(server, category, presetName);
+            if (category == null || value == null || !value.isJsonPrimitive()
+               || !value.getAsJsonPrimitive().isString()) {
+               continue;
+            }
+
+            try {
+               String presetName = PresetNameValidator.normalize(value.getAsString());
+               parsed.getPresets().put(category, presetName);
+            } catch (IllegalArgumentException invalidPresetName) {
+               // Skip only the invalid mapping; other server/category entries remain loadable.
             }
          }
 
-         if (settingsJson.has("kit")) {
-            JsonElement kitJson = settingsJson.get("kit");
-            this.setKit(server, kitJson.getAsString());
+         if (!parsed.getPresets().isEmpty() || parsed.hasKit()) {
+            loaded.put(server, parsed);
          }
       }
+      return loaded;
    }
 
    @Override
