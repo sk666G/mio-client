@@ -396,8 +396,15 @@ public class ArrowsModule extends Module {
 
       while (players.hasNext()) {
          AbstractClientPlayer candidate = (AbstractClientPlayer)players.next();
-         if (ClientAccess.schizoMinecraft.player != candidate) {
-            if (!ClientContext.socialRegistry.isFriendPlayer(candidate)) {
+         if (CombatTargetPolicy.isEligible(
+            candidate.isAlive(),
+            candidate.isDeadOrDying(),
+            candidate == ClientAccess.schizoMinecraft.player,
+            candidate.isSpectator(),
+            candidate.isCreative(),
+            ClientContext.socialRegistry.isFriendPlayer(candidate),
+            ((ServerSideDeathState)candidate).isServerSideDead()
+         )) {
                float[] rotations = RotationManager.getRotationsToEntity(candidate);
 
                angleValue = ClientAccess.schizoMinecraft.player.getYRot();
@@ -435,7 +442,6 @@ public class ArrowsModule extends Module {
                }
             }
          }
-      }
 
       return bestPlayer;
    }
