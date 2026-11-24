@@ -149,6 +149,22 @@ public final class ExplosionRaycastSnapshotBuilder {
          );
       }
 
+      long maximumYExclusive = (long)level.getMinY() + level.getHeight();
+      if (region.minY() < level.getMinY() || region.maxY() >= maximumYExclusive) {
+         throw new IllegalArgumentException("Snapshot region extends outside the active world's build height");
+      }
+      int minimumChunkX = Math.floorDiv(region.minX(), 16);
+      int maximumChunkX = Math.floorDiv(region.maxX(), 16);
+      int minimumChunkZ = Math.floorDiv(region.minZ(), 16);
+      int maximumChunkZ = Math.floorDiv(region.maxZ(), 16);
+      for (int chunkX = minimumChunkX; chunkX <= maximumChunkX; chunkX++) {
+         for (int chunkZ = minimumChunkZ; chunkZ <= maximumChunkZ; chunkZ++) {
+            if (!level.hasChunk(chunkX, chunkZ)) {
+               throw new IllegalStateException("Snapshot region includes an unloaded chunk");
+            }
+         }
+      }
+
       CollisionContext collisionContext = CollisionContext.of(collisionEntity);
       Map<Long, ExplosionRaycastSnapshot.BlockGeometry> capturedBlocks = new HashMap<>((int)volume);
       BlockPos.MutableBlockPos position = new BlockPos.MutableBlockPos();
