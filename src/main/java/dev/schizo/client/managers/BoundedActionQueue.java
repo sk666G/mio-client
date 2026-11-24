@@ -73,6 +73,14 @@ final class BoundedActionQueue {
       }
    }
 
+   int clear() {
+      synchronized (this.lock) {
+         int removed = this.actions.size();
+         this.actions.clear();
+         return removed;
+      }
+   }
+
    int size() {
       synchronized (this.lock) {
          return this.actions.size();
