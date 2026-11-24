@@ -217,6 +217,10 @@ public class AutoArmorModule extends Module {
       return piglinDistance <= range.floatValue();
    }
 
+   static boolean shouldCountPlayerForRange(boolean isFriend, boolean allowFriends) {
+      return !isFriend || allowFriends;
+   }
+
    private boolean hasRelevantPlayerInRange() {
       ClientLevel level = ClientAccess.schizoMinecraft.level;
       for (AbstractClientPlayer player : level.players()) {
@@ -227,9 +231,10 @@ public class AutoArmorModule extends Module {
                SocialRegistry socialRegistry = ClientContext.socialRegistry;
                GameProfile profile = player.getGameProfile();
                String playerName = profile.name();
-               if (!socialRegistry.isFriendName(playerName)) return true;
-
-               if (!this.allowFriendsSetting.getValue()) return true;
+               boolean isFriend = socialRegistry.isFriendName(playerName);
+               if (shouldCountPlayerForRange(isFriend, this.allowFriendsSetting.getValue())) {
+                  return true;
+               }
             }
          }
       }
