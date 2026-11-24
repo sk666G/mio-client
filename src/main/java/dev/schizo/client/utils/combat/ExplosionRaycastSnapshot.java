@@ -71,7 +71,9 @@ public final class ExplosionRaycastSnapshot {
          Objects.requireNonNull(ignoredPositions, "ignoredPositions");
          Set<Long> packedPositions = new HashSet<>(ignoredPositions.size());
          for (BlockPos position : ignoredPositions) {
-            packedPositions.add(Objects.requireNonNull(position, "ignored position").asLong());
+            if (position != null) {
+               packedPositions.add(position.asLong());
+            }
          }
          return new Query(
             packedPositions,
