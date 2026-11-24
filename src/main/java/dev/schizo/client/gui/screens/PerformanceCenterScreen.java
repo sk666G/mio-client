@@ -30,6 +30,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.input.KeyEvent;
+import org.lwjgl.glfw.GLFW;
 
 /**
  * Live view over Schizo's existing frame telemetry and opt-in profiler.
@@ -328,9 +330,7 @@ public final class PerformanceCenterScreen extends ClientScreen {
       for (int tab = 0; tab < TAB_NAMES.length; tab++) {
          float tabLeft = this.panelLeft + 16.0F + tab * (tabWidth + tabGap);
          if (this.contains(mouseX, mouseY, tabLeft, tabsTop, tabWidth, 21.0F)) {
-            this.selectedTab = tab;
-            this.rowOffset = 0;
-            this.refreshData(true);
+            this.selectTab(tab);
             return;
          }
       }
@@ -338,16 +338,77 @@ public final class PerformanceCenterScreen extends ClientScreen {
 
    @Override
    public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
-      if (verticalAmount != 0.0D) {
-         this.refreshData(false);
-         int maximumOffset = Math.max(0, this.rows.size() - this.visibleRowCount());
-         this.rowOffset = Math.max(
-            0,
-            Math.min(maximumOffset, this.rowOffset + (verticalAmount < 0.0D ? 1 : -1))
-         );
-         return true;
+      this.updateLayout();
+      float tableLeft = this.panelLeft + 16.0F;
+      float tableTop = this.panelTop + 254.0F;
+      float tableWidth = this.panelWidth - 32.0F;
+      float tableHeight = this.panelHeight - 23.0F - tableTop + this.panelTop;
+      if (verticalAmount == 0.0D
+         || !this.contains(mouseX, mouseY, tableLeft, tableTop, tableWidth, tableHeight)) {
+         return super.mouseScrolled(mouseX, mouseY, horizontalAmount, verticalAmount);
       }
-      return super.mouseScrolled(mouseX, mouseY, horizontalAmount, verticalAmount);
+
+      this.moveRowOffset(verticalAmount < 0.0D ? 1 : -1);
+      return true;
+   }
+
+   @Override
+   public boolean keyPressed(KeyEvent event) {
+      if (this.closing) {
+         return false;
+      }
+
+      switch (event.key()) {
+         case GLFW.GLFW_KEY_LEFT -> {
+            this.selectTab(this.selectedTab - 1);
+            return true;
+         }
+         case GLFW.GLFW_KEY_RIGHT -> {
+            this.selectTab(this.selectedTab + 1);
+            return true;
+         }
+         case GLFW.GLFW_KEY_UP -> {
+            this.moveRowOffset(-1);
+            return true;
+         }
+         case GLFW.GLFW_KEY_DOWN -> {
+            this.moveRowOffset(1);
+            return true;
+         }
+         case GLFW.GLFW_KEY_PAGE_UP -> {
+            this.moveRowOffset(-this.visibleRowCount());
+            return true;
+         }
+         case GLFW.GLFW_KEY_PAGE_DOWN -> {
+            this.moveRowOffset(this.visibleRowCount());
+            return true;
+         }
+         case GLFW.GLFW_KEY_HOME -> {
+            this.refreshData(false);
+            this.rowOffset = 0;
+            return true;
+         }
+         case GLFW.GLFW_KEY_END -> {
+            this.refreshData(false);
+            this.rowOffset = Math.max(0, this.rows.size() - this.visibleRowCount());
+            return true;
+         }
+         default -> {
+            return super.keyPressed(event);
+         }
+      }
+   }
+
+   private void selectTab(int tab) {
+      this.selectedTab = Math.floorMod(tab, TAB_NAMES.length);
+      this.rowOffset = 0;
+      this.refreshData(true);
+   }
+
+   private void moveRowOffset(int delta) {
+      this.refreshData(false);
+      int maximumOffset = Math.max(0, this.rows.size() - this.visibleRowCount());
+      this.rowOffset = Math.max(0, Math.min(maximumOffset, this.rowOffset + delta));
    }
 
    private void refreshData(boolean force) {
