@@ -77,7 +77,7 @@ public class ClampedInterpolatedFloat extends InterpolatedFloat {
       int timingSample = ClientContext.frameTiming.getFramesPerSecond();
 
       if (timingSample <= 15) {
-         this.currentValue = this.targetValue;
+         this.setValue(this.targetValue);
       }
       return this.getValue();
    }

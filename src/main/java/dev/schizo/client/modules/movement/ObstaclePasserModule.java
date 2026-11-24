@@ -456,9 +456,9 @@ public final class ObstaclePasserModule extends Module {
    }
 
    private double horizontalDistance(Vec3 first, Vec3 second) {
-      Vec3 firstFlat = first.multiply(1.0D, 0.0, 1.0D);
-      Vec3 secondFlat = second.multiply(1.0D, 0.0, 1.0D);
-      return firstFlat.distanceTo(secondFlat);
+      double dx = first.x - second.x;
+      double dz = first.z - second.z;
+      return Math.sqrt(dx * dx + dz * dz);
    }
 
    @EventHandler

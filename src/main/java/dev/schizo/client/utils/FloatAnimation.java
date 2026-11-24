@@ -9,27 +9,35 @@
 
 package dev.schizo.client.utils;
 
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
+import java.util.function.LongSupplier;
+import java.util.Objects;
 import net.minecraft.util.Mth;
 
 public class FloatAnimation {
+   private final LongSupplier nanoTime;
    private float startValue;
    private float targetValue;
-   private long endTimeMillis;
-   private long durationMillis;
+   private long startedAtNanos;
+   private long durationNanos;
+
+   public FloatAnimation() {
+      this(System::nanoTime);
+   }
+
+   FloatAnimation(LongSupplier nanoTime) {
+      this.nanoTime = Objects.requireNonNull(nanoTime, "nanoTime");
+   }
 
    public float getValue() {
-      if (System.currentTimeMillis() > this.endTimeMillis) {
-         return this.targetValue;
-      }
-      float remainingMillis = (float)(this.endTimeMillis - System.currentTimeMillis());
-      float remainingFraction = remainingMillis / (float)Math.max(this.durationMillis, 1L);
-      float progress = 1.0F - Mth.clamp(remainingFraction, 0.0F, 1.0F);
-      return progress * (this.targetValue - this.startValue) + this.startValue;
+      return this.valueAt(this.nanoTime.getAsLong());
    }
 
    public void setValue(float value) {
-      this.setTarget(value, 0L);
+      this.startValue = value;
+      this.targetValue = value;
+      this.durationNanos = 0L;
    }
 
    public void setTarget(boolean targetState, long newDurationMillis) {
@@ -38,25 +46,42 @@ public class FloatAnimation {
    }
 
    public float getValue(Function easing) {
-      if (System.currentTimeMillis() > this.endTimeMillis) {
+      long nowNanos = this.nanoTime.getAsLong();
+      float progress = this.progressAt(nowNanos);
+      if (progress >= 1.0F) {
          return this.targetValue;
       }
 
-      float interpolationScale = 1.0F;
-      float remainingMillis = (float)(this.endTimeMillis - System.currentTimeMillis());
-      float remainingFraction = remainingMillis / (float)Math.max(this.durationMillis, 1L);
-      float clampUpperBound = 1.0F;
-      float easingInput = interpolationScale - Mth.clamp(remainingFraction, 0.0F, clampUpperBound);
-      Float easingResult = (Float)easing.apply(easingInput);
+      Float easingResult = (Float)easing.apply(progress);
       return easingResult * (this.targetValue - this.startValue) + this.startValue;
    }
 
    public void setTarget(float newTargetValue, long newDurationMillis) {
       if (this.targetValue != newTargetValue) {
-         this.startValue = this.getValue();
+         long nowNanos = this.nanoTime.getAsLong();
+         this.startValue = this.valueAt(nowNanos);
          this.targetValue = newTargetValue;
-         this.endTimeMillis = System.currentTimeMillis() + newDurationMillis;
-         this.durationMillis = newDurationMillis;
+         this.startedAtNanos = nowNanos;
+         this.durationNanos = TimeUnit.MILLISECONDS.toNanos(Math.max(0L, newDurationMillis));
       }
+   }
+
+   private float valueAt(long nowNanos) {
+      float progress = this.progressAt(nowNanos);
+      return progress * (this.targetValue - this.startValue) + this.startValue;
+   }
+
+   private float progressAt(long nowNanos) {
+      if (this.durationNanos <= 0L) {
+         return 1.0F;
+      }
+
+      long elapsedNanos = nowNanos - this.startedAtNanos;
+      if (elapsedNanos >= this.durationNanos) {
+         return 1.0F;
+      }
+
+      float progress = (float)elapsedNanos / (float)this.durationNanos;
+      return Mth.clamp(progress, 0.0F, 1.0F);
    }
 }

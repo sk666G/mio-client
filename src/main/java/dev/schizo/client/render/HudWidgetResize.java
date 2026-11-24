@@ -30,6 +30,23 @@ public final class HudWidgetResize {
       double contentHeight,
       float currentScale
    ) {
+      return calculateScale(mouseX, mouseY, widgetX, widgetY, contentWidth, contentHeight, currentScale, 1.0);
+   }
+
+   /**
+    * Converts pointer coordinates into the widget's own size setting, excluding the
+    * additional global HUD scale applied during rendering.
+    */
+   public static float calculateScale(
+      double mouseX,
+      double mouseY,
+      double widgetX,
+      double widgetY,
+      double contentWidth,
+      double contentHeight,
+      float currentScale,
+      double hudScaleMultiplier
+   ) {
       float fallback = Float.isFinite(currentScale)
          ? clamp(currentScale)
          : 1.0F;
@@ -40,13 +57,22 @@ public final class HudWidgetResize {
          || !Double.isFinite(contentWidth)
          || !Double.isFinite(contentHeight)
          || contentWidth <= 0.0
-         || contentHeight <= 0.0) {
+         || contentHeight <= 0.0
+         || !Double.isFinite(hudScaleMultiplier)
+         || hudScaleMultiplier <= 0.0) {
+         return fallback;
+      }
+
+      double effectiveWidth = contentWidth * hudScaleMultiplier;
+      double effectiveHeight = contentHeight * hudScaleMultiplier;
+      if (!Double.isFinite(effectiveWidth) || !Double.isFinite(effectiveHeight)
+         || effectiveWidth <= 0.0 || effectiveHeight <= 0.0) {
          return fallback;
       }
 
       double scale = Math.min(
-         (mouseX - widgetX) / contentWidth,
-         (mouseY - widgetY) / contentHeight
+         (mouseX - widgetX) / effectiveWidth,
+         (mouseY - widgetY) / effectiveHeight
       );
       if (!Double.isFinite(scale)) {
          return fallback;
