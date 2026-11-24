@@ -164,6 +164,7 @@ public class FakeLagModule extends Module {
       }
       if (this.bufferedPackets.size() >= MAX_BUFFERED_PACKETS) {
          this.releaseBufferedPackets();
+         return;
       }
       this.bufferedPackets.add(event.getPacket());
       event.cancel();
