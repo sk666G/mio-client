@@ -762,6 +762,7 @@ public class ChestStealerModule extends Module {
       this.returnController.resetSession();
       this.refillController.resetSession();
       this.openController.resetSession();
+      this.placementController.resetSession();
    }
 
 
