@@ -70,7 +70,7 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
       2.0F, true
    );
    private final HudModulePanel modulePanel = new HudModulePanel();
-   private boolean draggingWidget;
+   private HudWidgetRenderer draggedWidget;
    private boolean centerPanelPending;
    private boolean directionsRefreshPending;
    private double dragOffsetX;
@@ -314,12 +314,9 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
          return false;
       }
 
-      if (this.draggingWidget) {
-         HudAnchorGroup freeGroup = this.getAnchorGroup(HudAnchor.NONE);
-         if (!freeGroup.getWidgets().isEmpty()) {
-            ((HudWidgetRenderer)freeGroup.getWidgets().getLast()).setSelected(false);
-         }
-         this.draggingWidget = false;
+      if (this.draggedWidget != null) {
+         this.draggedWidget.setSelected(false);
+         this.draggedWidget = null;
       }
 
       ResizableHudWidgetRenderer.cancelActiveResize();
@@ -376,19 +373,16 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
 
    @Override
    public boolean mouseDragged(MouseButtonEvent event, double dragX, double dragY) {
-      if (this.draggingWidget && event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
-         HudAnchorGroup freeGroup = this.getAnchorGroup(HudAnchor.NONE);
-         if (!freeGroup.getWidgets().isEmpty()) {
-            HudWidgetRenderer widget = (HudWidgetRenderer)freeGroup.getWidgets().getLast();
-            float[] size = widget.getDimensions();
+      if (this.draggedWidget != null && event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+         HudWidgetRenderer widget = this.draggedWidget;
+         float[] size = widget.getDimensions();
             float screenWidth = ClientAccess.schizoMinecraft.getWindow().getGuiScaledWidth();
             float screenHeight = ClientAccess.schizoMinecraft.getWindow().getGuiScaledHeight();
             widget.setX(HudWidgetDrag.clampCoordinate(event.x(), this.dragOffsetX, screenWidth, size[0]), true);
             widget.setY(HudWidgetDrag.clampCoordinate(event.y(), this.dragOffsetY, screenHeight, size[1]), true);
             this.applyDragSnapping(widget, size, screenWidth, screenHeight);
-            widget.updateDirections();
-            return true;
-         }
+         widget.updateDirections();
+         return true;
       }
       return super.mouseDragged(event, dragX, dragY);
    }
@@ -397,15 +391,10 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
    public boolean mouseReleased(MouseButtonEvent event) {
       this.marginController.mouseReleased(event.button());
       boolean released = super.mouseReleased(event);
-      if (this.draggingWidget && event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
-         this.draggingWidget = false;
+      if (this.draggedWidget != null && event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+         HudWidgetRenderer widget = this.draggedWidget;
+         this.draggedWidget = null;
          HudAnchorGroup freeGroup = this.getAnchorGroup(HudAnchor.NONE);
-         if (freeGroup.getWidgets().isEmpty()) {
-            this.finishLayoutEdit();
-            return true;
-         }
-
-         HudWidgetRenderer widget = (HudWidgetRenderer)freeGroup.getWidgets().getLast();
          widget.setSelected(false);
          freeGroup.getWidgets().remove(widget);
          int screenWidth = ClientAccess.schizoMinecraft.getWindow().getGuiScaledWidth();
@@ -481,7 +470,7 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
                   dragCandidate = widget;
                   this.dragOffsetX = event.x() - widget.getX();
                   this.dragOffsetY = event.y() - widget.getY();
-                  this.draggingWidget = true;
+                  this.draggedWidget = widget;
                   widget.setSelected(true);
                   widget.resetSnapping();
                } else if (event.button() == 1) {
@@ -777,12 +766,9 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
    @Override
    public void onClose() {
       super.onClose();
-      if (this.draggingWidget) {
-         HudAnchorGroup freeGroup = this.getAnchorGroup(HudAnchor.NONE);
-         if (!freeGroup.getWidgets().isEmpty()) {
-            ((HudWidgetRenderer)freeGroup.getWidgets().getLast()).setSelected(false);
-         }
-         this.draggingWidget = false;
+      if (this.draggedWidget != null) {
+         this.draggedWidget.setSelected(false);
+         this.draggedWidget = null;
       }
       ResizableHudWidgetRenderer.cancelActiveResize();
       this.cancelLayoutEdit();
@@ -851,12 +837,9 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
          mouseX,
          mouseY
       );
-      if (this.draggingWidget) {
-         HudAnchorGroup freeGroup = this.getAnchorGroup(HudAnchor.NONE);
-         if (!freeGroup.getWidgets().isEmpty()) {
-            HudWidgetRenderer widget = (HudWidgetRenderer)freeGroup.getWidgets().getLast();
-            this.snapWidget(graphics, poseStack, widget, widget.getDimensions());
-         }
+      if (this.draggedWidget != null) {
+         HudWidgetRenderer widget = this.draggedWidget;
+         this.snapWidget(graphics, poseStack, widget, widget.getDimensions());
       }
 
       float labelOpacity = this.hoverLabelOpacity
