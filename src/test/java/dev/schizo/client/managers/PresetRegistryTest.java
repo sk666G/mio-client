@@ -64,6 +64,45 @@ class PresetRegistryTest {
       assertNotNull(registry.getPreset("before"));
    }
 
+   @Test
+   void skipsOversizedPresetFilesDuringStartupLoad() throws IOException {
+      Files.write(directory.resolve("oversized.json"),
+         new byte[dev.schizo.client.config.PresetData.MAX_PRESET_BYTES + 1]);
+
+      PresetRegistry registry = new PresetRegistry(directory);
+      registry.loadPresets();
+
+      assertNull(registry.getPreset("oversized"));
+   }
+
+   @Test
+   void refusesToLoadFromASymlinkedPresetDirectory() throws IOException {
+      Path actualDirectory = Files.createDirectory(directory.resolve("actual-presets"));
+      preset("external").saveToDirectory(actualDirectory);
+      Path linkedDirectory = directory.resolve("linked-presets");
+      try {
+         Files.createSymbolicLink(linkedDirectory, actualDirectory.toAbsolutePath());
+      } catch (IOException | UnsupportedOperationException | SecurityException unavailable) {
+         org.junit.jupiter.api.Assumptions.assumeTrue(false, "Symbolic links are unavailable on this platform");
+      }
+
+      PresetRegistry registry = new PresetRegistry(linkedDirectory);
+      registry.loadPresets();
+
+      assertNull(registry.getPreset("external"));
+   }
+
+   @Test
+   void doesNotReadAnUnboundedExistingFileWhenRestoringPreset() throws IOException {
+      Path existing = directory.resolve("existing.json");
+      Files.write(existing,
+         new byte[dev.schizo.client.config.PresetData.MAX_PRESET_BYTES + 1]);
+      PresetRegistry registry = new PresetRegistry(directory);
+
+      assertThrows(IOException.class, () -> registry.restorePreset(preset("existing")));
+      assertEquals(dev.schizo.client.config.PresetData.MAX_PRESET_BYTES + 1L, Files.size(existing));
+   }
+
    private static PresetData preset(String name) {
       JsonObject contents = new JsonObject();
       contents.addProperty("value", name);
