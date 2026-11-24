@@ -96,3 +96,35 @@ A failed check discards the result and lets the next client-thread snapshot sche
 - Controlled local integration tests verify the final client-thread revalidation before action.
 
 No anti-cheat bypass, server-validation evasion, packet spoofing or new exploit behavior is part of this work. The goal is to make the existing calculations deterministic, session-safe and thread-correct.
+
+## Source dependency audit (2026-11-24)
+
+The current implementation was traced from both scheduling sites through their direct calculation helpers. This inventory is intentionally explicit so the migration does not stop after copying coordinates.
+
+### AutoCrystal path
+
+- `AutoCrystalModule.onMinecraftRunTickEvent` schedules `calculatePlacement` on the calculation executor. The submitted closure retains the module instance and a `List<LivingEntity>`, and the calculation reads settings and mutable module fields while it runs.
+- `AutoCrystalTargeting.snapshot` copies only the list container. Its elements remain live `LivingEntity` objects. `refresh` applies friend/death/game-mode policy using live entities.
+- `CrystalPlacementValidator.canPlace` reads the active level's block/fluid states, world-state manager's unconfirmed-break position, rendered entity collection, live entity flags and bounds, player eye position, player wall state, and movement prediction manager.
+- `CrystalTargetDamage.calculateForBase` reads live target position/bounds/equipment, module settings and flags, social registry, player identity, and calls back into module damage helpers. Its result record stores a live `LivingEntity`.
+- `AutoCrystalModule.calculatePlacement` also reads `WorldUtils` for block identity and visibility, `BlockInteractionUtils` for strict directions/support/place checks, `DamageUtils` for self and target damage, and `RotationManager` / SpeedMine settings while the worker is active.
+- `DamageUtils` is not a pure calculator: explosion exposure builds a `BlockRaycastContext` with a live entity, `RaycastUtils.raycast` fetches each block from `Minecraft.level` and asks the live level to compute interaction clipping, and damage reduction reads live world difficulty/damage sources plus target effects, attributes, armor stacks and blocking item.
+- `WorldUtils.canSee` delegates to that same live-world raycast path. `BlockInteractionUtils` placement and support helpers likewise consult the active world and entity state.
+
+### AnchorAura path
+
+- `AnchorAuraModule.updateCalculation` submits `calculatePlacement` to `ClientAccess.executorService`. The closure retains the module instance; the worker reads live player coordinates, settings, mining state and world state.
+- Each candidate invokes `BlockInteractionUtils` for bounds, support and placement checks; `WorldUtils` for occupied positions and visibility; and `AnchorTargetDamage.calculateForBase` for live world players, target policy, entity bounds and damage.
+- `AnchorTargetDamage` enumerates `ClientLevel.players()`, calls live `Player` methods and stores the selected `Player` in its result record.
+- `AnchorAuraModule.shouldRejectDamage` recomputes self/target damage through `DamageUtils` and reads live player health, bounds, anchor state and mining state. It is currently called from the worker path.
+
+### Migration implications
+
+1. A shallow copy of `AutoCrystalTargeting.targets`, or a record that stores `BlockState` alongside a live `Entity`, is not a sufficient snapshot.
+2. The current result types (`CrystalPlacementResult`, `CrystalTargetDamage`, `AnchorPlacementResult`, and `AnchorTargetDamage`) must become data-only worker results. Resolve entity IDs/UUIDs on the client thread after completion.
+3. `DamageUtils` needs a separate pure damage calculator whose inputs include captured difficulty, damage-reduction attributes/effects, equipment/enchantment contributions, blocking state, and precomputed exposure. The existing method should remain a reference oracle for fixture comparisons until parity is demonstrated.
+4. `RaycastUtils` needs a snapshot-backed ray traversal implementation. Reusing `BlockGetter.traverseBlocks` is possible only if its block/fluid/shape lookups are served entirely by immutable captured data; passing the live `ClientLevel` defeats the boundary.
+5. Snapshot capture must be performed before executor submission on the client thread. If capture cannot fit the configured budget, skip that scan and retain the last validated result rather than reading live world state from the worker.
+6. Before applying any result, the client thread must resolve target identity and rerun action-critical checks. The worker result is advisory, not permission to act.
+
+This audit changes no gameplay behavior. It records why the existing worker code is still unsafe and the concrete class boundary that the implementation must replace.
