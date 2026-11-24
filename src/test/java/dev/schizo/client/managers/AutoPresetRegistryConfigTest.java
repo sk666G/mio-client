@@ -3,8 +3,6 @@ package dev.schizo.client.managers;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.google.gson.JsonObject;
-import dev.schizo.client.settings.options.PresetCategory;
-import dev.schizo.client.utils.network.AutoPresetServerEntry;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
@@ -12,17 +10,17 @@ class AutoPresetRegistryConfigTest {
    @Test
    void parsesValidPresetsAndKitWithoutClientServices() {
       JsonObject server = new JsonObject();
-      server.addProperty(PresetCategory.HUD.getName().toLowerCase(), "hud-layout");
+      server.addProperty("hud", "hud-layout");
       server.addProperty("kit", "crystal-kit");
       JsonObject root = new JsonObject();
       root.add("example.org", server);
 
-      Map<String, AutoPresetServerEntry> loaded = AutoPresetRegistry.parseSettings(root);
+      Map<String, AutoPresetRegistry.ParsedServerEntry> loaded = AutoPresetRegistry.parseSettings(root);
 
-      AutoPresetServerEntry entry = loaded.get("example.org");
+      AutoPresetRegistry.ParsedServerEntry entry = loaded.get("example.org");
       assertNotNull(entry);
-      assertEquals("hud-layout", entry.getPresets().get(PresetCategory.HUD));
-      assertEquals("crystal-kit", entry.getKitName());
+      assertEquals("hud-layout", entry.presets().get("hud"));
+      assertEquals("crystal-kit", entry.kitName());
    }
 
    @Test
@@ -31,30 +29,30 @@ class AutoPresetRegistryConfigTest {
       root.addProperty("not-an-object", "bad");
 
       JsonObject valid = new JsonObject();
-      valid.addProperty(PresetCategory.MODULES.getName().toLowerCase(), "combat");
+      valid.addProperty("modules", "combat");
       valid.addProperty("kit", 42);
       root.add("good.example", valid);
 
-      Map<String, AutoPresetServerEntry> loaded = AutoPresetRegistry.parseSettings(root);
+      Map<String, AutoPresetRegistry.ParsedServerEntry> loaded = AutoPresetRegistry.parseSettings(root);
 
       assertEquals(1, loaded.size());
       assertTrue(loaded.containsKey("good.example"));
-      assertFalse(loaded.get("good.example").hasKit());
+      assertNull(loaded.get("good.example").kitName());
    }
 
    @Test
    void rejectsPathLikePresetNamesWithoutDiscardingValidMappings() {
       JsonObject server = new JsonObject();
-      server.addProperty(PresetCategory.HUD.getName().toLowerCase(), "../escape");
-      server.addProperty(PresetCategory.MODULES.getName().toLowerCase(), "legit");
+      server.addProperty("hud", "../escape");
+      server.addProperty("modules", "legit");
       JsonObject root = new JsonObject();
       root.add("example.org", server);
 
-      AutoPresetServerEntry entry = AutoPresetRegistry.parseSettings(root).get("example.org");
+      AutoPresetRegistry.ParsedServerEntry entry = AutoPresetRegistry.parseSettings(root).get("example.org");
 
       assertNotNull(entry);
-      assertNull(entry.getPresets().get(PresetCategory.HUD));
-      assertEquals("legit", entry.getPresets().get(PresetCategory.MODULES));
+      assertNull(entry.presets().get("hud"));
+      assertEquals("legit", entry.presets().get("modules"));
    }
 
    @Test
