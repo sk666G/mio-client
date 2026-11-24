@@ -173,6 +173,67 @@ class CrystalTargetSelectionPolicyTest {
    }
 
    @Test
+   void rejectsNonFiniteCandidateDamageAndThresholdInputs() {
+      assertEquals(
+         CrystalTargetSelectionPolicy.Decision.REJECT,
+         candidate(5.0D, 5.0D, false, false, true, false, 1.0D, 4.0D,
+            false, false, false, false, false, Double.NaN, 20.0D, 1.0D)
+      );
+      assertEquals(
+         CrystalTargetSelectionPolicy.Decision.REJECT,
+         candidate(5.0D, 5.0D, false, false, true, false, 1.0D, 4.0D,
+            false, false, false, false, false, Double.POSITIVE_INFINITY, 20.0D, 1.0D)
+      );
+      assertEquals(
+         CrystalTargetSelectionPolicy.Decision.REJECT,
+         candidate(5.0D, 5.0D, false, false, true, false, 1.0D, 4.0D,
+            false, false, false, false, false, 5.0D, 20.0D, Double.NaN)
+      );
+   }
+
+   @Test
+   void rejectsNonFiniteCandidateGeometryAndRanges() {
+      assertEquals(
+         CrystalTargetSelectionPolicy.Decision.REJECT,
+         candidate(5.0D, 5.0D, false, false, true, false, Double.NaN, 4.0D,
+            false, false, false, false, false, 5.0D, 20.0D, 1.0D)
+      );
+      assertEquals(
+         CrystalTargetSelectionPolicy.Decision.REJECT,
+         candidate(5.0D, 5.0D, false, false, true, false, 1.0D, Double.POSITIVE_INFINITY,
+            false, false, false, false, false, 5.0D, 20.0D, 1.0D)
+      );
+   }
+
+   @Test
+   void rejectsInvalidOrdinaryTargetRangeAndDistanceButKeepsForceSuicideBypass() {
+      CrystalTargetSelectionPolicy.TargetState target = target(
+         false, true, false, false, true, false, false, false, Double.NaN
+      );
+
+      assertTrue(CrystalTargetSelectionPolicy.isInvalidTarget(target, false, 4.0D));
+      assertTrue(CrystalTargetSelectionPolicy.isInvalidTarget(
+         target(false, true, false, false, true, false, false, false, 1.0D),
+         false,
+         Double.POSITIVE_INFINITY
+      ));
+      assertTrue(CrystalTargetSelectionPolicy.isInvalidTarget(null, false, 4.0D));
+      assertFalse(CrystalTargetSelectionPolicy.isInvalidTarget(
+         target(true, false, false, false, false, true, true, true, Double.NaN),
+         true,
+         Double.NaN
+      ));
+   }
+
+   @Test
+   void onlyFiniteNonNegativeDamageCanReplaceTheBestCandidate() {
+      assertTrue(CrystalTargetSelectionPolicy.shouldReplaceBest(5.0D, Double.NaN));
+      assertFalse(CrystalTargetSelectionPolicy.shouldReplaceBest(Double.NaN, 4.0D));
+      assertFalse(CrystalTargetSelectionPolicy.shouldReplaceBest(Double.POSITIVE_INFINITY, 4.0D));
+      assertFalse(CrystalTargetSelectionPolicy.shouldReplaceBest(-1.0D, 4.0D));
+   }
+
+   @Test
    void tiesDoNotReplaceEarlierBestTarget() {
       assertFalse(CrystalTargetSelectionPolicy.shouldReplaceBest(5.0D, 5.0D));
       assertFalse(CrystalTargetSelectionPolicy.shouldReplaceBest(4.0D, 5.0D));
