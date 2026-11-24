@@ -43,12 +43,13 @@ import org.lwjgl.glfw.GLFW;
 public final class PerformanceCenterScreen extends ClientScreen {
    private static final int VISIBLE_ROWS = 7;
    private static final int MAX_STORED_ROWS = 64;
-   private static final long REFRESH_INTERVAL_MILLIS = 250L;
+   private static final long REFRESH_INTERVAL_NANOS = 250_000_000L;
    private static final String[] TAB_NAMES = {"MODULES", "CALLBACKS", "HUD WIDGETS"};
 
    private int selectedTab;
    private int rowOffset;
-   private long lastRefreshMillis;
+   private long lastRefreshNanos;
+   private boolean hasRefreshed;
    private List<DisplayRow> rows = List.of();
    private MetricsSnapshot metrics = MetricsSnapshot.EMPTY;
    private float[] frameHistorySamples = new float[0];
@@ -422,11 +423,12 @@ public final class PerformanceCenterScreen extends ClientScreen {
    }
 
    private void refreshData(boolean force) {
-      long now = System.currentTimeMillis();
-      if (!force && now - this.lastRefreshMillis < REFRESH_INTERVAL_MILLIS) {
+      long now = System.nanoTime();
+      if (!force && this.hasRefreshed && now - this.lastRefreshNanos < REFRESH_INTERVAL_NANOS) {
          return;
       }
-      this.lastRefreshMillis = now;
+      this.lastRefreshNanos = now;
+      this.hasRefreshed = true;
 
       FrameTiming timing = ClientContext.frameTiming;
       if (timing == null) {
