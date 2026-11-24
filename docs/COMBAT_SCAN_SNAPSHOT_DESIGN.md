@@ -225,3 +225,16 @@ This is deliberately only a stale-result fence. The calculation still receives a
 `AnchorAuraModule.updateCalculation` now tracks the `ClientLevel` used to schedule its calculation. When the active level changes, it cancels the old task and clears both the placement and target result. Completed placements are accepted only if the selected player still belongs to the active level, is not removed, passes the current AnchorAura target checks, and the candidate base still passes `isInvalidPlacement`. If a previously selected target becomes invalid, both `targetDamage` and `placementData` are cleared together; clearing only the side-channel target field was insufficient because the placement handler consumes the result object.
 
 This is also a publication/revalidation guard, not a worker isolation change. `AnchorTargetDamage.calculateForBase`, placement occupancy/support checks, ray visibility and explosion damage still access live world/entity/module state from the async scan. The immutable capture migration must cover those dependencies before the worker can safely become data-only.
+
+## AnchorAura target policy extraction
+
+`AnchorTargetSelectionPolicy` now contains the pure target-validity and damage-threshold decisions. The adapter in `AnchorTargetDamage` captures the current player eligibility flags and distance, rejects targets from a replaced world or removed entities, and delegates the value-only decision. Damage acceptance requires finite nonnegative damage and minimum values, and preserves the exact inclusive boundaries: damage must be at least both the configured minimum and 0.5.
+
+Focused tests cover local/dead/friend/server-dead/spectator/creative exclusions, the exact target-range boundary, invalid numeric ranges/distances, null target state, exact damage thresholds, and non-finite damage. This mirrors the fail-closed behavior added to AutoCrystal.
+
+**Not a worker migration:** `AnchorTargetDamage.calculateForBase` still enumerates live `ClientLevel.players()`, reads live player and module settings, and calls `DamageUtils` from the async worker. The policy is pure, but its current adapter remains live-state-bound until the scan snapshot is built on the client thread.
+
+
+## Cooperative scan cancellation
+
+The AutoCrystal target loop, AnchorAura target loop, CrystalPlacementValidator entity loop, and the validator's movement-prediction loop now check the worker interrupt flag and return a conservative no-placement result when the scan is cancelled. The existing coordinate loops already checked interruption. This reduces how long a timed-out or superseded scan can occupy a worker; it does not make the nested Minecraft world/entity reads interruptible in the middle of an individual helper call.
