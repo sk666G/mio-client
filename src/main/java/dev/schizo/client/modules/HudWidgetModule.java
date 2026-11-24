@@ -14,6 +14,7 @@ import dev.schizo.client.ClientContext;
 import dev.schizo.client.gui.screens.HudEditorScreen;
 import dev.schizo.client.render.HudAnchorGroup;
 import dev.schizo.client.config.EnumJsonConverter;
+import dev.schizo.client.config.FreeHudLayout;
 import dev.schizo.client.render.HudWidgetRenderer;
 import dev.schizo.client.render.HudVerticalAlignment;
 import dev.schizo.client.render.HudHorizontalAlignment;
@@ -70,22 +71,24 @@ public abstract class HudWidgetModule extends Module {
 
    @Override
    public void fromJson(JsonElement json) {
-      super.fromJson(json);
       JsonObject config = json.getAsJsonObject();
-      if (config.has("hud")) {
-         config = config.getAsJsonObject("hud");
-         EnumJsonConverter<HudAnchor> codec = anchorCodec;
-         this.setAnchor((HudAnchor)codec.fromJson(config.get("anchor")));
-         if (this.renderer.getAnchor() == HudAnchor.NONE) {
-            int horizontalOrdinal = config.has("h") ? config.get("h").getAsInt() : 0;
-            int verticalOrdinal = config.has("v") ? config.get("v").getAsInt() : 0;
-            this.renderer.setHorizontalAlignment(HudHorizontalAlignment.values()[horizontalOrdinal]);
-            this.renderer.setVerticalAlignment(HudVerticalAlignment.values()[verticalOrdinal]);
-            this.renderer.setX(config.get("x").getAsFloat(), false);
-            this.renderer.setY(config.get("y").getAsFloat(), false);
-         }
-         ClientContext.getHudEditor().requestDirectionRefresh();
+      if (!config.has("hud")) {
+         super.fromJson(json);
+         return;
       }
+      JsonObject layout = config.getAsJsonObject("hud");
+      HudAnchor anchor = anchorCodec.fromJson(layout.get("anchor"));
+      FreeHudLayout position = anchor == HudAnchor.NONE ? FreeHudLayout.read(layout) : null;
+
+      super.fromJson(json);
+      this.setAnchor(anchor);
+      if (position != null) {
+         this.renderer.setHorizontalAlignment(position.horizontal());
+         this.renderer.setVerticalAlignment(position.vertical());
+         this.renderer.setX(position.x(), false);
+         this.renderer.setY(position.y(), false);
+      }
+      ClientContext.getHudEditor().requestDirectionRefresh();
    }
 
    @Override
