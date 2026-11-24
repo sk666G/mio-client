@@ -12,6 +12,7 @@ package dev.schizo.client.utils.combat;
 import dev.schizo.client.utils.entity.EntityUtils;
 import dev.schizo.client.utils.entity.PlayerStateUtils;
 import dev.schizo.client.utils.world.WorldUtils;
+import dev.schizo.client.utils.network.ServerSideDeathState;
 
 import dev.schizo.client.ClientAccess;
 
@@ -125,15 +126,28 @@ public final class TargetSelector implements ClientAccess {
          || candidate instanceof VehicleEntity && this.vehiclesEnabled;
    }
 
-   private boolean isEligiblePlayer(Player player) {
-      if (this.requireArmor) {
+   static boolean isEligiblePlayerState(
+      boolean alive,
+      boolean deathTimeActive,
+      boolean spectator,
+      boolean creative,
+      boolean serverSideDead
+   ) {
+      return alive && !deathTimeActive && !spectator && !creative && !serverSideDead;
+   }
 
-         if (!PlayerStateUtils.hasArmor((LivingEntity)player)) {
-            return false;
-         }
+   private boolean isEligiblePlayer(Player player) {
+      if (!isEligiblePlayerState(
+         player.isAlive(),
+         player.deathTime > 0,
+         player.isSpectator(),
+         player.isCreative(),
+         ((ServerSideDeathState)player).isServerSideDead()
+      )) {
+         return false;
       }
 
-      return player.isAlive() && player.deathTime <= 0;
+      return !this.requireArmor || PlayerStateUtils.hasArmor((LivingEntity)player);
    }
 
    public TargetSelector withPlayers(boolean enabled) {
