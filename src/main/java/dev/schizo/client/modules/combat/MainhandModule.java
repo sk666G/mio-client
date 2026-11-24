@@ -12,6 +12,7 @@ package dev.schizo.client.modules.combat;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.EventHandler;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.events.MinecraftRunTickEvent;
 import dev.schizo.client.events.MultiPlayerGameModeUseItemOnEvent;
 import dev.schizo.client.utils.inventory.ItemUtils;
@@ -72,6 +73,7 @@ public class MainhandModule extends Module implements LethalDamageTracker.Lethal
    private int previousReplacementSlot;
    private boolean temporaryHotbarSelection;
    private int previousSelectedHotbarSlot;
+   private int temporarySelectedHotbarSlot = -1;
    private final LethalDamageTracker lethalDamageTracker;
 
    @Override
@@ -86,6 +88,38 @@ public class MainhandModule extends Module implements LethalDamageTracker.Lethal
    @Override
    public void onEnable() {
       this.previousSelectedHotbarSlot = this.previousReplacementSlot = -1;
+      this.temporarySelectedHotbarSlot = -1;
+      this.temporaryHotbarSelection = false;
+   }
+
+   @Override
+   public void onDisable() {
+      this.restoreTemporaryHotbarSelection(true);
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.clearTemporaryHotbarSelection();
+      this.previousReplacementSlot = -1;
+      this.tickReady = false;
+   }
+
+   private void restoreTemporaryHotbarSelection(boolean restoreSlot) {
+      try {
+         if (restoreSlot && this.temporaryHotbarSelection && !this.isWorldUnavailable()
+            && this.previousSelectedHotbarSlot >= 0
+            && InventoryUtils.getSelectedSlot() == this.temporarySelectedHotbarSlot) {
+            InventoryUtils.selectHotbarSlot(this.previousSelectedHotbarSlot);
+         }
+      } finally {
+         this.clearTemporaryHotbarSelection();
+      }
+   }
+
+   private void clearTemporaryHotbarSelection() {
+      this.temporaryHotbarSelection = false;
+      this.previousSelectedHotbarSlot = -1;
+      this.temporarySelectedHotbarSlot = -1;
    }
 
    private boolean shouldTemporarilySelectGapple() {
@@ -213,8 +247,16 @@ public class MainhandModule extends Module implements LethalDamageTracker.Lethal
       if (!ClientAccess.schizoMinecraft.player.isUsingItem()) {
          if (!ClientAccess.schizoMinecraft.player.getMainHandItem().is(getGappleItem())) {
             int gappleSlot = InventoryUtils.findHotbarSlot(getGappleItem());
-            this.previousSelectedHotbarSlot = InventoryUtils.getSelectedSlot();
+            if (gappleSlot < 0) {
+               return;
+            }
+            int previousSlot = InventoryUtils.getSelectedSlot();
+            if (previousSlot == gappleSlot) {
+               return;
+            }
             InventoryUtils.selectHotbarSlotForPlacement(gappleSlot);
+            this.previousSelectedHotbarSlot = previousSlot;
+            this.temporarySelectedHotbarSlot = gappleSlot;
             this.temporaryHotbarSelection = true;
             return;
          }
@@ -272,8 +314,7 @@ public class MainhandModule extends Module implements LethalDamageTracker.Lethal
             return;
          }
          if (this.temporaryHotbarSelection) {
-            InventoryUtils.selectHotbarSlotForPlacement(this.previousSelectedHotbarSlot);
-            this.temporaryHotbarSelection = false;
+            this.restoreTemporaryHotbarSelection(true);
             return;
          }
       }
