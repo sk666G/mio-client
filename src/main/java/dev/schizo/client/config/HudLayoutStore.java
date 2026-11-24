@@ -104,7 +104,7 @@ public final class HudLayoutStore {
       }
 
       byte[] contents;
-      try (InputStream input = Files.newInputStream(target)) {
+      try (InputStream input = Files.newInputStream(target, LinkOption.NOFOLLOW_LINKS)) {
          contents = input.readNBytes(MAX_LAYOUT_BYTES + 1);
       }
       if (contents.length > MAX_LAYOUT_BYTES) {
