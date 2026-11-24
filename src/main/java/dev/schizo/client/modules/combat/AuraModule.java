@@ -14,6 +14,7 @@ import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.AuraAttackEvent;
 import dev.schizo.client.events.RotationRequestEvent;
 import dev.schizo.client.events.EventHandler;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.events.bus.EventBus;
 import dev.schizo.client.managers.RotationManager;
 import dev.schizo.client.utils.inventory.ItemUtils;
@@ -220,6 +221,15 @@ public final class AuraModule extends Module {
       } else {
          return null;
       }
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.restoreSlot = -1;
+      this.target = null;
+      this.crosshairTarget = null;
+      this.criticalAttackFlag = false;
+      ClientContext.baritoneBridge.releasePause(this);
    }
 
    @Override
