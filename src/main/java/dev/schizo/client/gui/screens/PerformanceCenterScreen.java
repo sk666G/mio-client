@@ -12,13 +12,19 @@ package dev.schizo.client.gui.screens;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.profiling.EventProfiler;
 import dev.schizo.client.render.ColorUtils;
+import dev.schizo.client.render.ClientRenderTypes;
 import dev.schizo.client.render.FontRenderer;
 import dev.schizo.client.render.GuiDrawUtils;
 import dev.schizo.client.render.GuiScaleUtils;
+import dev.schizo.client.render.MeshBuffer;
+import dev.schizo.client.render.MeshDrawContext;
+import dev.schizo.client.render.VertexGeometry;
 import dev.schizo.client.modules.client.UIModule;
 import dev.schizo.client.utils.FrameTiming;
 
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexFormat.Mode;
 import java.awt.Color;
 import java.util.ArrayList;
 import java.util.List;
@@ -43,6 +49,7 @@ public final class PerformanceCenterScreen extends ClientScreen {
    private long lastRefreshMillis;
    private List<DisplayRow> rows = List.of();
    private MetricsSnapshot metrics = MetricsSnapshot.EMPTY;
+   private float[] frameHistorySamples = new float[0];
 
    private float panelLeft;
    private float panelTop;
@@ -172,7 +179,15 @@ public final class PerformanceCenterScreen extends ClientScreen {
          cardWidth, cardHeight, "FRAME VARIANCE", this.metrics.variance(), accent, surface
       );
 
-      float tabsTop = this.panelTop + 170.0F;
+      this.drawFrameHistoryGraph(
+         poseStack,
+         font,
+         accent,
+         surface,
+         muted
+      );
+
+      float tabsTop = this.panelTop + 232.0F;
       float tabGap = 6.0F;
       float tabWidth = (this.panelWidth - 32.0F - tabGap * 2.0F) / 3.0F;
       for (int tab = 0; tab < TAB_NAMES.length; tab++) {
@@ -203,7 +218,7 @@ public final class PerformanceCenterScreen extends ClientScreen {
          );
       }
 
-      float tableTop = this.panelTop + 200.0F;
+      float tableTop = this.panelTop + 262.0F;
       float tableLeft = this.panelLeft + 16.0F;
       float tableRight = this.panelLeft + this.panelWidth - 16.0F;
       GuiDrawUtils.fillRect(
@@ -232,7 +247,7 @@ public final class PerformanceCenterScreen extends ClientScreen {
             : "Start the profiler, play normally, then review the captured cost.";
          font.drawWithShadow(poseStack, hint, tableLeft + 8.0F, tableTop + 34.0F, muted);
       } else {
-         int visible = Math.min(VISIBLE_ROWS, this.rows.size() - this.rowOffset);
+         int visible = Math.min(this.visibleRowCount(), this.rows.size() - this.rowOffset);
          for (int index = 0; index < visible; index++) {
             DisplayRow row = this.rows.get(this.rowOffset + index);
             float rowTop = tableTop + 20.0F + index * 20.0F;
@@ -274,8 +289,8 @@ public final class PerformanceCenterScreen extends ClientScreen {
          this.panelTop + this.panelHeight - 23.0F,
          muted
       );
-      if (this.rows.size() > VISIBLE_ROWS && this.panelWidth >= 590.0F) {
-         String page = (this.rowOffset + 1) + "-" + Math.min(this.rows.size(), this.rowOffset + VISIBLE_ROWS)
+      if (this.rows.size() > this.visibleRowCount() && this.panelWidth >= 590.0F) {
+         String page = (this.rowOffset + 1) + "-" + Math.min(this.rows.size(), this.rowOffset + this.visibleRowCount())
             + " / " + this.rows.size() + "  ·  scroll to browse";
          this.drawRightAligned(
             font, poseStack, page, this.panelLeft + this.panelWidth - 16.0F,
@@ -307,7 +322,7 @@ public final class PerformanceCenterScreen extends ClientScreen {
          return;
       }
 
-      float tabsTop = this.panelTop + 170.0F;
+      float tabsTop = this.panelTop + 232.0F;
       float tabGap = 6.0F;
       float tabWidth = (this.panelWidth - 32.0F - tabGap * 2.0F) / 3.0F;
       for (int tab = 0; tab < TAB_NAMES.length; tab++) {
@@ -325,7 +340,7 @@ public final class PerformanceCenterScreen extends ClientScreen {
    public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
       if (verticalAmount != 0.0D) {
          this.refreshData(false);
-         int maximumOffset = Math.max(0, this.rows.size() - VISIBLE_ROWS);
+         int maximumOffset = Math.max(0, this.rows.size() - this.visibleRowCount());
          this.rowOffset = Math.max(
             0,
             Math.min(maximumOffset, this.rowOffset + (verticalAmount < 0.0D ? 1 : -1))
@@ -345,7 +360,9 @@ public final class PerformanceCenterScreen extends ClientScreen {
       FrameTiming timing = ClientContext.frameTiming;
       if (timing == null) {
          this.metrics = MetricsSnapshot.EMPTY;
+         this.frameHistorySamples = new float[0];
       } else {
+         this.frameHistorySamples = timing.getRecentFrameTimesMillis(160);
          this.metrics = new MetricsSnapshot(
             Integer.toString(timing.getFramesPerSecond()),
             formatMilliseconds(timing.getFrameTimeMillis()),
@@ -364,16 +381,116 @@ public final class PerformanceCenterScreen extends ClientScreen {
          case 2 -> hudRows(profiler.topHudWidgets(MAX_STORED_ROWS));
          default -> moduleRows(profiler.topModules(MAX_STORED_ROWS));
       };
-      this.rowOffset = Math.min(this.rowOffset, Math.max(0, this.rows.size() - VISIBLE_ROWS));
+      this.rowOffset = Math.min(this.rowOffset, Math.max(0, this.rows.size() - this.visibleRowCount()));
    }
 
    private void updateLayout() {
       int screenWidth = GuiScaleUtils.getScaledWidth();
       int screenHeight = GuiScaleUtils.getScaledHeight();
       this.panelWidth = Math.min(740.0F, Math.max(280.0F, screenWidth - 20.0F));
-      this.panelHeight = Math.min(420.0F, Math.max(320.0F, screenHeight - 20.0F));
+      this.panelHeight = Math.min(500.0F, Math.max(320.0F, screenHeight - 20.0F));
       this.panelLeft = (screenWidth - this.panelWidth) / 2.0F;
       this.panelTop = (screenHeight - this.panelHeight) / 2.0F;
+   }
+
+
+   private void drawFrameHistoryGraph(
+      PoseStack poseStack,
+      FontRenderer font,
+      Color accent,
+      Color surface,
+      Color muted
+   ) {
+      float left = this.panelLeft + 16.0F;
+      float top = this.panelTop + 168.0F;
+      float width = this.panelWidth - 32.0F;
+      float height = 54.0F;
+      GuiDrawUtils.fillRect(
+         poseStack,
+         left,
+         top,
+         left + width,
+         top + height,
+         ColorUtils.withAlpha(surface, 210)
+      );
+      GuiDrawUtils.drawRectOutline(
+         poseStack,
+         left,
+         top,
+         left + width,
+         top + height,
+         ColorUtils.withAlpha(accent, 72)
+      );
+
+      String label = "FRAME HISTORY · LAST 1S";
+      String scaleLabel = "50 ms SCALE";
+      font.drawWithShadow(poseStack, label, left + 8.0F, top + 5.0F, muted);
+      this.drawRightAligned(font, poseStack, scaleLabel, left + width - 8.0F, top + 5.0F, muted);
+
+      if (this.frameHistorySamples.length < 2) {
+         font.drawWithShadow(
+            poseStack,
+            "Waiting for frame samples...",
+            left + 8.0F,
+            top + 29.0F,
+            Color.GRAY
+         );
+         return;
+      }
+
+      float plotLeft = left + 8.0F;
+      float plotRight = left + width - 8.0F;
+      float plotTop = top + 17.0F;
+      float plotBottom = top + height - 5.0F;
+      float plotHeight = plotBottom - plotTop;
+      float sixtyFpsY = plotBottom - (1000.0F / 60.0F) / 50.0F * plotHeight;
+
+      MeshBuffer buffer = MeshDrawContext.getBuffer();
+      buffer.begin(Mode.LINES, DefaultVertexFormat.POSITION_COLOR_NORMAL_LINE_WIDTH);
+      int guideColor = ColorUtils.withAlpha(accent, 75).hashCode();
+      int graphColor = ColorUtils.withAlpha(accent, 245).hashCode();
+      VertexGeometry.appendLine(
+         buffer,
+         poseStack.last(),
+         plotLeft,
+         sixtyFpsY,
+         0.0F,
+         plotRight,
+         sixtyFpsY,
+         0.0F,
+         1.0F,
+         guideColor
+      );
+
+      float stepX = (plotRight - plotLeft) / (this.frameHistorySamples.length - 1);
+      for (int index = 1; index < this.frameHistorySamples.length; index++) {
+         float previousX = plotLeft + (index - 1) * stepX;
+         float currentX = plotLeft + index * stepX;
+         float previousFrameTime = Math.min(50.0F, this.frameHistorySamples[index - 1]);
+         float currentFrameTime = Math.min(50.0F, this.frameHistorySamples[index]);
+         float previousY = plotBottom - previousFrameTime / 50.0F * plotHeight;
+         float currentY = plotBottom - currentFrameTime / 50.0F * plotHeight;
+         VertexGeometry.appendLine(
+            buffer,
+            poseStack.last(),
+            previousX,
+            previousY,
+            0.0F,
+            currentX,
+            currentY,
+            0.0F,
+            1.0F,
+            graphColor
+         );
+      }
+      buffer.draw(ClientRenderTypes.worldLines());
+   }
+
+   private int visibleRowCount() {
+      float tableTop = this.panelTop + 262.0F;
+      float footerTop = this.panelTop + this.panelHeight - 23.0F;
+      float availableHeight = footerTop - 8.0F - (tableTop + 20.0F);
+      return Math.max(1, Math.min(VISIBLE_ROWS, (int)(availableHeight / 20.0F)));
    }
 
    private void drawMetricCard(
