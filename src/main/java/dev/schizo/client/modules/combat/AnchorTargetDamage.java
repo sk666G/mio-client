@@ -74,7 +74,13 @@ public record AnchorTargetDamage(
       }
 
       LocalPlayer localPlayer = ClientAccess.schizoMinecraft.player;
-      boolean invalidWorld = target.level() != ClientAccess.schizoMinecraft.level || target.isRemoved();
+      if (localPlayer == null
+         || ClientAccess.schizoMinecraft.level == null
+         || target.level() != ClientAccess.schizoMinecraft.level
+         || target.isRemoved()) {
+         return true;
+      }
+
       AnchorTargetSelectionPolicy.TargetState state = new AnchorTargetSelectionPolicy.TargetState(
          target == localPlayer,
          target.isAlive(),
