@@ -1878,39 +1878,44 @@ public class AutoCrystalModule extends Module {
          return true;
       }
 
-      if (this.forceSuicideSetting.getValue()) {
-         return candidate != ClientAccess.schizoMinecraft.player;
+      LocalPlayer localPlayer = ClientAccess.schizoMinecraft.player;
+      boolean forceSuicide = this.forceSuicideSetting.getValue();
+      if (forceSuicide) {
+         CrystalTargetSelectionPolicy.TargetState forcedTarget =
+            new CrystalTargetSelectionPolicy.TargetState(
+               candidate == localPlayer,
+               false,
+               false,
+               false,
+               true,
+               false,
+               false,
+               false,
+               0.0D
+            );
+         return CrystalTargetSelectionPolicy.isInvalidTarget(forcedTarget, true, 0.0D);
       }
 
-      if (candidate instanceof Player friendCandidate) {
-         SocialRegistry friends = ClientContext.socialRegistry;
-         if (friends.isFriendPlayer(friendCandidate)) {
-            return true;
-         }
-      }
-      if (candidate instanceof Player player) {
-         SocialRegistry friends = ClientContext.socialRegistry;
-         if (friends.isFriendPlayer(player) || player.isCreative()) {
-            return true;
-         }
-      }
+      boolean playerTarget = candidate instanceof Player;
+      boolean friendPlayer = playerTarget
+         && ClientContext.socialRegistry.isFriendPlayer((Player)candidate);
+      boolean creative = playerTarget && ((Player)candidate).isCreative();
+      double distance = candidate.distanceTo(localPlayer);
+      double targetRange = this.targetRangeSetting.getValue().floatValue();
 
-      if (!candidate.isAlive()) {
-         return true;
-      }
-      if (candidate.isDeadOrDying()) {
-         return true;
-      }
-
-      float distance = candidate.distanceTo(ClientAccess.schizoMinecraft.player);
-
-      Float targetRange = this.targetRangeSetting.getValue();
-      if (!(distance <= targetRange)
-         || ((ServerSideDeathState)candidate).isServerSideDead()
-         || ClientAccess.schizoMinecraft.player == candidate) {
-         return true;
-      }
-      return candidate.isSpectator();
+      CrystalTargetSelectionPolicy.TargetState targetState =
+         new CrystalTargetSelectionPolicy.TargetState(
+            candidate == localPlayer,
+            playerTarget,
+            friendPlayer,
+            creative,
+            candidate.isAlive(),
+            candidate.isDeadOrDying(),
+            ((ServerSideDeathState)candidate).isServerSideDead(),
+            candidate.isSpectator(),
+            distance
+         );
+      return CrystalTargetSelectionPolicy.isInvalidTarget(targetState, false, targetRange);
    }
 
    public boolean canAttackCrystal(EndCrystal crystal) {
