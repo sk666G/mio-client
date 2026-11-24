@@ -33,6 +33,7 @@ import dev.schizo.client.settings.options.ColorsSchemeChoice;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
+import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.player.LocalPlayer;
@@ -51,6 +52,7 @@ public class ArmorModule extends HudWidgetModule {
       new FloatAnimation(), new FloatAnimation(), new FloatAnimation(), new FloatAnimation()
    };
    private final boolean[] durabilityInitialized = new boolean[4];
+   private final List<ItemStack> armorStacks = new ArrayList<>(4);
 
    static {
       hudModule = ClientContext.getModule(HUDModule.class);
@@ -140,7 +142,8 @@ public class ArmorModule extends HudWidgetModule {
          );
          try {
             LocalPlayer playerForArmor = ClientAccess.schizoMinecraft.player;
-         List<ItemStack> armorStacks = EquipmentUtils.getArmorStacks(playerForArmor);
+            EquipmentUtils.fillArmorStacks(playerForArmor, this.armorStacks);
+            List<ItemStack> armorStacks = this.armorStacks;
 
          for (int armorIndex = 3; armorIndex >= 0; armorIndex--) {
             ItemStack stack = armorStacks.get(armorIndex);
@@ -158,12 +161,10 @@ public class ArmorModule extends HudWidgetModule {
                   Boolean showDurability = durabilityOption.getValue();
                   if (showDurability) {
 
-                     Object[] durabilityFormatArguments = new Object[2];
                      int durabilityPercent = DamageUtils.getDurabilityPercent(stack);
-                     durabilityFormatArguments[0] = this.getDisplayedDurability(armorIndex, durabilityPercent);
-                     durabilityFormatArguments[1] = "%";
-                     String durabilityFormat = "%d%s";
-                     String durabilityText = String.format(durabilityFormat, durabilityFormatArguments);
+                     int displayedDurability = this.getDisplayedDurability(armorIndex, durabilityPercent);
+                     boolean showPercentage = this.percentageSetting.getValue();
+                     String durabilityText = formatDurabilityText(displayedDurability, showPercentage);
                      FontsModule fontsForEnabledCheck = FontsModule.INSTANCE;
                      float percentageTextScale;
                      if (fontsForEnabledCheck.isToggled()) {
@@ -175,14 +176,7 @@ public class ArmorModule extends HudWidgetModule {
                      }
 
                      float textScale = percentageTextScale;
-                     Setting<Boolean> percentageOptionForText = this.percentageSetting;
-                     Boolean showPercentageForText = percentageOptionForText.getValue();
-                     if (!showPercentageForText) {
-                        int substringEnd = durabilityText.length() - 1;
-                        byte substringStart = 0;
-                        String textForSubstring = durabilityText;
-                        durabilityText = textForSubstring.substring(substringStart, substringEnd);
-
+                     if (!showPercentage) {
                         textScale = 1.0F;
                      }
 
@@ -193,10 +187,8 @@ public class ArmorModule extends HudWidgetModule {
                      float itemTop = screenHeight - bottomOffset;
 
                      float textYBeforePercentageOffset = itemTop - 3.8F;
-                     Setting<Boolean> percentageOptionForPosition = this.percentageSetting;
-                     Boolean showPercentageForPosition = percentageOptionForPosition.getValue();
                      int plainTextYOffset;
-                     if (showPercentageForPosition) {
+                     if (showPercentage) {
                         plainTextYOffset = 0;
                      } else {
 
@@ -256,6 +248,11 @@ public class ArmorModule extends HudWidgetModule {
       if (showBar) {
          GuiDrawUtils.drawDurabilityBar(poses, stack, x, y);
       }
+   }
+
+   static String formatDurabilityText(int durability, boolean percentage) {
+      String value = Integer.toString(durability);
+      return percentage ? value + "%" : value;
    }
 
    private int getDisplayedDurability(int slot, int percentage) {

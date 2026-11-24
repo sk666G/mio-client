@@ -414,15 +414,16 @@ public class ClientScreen extends Screen implements ClientAccess {
          }
       }
 
-      RenderUtils.setRenderColor(
-         1.0F,
-         1.0F,
-         1.0F,
-         transitionOpacity
-      );
-      float scale = (float)GuiScaleUtils.calculateScaleMultiplier(this.guiScale);
-      GuiScaleUtils.applyGuiScale(this.guiScale);
-      poseStack.scale(
+      try {
+         RenderUtils.setRenderColor(
+            1.0F,
+            1.0F,
+            1.0F,
+            transitionOpacity
+         );
+         float scale = (float)GuiScaleUtils.calculateScaleMultiplier(this.guiScale);
+         GuiScaleUtils.applyGuiScale(this.guiScale);
+         poseStack.scale(
          scale,
          scale,
          1.0F
@@ -535,59 +536,64 @@ public class ClientScreen extends Screen implements ClientAccess {
             );
          }
          poseStack.pushPose();
-         poseStack.translate(0.0F, 0.0F, TOOLTIP_BACKGROUND_DEPTH);
-         RenderUtils.INSTANCE
-            .fillRect(
-               poseStack,
-               tooltipLeft,
-               hoverY
-                  - 1.0F,
-               tooltipRight,
-               tooltipBottom,
-               new Color(10, 10, 10, 80)
-            );
-         int lineIndex = 0;
-
-         for (String tooltipLine : tooltipLines) {
-            FontRenderer.INSTANCE
-               .drawWithShadow(
+         try {
+            poseStack.translate(0.0F, 0.0F, TOOLTIP_BACKGROUND_DEPTH);
+            RenderUtils.INSTANCE
+               .fillRect(
                   poseStack,
-                  tooltipLine,
-                  tooltipLeft
-                     + 1.0F,
+                  tooltipLeft,
                   hoverY
-                     + (
-                           FontRenderer.INSTANCE
-                                 .getHeight()
-                              + 1.0F
-                        )
-                        * lineIndex,
-                  Color.white
+                     - 1.0F,
+                  tooltipRight,
+                  tooltipBottom,
+                  new Color(10, 10, 10, 80)
                );
-            lineIndex++;
-         }
+            int lineIndex = 0;
 
-         this.lastHoverTime = System.currentTimeMillis();
-         poseStack.popPose();
+            for (String tooltipLine : tooltipLines) {
+               FontRenderer.INSTANCE
+                  .drawWithShadow(
+                     poseStack,
+                     tooltipLine,
+                     tooltipLeft
+                        + 1.0F,
+                     hoverY
+                        + (
+                              FontRenderer.INSTANCE
+                                    .getHeight()
+                                 + 1.0F
+                           )
+                           * lineIndex,
+                     Color.white
+                  );
+               lineIndex++;
+            }
+
+            this.lastHoverTime = System.currentTimeMillis();
+         } finally {
+            poseStack.popPose();
+         }
       } else if (this.lastHoverTime != 0L
          && System.currentTimeMillis() > this.lastHoverTime + 750L) {
          this.lastHoverTime = 0L;
       }
 
       this.renderContents(graphics, poseStack, mouseX, mouseY, partialTick);
-      GuiDrawUtils.flush();
-      RenderUtils.setRenderColor(
-         1.0F,
-         1.0F,
-         1.0F,
-         1.0F
-      );
-      GuiScaleUtils.restoreGuiScale();
-      poseStack.translate(
-         0.0F,
-         0.0F,
-         -SCREEN_CONTENT_DEPTH
-      );
+         GuiDrawUtils.flush();
+      } finally {
+         RenderUtils.setRenderColor(
+            1.0F,
+            1.0F,
+            1.0F,
+            1.0F
+         );
+         GuiScaleUtils.restoreGuiScale();
+         poseStack.translate(
+            0.0F,
+            0.0F,
+            -SCREEN_CONTENT_DEPTH
+         );
+      }
    }
 
    public void open() {
@@ -670,35 +676,41 @@ public class ClientScreen extends Screen implements ClientAccess {
 
          contentHeight *= expansion;
          poseStack.pushPose();
-         poseStack.translate(panelX, panelY, 0.0F);
-         ScissorStack.push(
-            panelX,
-            panelY,
-            (int)panelWidth,
-            (int)Math.floor(
-               panel.getHeaderHeight()
-                  + contentHeight
-                  + outlinePadding
-            )
-         );
-         GuiDrawUtils.drawTexture(
-            poseStack,
-            AERO_TEXTURE,
-            (int)(
-               -300.0F + panelX / 3.0F
-            ),
-            0,
-            0.0F,
-            0.0F,
-            600,
-            450,
-            600,
-            450,
-            textureColor
-         );
-         RenderUtils.getEntityBuffers().endBatch();
-         ScissorStack.pop();
-         poseStack.popPose();
+         try {
+            poseStack.translate(panelX, panelY, 0.0F);
+            ScissorStack.push(
+               panelX,
+               panelY,
+               (int)panelWidth,
+               (int)Math.floor(
+                  panel.getHeaderHeight()
+                     + contentHeight
+                     + outlinePadding
+               )
+            );
+            try {
+               GuiDrawUtils.drawTexture(
+                  poseStack,
+                  AERO_TEXTURE,
+                  (int)(
+                     -300.0F + panelX / 3.0F
+                  ),
+                  0,
+                  0.0F,
+                  0.0F,
+                  600,
+                  450,
+                  600,
+                  450,
+                  textureColor
+               );
+               RenderUtils.getEntityBuffers().endBatch();
+            } finally {
+               ScissorStack.pop();
+            }
+         } finally {
+            poseStack.popPose();
+         }
       }
    }
 

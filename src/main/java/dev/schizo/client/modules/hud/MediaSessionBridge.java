@@ -19,6 +19,7 @@ public final class MediaSessionBridge {
     public static volatile String title = "";
     public static volatile long positionMillis;
     public static volatile long durationMillis;
+    private static volatile MediaSnapshot latestSnapshot = MediaSnapshot.empty();
 
     private static final PortableMediaSessionProvider MEDIA = new PortableMediaSessionProvider(MediaSessionBridge::update);
 
@@ -30,7 +31,7 @@ public final class MediaSessionBridge {
     private MediaSessionBridge() {}
 
     private static void update(MediaSnapshot state) {
-
+        latestSnapshot = state;
         artist = state.artist();
         title = state.title();
         positionMillis = state.positionMillis();
@@ -38,8 +39,16 @@ public final class MediaSessionBridge {
         playbackStatus = state.playbackStatus();
     }
 
+    public static MediaSnapshot snapshot() {
+        return latestSnapshot;
+    }
+
     public static String getDisplayText() {
-        return artist + " - " + title;
+        return getDisplayText(latestSnapshot);
+    }
+
+    static String getDisplayText(MediaSnapshot snapshot) {
+        return MediaDisplayText.format(snapshot);
     }
 
     public static void stopMediaUpdates() {
