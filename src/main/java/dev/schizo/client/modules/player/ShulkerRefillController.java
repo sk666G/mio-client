@@ -123,6 +123,9 @@ public class ShulkerRefillController extends ChestStealerController {
    }
 
    public void tick() {
+      if (!ClientAccess.schizoMinecraft.player.containerMenu.getCarried().isEmpty()) {
+         return;
+      }
       if (this.pendingClose) {
          ClientAccess.schizoMinecraft.player.closeContainer();
          this.pendingClose = false;
