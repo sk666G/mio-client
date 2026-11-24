@@ -43,7 +43,6 @@ public record PresetData(String name, JsonObject contents) implements NamedEntry
    }
 
    /** The record never exposes its mutable internal JSON object. */
-   @Override
    public JsonObject contents() {
       return this.copyContents();
    }
