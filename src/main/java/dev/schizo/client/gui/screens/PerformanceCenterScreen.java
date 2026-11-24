@@ -348,8 +348,10 @@ public final class PerformanceCenterScreen extends ClientScreen {
       float tableLeft = this.panelLeft + 16.0F;
       float tableTop = this.panelTop + 254.0F;
       float tableWidth = this.panelWidth - 32.0F;
-      float tableBottom = this.panelTop + this.panelHeight - 23.0F;
-      float tableHeight = Math.max(0.0F, tableBottom - tableTop);
+      int renderedRows = this.rows.isEmpty()
+         ? 1
+         : Math.min(this.visibleRowCount(), this.rows.size() - this.rowOffset);
+      float tableHeight = 18.0F + renderedRows * 20.0F;
       if (verticalAmount == 0.0D
          || !this.contains(scaledMouseX, scaledMouseY, tableLeft, tableTop, tableWidth, tableHeight)) {
          return super.mouseScrolled(mouseX, mouseY, horizontalAmount, verticalAmount);
