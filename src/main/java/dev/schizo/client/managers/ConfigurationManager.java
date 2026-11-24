@@ -90,6 +90,10 @@ public final class ConfigurationManager implements ClientAccess {
       for (PresetCategory category : PresetCategory.values()) directories.add(category.getDirectory());
 
       this.prepareDirectories();
+      if (!isSafeRootDirectory()) {
+         ClientAccess.logger.error("Skipping configuration load because the data root is not a real directory");
+         return;
+      }
 
       try {
 
@@ -217,7 +221,16 @@ public final class ConfigurationManager implements ClientAccess {
       return this.presetRegistries.get(category);
    }
 
+   private static boolean isSafeRootDirectory() {
+      return !Files.isSymbolicLink(ROOT_DIRECTORY)
+         && Files.isDirectory(ROOT_DIRECTORY, LinkOption.NOFOLLOW_LINKS);
+   }
+
    public void save() {
+      if (!isSafeRootDirectory()) {
+         ClientAccess.logger.error("Skipping configuration save because the data root is not a real directory");
+         return;
+      }
       if (!PanicCommand.unloaded) {
          Iterator<?> configurableIterator = this.configurables.iterator();
 
@@ -230,6 +243,15 @@ public final class ConfigurationManager implements ClientAccess {
 
             try {
                Path configPath = ROOT_DIRECTORY.resolve(configurable.getConfigName());
+               if (Files.exists(configPath, LinkOption.NOFOLLOW_LINKS)
+                  && (Files.isSymbolicLink(configPath)
+                     || !Files.isRegularFile(configPath, LinkOption.NOFOLLOW_LINKS))) {
+                  ClientAccess.logger.warn(
+                     "Skipping configuration save because {} is not a regular file",
+                     configurable.getConfigName()
+                  );
+                  continue;
+               }
                try {
                   this.backupManager.backupBeforeSave(configurable.getConfigName());
                } catch (IOException | IllegalArgumentException backupFailure) {
