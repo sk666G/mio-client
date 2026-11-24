@@ -36,6 +36,9 @@ public record CrystalTargetDamage(
    ) {
       CrystalTargetDamage bestTargetDamage = null;
       for (LivingEntity candidate : targets) {
+         if (Thread.currentThread().isInterrupted()) {
+            return null;
+         }
          if (candidate == null || module.isInvalidTarget(candidate)) {
             continue;
          }
