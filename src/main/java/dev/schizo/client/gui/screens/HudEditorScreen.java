@@ -795,6 +795,14 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
          || (this.resizedWidget != null && !this.resizedWidget.isEnabled())) {
          this.cancelPendingLayoutGesture();
       }
+      try {
+         this.renderEditor(graphics, mouseX, mouseY, partialTick);
+      } finally {
+         RenderUtils.setRenderColor(1.0F, 1.0F, 1.0F, 1.0F);
+      }
+   }
+
+   private void renderEditor(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
       PoseStack poseStack = GuiProjectionUtils.toPoseStack(graphics);
       RenderUtils.setRenderColor(
          1.0F,
