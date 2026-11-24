@@ -65,7 +65,13 @@ public final class ContextProfileCommand extends Command {
    }
 
    private int setEnabled(boolean enabled) {
-      registry().setEnabled(enabled);
+      boolean updated = registry().setEnabled(enabled);
+      if (!updated) {
+         this.print(enabled
+            ? "Could not enable context profiles because the previous profile baseline could not be restored. Resolve the failing preset/state and retry."
+            : "Context profiles are disabled, but restoring the pre-profile settings failed. Schizo retains the baseline and will retry before another profile or connection is allowed.");
+         return 0;
+      }
       this.print(enabled
          ? "Automatic context profiles enabled. Rules apply on the next player tick."
          : "Automatic context profiles disabled. The active profile's temporary changes were restored.");
