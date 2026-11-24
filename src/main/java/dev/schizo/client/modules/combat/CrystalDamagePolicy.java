@@ -138,19 +138,19 @@ public enum CrystalDamagePolicy implements ClientAccess, NamedEntry {
          return false;
       }
 
-      boolean antiSuicide = autoCrystal.antiSuicideSetting.getValue();
       double selfHealth = EntityUtils.getPlayerHealthWithAbsorption();
-      boolean targetKill = lethality.isKill();
-      if (CrystalDamageSafetyInputs.shouldRejectAntiSuicide(
-         selfDamage,
-         selfHealth,
-         antiSuicide,
-         targetKill,
-         selfHoldingTotem
-      )) {
+      if (selfDamage >= selfHealth && autoCrystal.antiSuicideSetting.getValue()
+         && CrystalDamageSafetyInputs.shouldRejectAntiSuicide(
+            selfDamage,
+            selfHealth,
+            true,
+            lethality.isKill(),
+            selfHoldingTotem
+         )) {
          return true;
       }
 
+      boolean targetKill = lethality.isKill();
       boolean targetIntersection = lethality.isIntersection();
       if (CrystalDamageSafetyInputs.shouldAcceptHitIntersection(this == HIT, targetIntersection)
          || targetKill) {
