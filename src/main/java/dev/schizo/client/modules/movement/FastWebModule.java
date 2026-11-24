@@ -13,6 +13,7 @@ package dev.schizo.client.modules.movement;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.EventHandler;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.events.LocalPlayerAiStepEvent;
 import dev.schizo.client.events.LocalPlayerMoveEvent;
 import dev.schizo.client.events.LocalPlayerSendPositionEvent;
@@ -72,6 +73,11 @@ public class FastWebModule extends Module {
 
    @Override
    public void onDisable() {
+      this.reset();
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
       this.reset();
    }
 
