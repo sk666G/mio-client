@@ -38,6 +38,7 @@ import dev.schizo.client.settings.Setting;
 import dev.schizo.client.settings.options.AntiPhaseMaterialChoice;
 
 import java.awt.Color;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Predicate;
@@ -71,7 +72,8 @@ public class AntiPhaseModule extends Module {
    protected final Setting<Boolean> fadeSetting;
    protected final Setting<Float> fadeTimeSetting;
    private final ElapsedTimer placementTimer;
-   private AntiPhaseModule.PendingSwap pendingSwap;
+   private final List<PendingInventorySwap> pendingInventorySwaps = new ArrayList<>();
+   private int originalSelectedSlot = -1;
    private boolean useBanner;
 
    protected AntiPhasePlacementPlanner selectPlacementPlanner() {
@@ -185,16 +187,15 @@ public class AntiPhaseModule extends Module {
          return false;
       }
 
+      if (AntiPhaseSwapPolicy.shouldCaptureOriginal(this.originalSelectedSlot != -1)) {
+         this.originalSelectedSlot = previousSlot;
+      }
+
       if (hotbarSlot != -1) {
          InventoryUtils.selectHotbarSlot(hotbarSlot);
-         if (AntiPhaseSwapPolicy.shouldCaptureOriginal(this.pendingSwap != null)) {
-            this.pendingSwap = new AntiPhaseModule.PendingSwap(previousSlot, false);
-         }
       } else {
+         this.pendingInventorySwaps.add(new PendingInventorySwap(previousSlot, inventorySlot));
          InventoryUtils.swapIntoSelectedSlot(inventorySlot);
-         if (AntiPhaseSwapPolicy.shouldCaptureOriginal(this.pendingSwap != null)) {
-            this.pendingSwap = new AntiPhaseModule.PendingSwap(inventorySlot, true);
-         }
       }
 
       BlockHitResult hit = new BlockHitResult(
@@ -280,19 +281,24 @@ public class AntiPhaseModule extends Module {
    }
 
    private void restorePendingSwap() {
-      AntiPhaseModule.PendingSwap pending = this.pendingSwap;
-      if (pending == null) {
+      if (this.originalSelectedSlot == -1 && this.pendingInventorySwaps.isEmpty()) {
          return;
       }
-      this.pendingSwap = null;
-      if (this.isWorldUnavailable()) {
-         return;
+
+      int selectedSlot = this.originalSelectedSlot;
+      if (!this.isWorldUnavailable()) {
+         for (int index = this.pendingInventorySwaps.size() - 1; index >= 0; index--) {
+            PendingInventorySwap pending = this.pendingInventorySwaps.get(index);
+            InventoryUtils.selectHotbarSlotForPlacement(pending.selectedSlot());
+            InventoryUtils.swapIntoSelectedSlot(pending.inventorySlot());
+         }
+         if (selectedSlot != -1) {
+            InventoryUtils.selectHotbarSlotForPlacement(selectedSlot);
+         }
       }
-      if (pending.inventorySwap) {
-         InventoryUtils.swapIntoSelectedSlot(pending.slot);
-      } else {
-         InventoryUtils.selectHotbarSlotForPlacement(pending.slot);
-      }
+
+      this.pendingInventorySwaps.clear();
+      this.originalSelectedSlot = -1;
    }
 
    @Override
@@ -302,7 +308,8 @@ public class AntiPhaseModule extends Module {
 
    @EventHandler
    private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
-      this.pendingSwap = null;
+      this.pendingInventorySwaps.clear();
+      this.originalSelectedSlot = -1;
    }
 
    public static void bindMultiTaskModule(ModuleRegistry registry) {
@@ -342,9 +349,6 @@ public class AntiPhaseModule extends Module {
       rendererSnapshot.register(renderConfiguration);
    }
 
-   record PendingSwap(
-      int slot,
-      boolean inventorySwap
-   ) {
+   record PendingInventorySwap(int selectedSlot, int inventorySlot) {
    }
 }
