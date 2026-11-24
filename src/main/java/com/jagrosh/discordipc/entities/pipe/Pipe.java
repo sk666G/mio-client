@@ -149,6 +149,7 @@ public abstract class Pipe {
                   client.getCurrentLogger(LOGGER).warn("Failed to close an IPC pipe after handshake failure", closeFailure);
                }
             }
+            client.clearConnectingPipe(pipe);
             pipe = null;
          }
       }
