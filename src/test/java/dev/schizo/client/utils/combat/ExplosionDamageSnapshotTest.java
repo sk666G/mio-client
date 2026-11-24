@@ -154,7 +154,7 @@ class ExplosionDamageSnapshotTest {
          0.0D, 0.0D, 0.0D, 0.0D, 0.0D, 0.0D,
          0.5D, 0.5D, 0.5D, 0.0D, 6.0D,
          ExplosionDamageMath.Difficulty.NORMAL,
-         false, 0.0F, 0.0F, false, 1.0F, false, 0,
+         false, 20.0F, false, 0.0F, 0.0F, false, 1.0F, false, 0,
          true, 0.0D,
          List.of(new ExplosionBlockingDamageMath.Reduction(180.0F, false, 0.0F, 1.0F)),
          ExplosionRaycastSnapshot.Query.normal()
