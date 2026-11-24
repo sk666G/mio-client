@@ -184,16 +184,7 @@ public final class ExplosionRaycastSnapshotBuilder {
       Objects.requireNonNull(level, "level");
       Objects.requireNonNull(collisionEntity, "collisionEntity");
       Objects.requireNonNull(region, "region");
-      if (maximumCapturedBlocks < 1 || maximumCapturedBlocks > DEFAULT_MAX_CAPTURED_BLOCKS) {
-         throw new IllegalArgumentException(
-            "maximumCapturedBlocks must be between 1 and " + DEFAULT_MAX_CAPTURED_BLOCKS
-         );
-      }
-      if (maximumCaptureNanos < 1L || maximumCaptureNanos > DEFAULT_MAX_CAPTURE_NANOS) {
-         throw new IllegalArgumentException(
-            "maximumCaptureNanos must be between 1 and " + DEFAULT_MAX_CAPTURE_NANOS
-         );
-      }
+      validateCaptureLimits(maximumCapturedBlocks, maximumCaptureNanos);
 
       Minecraft minecraft = Minecraft.getInstance();
       if (!minecraft.isSameThread()) {
@@ -285,6 +276,19 @@ public final class ExplosionRaycastSnapshotBuilder {
          collisionEntity.getUUID(),
          capturedBlocks
       );
+   }
+
+   static void validateCaptureLimits(int maximumCapturedBlocks, long maximumCaptureNanos) {
+      if (maximumCapturedBlocks < 1 || maximumCapturedBlocks > DEFAULT_MAX_CAPTURED_BLOCKS) {
+         throw new IllegalArgumentException(
+            "maximumCapturedBlocks must be between 1 and " + DEFAULT_MAX_CAPTURED_BLOCKS
+         );
+      }
+      if (maximumCaptureNanos < 1L || maximumCaptureNanos > DEFAULT_MAX_CAPTURE_NANOS) {
+         throw new IllegalArgumentException(
+            "maximumCaptureNanos must be between 1 and " + DEFAULT_MAX_CAPTURE_NANOS
+         );
+      }
    }
 
    public static final class CaptureBudgetExceededException extends IllegalStateException {
