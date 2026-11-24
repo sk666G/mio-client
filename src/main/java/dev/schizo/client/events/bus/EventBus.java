@@ -43,7 +43,13 @@ public class EventBus implements EventDispatcher {
 
    @Override
    public void unsubscribe(Object subscriber) {
-      this.unsubscribeListeners(this.getOrCreateListeners(subscriber.getClass(), subscriber), false);
+      List<EventListener> listeners;
+      synchronized (this.instanceListenerCache) {
+         listeners = this.instanceListenerCache.get(subscriber);
+      }
+      if (listeners != null) {
+         this.unsubscribeListeners(listeners, false);
+      }
    }
 
    @Override
@@ -53,7 +59,10 @@ public class EventBus implements EventDispatcher {
 
    @Override
    public void unsubscribeStatic(Class<?> listenerClass) {
-      this.unsubscribeListeners(this.getOrCreateListeners(listenerClass, null), true);
+      List<EventListener> listeners = this.staticListenerCache.get(listenerClass);
+      if (listeners != null) {
+         this.unsubscribeListeners(listeners, true);
+      }
    }
 
    private List<EventListener> getOrCreateListeners(Class<?> listenerClass, Object subscriber) {
@@ -103,6 +112,12 @@ public class EventBus implements EventDispatcher {
       Class<?> eventType = listener.getEventType();
       this.listenersByEventClass.compute(eventType, (ignored, current) -> {
          EventListener[] previous = current == null ? new EventListener[0] : current;
+         for (EventListener existing : previous) {
+            if (existing == listener || existing.equals(listener)) {
+               return previous;
+            }
+         }
+
          int insertionIndex = 0;
          while (insertionIndex < previous.length
             && listener.getPriority() <= previous[insertionIndex].getPriority()) {
@@ -121,24 +136,26 @@ public class EventBus implements EventDispatcher {
    @Override
    public void unsubscribeListener(EventListener listener) {
       this.listenersByEventClass.computeIfPresent(listener.getEventType(), (ignored, current) -> {
-         int removalIndex = -1;
-         for (int index = 0; index < current.length; index++) {
-            if (current[index].equals(listener)) {
-               removalIndex = index;
-               break;
+         int kept = 0;
+         for (EventListener existing : current) {
+            if (existing != listener && !existing.equals(listener)) {
+               kept++;
             }
          }
-         if (removalIndex < 0) {
+         if (kept == current.length) {
             return current;
          }
-         if (current.length == 1) {
+         if (kept == 0) {
             return null;
          }
 
-         EventListener[] updated = new EventListener[current.length - 1];
-         System.arraycopy(current, 0, updated, 0, removalIndex);
-         System.arraycopy(current, removalIndex + 1, updated, removalIndex,
-            current.length - removalIndex - 1);
+         EventListener[] updated = new EventListener[kept];
+         int target = 0;
+         for (EventListener existing : current) {
+            if (existing != listener && !existing.equals(listener)) {
+               updated[target++] = existing;
+            }
+         }
          return updated;
       });
    }
