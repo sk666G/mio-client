@@ -15,6 +15,7 @@ import dev.schizo.client.utils.math.MathConstants;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.PacketEvent;
 import dev.schizo.client.events.EventHandler;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.events.LocalPlayerSendPositionEvent;
 import dev.schizo.client.events.LocalPlayerTickEvent;
 import dev.schizo.client.events.LocalPlayerPreTickEvent;
@@ -73,6 +74,11 @@ public class NoFallModule extends Module {
       }
       this.previousFallDistance = 0.0;
       this.predictedTopFaceCollision = false;
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.resetModeState();
    }
 
    @EventHandler
