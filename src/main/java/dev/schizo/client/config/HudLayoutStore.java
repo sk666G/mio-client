@@ -19,7 +19,6 @@ import com.google.gson.JsonParser;
 import dev.schizo.client.utils.FileUtils;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
@@ -147,11 +146,9 @@ public final class HudLayoutStore {
          throw new IOException("A HUD layout with that name already exists");
       }
 
-      try {
-         Files.move(source, target, StandardCopyOption.ATOMIC_MOVE);
-      } catch (AtomicMoveNotSupportedException unsupported) {
-         Files.move(source, target);
-      }
+      // Do not use ATOMIC_MOVE here: providers may replace a concurrently-created
+      // target under ATOMIC_MOVE even without REPLACE_EXISTING.
+      Files.move(source, target);
    }
 
    private Path resolve(String name) {
