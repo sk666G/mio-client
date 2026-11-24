@@ -37,14 +37,17 @@ public class ResizableHudWidgetRenderer extends HudWidgetRenderer {
       2.0F
    );
    private final FloatAnimation handleAnimation = new FloatAnimation();
+   private final float[] sourceDimensions = new float[2];
+   private final float[] scaledDimensions = new float[2];
    private boolean applyHudScale;
    private boolean resizingEnabled;
 
+   private float getHudScaleMultiplier() {
+      return this.applyHudScale ? hudSettings.getTextScale() : 1.0F;
+   }
+
    public float getScale() {
-      float scaleMultiplier = this.applyHudScale
-         ? hudSettings.getTextScale()
-         : 1.0F;
-      return this.sizeSetting.getValue() * scaleMultiplier;
+      return this.sizeSetting.getValue() * this.getHudScaleMultiplier();
    }
 
    public float getSizeScale() {
@@ -72,118 +75,123 @@ public class ResizableHudWidgetRenderer extends HudWidgetRenderer {
 
    @Override
    public float[] calculateDimensions() {
-      float[] dimensions = this.widget
-         .calculateDimensions();
-      dimensions[0] *= this.getScale();
-      dimensions[1] *= this.getScale();
-      return dimensions;
+      float[] calculatedDimensions = this.widget.calculateDimensions();
+      this.sourceDimensions[0] = calculatedDimensions[0];
+      this.sourceDimensions[1] = calculatedDimensions[1];
+      float scale = this.getScale();
+      this.scaledDimensions[0] = this.sourceDimensions[0] * scale;
+      this.scaledDimensions[1] = this.sourceDimensions[1] * scale;
+      return this.scaledDimensions;
    }
 
    @Override
    public void render(PoseStack poses, double mouseX, double mouseY) {
       super.render(poses, mouseX, mouseY);
-      float[] sourceDimensions = this.widget
-         .calculateDimensions();
+      float[] sourceDimensions = this.sourceDimensions;
       poses.pushPose();
-      poses.scale(
-         this.getScale(),
-         this.getScale(),
-         1.0F
-      );
-      poses.translate(
-         this.getX()
-            / this.getScale(),
-         this.getY()
-            / this.getScale(),
-         0.0F
-      );
-      this.widget
-         .renderContent(poses);
-      if (!renderingHud
-         && this.resizingEnabled) {
-         boolean handleHovered = this.isResizeHandleHovered(mouseX, mouseY);
-         boolean leftButtonPressed = this.isMouseButtonPressed(0);
-         boolean rightButtonPressed = this.isMouseButtonPressed(1);
-         HudEditorScreen editor = ClientContext.getHudEditor();
+      try {
+         poses.scale(
+            this.getScale(),
+            this.getScale(),
+            1.0F
+         );
+         poses.translate(
+            this.getX()
+               / this.getScale(),
+            this.getY()
+               / this.getScale(),
+            0.0F
+         );
+         this.widget
+            .renderContent(poses);
+         if (!renderingHud
+            && this.resizingEnabled) {
+            boolean handleHovered = this.isResizeHandleHovered(mouseX, mouseY);
+            boolean leftButtonPressed = this.isMouseButtonPressed(0);
+            boolean rightButtonPressed = this.isMouseButtonPressed(1);
+            HudEditorScreen editor = ClientContext.getHudEditor();
 
-         if (handleHovered && rightButtonPressed && activeResizeRenderer == null) {
-            editor.beginLayoutEdit();
-            this.sizeSetting.setValue(1.0F);
-            editor.finishLayoutEdit();
-         }
-
-         if (handleHovered && leftButtonPressed && activeResizeRenderer == null) {
-            editor.beginLayoutEdit();
-            activeResizeRenderer = this;
-         }
-
-         if (activeResizeRenderer == this) {
-            if (leftButtonPressed) {
-               float resizeScale = HudWidgetResize.calculateScale(
-                  mouseX,
-                  mouseY,
-                  this.getX(),
-                  this.getY(),
-                  sourceDimensions[0],
-                  sourceDimensions[1],
-                  this.getSizeScale()
-               );
-               this.sizeSetting.setValue(resizeScale);
-            } else {
-               activeResizeRenderer = null;
+            if (handleHovered && rightButtonPressed && activeResizeRenderer == null) {
+               editor.beginLayoutEdit();
+               this.sizeSetting.setValue(1.0F);
                editor.finishLayoutEdit();
             }
+
+            if (handleHovered && leftButtonPressed && activeResizeRenderer == null) {
+               editor.beginLayoutEdit();
+               activeResizeRenderer = this;
+            }
+
+            if (activeResizeRenderer == this) {
+               if (leftButtonPressed) {
+                  float resizeScale = HudWidgetResize.calculateScale(
+                     mouseX,
+                     mouseY,
+                     this.getX(),
+                     this.getY(),
+                     sourceDimensions[0],
+                     sourceDimensions[1],
+                     this.getSizeScale(),
+                     this.getHudScaleMultiplier()
+                  );
+                  this.sizeSetting.setValue(resizeScale);
+               } else {
+                  activeResizeRenderer = null;
+                  editor.finishLayoutEdit();
+               }
+            }
+
+            if (activeResizeRenderer == this) {
+               this.handleAnimation
+                  .setTarget(
+                     0.6F,
+                     250L
+                  );
+            } else if (handleHovered) {
+               this.handleAnimation
+                  .setTarget(
+                     0.4F,
+                     250L
+                  );
+            } else {
+               this.handleAnimation
+                  .setTarget(
+                     0.2F,
+                     250L
+                  );
+            }
+
+            int handleColor = ColorUtils.toArgb(
+               ColorUtils.getThemeColor(),
+               this.handleAnimation
+                     .getValue()
+                  * ClientContext.getHudEditor()
+                     .getTransitionOpacity()
+            );
+            VertexConsumer handleVertices = RenderUtils.getEntityBuffers()
+               .getBuffer(ClientRenderTypes.guiTriangles());
+            handleVertices.addVertex(
+                  poses.last(),
+                  sourceDimensions[0]
+                     - 5.0F,
+                  sourceDimensions[1] + 0.0F,
+                  0.0F
+               )
+               .setColor(handleColor);
+            handleVertices.addVertex(poses.last(), sourceDimensions[0] + 0.0F, sourceDimensions[1] + 0.0F, 0.0F).setColor(handleColor);
+            handleVertices.addVertex(
+                  poses.last(),
+                  sourceDimensions[0] + 0.0F,
+                  sourceDimensions[1]
+                     - 5.0F,
+                  0.0F
+               )
+               .setColor(handleColor);
          }
 
-         if (activeResizeRenderer == this) {
-            this.handleAnimation
-               .setTarget(
-                  0.6F,
-                  250L
-               );
-         } else if (handleHovered) {
-            this.handleAnimation
-               .setTarget(
-                  0.4F,
-                  250L
-               );
-         } else {
-            this.handleAnimation
-               .setTarget(
-                  0.2F,
-                  250L
-               );
-         }
-
-         int handleColor = ColorUtils.toArgb(
-            ColorUtils.getThemeColor(),
-            this.handleAnimation
-                  .getValue()
-               * ClientContext.getHudEditor()
-                  .getTransitionOpacity()
-         );
-         VertexConsumer handleVertices = RenderUtils.getEntityBuffers()
-            .getBuffer(ClientRenderTypes.guiTriangles());
-         handleVertices.addVertex(
-               poses.last(),
-               sourceDimensions[0]
-                  - 5.0F,
-               sourceDimensions[1] + 0.0F,
-               0.0F
-            )
-            .setColor(handleColor);
-         handleVertices.addVertex(poses.last(), sourceDimensions[0] + 0.0F, sourceDimensions[1] + 0.0F, 0.0F).setColor(handleColor);
-         handleVertices.addVertex(
-               poses.last(),
-               sourceDimensions[0] + 0.0F,
-               sourceDimensions[1]
-                  - 5.0F,
-               0.0F
-            )
-            .setColor(handleColor);
+      } finally {
+         poses.popPose();
       }
-
-      poses.popPose();
    }
 
    public boolean isResizeHandleHovered(double mouseX, double mouseY) {

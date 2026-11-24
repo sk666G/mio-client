@@ -65,14 +65,11 @@ public class MapModule extends HudWidgetModule {
    @Override
    public float[] calculateDimensions() {
 
-      float[] dimensions = new float[2];
       Setting<Float> widthOption = this.widthSetting;
       Float width = widthOption.getValue();
-      dimensions[0] = width;
       Setting<Float> heightOption = this.heightSetting;
       Float height = heightOption.getValue();
-      dimensions[1] = height;
-      return dimensions;
+      return this.dimensions(width, height);
    }
 
    private boolean isChunkWithinRange(ChunkPos chunk) {
