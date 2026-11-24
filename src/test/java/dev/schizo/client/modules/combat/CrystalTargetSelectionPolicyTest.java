@@ -42,6 +42,15 @@ class CrystalTargetSelectionPolicyTest {
    }
 
    @Test
+   void acceptsTargetExactlyAtTheConfiguredTargetRange() {
+      assertFalse(CrystalTargetSelectionPolicy.isInvalidTarget(
+         target(false, true, false, false, true, false, false, false, 4.0D),
+         false,
+         4.0D
+      ));
+   }
+
+   @Test
    void rejectsInsufficientVerticalClearanceWithoutAnExistingCrystalBase() {
       assertEquals(
          CrystalTargetSelectionPolicy.Decision.REJECT,
@@ -56,6 +65,15 @@ class CrystalTargetSelectionPolicyTest {
          CrystalTargetSelectionPolicy.Decision.ACCEPT,
          candidate(6.6D, 5.0D, true, false, true, false, 1.0D, 4.0D,
             false, false, false, false, false, 10.0D, 20.0D, 1.0D)
+      );
+   }
+
+   @Test
+   void acceptsCandidateAtExactVerticalAndCrystalRangeBoundaries() {
+      assertEquals(
+         CrystalTargetSelectionPolicy.Decision.ACCEPT,
+         candidate(6.5D, 5.0D, false, false, true, false, 4.0D, 4.0D,
+            false, false, false, false, false, 5.0D, 20.0D, 5.0D)
       );
    }
 
@@ -137,6 +155,20 @@ class CrystalTargetSelectionPolicyTest {
          CrystalTargetSelectionPolicy.Decision.ACCEPT,
          candidate(5.0D, 5.0D, false, false, true, false, 1.0D, 4.0D,
             true, false, false, false, false, 0.4D, 20.0D, 5.0D)
+      );
+   }
+
+   @Test
+   void acceptsDamageEqualToBothTheMinimumAndHalfPointFloor() {
+      assertEquals(
+         CrystalTargetSelectionPolicy.Decision.ACCEPT,
+         candidate(5.0D, 5.0D, false, false, true, false, 1.0D, 4.0D,
+            false, false, false, false, false, 5.0D, 20.0D, 5.0D)
+      );
+      assertEquals(
+         CrystalTargetSelectionPolicy.Decision.ACCEPT,
+         candidate(5.0D, 5.0D, false, false, true, false, 1.0D, 4.0D,
+            false, false, false, false, false, 0.5D, 20.0D, 0.1D)
       );
    }
 
