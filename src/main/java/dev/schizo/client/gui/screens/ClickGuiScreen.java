@@ -31,6 +31,7 @@ import dev.schizo.client.modules.Module;
 import dev.schizo.client.modules.ModuleCategory;
 import dev.schizo.client.modules.client.HUDModule;
 import dev.schizo.client.modules.client.UIModule;
+import dev.schizo.mixin.EditBoxSelectionAccessor;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
@@ -259,12 +260,23 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
          float searchTextWidth = fontRenderer.getWidth(searchText + completionSuffix + "_");
          float searchLeft = (GuiScaleUtils.getScaledWidth() - searchTextWidth) / 2.0F;
          float searchTop = (GuiScaleUtils.getScaledHeight() - fontHeight) / 2.0F;
+         int caret = this.searchBox.getCursorPosition();
+         int anchor = ((EditBoxSelectionAccessor)this.searchBox).schizo$getSelectionAnchor();
+         ClickGuiSearchText.Selection selection = ClickGuiSearchText.selection(searchText.length(), caret, anchor);
+         if (selection.start() != selection.end()) {
+            float selectionLeft = searchLeft + fontRenderer.getWidth(searchText.substring(0, selection.start()));
+            float selectionRight = searchLeft + fontRenderer.getWidth(searchText.substring(0, selection.end()));
+            GuiDrawUtils.fillRect(
+               poseStack, selectionLeft, searchTop - 1.0F, selectionRight, searchTop + fontHeight,
+               ColorUtils.withAlpha(UIModule.INSTANCE.colorSetting.getValue(), 115)
+            );
+         }
+
          String searchLabel = searchText + ChatFormatting.GRAY + completionSuffix;
          fontRenderer.drawWithShadow(poseStack, searchLabel, searchLeft, searchTop, Color.WHITE);
 
-         if (!this.getSearchCursor().isEmpty()) {
-            int caret = Math.max(0, Math.min(searchText.length(), this.searchBox.getCursorPosition()));
-            float caretX = searchLeft + fontRenderer.getWidth(searchText.substring(0, caret));
+         if (!this.getSearchCursor().isEmpty() && selection.start() == selection.end()) {
+            float caretX = searchLeft + fontRenderer.getWidth(searchText.substring(0, selection.caret()));
             fontRenderer.drawWithShadow(poseStack, "_", caretX, searchTop, Color.WHITE);
          }
       } else {
