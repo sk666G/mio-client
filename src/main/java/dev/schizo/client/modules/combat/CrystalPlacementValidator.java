@@ -123,6 +123,9 @@ public final class CrystalPlacementValidator implements ClientAccess {
             }
 
             for (int predictionTick = 1; predictionTick <= this.predictionTicks; predictionTick++) {
+               if (Thread.currentThread().isInterrupted()) {
+                  return false;
+               }
                Player predictionPlayer = (Player)entity;
 
                AABB predictedBox = ClientContext.movementPredictionManager.getPredictedBoundingBox(predictionPlayer, predictionTick);
