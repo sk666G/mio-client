@@ -20,6 +20,7 @@ import dev.schizo.client.events.PacketEvent;
 import dev.schizo.client.events.SneakStateChangeEvent;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.LocalPlayerTickEvent;
+import java.util.function.Consumer;
 import dev.schizo.client.events.bus.EventBus;
 
 import net.minecraft.client.player.LocalPlayer;
