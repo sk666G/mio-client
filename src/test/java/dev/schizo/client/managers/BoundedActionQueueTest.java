@@ -75,6 +75,55 @@ class BoundedActionQueueTest {
    }
 
    @Test
+   void concurrentProducersRespectCapacityAndPreserveEveryAcceptedAction() throws Exception {
+      int producerCount = 8;
+      int actionsPerProducer = 1_000;
+      int capacity = 2_048;
+      BoundedActionQueue queue = new BoundedActionQueue(capacity);
+      java.util.concurrent.CountDownLatch start = new java.util.concurrent.CountDownLatch(1);
+      java.util.concurrent.ExecutorService producers =
+         java.util.concurrent.Executors.newFixedThreadPool(producerCount);
+      java.util.concurrent.atomic.AtomicInteger nextId = new java.util.concurrent.atomic.AtomicInteger();
+      List<Integer> executed = new ArrayList<>();
+      List<java.util.concurrent.Future<List<Integer>>> submissions = new ArrayList<>();
+
+      try {
+         for (int producer = 0; producer < producerCount; producer++) {
+            submissions.add(producers.submit(() -> {
+               start.await();
+               List<Integer> accepted = new ArrayList<>();
+               for (int index = 0; index < actionsPerProducer; index++) {
+                  int id = nextId.getAndIncrement();
+                  if (queue.offer(() -> executed.add(id))) {
+                     accepted.add(id);
+                  }
+               }
+               return accepted;
+            }));
+         }
+
+         start.countDown();
+         java.util.Set<Integer> expected = new java.util.HashSet<>();
+         for (java.util.concurrent.Future<List<Integer>> submission : submissions) {
+            expected.addAll(submission.get());
+         }
+
+         assertTrue(expected.size() <= capacity);
+         assertEquals(expected.size(), queue.size());
+         assertEquals(expected.size() == capacity, queue.isFull());
+
+         while (!queue.isEmpty()) {
+            queue.drain(37, Runnable::run);
+         }
+
+         assertEquals(expected.size(), executed.size());
+         assertEquals(expected, new java.util.HashSet<>(executed));
+      } finally {
+         producers.shutdownNow();
+      }
+   }
+
+   @Test
    void rejectsInvalidCapacityAndNullActions() {
       assertThrows(IllegalArgumentException.class, () -> new BoundedActionQueue(0));
       BoundedActionQueue queue = new BoundedActionQueue(1);
