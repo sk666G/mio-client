@@ -75,7 +75,7 @@ public class InterpolatedFloat {
       int frameLimit = ClientContext.frameTiming.getFramesPerSecond();
 
       if (frameLimit <= 15) {
-         this.currentValue = this.targetValue;
+         this.setValue(this.targetValue);
       }
       return this.currentValue;
    }
