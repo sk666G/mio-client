@@ -158,6 +158,54 @@ class ExplosionRaycastSnapshotTest {
    }
 
    @Test
+   void ignoredPositionDoesNotRequireCapturedGeometry() {
+      long ignoredPosition = new BlockPos(-1, -1, -1).asLong();
+      ExplosionRaycastSnapshot snapshot = snapshot(Map.of(
+         new BlockPos(-1, -1, 0).asLong(), emptyBlock(),
+         new BlockPos(-1, 0, 0).asLong(), emptyBlock(),
+         BlockPos.ZERO.asLong(), emptyBlock()
+      ));
+      ExplosionRaycastSnapshot.Query query = new ExplosionRaycastSnapshot.Query(
+         Set.of(ignoredPosition),
+         null,
+         false
+      );
+
+      assertEquals(
+         ExplosionRaycastSnapshot.Result.MISS,
+         snapshot.raycast(
+            new Vec3(-0.5D, -0.5D, -0.5D),
+            new Vec3(0.5D, 0.5D, 0.5D),
+            query
+         )
+      );
+   }
+
+   @Test
+   void solidPositionDoesNotRequireCapturedGeometry() {
+      long solidPosition = new BlockPos(-1, -1, -1).asLong();
+      ExplosionRaycastSnapshot snapshot = snapshot(Map.of(
+         new BlockPos(-1, -1, 0).asLong(), emptyBlock(),
+         new BlockPos(-1, 0, 0).asLong(), emptyBlock(),
+         BlockPos.ZERO.asLong(), emptyBlock()
+      ));
+      ExplosionRaycastSnapshot.Query query = new ExplosionRaycastSnapshot.Query(
+         Set.of(),
+         solidPosition,
+         true
+      );
+
+      assertEquals(
+         ExplosionRaycastSnapshot.Result.HIT,
+         snapshot.raycast(
+            new Vec3(-0.5D, -0.5D, -0.5D),
+            new Vec3(0.5D, 0.5D, 0.5D),
+            query
+         )
+      );
+   }
+
+   @Test
    void lowResistanceRuleIgnoresOnlyCapturedLowResistanceGeometry() {
       ExplosionRaycastSnapshot snapshot = snapshot(Map.of(
          BLOCK.asLong(),
