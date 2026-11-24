@@ -241,4 +241,40 @@ class BoundedCountdownTaskQueueTest {
       assertEquals(0, nestedDrains.get());
       assertEquals(0, queue.outstandingCount());
    }
+
+   @Test
+   void clearCancelsQueuedAndReservedTasksWithoutClosingTheQueue() {
+      BoundedCountdownTaskQueue queue = new BoundedCountdownTaskQueue(4, 4);
+      BoundedCountdownTaskQueue.Reservation reserved = queue.reserve(() -> fail("must not run"), 0);
+      assertNotNull(reserved);
+      assertTrue(queue.offer(() -> fail("must not run"), 0));
+
+      assertEquals(2, queue.clear());
+      assertEquals(0, queue.queuedCount());
+      assertEquals(0, queue.outstandingCount());
+      assertFalse(queue.isClosed());
+      assertFalse(queue.enqueue(reserved));
+
+      AtomicInteger executed = new AtomicInteger();
+      assertTrue(queue.offer(executed::incrementAndGet, 0));
+      queue.runPass(failure -> fail(failure));
+      assertEquals(1, queue.runPass(failure -> fail(failure)));
+      assertEquals(1, executed.get());
+   }
+
+   @Test
+   void clearFromRunningTaskCancelsOnlyPendingWork() {
+      BoundedCountdownTaskQueue queue = new BoundedCountdownTaskQueue(3, 3);
+      List<Integer> executed = new ArrayList<>();
+      assertTrue(queue.offer(() -> {
+         executed.add(1);
+         assertEquals(1, queue.clear());
+      }, 0));
+      assertTrue(queue.offer(() -> executed.add(2), 0));
+
+      queue.runPass(failure -> fail(failure));
+      assertEquals(1, queue.runPass(failure -> fail(failure)));
+      assertEquals(List.of(1), executed);
+      assertEquals(0, queue.outstandingCount());
+   }
 }
