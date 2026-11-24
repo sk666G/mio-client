@@ -82,14 +82,22 @@ class ExplosionExposureMathTest {
 
    @Test
    void snapshotExposureUsesCapturedBlockGeometryAndReportsCompletion() {
+      java.util.Map<Long, ExplosionRaycastSnapshot.BlockGeometry> capturedAir = new java.util.HashMap<>();
+      for (int x = -1; x <= 0; x++) {
+         for (int y = -1; y <= 0; y++) {
+            for (int z = -1; z <= 0; z++) {
+               capturedAir.put(
+                  new net.minecraft.core.BlockPos(x, y, z).asLong(),
+                  new ExplosionRaycastSnapshot.BlockGeometry(0.0F, java.util.List.of())
+               );
+            }
+         }
+      }
       ExplosionRaycastSnapshot emptySnapshot = new ExplosionRaycastSnapshot(
          7L,
          99L,
          "minecraft:overworld",
-         java.util.Map.of(
-            net.minecraft.core.BlockPos.ZERO.asLong(),
-            new ExplosionRaycastSnapshot.BlockGeometry(0.0F, java.util.List.of())
-         )
+         capturedAir
       );
 
       ExplosionExposureMath.ExposureResult visible = ExplosionExposureMath.calculateFromSnapshot(
