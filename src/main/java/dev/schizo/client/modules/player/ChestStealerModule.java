@@ -21,6 +21,7 @@ import dev.schizo.client.events.ScreenChangeEvent;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.LocalPlayerSendPositionEvent;
 import dev.schizo.client.events.LocalPlayerPreTickEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.events.MultiPlayerGameModeHandleInventoryMouseClickEvent;
 import dev.schizo.client.events.MultiPlayerGameModeUseItemOnEvent;
 import dev.schizo.client.gui.screens.ShulkerPreviewScreen;
@@ -611,12 +612,15 @@ public class ChestStealerModule extends Module {
 
                this.quickMoveDestination = null;
                this.trackingQuickMove = true;
-               MultiPlayerGameMode quickMoveGameMode = ClientAccess.schizoMinecraft.gameMode;
-               byte quickMoveButton = 0;
-               ClickType quickMoveType = ClickType.QUICK_MOVE;
-               LocalPlayer quickMovePlayer = ClientAccess.schizoMinecraft.player;
-               quickMoveGameMode.handleInventoryMouseClick(containerId, slotIndex, quickMoveButton, quickMoveType, quickMovePlayer);
-               this.trackingQuickMove = false;
+               try {
+                  MultiPlayerGameMode quickMoveGameMode = ClientAccess.schizoMinecraft.gameMode;
+                  byte quickMoveButton = 0;
+                  ClickType quickMoveType = ClickType.QUICK_MOVE;
+                  LocalPlayer quickMovePlayer = ClientAccess.schizoMinecraft.player;
+                  quickMoveGameMode.handleInventoryMouseClick(containerId, slotIndex, quickMoveButton, quickMoveType, quickMovePlayer);
+               } finally {
+                  this.trackingQuickMove = false;
+               }
                if (this.quickMoveDestination != null) {
                   Slot sourceSlot = menu.getSlot(slotIndex);
                   Slot destinationSlot = this.quickMoveDestination;
@@ -722,6 +726,35 @@ public class ChestStealerModule extends Module {
       this.transferAnimations.clear();
       this.slotCooldowns.clear();
    }
+
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.resetSessionState();
+   }
+
+   @Override
+   public void onDisable() {
+      this.resetSessionState();
+   }
+
+   private void resetSessionState() {
+      this.lastInteractedBlock = null;
+      this.requestedMode = null;
+      this.trackingQuickMove = false;
+      this.hasTransferred = false;
+      this.transferredThisTick = false;
+      this.quickMoveDestination = null;
+      this.transferAnimations.clear();
+      this.slotCooldowns.clear();
+      this.transferDelayTimer.reset();
+      this.screenOpenTimer.reset();
+      this.idleCloseTimer.reset();
+      this.cleanupController.resetSession();
+      this.returnController.resetSession();
+      this.refillController.resetSession();
+      this.openController.resetSession();
+   }
+
 
    private boolean isSlotCoolingDown(int slotIndex) {
       Long expiresAtMillis = (Long)this.slotCooldowns.get(slotIndex);
