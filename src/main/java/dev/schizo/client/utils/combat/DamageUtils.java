@@ -129,15 +129,7 @@ public final class DamageUtils implements ClientAccess {
    public static float getExposure(
       Vec3 explosionPosition, Entity target, AABB bounds, Collection ignoredPositions, BlockPos solidPosition, boolean ignoreLowResistance
    ) {
-      Vec3 samplePosition = new Vec3(0.0, 0.0, 0.0);
-      double stepX = 1.0D / ((bounds.maxX - bounds.minX) * 2.0D + 1.0D);
-      double stepY = 1.0D / ((bounds.maxY - bounds.minY) * 2.0D + 1.0D);
-      double stepZ = 1.0D / ((bounds.maxZ - bounds.minZ) * 2.0D + 1.0D);
-      double offsetX = (1.0D - Math.floor(1.0D / stepX) * stepX) / 2.0D;
-      double offsetZ = (1.0D - Math.floor(1.0D / stepZ) * stepZ) / 2.0D;
-      if (stepX < 0.0 || stepY < 0.0 || stepZ < 0.0) {
-         return 0.0F;
-      }
+      Vec3 samplePosition = new Vec3(0.0D, 0.0D, 0.0D);
       BlockRaycastContext.Builder builder = new BlockRaycastContext.Builder(samplePosition, explosionPosition);
 
       builder.withEntity(target);
@@ -150,32 +142,22 @@ public final class DamageUtils implements ClientAccess {
          : BlockRaycastClassifier.NO_OVERRIDE;
       builder.withClassifiers(classifierArray);
       BlockRaycastContext context = builder.build();
-      int visibleSamples = 0;
-      int totalSamples = 0;
-      for (double fractionX = 0.0; fractionX <= 1.0D; fractionX += stepX) {
-         for (double fractionY = 0.0; fractionY <= 1.0D; fractionY += stepY) {
-            for (double fractionZ = 0.0; fractionZ <= 1.0D; fractionZ += stepZ) {
-               double maximumX = bounds.maxX;
-               double minimumX = bounds.minX;
-               double sampleX = Mth.lerp(fractionX, minimumX, maximumX);
-               double maximumY = bounds.maxY;
-               double minimumY = bounds.minY;
-               double sampleY = Mth.lerp(fractionY, minimumY, maximumY);
-               double maximumZ = bounds.maxZ;
-               double minimumZ = bounds.minZ;
-               double sampleZ = Mth.lerp(fractionZ, minimumZ, maximumZ);
-               double offsetSampleX = sampleX + offsetX;
-               double shiftedZ = sampleZ + offsetZ;
-               Vec3Utils.setComponents(samplePosition, offsetSampleX, sampleY, shiftedZ);
 
-               if (RaycastUtils.raycast(context).getType() == Type.MISS) {
-                  visibleSamples++;
-               }
-               totalSamples++;
-            }
+      return ExplosionExposureMath.calculate(
+         bounds.minX,
+         bounds.minY,
+         bounds.minZ,
+         bounds.maxX,
+         bounds.maxY,
+         bounds.maxZ,
+         explosionPosition.x,
+         explosionPosition.y,
+         explosionPosition.z,
+         (sampleX, sampleY, sampleZ, explosionX, explosionY, explosionZ) -> {
+            Vec3Utils.setComponents(samplePosition, sampleX, sampleY, sampleZ);
+            return RaycastUtils.raycast(context).getType() == Type.MISS;
          }
-      }
-      return (float)visibleSamples / totalSamples;
+      );
    }
 
    public static float applyDamageReduction(LivingEntity target, float damage) {
