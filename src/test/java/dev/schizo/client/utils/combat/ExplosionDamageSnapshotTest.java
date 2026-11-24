@@ -37,6 +37,18 @@ class ExplosionDamageSnapshotTest {
    }
 
    @Test
+   void preservesTotemProtectionForLethalDamageClassification() {
+      ExplosionDamageSnapshot damage = snapshot(false, 0.5D, true);
+      ExplosionDamageSnapshot.DamageResult result = damage.calculate(
+         raySnapshot(42, 100L, 12L, "minecraft:overworld", airBlocks())
+      );
+
+      assertTrue(result.complete());
+      assertTrue(result.lethal());
+      assertTrue(result.targetHoldsTotem());
+   }
+
+   @Test
    void rejectsRaySnapshotsFromAnotherWorldGeneration() {
       ExplosionDamageSnapshot damage = snapshot(false, 0.5D);
       ExplosionRaycastSnapshot rays = raySnapshot(
@@ -221,12 +233,20 @@ class ExplosionDamageSnapshotTest {
    }
 
    private static ExplosionDamageSnapshot snapshot(boolean immune, double normalizedDistance) {
+      return snapshot(immune, normalizedDistance, false);
+   }
+
+   private static ExplosionDamageSnapshot snapshot(
+      boolean immune,
+      double normalizedDistance,
+      boolean targetHoldsTotem
+   ) {
       return new ExplosionDamageSnapshot(
          42, TARGET_UUID, 100L, 12L, "minecraft:overworld",
          0.0D, 0.0D, 0.0D, 0.0D, 0.0D, 0.0D,
          0.5D, 0.5D, 0.5D, normalizedDistance, 6.0D,
          ExplosionDamageMath.Difficulty.NORMAL,
-         immune, 20.0F, false, 0.0F, 0.0F, false, 1.0F, false, 0,
+         immune, 20.0F, targetHoldsTotem, 0.0F, 0.0F, false, 1.0F, false, 0,
          false, 0.0D, List.of(), ExplosionRaycastSnapshot.Query.normal()
       );
    }
