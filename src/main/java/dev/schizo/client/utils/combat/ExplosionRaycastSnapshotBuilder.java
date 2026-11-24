@@ -251,7 +251,7 @@ public final class ExplosionRaycastSnapshotBuilder {
                   )
                );
 
-               if ((capturedBlocks.size() & 63) == 0
+               if ((capturedBlocks.size() & 15) == 0
                   && System.nanoTime() - captureStartedAt > maximumCaptureNanos) {
                   throw new CaptureBudgetExceededException(
                      capturedBlocks.size(),
@@ -261,6 +261,14 @@ public final class ExplosionRaycastSnapshotBuilder {
                }
             }
          }
+      }
+
+      if (System.nanoTime() - captureStartedAt > maximumCaptureNanos) {
+         throw new CaptureBudgetExceededException(
+            capturedBlocks.size(),
+            volume,
+            maximumCaptureNanos
+         );
       }
 
       String dimensionId = level.dimension().identifier().toString();
