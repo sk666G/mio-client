@@ -305,21 +305,20 @@ public class AutoPotModule extends Module {
       }
 
       float[] rotations = this.calculateThrowRotations();
-      InventoryUtils.swapTo(selectedItem);
-      InteractionHand packetHandSnapshot = selectedItem.hand();
-      float yawSnapshot = rotations[0];
-      float pitch = rotations[1];
-      this.sendPotionUse(packetHandSnapshot, yawSnapshot, pitch);
-      SwingInteractionManager swingManager = ClientContext.swingManager;
-      InteractionHand swingHand = InteractionHand.MAIN_HAND;
-      SwingAction swingKind = SwingAction.INTERACT;
+      InventoryUtils.runWithSwap(previousSlot, selectedItem, () -> {
+         InteractionHand packetHandSnapshot = selectedItem.hand();
+         float yawSnapshot = rotations[0];
+         float pitch = rotations[1];
+         this.sendPotionUse(packetHandSnapshot, yawSnapshot, pitch);
+         SwingInteractionManager swingManager = ClientContext.swingManager;
+         InteractionHand swingHand = InteractionHand.MAIN_HAND;
+         SwingAction swingKind = SwingAction.INTERACT;
+         swingManager.swingPacket(swingHand, swingKind);
 
-      swingManager.swingPacket(swingHand, swingKind);
-
-      ItemStack stackSnapshot = selectedItem.getStack();
-      InteractionHand localHand = selectedItem.hand();
-      this.applyLocalItemUse(stackSnapshot, localHand);
-      InventoryUtils.swapBack(previousSlot, selectedItem);
+         ItemStack stackSnapshot = selectedItem.getStack();
+         InteractionHand localHand = selectedItem.hand();
+         this.applyLocalItemUse(stackSnapshot, localHand);
+      });
 
       ClientContext.rotationManager.requestRotation(rotations, 5000);
       return true;

@@ -65,6 +65,15 @@ public class SpeedModule extends Module {
       handler.movementStage = this.modeSetting.getValue() == ModeChoice.OnGround ? 2 : 4;
    }
 
+   private void releaseMovementTimer() {
+      ClientContext.tickRateController.releaseMultiplier(this);
+   }
+
+   private void onModeChanged() {
+      this.releaseMovementTimer();
+      this.reset();
+   }
+
    @Override
    public String getInfo() {
       ModeChoice selectedMode = this.modeSetting.getValue();
@@ -214,6 +223,8 @@ public class SpeedModule extends Module {
       this.modeHandlers.register(ModeChoice.Vanilla, new VanillaSpeedHandler(this));
       this.modeHandlers.register(ModeChoice.OnGround, new OnGroundSpeedHandler(this));
       this.modeHandlers.register(ModeChoice.Grim, new GrimSpeedHandler(this));
+      this.modeSetting.setChangeCallback(this::onModeChanged);
+      this.useTimerSetting.setChangeCallback(this::releaseMovementTimer);
    }
 
    public enum ModeChoice implements NamedEntry {

@@ -14,6 +14,7 @@ import dev.schizo.client.ClientContext;
 import dev.schizo.client.managers.RotationManager;
 import dev.schizo.client.utils.combat.BoundingBoxUtils;
 import dev.schizo.client.utils.entity.PlayerStateUtils;
+import dev.schizo.client.utils.network.ServerSideDeathState;
 
 import java.util.Comparator;
 import java.util.function.Function;
@@ -42,10 +43,15 @@ public final class AutoMineTargetSelector implements ClientAccess {
 
    public Player selectTarget() {
       Stream<AbstractClientPlayer> filteredCandidates = ClientAccess.schizoMinecraft.level.players().stream()
-         .filter(candidate -> candidate.isAlive()
-            && candidate != ClientAccess.schizoMinecraft.player
-            && ClientAccess.schizoMinecraft.player.distanceTo(candidate) <= this.module.getRange() + 2.0F
-            && !ClientContext.socialRegistry.isFriendPlayer(candidate))
+         .filter(candidate -> CombatTargetPolicy.isEligible(
+            candidate.isAlive(),
+            candidate.isDeadOrDying(),
+            candidate == ClientAccess.schizoMinecraft.player,
+            candidate.isSpectator(),
+            candidate.isCreative(),
+            ClientContext.socialRegistry.isFriendPlayer(candidate),
+            ((ServerSideDeathState)candidate).isServerSideDead()
+         ) && ClientAccess.schizoMinecraft.player.distanceTo(candidate) <= this.module.getRange() + 2.0F)
          .filter(candidate -> !this.module.ignoreNakedSetting.getValue() || PlayerStateUtils.hasArmor(candidate));
       Comparator<AbstractClientPlayer> yawOrder = Comparator.comparing((Function<AbstractClientPlayer, Float>)candidate -> {
             float yawSnapshot = ClientAccess.schizoMinecraft.player.getYRot();
