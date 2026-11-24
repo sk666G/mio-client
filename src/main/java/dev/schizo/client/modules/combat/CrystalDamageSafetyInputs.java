@@ -38,37 +38,82 @@ public record CrystalDamageSafetyInputs(
          return false;
       }
 
-      if (selfDamage >= this.selfHealthWithAbsorption
-         && this.antiSuicide
-         && (!this.targetDamageIsKill || !this.selfHoldingTotem)) {
+      if (shouldRejectAntiSuicide(
+         selfDamage,
+         this.selfHealthWithAbsorption,
+         this.antiSuicide,
+         this.targetDamageIsKill,
+         this.selfHoldingTotem
+      )) {
          return true;
       }
 
-      if (this.hit && this.targetDamageIsIntersection) {
+      if (shouldAcceptHitIntersection(this.hit, this.targetDamageIsIntersection)
+         || this.targetDamageIsKill) {
          return false;
       }
 
-      if (this.targetDamageIsKill) {
-         return false;
+      if (shouldRejectPlaceRatio(
+         this.hit,
+         selfDamage,
+         targetDamage,
+         this.minimumTargetToSelfDamageRatio
+      )) {
+         return true;
       }
 
-      if (!this.hit && selfDamage > 0.0D) {
-         double damageRatio = targetDamage / selfDamage;
-         if (damageRatio < this.minimumTargetToSelfDamageRatio) {
+      return shouldRejectNonLethalThresholds(
+         selfDamage,
+         targetDamage,
+         this.targetHealthWithAbsorption,
+         this.minimumTargetDamage,
+         this.maximumSelfDamage
+      );
+   }
+
+   public static boolean shouldRejectAntiSuicide(
+      double selfDamage,
+      double selfHealthWithAbsorption,
+      boolean antiSuicide,
+      boolean targetDamageIsKill,
+      boolean selfHoldingTotem
+   ) {
+      return selfDamage >= selfHealthWithAbsorption
+         && antiSuicide
+         && (!targetDamageIsKill || !selfHoldingTotem);
+   }
+
+   public static boolean shouldAcceptHitIntersection(
+      boolean hit,
+      boolean targetDamageIsIntersection
+   ) {
+      return hit && targetDamageIsIntersection;
+   }
+
+   public static boolean shouldRejectPlaceRatio(
+      boolean hit,
+      double selfDamage,
+      double targetDamage,
+      double minimumTargetToSelfDamageRatio
+   ) {
+      return !hit
+         && selfDamage > 0.0D
+         && targetDamage / selfDamage < minimumTargetToSelfDamageRatio;
+   }
+
+   public static boolean shouldRejectNonLethalThresholds(
+      double selfDamage,
+      double targetDamage,
+      double targetHealthWithAbsorption,
+      double minimumTargetDamage,
+      double maximumSelfDamage
+   ) {
+      if (!(targetDamage >= targetHealthWithAbsorption)) {
+         if (!(targetDamage >= minimumTargetDamage)) {
             return true;
          }
+         return !(selfDamage <= maximumSelfDamage);
       }
-
-      if (!(targetDamage >= this.targetHealthWithAbsorption)) {
-         if (!(targetDamage >= this.minimumTargetDamage)) {
-            return true;
-         }
-
-         if (!(selfDamage <= this.maximumSelfDamage)) {
-            return true;
-         }
-      }
-
       return false;
    }
 }
