@@ -173,7 +173,7 @@ public final class IPCClient implements Closeable {
       if (activePipe != null) {
          try {
             activePipe.abort();
-         } catch (IOException failure) {
+         } catch (IOException | RuntimeException failure) {
             this.getCurrentLogger(LOGGER).debug("Failed to abort Discord IPC connection", failure);
          }
       }
