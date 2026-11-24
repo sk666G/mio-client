@@ -67,8 +67,16 @@ public final class CrystalTargetSelectionPolicy {
       boolean forceSuicide,
       double targetRange
    ) {
+      if (target == null) {
+         return true;
+      }
       if (forceSuicide) {
          return !target.localPlayer();
+      }
+      if (!Double.isFinite(targetRange) || targetRange < 0.0D
+         || !Double.isFinite(target.distanceToLocalPlayer())
+         || target.distanceToLocalPlayer() < 0.0D) {
+         return true;
       }
 
       if (target.player() && (target.friendPlayer() || target.creative())) {
@@ -92,6 +100,24 @@ public final class CrystalTargetSelectionPolicy {
     * whole-pass abort when a friend would be killed.
     */
    public static Decision evaluateCandidate(CandidateState candidate) {
+      if (candidate == null
+         || !Double.isFinite(candidate.baseY())
+         || !Double.isFinite(candidate.targetY())
+         || !Double.isFinite(candidate.distanceToBase())
+         || candidate.distanceToBase() < 0.0D
+         || !Double.isFinite(candidate.crystalRange())
+         || candidate.crystalRange() < 0.0D
+         || !Double.isFinite(candidate.damage())
+         || candidate.damage() < 0.0D
+         || !Double.isFinite(candidate.minimumDamage())
+         || candidate.minimumDamage() < 0.0D
+         || (candidate.friendEntity()
+            && candidate.antiFriendKill()
+            && (!Double.isFinite(candidate.targetHealthWithAbsorption())
+               || candidate.targetHealthWithAbsorption() < 0.0D))) {
+         return Decision.REJECT;
+      }
+
       if (candidate.baseY() > candidate.targetY() + 1.5D && !candidate.hasCrystalBase()) {
          return Decision.REJECT;
       }
@@ -129,6 +155,8 @@ public final class CrystalTargetSelectionPolicy {
     * improvement replaces the current best candidate.
     */
    public static boolean shouldReplaceBest(double candidateDamage, double bestDamage) {
-      return candidateDamage > bestDamage;
+      return Double.isFinite(candidateDamage)
+         && candidateDamage >= 0.0D
+         && (!Double.isFinite(bestDamage) || candidateDamage > bestDamage);
    }
 }
