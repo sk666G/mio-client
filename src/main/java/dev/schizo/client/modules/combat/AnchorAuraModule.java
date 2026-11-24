@@ -280,11 +280,13 @@ public class AnchorAuraModule extends Module {
 
          int glowstoneSlot = InventoryUtils.findHotbarSlot(slotItemSnapshot);
          if (glowstoneSlot != -1) {
-            InventoryUtils.selectHotbarSlotForPlacement(glowstoneSlot);
-            InteractionHand swappedHand = InteractionHand.MAIN_HAND;
-            this.interactWithAnchor(position, direction, hitPoint, swappedHand);
-
-            InventoryUtils.selectHotbarSlotForPlacement(originalSlot);
+            try {
+               InventoryUtils.selectHotbarSlotForPlacement(glowstoneSlot);
+               InteractionHand swappedHand = InteractionHand.MAIN_HAND;
+               this.interactWithAnchor(position, direction, hitPoint, swappedHand);
+            } finally {
+               InventoryUtils.selectHotbarSlotForPlacement(originalSlot);
+            }
          }
       }
 
@@ -467,35 +469,39 @@ public class AnchorAuraModule extends Module {
             ItemStack mainStackSnapshot = ClientAccess.schizoMinecraft.player.getMainHandItem();
             Item anchorBlockItem = Items.RESPAWN_ANCHOR;
             boolean selectedSwap = !mainStackSnapshot.is(anchorBlockItem);
-            if (selectedSwap) {
-               InventoryUtils.selectHotbarSlotForPlacement(anchorSlot);
-            }
-
-            if (offhandSwap) {
-               hand = PlayerStateUtils.oppositeHand(hand);
-
-               PacketSender.sendSwapOffhand();
-            }
-
-            BlockPos relativeHitPosition = position.relative(direction);
-
-            Vec3 hitPoint = this.selectHitPoint(relativeHitPosition);
-
-            boolean airPlacement = this.airPlaceSetting.getValue();
-            if (BlockInteractionUtils.sendPlacement(
-               position, hitPoint, direction, airPlacement, hand
-            )) {
-               if (this.renderSetting.getValue()) {
-                  ClientContext.featureBoxRenderer.addBox(this, position);
+            boolean offhandSwapApplied = false;
+            try {
+               if (selectedSwap) {
+                  InventoryUtils.selectHotbarSlotForPlacement(anchorSlot);
                }
-            }
 
-            if (offhandSwap) {
-               PacketSender.sendSwapOffhand();
-            }
+               if (offhandSwap) {
+                  hand = PlayerStateUtils.oppositeHand(hand);
+                  PacketSender.sendSwapOffhand();
+                  offhandSwapApplied = true;
+               }
 
-            if (selectedSwap) {
-               InventoryUtils.selectHotbarSlotForPlacement(originalSlot);
+               BlockPos relativeHitPosition = position.relative(direction);
+               Vec3 hitPoint = this.selectHitPoint(relativeHitPosition);
+
+               boolean airPlacement = this.airPlaceSetting.getValue();
+               if (BlockInteractionUtils.sendPlacement(
+                  position, hitPoint, direction, airPlacement, hand
+               )) {
+                  if (this.renderSetting.getValue()) {
+                     ClientContext.featureBoxRenderer.addBox(this, position);
+                  }
+               }
+            } finally {
+               try {
+                  if (offhandSwapApplied) {
+                     PacketSender.sendSwapOffhand();
+                  }
+               } finally {
+                  if (selectedSwap) {
+                     InventoryUtils.selectHotbarSlotForPlacement(originalSlot);
+                  }
+               }
             }
          }
       }
