@@ -50,7 +50,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.Executor;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.atomic.AtomicReference;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.multiplayer.ClientLevel;
@@ -81,6 +83,7 @@ public class AnchorAuraModule extends Module {
    private static OffhandModule offhand = (OffhandModule)ClientContext.getModule(OffhandModule.class);
    private static AutoCrystalModule autoCrystal = (AutoCrystalModule)ClientContext.getModule(AutoCrystalModule.class);
    private static SpeedMineModule speedMine = (SpeedMineModule)ClientContext.getModule(SpeedMineModule.class);
+   private static final ThreadPoolExecutor calculationExecutor = createCalculationExecutor();
    private final Setting<Integer> delaySetting;
    private final Setting<Float> rangeSetting;
    private final Setting<Float> wallRangeSetting;
@@ -639,6 +642,18 @@ public class AnchorAuraModule extends Module {
       return bestPlacement;
    }
 
+   static ThreadPoolExecutor createCalculationExecutor() {
+      // Timed-out scans can remain inside a live-state helper after interruption.
+      // Keep only one active scan and do not queue replacements behind it.
+      return new ThreadPoolExecutor(
+         0,
+         1,
+         30L,
+         TimeUnit.SECONDS,
+         new SynchronousQueue<>()
+      );
+   }
+
    private void updateCalculation() {
       ClientLevel activeLevel = ClientAccess.schizoMinecraft.level;
       if (this.calculationWorld != activeLevel) {
@@ -723,18 +738,25 @@ public class AnchorAuraModule extends Module {
          return null;
       });
       this.calculationWorld = activeLevel;
-      this.calculationTask = task;
-      Executor calculationExecutor = ClientAccess.executorService;
-      calculationExecutor.execute(task);
-      this.calculationFuture = scheduledCalculation
-         .completeOnTimeout(null, 750L, TimeUnit.MILLISECONDS)
-         .whenComplete((result, failure) -> {
-            // Stop timed-out scans instead of letting them overlap later calculations.
-            if (failure != null || result == null) {
-               task.cancel(true);
-            }
-         })
-         .exceptionally(failure -> null);
+      try {
+         calculationExecutor.execute(task);
+         this.calculationTask = task;
+         this.calculationFuture = scheduledCalculation
+            .completeOnTimeout(null, 750L, TimeUnit.MILLISECONDS)
+            .whenComplete((result, failure) -> {
+               // Stop timed-out scans instead of letting them overlap later calculations.
+               if (failure != null || result == null) {
+                  task.cancel(true);
+               }
+            })
+            .exceptionally(failure -> null);
+      } catch (RejectedExecutionException busyExecutor) {
+         // The previous cancelled scan has not exited yet. Retry on a later tick;
+         // never perform this scan synchronously on the client thread.
+         task.cancel(false);
+         this.calculationTask = null;
+         this.calculationFuture = null;
+      }
    }
 
    @EventHandler
