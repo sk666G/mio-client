@@ -57,9 +57,14 @@ public class WindowsPipe extends Pipe {
    @Override
    public Packet read() throws IOException {
       while ((this.status == PipeStatus.CONNECTED || this.status == PipeStatus.CLOSING) && this.file.length() == 0L) {
+         if (Thread.currentThread().isInterrupted()) {
+            throw new IOException("Interrupted while waiting for a Discord IPC frame");
+         }
          try {
             Thread.sleep(50L);
-         } catch (InterruptedException ignored) {
+         } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw new IOException("Interrupted while waiting for a Discord IPC frame", interrupted);
          }
       }
 
@@ -84,7 +89,17 @@ public class WindowsPipe extends Pipe {
    }
 
    @Override
+   public void abort() throws IOException {
+      this.status = PipeStatus.CLOSED;
+      RandomAccessFile activeFile = this.file;
+      if (activeFile != null) {
+         activeFile.close();
+      }
+   }
+
+   @Override
    public void close() throws IOException {
+      if (this.status == PipeStatus.CLOSED) return;
       if (this.ipcClient.isDebugMode()) {
          this.ipcClient.getCurrentLogger(LOGGER).info("[DEBUG] Closing IPC pipe...");
       }
