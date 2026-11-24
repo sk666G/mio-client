@@ -38,7 +38,7 @@ class DiscordIpcTransportCancellationTest {
 
       try {
          pipe.write(frame);
-         pipe.channel.position(0L);
+         pipe.file.seek(0L);
 
          Packet packet = pipe.read();
 
