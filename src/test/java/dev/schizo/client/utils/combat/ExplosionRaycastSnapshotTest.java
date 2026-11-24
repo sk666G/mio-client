@@ -181,6 +181,55 @@ class ExplosionRaycastSnapshotTest {
    }
 
    @Test
+   void matchesVoxelShapeClipForRepresentativeSingleBlockRays() {
+      assertMatchesVanillaClip(
+         Shapes.box(0.0D, 0.0D, 0.0D, 0.5D, 1.0D, 1.0D),
+         new Vec3(0.8D, 0.5D, 0.5D),
+         new Vec3(0.2D, 0.5D, 0.5D)
+      );
+      assertMatchesVanillaClip(
+         Shapes.box(0.0D, 0.0D, 0.0D, 0.5D, 1.0D, 1.0D),
+         new Vec3(0.8D, 0.5D, 0.5D),
+         new Vec3(0.6D, 0.5D, 0.5D)
+      );
+      assertMatchesVanillaClip(
+         Shapes.box(0.0D, 0.0D, 0.0D, 0.5D, 0.5D, 1.0D),
+         new Vec3(0.2D, 0.2D, 0.2D),
+         new Vec3(0.4D, 0.4D, 0.4D)
+      );
+      assertMatchesVanillaClip(
+         Shapes.or(
+            Shapes.box(0.0D, 0.0D, 0.0D, 0.25D, 1.0D, 1.0D),
+            Shapes.box(0.75D, 0.0D, 0.0D, 1.0D, 1.0D, 1.0D)
+         ),
+         new Vec3(0.4D, 0.5D, 0.5D),
+         new Vec3(0.6D, 0.5D, 0.5D)
+      );
+   }
+
+   private static void assertMatchesVanillaClip(
+      net.minecraft.world.phys.shapes.VoxelShape shape,
+      Vec3 start,
+      Vec3 end
+   ) {
+      boolean expectedHit = shape.clip(start, end, BLOCK) != null;
+      ExplosionRaycastSnapshot snapshot = snapshot(Map.of(
+         BLOCK.asLong(),
+         new ExplosionRaycastSnapshot.BlockGeometry(1200.0F, shape.toAabbs())
+      ));
+      ExplosionRaycastSnapshot.Result actual = snapshot.raycast(
+         start,
+         end,
+         ExplosionRaycastSnapshot.Query.normal()
+      );
+
+      assertEquals(
+         expectedHit ? ExplosionRaycastSnapshot.Result.HIT : ExplosionRaycastSnapshot.Result.MISS,
+         actual
+      );
+   }
+
+   @Test
    void requiresNonNullSnapshotMetadataAndQueryValues() {
       assertThrows(NullPointerException.class,
          () -> new ExplosionRaycastSnapshot(1L, 1L, null, Map.of()));
