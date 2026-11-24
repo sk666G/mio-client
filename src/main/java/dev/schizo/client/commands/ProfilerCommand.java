@@ -1,5 +1,6 @@
 package dev.schizo.client.commands;
 
+import dev.schizo.client.gui.screens.PerformanceCenterScreen;
 import dev.schizo.client.profiling.EventProfiler;
 import dev.schizo.client.utils.chat.ChatUtils;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
@@ -18,6 +19,10 @@ public final class ProfilerCommand extends Command {
    @Override
    public void exec(LiteralArgumentBuilder commandBuilder) {
       EventProfiler profiler = EventProfiler.GLOBAL;
+      commandBuilder.then(literal("gui").executes(context -> {
+         new PerformanceCenterScreen().open();
+         return 1;
+      }));
       commandBuilder.then(literal("start").executes(context -> {
          profiler.start();
          send("Profiler enabled.");
