@@ -605,7 +605,11 @@ public final class RotationManager implements ClientAccess {
                if (minecraft.isSameThread()) {
                   updateServerRotations.run();
                } else if (minecraft.isRunning()) {
-                  minecraft.execute(updateServerRotations);
+                  try {
+                     minecraft.execute(updateServerRotations);
+                  } catch (RuntimeException dispatchFailure) {
+                     ClientAccess.logger.warn("Could not dispatch server rotation update to the client thread", dispatchFailure);
+                  }
                }
             }
          }
