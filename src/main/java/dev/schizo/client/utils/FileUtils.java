@@ -22,7 +22,6 @@ import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.nio.file.StandardOpenOption;
 
 public final class FileUtils {
    private static final String suffixPathPattern = "\u0001\u0001";
@@ -68,6 +67,19 @@ public final class FileUtils {
    }
 
    public static void writeUtf8Atomically(Path path, String text) throws IOException {
+      writeAtomically(path, temporary -> Files.writeString(temporary, text, StandardCharsets.UTF_8));
+   }
+
+   public static void writeBytesAtomically(Path path, byte[] bytes) throws IOException {
+      writeAtomically(path, temporary -> Files.write(temporary, bytes));
+   }
+
+   @FunctionalInterface
+   private interface TemporaryFileWriter {
+      void write(Path temporary) throws IOException;
+   }
+
+   private static void writeAtomically(Path path, TemporaryFileWriter writer) throws IOException {
       Path target = path.toAbsolutePath().normalize();
       Path parent = target.getParent();
       if (parent == null) {
@@ -76,11 +88,7 @@ public final class FileUtils {
       Files.createDirectories(parent);
       Path temporary = Files.createTempFile(parent, "." + target.getFileName() + ".", ".tmp");
       try {
-         try (var writer = Files.newBufferedWriter(temporary, StandardCharsets.UTF_8,
-            StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)) {
-            writer.write(text);
-            writer.flush();
-         }
+         writer.write(temporary);
          try {
             Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
          } catch (AtomicMoveNotSupportedException unsupported) {
