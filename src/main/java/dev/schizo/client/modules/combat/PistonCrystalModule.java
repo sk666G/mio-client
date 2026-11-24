@@ -125,10 +125,6 @@ public final class PistonCrystalModule extends Module {
       this.wasBlocked = false;
    }
 
-   static boolean hasPowerSource(Item item) {
-      return item != null && item != Items.AIR;
-   }
-
    @EventHandler
    private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
       this.resetCycleState();
@@ -151,7 +147,7 @@ public final class PistonCrystalModule extends Module {
       if (this.target == null || multiTask.shouldPauseModule(this)) {
          return;
       }
-      if (!hasPowerSource(this.powerItem)) {
+      if (!PistonCrystalPlanner.hasPowerSource(this.powerItem)) {
          this.plan = null;
          this.resetStages();
          this.stageTracker.reset();
