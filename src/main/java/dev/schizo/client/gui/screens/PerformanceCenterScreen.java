@@ -339,12 +339,16 @@ public final class PerformanceCenterScreen extends ClientScreen {
    @Override
    public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
       this.updateLayout();
+      double scale = GuiScaleUtils.calculateScaleMultiplier(this.guiScale);
+      double scaledMouseX = mouseX / scale;
+      double scaledMouseY = mouseY / scale;
       float tableLeft = this.panelLeft + 16.0F;
       float tableTop = this.panelTop + 254.0F;
       float tableWidth = this.panelWidth - 32.0F;
-      float tableHeight = this.panelHeight - 23.0F - tableTop + this.panelTop;
+      float tableBottom = this.panelTop + this.panelHeight - 23.0F;
+      float tableHeight = Math.max(0.0F, tableBottom - tableTop);
       if (verticalAmount == 0.0D
-         || !this.contains(mouseX, mouseY, tableLeft, tableTop, tableWidth, tableHeight)) {
+         || !this.contains(scaledMouseX, scaledMouseY, tableLeft, tableTop, tableWidth, tableHeight)) {
          return super.mouseScrolled(mouseX, mouseY, horizontalAmount, verticalAmount);
       }
 
