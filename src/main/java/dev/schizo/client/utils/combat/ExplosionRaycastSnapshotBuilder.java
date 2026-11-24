@@ -63,17 +63,57 @@ public final class ExplosionRaycastSnapshotBuilder {
       public static Region enclosingRays(AABB targetBounds, Vec3 explosionPosition, int padding) {
          Objects.requireNonNull(targetBounds, "targetBounds");
          Objects.requireNonNull(explosionPosition, "explosionPosition");
+         return enclosingRays(
+            targetBounds,
+            new AABB(
+               explosionPosition.x,
+               explosionPosition.y,
+               explosionPosition.z,
+               explosionPosition.x,
+               explosionPosition.y,
+               explosionPosition.z
+            ),
+            padding
+         );
+      }
+
+      /**
+       * Builds one capture region for a scan with many possible explosion
+       * endpoints. The second box should enclose every endpoint in that scan.
+       */
+      public static Region enclosingRays(AABB targetBounds, AABB explosionBounds, int padding) {
+         Objects.requireNonNull(targetBounds, "targetBounds");
+         Objects.requireNonNull(explosionBounds, "explosionBounds");
+         if (padding < 0) {
+            throw new IllegalArgumentException("padding must not be negative");
+         }
+
+         return enclosing(
+            new AABB(
+               Math.min(targetBounds.minX, explosionBounds.minX),
+               Math.min(targetBounds.minY, explosionBounds.minY),
+               Math.min(targetBounds.minZ, explosionBounds.minZ),
+               Math.max(targetBounds.maxX, explosionBounds.maxX),
+               Math.max(targetBounds.maxY, explosionBounds.maxY),
+               Math.max(targetBounds.maxZ, explosionBounds.maxZ)
+            ),
+            padding
+         );
+      }
+
+      public static Region enclosing(AABB bounds, int padding) {
+         Objects.requireNonNull(bounds, "bounds");
          if (padding < 0) {
             throw new IllegalArgumentException("padding must not be negative");
          }
 
          return new Region(
-            floorToBlock(Math.min(targetBounds.minX, explosionPosition.x), -padding),
-            floorToBlock(Math.min(targetBounds.minY, explosionPosition.y), -padding),
-            floorToBlock(Math.min(targetBounds.minZ, explosionPosition.z), -padding),
-            floorToBlock(Math.max(targetBounds.maxX, explosionPosition.x), padding),
-            floorToBlock(Math.max(targetBounds.maxY, explosionPosition.y), padding),
-            floorToBlock(Math.max(targetBounds.maxZ, explosionPosition.z), padding)
+            floorToBlock(bounds.minX, -padding),
+            floorToBlock(bounds.minY, -padding),
+            floorToBlock(bounds.minZ, -padding),
+            floorToBlock(bounds.maxX, padding),
+            floorToBlock(bounds.maxY, padding),
+            floorToBlock(bounds.maxZ, padding)
          );
       }
 
