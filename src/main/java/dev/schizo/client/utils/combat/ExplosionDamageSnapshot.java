@@ -10,8 +10,8 @@
 package dev.schizo.client.utils.combat;
 
 import dev.schizo.client.utils.inventory.EnchantmentUtils;
+import dev.schizo.client.utils.inventory.EquipmentUtils;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -29,20 +29,21 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.item.component.BlocksAttacks;
 import net.minecraft.world.item.enchantment.Enchantments;
-import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Explosion;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * Data-only input snapshot for one target's explosion-damage calculation.
+ * Reusable, data-only explosion damage profile for one target.
  *
  * <p>The capture factory reads Minecraft state on the client thread. The
- * resulting value contains only primitives, UUID/String metadata, packed
- * block positions, and immutable reduction records. The calculate method
- * reads only this value and an immutable ExplosionRaycastSnapshot.</p>
+ * resulting value contains only primitives, UUID/String metadata and
+ * immutable reduction records. It can be reused for many candidate explosion
+ * positions in one scan when paired with a ray snapshot captured for the same
+ * target collision profile.</p>
  */
 public record ExplosionDamageSnapshot(
    int targetEntityId,
@@ -56,11 +57,10 @@ public record ExplosionDamageSnapshot(
    double maxX,
    double maxY,
    double maxZ,
-   double explosionX,
-   double explosionY,
-   double explosionZ,
-   double normalizedDistance,
-   double power,
+   double targetX,
+   double targetZ,
+   double viewX,
+   double viewZ,
    ExplosionDamageMath.Difficulty difficulty,
    boolean immune,
    float healthWithAbsorption,
@@ -72,9 +72,7 @@ public record ExplosionDamageSnapshot(
    boolean assumeBestArmor,
    int protectionScore,
    boolean hasBlockingComponent,
-   double blockingAngle,
-   List<ExplosionBlockingDamageMath.Reduction> blockingReductions,
-   ExplosionRaycastSnapshot.Query rayQuery
+   List<ExplosionBlockingDamageMath.Reduction> blockingReductions
 ) {
    public ExplosionDamageSnapshot {
       Objects.requireNonNull(targetUuid, "targetUuid");
@@ -83,11 +81,10 @@ public record ExplosionDamageSnapshot(
       blockingReductions = List.copyOf(
          Objects.requireNonNull(blockingReductions, "blockingReductions")
       );
-      Objects.requireNonNull(rayQuery, "rayQuery");
    }
 
    /**
-    * Captures every mutable input used by DamageUtils on the client thread.
+    * Captures the mutable target-side inputs once on the client thread.
     * worldGeneration must be incremented by the caller whenever the client
     * world/session is replaced or invalidated.
     */
@@ -95,33 +92,20 @@ public record ExplosionDamageSnapshot(
       ClientLevel level,
       LivingEntity target,
       AABB bounds,
-      Vec3 explosionPosition,
-      double power,
-      boolean ignoreLowResistance,
-      Collection<? extends BlockPos> ignoredPositions,
-      BlockPos solidPosition,
       boolean assumeBestArmor,
       long worldGeneration
    ) {
       Objects.requireNonNull(level, "level");
       Objects.requireNonNull(target, "target");
       Objects.requireNonNull(bounds, "bounds");
-      Objects.requireNonNull(explosionPosition, "explosionPosition");
-      Objects.requireNonNull(ignoredPositions, "ignoredPositions");
 
       Minecraft minecraft = Minecraft.getInstance();
       if (!minecraft.isSameThread()) {
-         throw new IllegalStateException("Explosion damage inputs must be captured on the client thread");
+         throw new IllegalStateException("Explosion damage profiles must be captured on the client thread");
       }
       if (minecraft.level != level || target.level() != level) {
-         throw new IllegalStateException("Explosion damage inputs must belong to the active client world");
+         throw new IllegalStateException("Explosion damage profile must belong to the active client world");
       }
-
-      double bottomCenterX = bounds.minX + (bounds.maxX - bounds.minX) * 0.5D;
-      double bottomCenterY = bounds.minY;
-      double bottomCenterZ = bounds.minZ + (bounds.maxZ - bounds.minZ) * 0.5D;
-      double normalizedDistance = new Vec3(bottomCenterX, bottomCenterY, bottomCenterZ)
-         .distanceTo(explosionPosition) / (power * 2.0D);
 
       boolean immune = target == minecraft.player && minecraft.player.isCreative();
       ExplosionDamageMath.Difficulty difficulty = switch (level.getDifficulty()) {
@@ -145,7 +129,7 @@ public record ExplosionDamageSnapshot(
       int protectionScore = 0;
       if (target instanceof Player player) {
          int assumedArmorUnits = 1;
-         List<ItemStack> armorStacks = dev.schizo.client.utils.inventory.EquipmentUtils.getArmorStacks(player);
+         List<ItemStack> armorStacks = EquipmentUtils.getArmorStacks(player);
          for (ItemStack armorStack : armorStacks) {
             if (armorStack.isEmpty()) {
                continue;
@@ -170,8 +154,9 @@ public record ExplosionDamageSnapshot(
          protectionScore = 20;
       }
 
+      double viewX = 0.0D;
+      double viewZ = 0.0D;
       boolean hasBlockingComponent = false;
-      double blockingAngle = 0.0D;
       List<ExplosionBlockingDamageMath.Reduction> blockingReductions = new ArrayList<>();
       if (target.isUsingItem()) {
          ItemStack usedItem = target.getUseItem();
@@ -181,9 +166,8 @@ public record ExplosionDamageSnapshot(
             DamageSources damageSources = level.damageSources();
             DamageSource damageSource = damageSources.explosion((Explosion)null);
             Vec3 viewVector = target.calculateViewVector(0.0F, target.getYHeadRot());
-            Vec3 attackDirection = explosionPosition.subtract(target.position());
-            Vec3 horizontalDirection = new Vec3(attackDirection.x, 0.0D, attackDirection.z).normalize();
-            blockingAngle = Math.acos(horizontalDirection.dot(viewVector));
+            viewX = viewVector.x;
+            viewZ = viewVector.z;
 
             for (BlocksAttacks.DamageReduction reduction : blocksAttacks.damageReductions()) {
                boolean damageTypeMatches = reduction.type().isEmpty()
@@ -198,24 +182,22 @@ public record ExplosionDamageSnapshot(
          }
       }
 
-      String dimensionId = level.dimension().identifier().toString();
       return new ExplosionDamageSnapshot(
          target.getId(),
          target.getUUID(),
          worldGeneration,
          level.getGameTime(),
-         dimensionId,
+         level.dimension().identifier().toString(),
          bounds.minX,
          bounds.minY,
          bounds.minZ,
          bounds.maxX,
          bounds.maxY,
          bounds.maxZ,
-         explosionPosition.x,
-         explosionPosition.y,
-         explosionPosition.z,
-         normalizedDistance,
-         power,
+         target.getX(),
+         target.getZ(),
+         viewX,
+         viewZ,
          difficulty,
          immune,
          target.getHealth() + target.getAbsorptionAmount(),
@@ -228,22 +210,24 @@ public record ExplosionDamageSnapshot(
          assumeBestArmor,
          protectionScore,
          hasBlockingComponent,
-         blockingAngle,
-         blockingReductions,
-         ExplosionRaycastSnapshot.Query.fromPositions(
-            ignoredPositions,
-            solidPosition,
-            ignoreLowResistance
-         )
+         blockingReductions
       );
    }
 
    /**
-    * Performs the full calculation using only captured values. A mismatched
-    * ray snapshot yields an incomplete result and must not be used to rank a
-    * placement candidate.
+    * Calculates one explosion using only this profile, primitive explosion
+    * coordinates, a per-candidate immutable query, and the matching ray
+    * snapshot. Mismatched or incomplete ray data must be discarded.
     */
-   public DamageResult calculate(ExplosionRaycastSnapshot raySnapshot) {
+   public DamageResult calculate(
+      double explosionX,
+      double explosionY,
+      double explosionZ,
+      double power,
+      ExplosionRaycastSnapshot.Query rayQuery,
+      ExplosionRaycastSnapshot raySnapshot
+   ) {
+      Objects.requireNonNull(rayQuery, "rayQuery");
       Objects.requireNonNull(raySnapshot, "raySnapshot");
       if (raySnapshot.worldGeneration() != this.worldGeneration
          || raySnapshot.captureTick() != this.captureTick
@@ -252,7 +236,13 @@ public record ExplosionDamageSnapshot(
          return DamageResult.incomplete();
       }
 
-      if (this.immune || this.normalizedDistance > 1.0D) {
+      double bottomCenterX = this.minX + (this.maxX - this.minX) * 0.5D;
+      double bottomCenterY = this.minY;
+      double bottomCenterZ = this.minZ + (this.maxZ - this.minZ) * 0.5D;
+      double normalizedDistance = new Vec3(bottomCenterX, bottomCenterY, bottomCenterZ)
+         .distanceTo(new Vec3(explosionX, explosionY, explosionZ)) / (power * 2.0D);
+
+      if (this.immune || normalizedDistance > 1.0D) {
          return new DamageResult(
             0.0F,
             0.0F,
@@ -270,20 +260,20 @@ public record ExplosionDamageSnapshot(
          this.maxX,
          this.maxY,
          this.maxZ,
-         this.explosionX,
-         this.explosionY,
-         this.explosionZ,
+         explosionX,
+         explosionY,
+         explosionZ,
          raySnapshot,
-         this.rayQuery
+         rayQuery
       );
       if (!exposure.complete()) {
          return DamageResult.incomplete();
       }
 
       float damage = ExplosionDamageMath.calculate(
-         this.normalizedDistance,
+         normalizedDistance,
          exposure.exposure(),
-         this.power,
+         power,
          this.difficulty
       );
       damage = ExplosionDamageReductionMath.apply(
@@ -296,9 +286,15 @@ public record ExplosionDamageSnapshot(
          this.protectionScore
       );
       if (this.hasBlockingComponent) {
+         Vec3 horizontalDirection = new Vec3(
+            explosionX - this.targetX,
+            0.0D,
+            explosionZ - this.targetZ
+         ).normalize();
+         double angle = Math.acos(horizontalDirection.x * this.viewX + horizontalDirection.z * this.viewZ);
          damage = ExplosionBlockingDamageMath.apply(
             damage,
-            this.blockingAngle,
+            angle,
             this.blockingReductions
          );
       }
