@@ -77,6 +77,12 @@ public class PusherModule extends Module {
    private final PusherFacingResolver facingResolver;
    private final PusherTargetSelector targetSelector;
 
+   private boolean hasPowerItem() {
+      boolean hasRedstoneBlock = InventoryUtils.findSwapSlot(Items.REDSTONE_BLOCK, this.isAlternativeAllowed()).isFound();
+      boolean hasRedstoneTorch = InventoryUtils.findSwapSlot(Items.REDSTONE_TORCH, this.isAlternativeAllowed()).isFound();
+      return PusherPowerPolicy.hasPowerSource(hasRedstoneBlock, hasRedstoneTorch);
+   }
+
    private boolean isAlternativeAllowed() {
       return this.alternativeSetting.getValue()
          && !InventoryStateManager.wouldReachClickLimit(ClientContext.inventoryStateManager, 2);
@@ -419,6 +425,9 @@ public class PusherModule extends Module {
             long delayMillis = (this.delaySetting.getValue()).intValue();
 
             if (timerSnapshot.hasElapsed(delayMillis)) {
+               if (!this.hasPowerItem()) {
+                  return;
+               }
                this.powerPlacementFound = false;
                timerSnapshot = this.actionTimer;
 
