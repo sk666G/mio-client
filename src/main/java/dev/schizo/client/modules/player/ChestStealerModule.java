@@ -556,6 +556,9 @@ public class ChestStealerModule extends Module {
       }
 
       AbstractContainerMenu menu = ClientAccess.schizoMinecraft.player.containerMenu;
+      if (!menu.getCarried().isEmpty()) {
+         return;
+      }
       int startSlot = 0;
 
       int slotCount = 27;
