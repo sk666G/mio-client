@@ -9,6 +9,7 @@
 
 package dev.schizo.client.managers;
 
+import dev.schizo.client.config.ConfigFileReader;
 import dev.schizo.client.config.PresetData;
 import dev.schizo.client.config.PresetNameValidator;
 
@@ -20,6 +21,7 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.DirectoryStream;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
@@ -35,6 +37,7 @@ public final class PresetRegistry extends Registry<PresetData> {
    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
    private final PresetCategory category;
    private final Path directory;
+   private static final int MAX_PRESET_BYTES = PresetData.MAX_PRESET_BYTES;
 
    public PresetRegistry(PresetCategory category) {
       this(category, category.getDirectory());
@@ -88,14 +91,22 @@ public final class PresetRegistry extends Registry<PresetData> {
    }
 
    public void restorePreset(PresetData preset, String replacedName) throws IOException {
+      this.requireRealDirectory();
       Path restoredPath = PresetNameValidator.resolve(this.directory, preset.getName());
       Path replacedPath = PresetNameValidator.resolve(this.directory, replacedName);
-      if (Files.exists(restoredPath, LinkOption.NOFOLLOW_LINKS)
-         && !Files.isRegularFile(restoredPath, LinkOption.NOFOLLOW_LINKS)) {
-         throw new IOException("Preset path is not a regular file: " + restoredPath.getFileName());
+      byte[] previousBytes = null;
+      if (Files.exists(restoredPath, LinkOption.NOFOLLOW_LINKS)) {
+         if (Files.isSymbolicLink(restoredPath)
+            || !Files.isRegularFile(restoredPath, LinkOption.NOFOLLOW_LINKS)) {
+            throw new IOException("Preset path is not a regular file: " + restoredPath.getFileName());
+         }
+         try (InputStream input = Files.newInputStream(restoredPath, LinkOption.NOFOLLOW_LINKS)) {
+            previousBytes = input.readNBytes(MAX_PRESET_BYTES + 1);
+         }
+         if (previousBytes.length > MAX_PRESET_BYTES) {
+            throw new IOException("Existing preset exceeds the supported size limit");
+         }
       }
-      byte[] previousBytes = Files.exists(restoredPath, LinkOption.NOFOLLOW_LINKS)
-         ? Files.readAllBytes(restoredPath) : null;
       preset.saveToDirectory(this.directory);
       try {
          if (!replacedPath.equals(restoredPath) && Files.exists(replacedPath, LinkOption.NOFOLLOW_LINKS)) {
@@ -117,6 +128,7 @@ public final class PresetRegistry extends Registry<PresetData> {
    }
 
    public void deletePresetForUndo(String name) throws IOException {
+      this.requireRealDirectory();
       String normalized = PresetNameValidator.normalize(name);
       Path path = PresetNameValidator.resolve(this.directory, normalized);
       if (Files.exists(path, LinkOption.NOFOLLOW_LINKS)) {
@@ -131,6 +143,7 @@ public final class PresetRegistry extends Registry<PresetData> {
    }
 
    public void renamePresetForUndo(String sourceName, String targetName, PresetData previousTarget, PresetData source) throws IOException {
+      this.requireRealDirectory();
       if (source == null) throw new IOException("Preset no longer exists: " + sourceName);
       String normalizedSource = PresetNameValidator.normalize(sourceName);
       String normalizedTarget = PresetNameValidator.normalize(targetName);
@@ -160,6 +173,7 @@ public final class PresetRegistry extends Registry<PresetData> {
    }
 
    public void savePreset(String name) throws IOException {
+      this.requireRealDirectory();
       String normalized = this.canonicalExistingName(PresetNameValidator.normalize(name));
       Path path = PresetNameValidator.resolve(this.directory, normalized);
       ensureNoCollision(normalized, normalized);
@@ -172,6 +186,7 @@ public final class PresetRegistry extends Registry<PresetData> {
    }
 
    public boolean deletePreset(String name) throws IOException {
+      this.requireRealDirectory();
       String normalized = PresetNameValidator.normalize(name);
       Path path = PresetNameValidator.resolve(this.directory, normalized);
       if (!Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)) {
@@ -184,6 +199,7 @@ public final class PresetRegistry extends Registry<PresetData> {
    }
 
    public boolean renamePreset(String oldName, String newName) throws IOException {
+      this.requireRealDirectory();
       String normalizedOld = PresetNameValidator.normalize(oldName);
       String normalizedNew = PresetNameValidator.normalize(newName);
       if (normalizedOld.equalsIgnoreCase(normalizedNew)) return false;
@@ -207,18 +223,24 @@ public final class PresetRegistry extends Registry<PresetData> {
    public void loadPresets() {
       synchronized (this.getRegistry()) {
          this.entries.clear();
-         try (DirectoryStream<Path> files = Files.newDirectoryStream(this.directory)) {
-            for (Path file : files) {
-               String fileName = file.getFileName().toString();
-               if (!fileName.toLowerCase(Locale.ROOT).endsWith(".json")
-                  || !Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS) || Files.size(file) == 0L) continue;
-               String rawName = fileName.substring(0, fileName.length() - 5);
-               try {
-                  String name = PresetNameValidator.normalize(rawName);
-                  JsonObject contents = JsonParser.parseString(FileUtils.readUtf8(file)).getAsJsonObject();
-                  if (this.findPreset(name) == null) this.entries.add(new PresetData(name, contents));
-               } catch (RuntimeException | IOException invalidPreset) {
-                  LOGGER.warn("Skipping invalid preset file {}", file.getFileName(), invalidPreset);
+         try {
+            this.requireRealDirectory();
+            try (DirectoryStream<Path> files = Files.newDirectoryStream(this.directory)) {
+               for (Path file : files) {
+                  String fileName = file.getFileName().toString();
+                  if (!fileName.toLowerCase(Locale.ROOT).endsWith(".json")
+                     || Files.isSymbolicLink(file)
+                     || !Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)) continue;
+                  String rawName = fileName.substring(0, fileName.length() - 5);
+                  try {
+                     String name = PresetNameValidator.normalize(rawName);
+                     String serialized = ConfigFileReader.readUtf8(file, MAX_PRESET_BYTES);
+                     if (serialized.isEmpty()) continue;
+                     JsonObject contents = JsonParser.parseString(serialized).getAsJsonObject();
+                     if (this.findPreset(name) == null) this.entries.add(new PresetData(name, contents));
+                  } catch (RuntimeException | IOException invalidPreset) {
+                     LOGGER.warn("Skipping invalid preset file {}", file.getFileName(), invalidPreset);
+                  }
                }
             }
          } catch (IOException directoryFailure) {
@@ -228,6 +250,7 @@ public final class PresetRegistry extends Registry<PresetData> {
    }
 
    public boolean copyPreset(String sourceName, String targetName) throws IOException {
+      this.requireRealDirectory();
       String normalizedSource = PresetNameValidator.normalize(sourceName);
       String normalizedTarget = PresetNameValidator.normalize(targetName);
       PresetData source = this.getPreset(normalizedSource);
@@ -241,7 +264,17 @@ public final class PresetRegistry extends Registry<PresetData> {
       return true;
    }
 
+   private void requireRealDirectory() throws IOException {
+      Path parent = this.directory.getParent();
+      if (Files.isSymbolicLink(this.directory)
+         || !Files.isDirectory(this.directory, LinkOption.NOFOLLOW_LINKS)
+         || (parent != null && Files.isSymbolicLink(parent))) {
+         throw new IOException("Preset directory is not a safe real directory: " + this.directory);
+      }
+   }
+
    private String canonicalExistingName(String requested) throws IOException {
+      this.requireRealDirectory();
       synchronized (this.getRegistry()) {
          PresetData existing = this.findPreset(requested);
          if (existing != null) return existing.getName();
@@ -260,6 +293,7 @@ public final class PresetRegistry extends Registry<PresetData> {
    }
 
    private void ensureNoCollision(String name, String ignoredName) throws IOException {
+      this.requireRealDirectory();
       Path target = PresetNameValidator.resolve(this.directory, name);
       if (Files.exists(target, LinkOption.NOFOLLOW_LINKS)
          && (ignoredName == null || !name.equalsIgnoreCase(ignoredName))) {
@@ -287,6 +321,7 @@ public final class PresetRegistry extends Registry<PresetData> {
    }
 
    public void savePresetByExactName(String name) throws IOException {
+      this.requireRealDirectory();
       String normalized = PresetNameValidator.normalize(name);
       PresetData preset = this.getPreset(normalized);
       if (preset == null) throw new IOException("Preset does not exist: " + normalized);
@@ -301,6 +336,12 @@ public final class PresetRegistry extends Registry<PresetData> {
 
    public void saveAllPresets() {
       synchronized (this.getRegistry()) {
+         try {
+            this.requireRealDirectory();
+         } catch (IOException unsafeDirectory) {
+            LOGGER.error("Could not save presets in unsafe directory {}", this.directory, unsafeDirectory);
+            return;
+         }
          for (PresetData preset : this.entries) {
             try {
                preset.saveToDirectory(this.directory);
