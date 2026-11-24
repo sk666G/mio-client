@@ -15,6 +15,7 @@ import dev.schizo.client.events.ScreenChangeEvent;
 import dev.schizo.client.events.ConnectScreenConnectEvent;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.managers.ServerStateManager;
+import dev.schizo.client.media.MediaSnapshot;
 import dev.schizo.client.utils.collections.IntPair;
 import dev.schizo.client.utils.ElapsedTimer;
 import dev.schizo.client.render.ColorUtils;
@@ -344,36 +345,30 @@ public class WelcomerModule extends HudWidgetModule {
       ModuleRegistry moduleRegistry = ClientContext.moduleRegistry;
       MusicModule musicWidget = (MusicModule)moduleRegistry.getModule(musicWidgetType);
       if (!this.isInHudEditor()) {
-         int statusOrTextLength = MediaSessionBridge.playbackStatus;
-
-         if (statusOrTextLength == 4) {
-            if (this.overlapsWidget(musicWidget)) {
-               String mediaDisplayText = MediaSessionBridge.getDisplayText();
-               String text = mediaDisplayText.trim();
-               statusOrTextLength = text.length();
-
-               if (statusOrTextLength < 3) {
-                  this.lastMusicNotificationText = null;
-                  return;
-               }
-
-               if (text.equals(this.lastMusicNotificationText)) {
-                  return;
-               }
-
-               this.notifications.add(
-                  new MusicNotification(
-                     "♪ " + text,
-                     3000L,
-                     this.getHudColor(
-                        this.renderer
-                           .getY()
-                     )
-                  )
-               );
-               this.lastMusicNotificationText = text;
+         MediaSnapshot snapshot = MediaSessionBridge.snapshot();
+         if (snapshot.playbackStatus() == MediaSnapshot.PLAYING && this.overlapsWidget(musicWidget)) {
+            String text = MediaSessionBridge.getDisplayText(snapshot).trim();
+            if (text.length() < 3) {
+               this.lastMusicNotificationText = null;
                return;
             }
+
+            if (text.equals(this.lastMusicNotificationText)) {
+               return;
+            }
+
+            this.notifications.add(
+               new MusicNotification(
+                  "♪ " + text,
+                  3000L,
+                  this.getHudColor(
+                     this.renderer
+                        .getY()
+                  )
+               )
+            );
+            this.lastMusicNotificationText = text;
+            return;
          }
 
          this.lastMusicNotificationText = null;
