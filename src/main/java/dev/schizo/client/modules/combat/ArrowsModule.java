@@ -16,6 +16,7 @@ import dev.schizo.client.utils.network.ServerSideDeathState;
 import dev.schizo.client.events.CancellableEvent;
 import dev.schizo.client.events.RotationRequestEvent;
 import dev.schizo.client.events.EventHandler;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.events.LocalPlayerPreTickEvent;
 import dev.schizo.client.events.MultiPlayerGameModeReleaseUsingItemEvent;
 import dev.schizo.client.events.MultiPlayerGameModeUseItemEvent;
@@ -79,6 +80,17 @@ public class ArrowsModule extends Module {
 
    static {
       autoShotInProgress = new AtomicBoolean();
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      autoShotInProgress.set(false);
+      this.recentEffectTimes.clear();
+      this.pendingEffects.clear();
+      this.selectedArrowSlot = -1;
+      this.selectedArrowPotion = null;
+      this.allowNextProjectileUse = false;
+      this.arrowSwapTimer.clear();
    }
 
    @Override
