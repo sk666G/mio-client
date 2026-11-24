@@ -31,6 +31,7 @@ import dev.schizo.client.events.FireworkRocketEntityTickEvent;
 import dev.schizo.client.events.LocalPlayerSendPositionEvent;
 import dev.schizo.client.events.LocalPlayerPreTickEvent;
 import dev.schizo.client.events.MinecraftRunTickEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.events.MultiPlayerGameModeHandleInventoryMouseClickEvent;
 import dev.schizo.client.events.bus.EventBus;
 import dev.schizo.client.managers.ModuleRegistry;
@@ -662,6 +663,22 @@ public final class RotationManager implements ClientAccess {
       this.forcedOverride = false;
       this.requestedYawForMovement = false;
       this.request = null;
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.deferredActions.clear();
+      this.deferredQueueOverflowWarningLogged.set(false);
+      this.deferredDrainScheduled.set(false);
+      this.collectingActions = false;
+      this.executingAction = false;
+      this.request = null;
+      this.forcedOverride = false;
+      this.requestedYawForMovement = false;
+      this.lastRotations = null;
+      this.rotationHoldTicks = 0;
+      frustum = null;
+      renderingInventory = false;
    }
 
    public void setRenderRotations(float[] angles, int holdTicks) {
