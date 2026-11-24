@@ -76,6 +76,7 @@ public final class RotationManager implements ClientAccess {
    private static final int MAX_DEFERRED_ACTIONS_PER_PASS = 500;
    private final BoundedActionQueue deferredActions = new BoundedActionQueue(MAX_DEFERRED_ACTIONS);
    private final AtomicBoolean deferredQueueOverflowWarningLogged = new AtomicBoolean();
+   private final AtomicBoolean deferredDrainScheduled = new AtomicBoolean();
    private volatile boolean collectingActions;
    private volatile boolean executingAction;
    private RotationRequest request;
@@ -112,6 +113,26 @@ public final class RotationManager implements ClientAccess {
    }
 
    private void runDeferredActions() {
+      Minecraft minecraft = ClientAccess.schizoMinecraft;
+      if (minecraft == null) {
+         return;
+      }
+      if (!minecraft.isSameThread()) {
+         if (!minecraft.isRunning() || !this.deferredDrainScheduled.compareAndSet(false, true)) {
+            return;
+         }
+         try {
+            minecraft.execute(() -> {
+               this.deferredDrainScheduled.set(false);
+               this.runDeferredActions();
+            });
+         } catch (RuntimeException dispatchFailure) {
+            this.deferredDrainScheduled.set(false);
+            ClientAccess.logger.warn("Could not dispatch deferred rotation actions to the client thread", dispatchFailure);
+         }
+         return;
+      }
+
       this.deferredActions.drain(MAX_DEFERRED_ACTIONS_PER_PASS, this::executeAction);
       if (!this.deferredActions.isFull()) {
          this.deferredQueueOverflowWarningLogged.set(false);
