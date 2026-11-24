@@ -90,9 +90,12 @@ public class WindowsPipe extends Pipe {
       }
 
       this.status = PipeStatus.CLOSING;
-      this.send(Packet.OpCode.CLOSE, new JsonObject());
-      this.status = PipeStatus.CLOSED;
-      this.file.close();
+      try {
+         this.send(Packet.OpCode.CLOSE, new JsonObject());
+      } finally {
+         this.status = PipeStatus.CLOSED;
+         this.file.close();
+      }
    }
 
    @Override
