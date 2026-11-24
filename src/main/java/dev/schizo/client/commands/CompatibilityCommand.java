@@ -147,6 +147,7 @@ public final class CompatibilityCommand extends Command {
             ? simpleName.substring(0, simpleName.length() - "Module".length())
             : simpleName;
          if (module.getName().equalsIgnoreCase(requested)
+            || module.getClass().getName().equalsIgnoreCase(requested)
             || simpleName.equalsIgnoreCase(requested)
             || withoutSuffix.equalsIgnoreCase(requested)) {
             return module;
