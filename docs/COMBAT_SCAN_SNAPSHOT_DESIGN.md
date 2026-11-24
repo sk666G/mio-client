@@ -1,8 +1,10 @@
 # Combat scan worker snapshot design
 
-**Status:** Design only. AutoCrystal and AnchorAura still read live Minecraft world and entity state from worker threads. This document defines the safe replacement; it does not claim that the concurrency issue is fixed.
+**Current status (2026-11-24):** the original live-world worker defect is resolved in the current implementation by removing both placement workers. AnchorAura advances a deterministic bounded client-thread cursor (up to 64 candidates and roughly 2 ms per tick), and AutoCrystal uses the same model with a 128-candidate ceiling. Placement, visibility, entity and damage helpers therefore execute on the Minecraft client thread, with completed results revalidated before publication.
 
-## Problem statement
+The immutable explosion/raycast snapshot primitives described below remain implemented and tested. The worker-specific requirements in this document are retained as the **mandatory contract for any future optimization that moves combat placement calculation off-thread again**: no live `ClientLevel`, `Entity`, `BlockState`, mutable module setting or client-global object may cross that boundary.
+
+## Historical problem statement
 
 The current asynchronous scans are cancellable, but cancellation is not data isolation. A worker can enter a helper that reads the active client world while the world is ticking, entities are moving, a packet is being applied, or the client is disconnecting.
 
