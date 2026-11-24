@@ -160,3 +160,8 @@ Focused tests cover armor/toughness reduction, resistance ordering, protection o
 `DamageUtils.resolveBlockingDamage` remains responsible for reading the active item component, comparing its optional damage-type holder set against the current explosion damage type, and calculating the entity-relative horizontal angle. Those are live inputs and still belong in the future client-thread snapshot builder. The new helper contains no Minecraft or item-component references.
 
 Together, the impact, armor/resistance/protection, and blocking arithmetic are now split into pure calculation classes. The full damage path is still not worker-safe: exposure requires block raycasts, and `DamageUtils` adapters still collect target, inventory, effect, item, module, and world data directly.
+## Fourth pure-calculation extraction
+
+`ExplosionExposureMath` now owns the sample-grid calculation from target bounds to explosion rays. It accepts primitive bounds and explosion coordinates and calls a supplied visibility tester for each sample. `DamageUtils.getExposure` supplies the existing `RaycastUtils.raycast` callback, so the ray behavior is unchanged while the sampling geometry can now be reused by a snapshot-only tester.
+
+Tests cover the eight-sample degenerate-bound case, endpoint forwarding, negative-step early exit and null tester rejection. The callback boundary is important: the helper itself is pure, but the current callback still reaches the active `ClientLevel` through `RaycastUtils`. This is a sampling extraction, not a completed exposure snapshot.
