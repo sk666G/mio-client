@@ -17,11 +17,16 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.Objects;
 
 public record PresetData(String name, JsonObject contents) implements NamedEntry {
+   public static final int MAX_PRESET_BYTES = 8 * 1024 * 1024;
    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+
    public PresetData {
       name = PresetNameValidator.normalize(name);
       contents = Objects.requireNonNull(contents, "Preset contents are required");
@@ -33,7 +38,25 @@ public record PresetData(String name, JsonObject contents) implements NamedEntry
    }
 
    public void saveToDirectory(Path directory) throws IOException {
-      Path targetPath = PresetNameValidator.resolve(directory, this.name);
-      FileUtils.writeUtf8Atomically(targetPath, GSON.toJson(this.contents));
+      Path root = directory.toAbsolutePath().normalize();
+      Path parent = root.getParent();
+      if (Files.isSymbolicLink(root)
+         || !Files.isDirectory(root, LinkOption.NOFOLLOW_LINKS)
+         || (parent != null && Files.isSymbolicLink(parent))) {
+         throw new IOException("Preset directory is not a safe real directory: " + root);
+      }
+
+      Path targetPath = PresetNameValidator.resolve(root, this.name);
+      if (Files.isSymbolicLink(targetPath)
+         || (Files.exists(targetPath, LinkOption.NOFOLLOW_LINKS)
+            && !Files.isRegularFile(targetPath, LinkOption.NOFOLLOW_LINKS))) {
+         throw new IOException("Preset target is not a regular file: " + targetPath.getFileName());
+      }
+
+      String serialized = GSON.toJson(this.contents);
+      if (serialized.getBytes(StandardCharsets.UTF_8).length > MAX_PRESET_BYTES) {
+         throw new IOException("Preset exceeds the supported size limit");
+      }
+      FileUtils.writeUtf8Atomically(targetPath, serialized);
    }
 }
