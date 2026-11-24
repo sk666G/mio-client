@@ -53,6 +53,7 @@ public final class PerformanceCenterScreen extends ClientScreen {
    private MetricsSnapshot metrics = MetricsSnapshot.EMPTY;
    private float[] frameHistorySamples = new float[0];
 
+   private float fitScale = 1.0F;
    private float panelLeft;
    private float panelTop;
    private float panelWidth;
@@ -78,7 +79,16 @@ public final class PerformanceCenterScreen extends ClientScreen {
    public void renderContents(
       GuiGraphics graphics, PoseStack poseStack, int mouseX, int mouseY, float partialTick
    ) {
-      this.updateLayout();
+      poseStack.pushPose();
+      try {
+         poseStack.scale(this.fitScale, this.fitScale, 1.0F);
+         this.renderDashboard(poseStack);
+      } finally {
+         poseStack.popPose();
+      }
+   }
+
+   private void renderDashboard(PoseStack poseStack) {
       this.refreshData(false);
 
       UIModule ui = UIModule.INSTANCE;
@@ -310,7 +320,8 @@ public final class PerformanceCenterScreen extends ClientScreen {
       if (button != 0) {
          return;
       }
-      this.updateLayout();
+      mouseX /= this.fitScale;
+      mouseY /= this.fitScale;
 
       if (this.contains(mouseX, mouseY, this.panelLeft + 16.0F, this.panelTop + 47.0F, 82.0F, 20.0F)) {
          if (EventProfiler.GLOBAL.isEnabled()) {
@@ -342,8 +353,7 @@ public final class PerformanceCenterScreen extends ClientScreen {
 
    @Override
    public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
-      this.updateLayout();
-      double scale = GuiScaleUtils.calculateScaleMultiplier(this.guiScale);
+      double scale = GuiScaleUtils.calculateScaleMultiplier(this.guiScale) * this.fitScale;
       double scaledMouseX = mouseX / scale;
       double scaledMouseY = mouseY / scale;
       float tableLeft = this.panelLeft + 16.0F;
@@ -367,8 +377,6 @@ public final class PerformanceCenterScreen extends ClientScreen {
       if (this.closing) {
          return false;
       }
-      this.updateLayout();
-
       switch (event.key()) {
          case GLFW.GLFW_KEY_LEFT -> {
             this.selectTab(this.selectedTab - 1);
@@ -455,13 +463,20 @@ public final class PerformanceCenterScreen extends ClientScreen {
       this.rowOffset = Math.min(this.rowOffset, Math.max(0, this.rows.size() - this.visibleRowCount()));
    }
 
-   private void updateLayout() {
-      int screenWidth = GuiScaleUtils.getScaledWidth();
-      int screenHeight = GuiScaleUtils.getScaledHeight();
+   @Override
+   protected void init() {
+      super.init();
+      double guiMultiplier = GuiScaleUtils.calculateScaleMultiplier(this.guiScale);
+      float width = (float)(this.width / guiMultiplier);
+      float height = (float)(this.height / guiMultiplier);
+      this.fitScale = PerformanceViewport.fitScale(width, height);
+      float screenWidth = width / this.fitScale;
+      float screenHeight = height / this.fitScale;
       this.panelWidth = Math.min(740.0F, Math.max(280.0F, screenWidth - 20.0F));
       this.panelHeight = Math.min(500.0F, Math.max(320.0F, screenHeight - 20.0F));
       this.panelLeft = (screenWidth - this.panelWidth) / 2.0F;
       this.panelTop = (screenHeight - this.panelHeight) / 2.0F;
+      this.rowOffset = Math.min(this.rowOffset, Math.max(0, this.rows.size() - this.visibleRowCount()));
    }
 
 

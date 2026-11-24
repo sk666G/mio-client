@@ -11,6 +11,7 @@ package dev.schizo.client.config;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
@@ -40,6 +41,6 @@ public final class ConfigFileReader {
       if (bytes.length > maximumBytes) {
          throw new IOException("Configuration exceeds the supported size limit");
       }
-      return new String(bytes, StandardCharsets.UTF_8);
+      return StandardCharsets.UTF_8.newDecoder().decode(ByteBuffer.wrap(bytes)).toString();
    }
 }

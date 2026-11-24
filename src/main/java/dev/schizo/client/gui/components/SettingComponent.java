@@ -31,7 +31,7 @@ public abstract class SettingComponent<T> extends AbstractComponent {
    protected final CloseState parentCloseState;
    protected final Setting<T> setting;
    private boolean wasHoveredForTextScroll;
-   private long textScrollHoverStartedAtMillis;
+   private long textScrollHoverStartedNanos;
    public boolean editing;
 
    @Override
@@ -80,6 +80,7 @@ public abstract class SettingComponent<T> extends AbstractComponent {
          <= this.panel
                .getWidth()
             - (4)) {
+         this.wasHoveredForTextScroll = false;
          this.textScrollAnimation
             .setValue(
                0.0F
@@ -87,10 +88,10 @@ public abstract class SettingComponent<T> extends AbstractComponent {
       } else {
          if (this.hovered) {
             if (!this.wasHoveredForTextScroll) {
-               this.textScrollHoverStartedAtMillis = System.currentTimeMillis();
+               this.textScrollHoverStartedNanos = System.nanoTime();
             }
 
-            if (System.currentTimeMillis() > this.textScrollHoverStartedAtMillis + 750L) {
+            if (System.nanoTime() - this.textScrollHoverStartedNanos > 750_000_000L) {
                this.textScrollAnimation
                   .setTarget(
                      textWidth
@@ -120,13 +121,18 @@ public abstract class SettingComponent<T> extends AbstractComponent {
          float scrollOffset = -this.textScrollAnimation.getValue();
          boolean scissorRequired = scrollOffset != 0.0F && !(this instanceof EnumSettingComponent<?>);
          if (scissorRequired) {
-            ModuleComponent parentModule = (ModuleComponent)this.parentCloseState;
+            int clipY = this.panel.getY() + this.yOffset;
+            int clipHeight = this.getHeight();
+            if (this.parentCloseState instanceof ModuleComponent parentModule) {
+               clipY = this.panel.getY() + parentModule.getYOffset();
+               clipHeight = parentModule.getHeight();
+            }
             GuiDrawUtils.flush();
             ScissorStack.pushIntersection(
                this.panel.getX() + this.getHorizontalPadding(),
-               this.panel.getY() + parentModule.getYOffset(),
+               clipY,
                this.panel.getWidth() - this.getHorizontalPadding(),
-               parentModule.getHeight()
+               clipHeight
             );
          }
 

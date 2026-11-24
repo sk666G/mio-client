@@ -70,6 +70,7 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
    private final ElapsedTimer searchCursorTimer = new ElapsedTimer();
    public EditBox searchBox;
    private String searchCompletion;
+   private String normalizedSearchQuery = "";
    public List openModuleComponents = new ArrayList();
 
    private void handleSecretSequence(int keyCode) {
@@ -184,6 +185,10 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
       }
    }
 
+   public String getNormalizedSearchQuery() {
+      return this.normalizedSearchQuery;
+   }
+
    public EditBox getSearchBox() {
       return this.searchBox;
    }
@@ -230,6 +235,9 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
    }
 
    public void setEditingSetting(SettingComponent<?> component) {
+      if (this.editingSetting != null && this.editingSetting != component) {
+         this.editingSetting.editing = false;
+      }
       this.editingSetting = component;
    }
 
@@ -326,6 +334,7 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
    public void init() {
       super.init();
       this.searchCompletion = "";
+      this.normalizedSearchQuery = "";
       this.searchBox = new EditBox(
          ClientAccess.schizoMinecraft.font,
          7,
@@ -342,6 +351,7 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
          .setResponder(
             searchText -> {
                String normalizedQuery = TextUtils.normalizeKeyboardLayout(searchText);
+               this.normalizedSearchQuery = normalizedQuery;
                if (!normalizedQuery.isEmpty()) {
                   for (Object moduleEntry : (List)ClientContext.moduleRegistry.getRegistry()) {
                      Module module = (Module)moduleEntry;
@@ -372,7 +382,9 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
          return true;
       }
 
-      super.keyPressed(event);
+      if (super.keyPressed(event)) {
+         return true;
+      }
       Keybind toggleKeybind = UIModule.INSTANCE.getKeybind();
       if (toggleKeybind.code()
             == event.key()

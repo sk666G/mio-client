@@ -39,7 +39,7 @@ public final class NumberSetting<N extends Number> extends Setting<N> implements
       if (this.getValue() instanceof Double) {
          this.setNumber(json.getAsDouble());
       } else if (this.getValue() instanceof Integer) {
-         this.setNumber(json.getAsInt());
+         this.setNumber(json.getAsDouble());
       } else if (this.getValue() instanceof Float) {
          this.setNumber(json.getAsFloat());
       }
@@ -62,7 +62,14 @@ public final class NumberSetting<N extends Number> extends Setting<N> implements
    }
 
    public void setNumber(Number number) {
-      super.setValue(this.convertToValueType(number));
+      if (!Double.isFinite(number.doubleValue())) {
+         throw new IllegalArgumentException("Numeric setting requires a finite value");
+      }
+      N converted = this.convertToValueType(number);
+      if (!Double.isFinite(converted.doubleValue())) {
+         throw new IllegalArgumentException("Value exceeds the range of this numeric setting");
+      }
+      super.setValue(converted);
    }
 
    @SuppressWarnings("unchecked")
@@ -71,7 +78,7 @@ public final class NumberSetting<N extends Number> extends Setting<N> implements
       if (this.getValue() instanceof Double) {
          converted = number.doubleValue();
       } else if (this.getValue() instanceof Integer) {
-         converted = number.intValue();
+         converted = (int)number.doubleValue();
       } else if (this.getValue() instanceof Float) {
          converted = number.floatValue();
       } else {

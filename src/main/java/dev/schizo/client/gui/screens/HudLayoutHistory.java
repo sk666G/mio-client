@@ -16,6 +16,7 @@ import java.util.Objects;
 /** A bounded undo/redo history for immutable layout snapshots. */
 final class HudLayoutHistory<T> {
    private final int capacity;
+   private T pending;
    private final Deque<T> undoStates = new ArrayDeque<>();
    private final Deque<T> redoStates = new ArrayDeque<>();
 
@@ -24,6 +25,29 @@ final class HudLayoutHistory<T> {
          throw new IllegalArgumentException("History capacity must be positive");
       }
       this.capacity = capacity;
+   }
+
+   boolean hasPendingEdit() {
+      return this.pending != null;
+   }
+
+   void beginEdit(T before) {
+      if (this.pending == null) {
+         this.pending = Objects.requireNonNull(before);
+      }
+   }
+
+   void finishEdit(T after) {
+      if (this.pending != null && !this.pending.equals(after)) {
+         this.record(this.pending);
+      }
+      this.pending = null;
+   }
+
+   T cancelEdit() {
+      T before = this.pending;
+      this.pending = null;
+      return before;
    }
 
    void record(T previousState) {
@@ -56,6 +80,7 @@ final class HudLayoutHistory<T> {
    }
 
    void clear() {
+      this.pending = null;
       this.undoStates.clear();
       this.redoStates.clear();
    }

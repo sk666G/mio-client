@@ -10,10 +10,8 @@
 package dev.schizo.client.render;
 
 import dev.schizo.client.utils.FloatAnimation;
-import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.modules.HudWidgetModule;
-import dev.schizo.client.gui.screens.HudEditorScreen;
 import dev.schizo.client.modules.client.HUDModule;
 import dev.schizo.client.settings.NumberSetting;
 import dev.schizo.client.settings.Setting;
@@ -21,7 +19,6 @@ import dev.schizo.client.settings.Setting;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.resources.Identifier;
-import org.lwjgl.glfw.GLFW;
 
 public class ResizableHudWidgetRenderer extends HudWidgetRenderer {
 
@@ -29,7 +26,6 @@ public class ResizableHudWidgetRenderer extends HudWidgetRenderer {
    static {
       Identifier.fromNamespaceAndPath("schizo", "textures/triangle.png");
    }
-   private static ResizableHudWidgetRenderer activeResizeRenderer;
    private final Setting<Float> sizeSetting = new NumberSetting<>(
       "Size",
       1.0F,
@@ -58,15 +54,11 @@ public class ResizableHudWidgetRenderer extends HudWidgetRenderer {
       this.sizeSetting.setValue(scale);
    }
 
-   public static void cancelActiveResize() {
-      activeResizeRenderer = null;
-   }
-
-   private boolean isMouseButtonPressed(int button) {
-      return GLFW.glfwGetMouseButton(
-            ClientAccess.schizoMinecraft.getWindow().handle(), button
-         )
-         == 1;
+   public void resizeTo(double mouseX, double mouseY) {
+      this.setSizeScale(HudWidgetResize.calculateScale(
+         mouseX, mouseY, this.getX(), this.getY(), this.sourceDimensions[0], this.sourceDimensions[1],
+         this.getSizeScale(), this.getHudScaleMultiplier()
+      ));
    }
 
    public ResizableHudWidgetRenderer(HudWidgetModule widget) {
@@ -107,41 +99,7 @@ public class ResizableHudWidgetRenderer extends HudWidgetRenderer {
          if (!renderingHud
             && this.resizingEnabled) {
             boolean handleHovered = this.isResizeHandleHovered(mouseX, mouseY);
-            boolean leftButtonPressed = this.isMouseButtonPressed(0);
-            boolean rightButtonPressed = this.isMouseButtonPressed(1);
-            HudEditorScreen editor = ClientContext.getHudEditor();
-
-            if (handleHovered && rightButtonPressed && activeResizeRenderer == null) {
-               editor.beginLayoutEdit();
-               this.sizeSetting.setValue(1.0F);
-               editor.finishLayoutEdit();
-            }
-
-            if (handleHovered && leftButtonPressed && activeResizeRenderer == null) {
-               editor.beginLayoutEdit();
-               activeResizeRenderer = this;
-            }
-
-            if (activeResizeRenderer == this) {
-               if (leftButtonPressed) {
-                  float resizeScale = HudWidgetResize.calculateScale(
-                     mouseX,
-                     mouseY,
-                     this.getX(),
-                     this.getY(),
-                     sourceDimensions[0],
-                     sourceDimensions[1],
-                     this.getSizeScale(),
-                     this.getHudScaleMultiplier()
-                  );
-                  this.sizeSetting.setValue(resizeScale);
-               } else {
-                  activeResizeRenderer = null;
-                  editor.finishLayoutEdit();
-               }
-            }
-
-            if (activeResizeRenderer == this) {
+            if (ClientContext.getHudEditor().isResizing(this)) {
                this.handleAnimation
                   .setTarget(
                      0.6F,
