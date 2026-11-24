@@ -300,12 +300,11 @@ public final class InventoryUtils implements ClientAccess {
 
    public static void runWithSwap(int previousSlot, InventoryUtils.SwapSlot slot, Runnable action) {
       if (!slot.isFound()) return;
-      swapTo(slot);
-      try {
-         action.run();
-      } finally {
-         swapBack(previousSlot, slot);
-      }
+      InventorySwapGuard.run(
+         () -> swapTo(slot),
+         action,
+         () -> swapBack(previousSlot, slot)
+      );
    }
 
    public static boolean isEnderChestScreen(Screen screen) {
