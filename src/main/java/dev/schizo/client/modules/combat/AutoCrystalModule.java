@@ -84,9 +84,9 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.FutureTask;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -228,6 +228,7 @@ public class AutoCrystalModule extends Module {
    private final List<Integer> predictedAttackIds;
    private final Set ignoredBlocks;
    private CompletableFuture<CrystalPlacementResult> calculationFuture;
+   private FutureTask<Void> calculationTask;
    protected volatile BlockPos lastPlacedBase;
    protected volatile BlockPos lastAttackedBase;
    protected volatile BlockPos lastForcedBase;
@@ -285,12 +286,9 @@ public class AutoCrystalModule extends Module {
       this.lastPlacedBase = null;
 
       this.placementData.set(null);
-      if (this.calculationFuture != null) {
-         try {
-            this.calculationFuture.complete(null);
-         } catch (CancellationException cancellation) {
-         }
-      }
+      this.completeCalculation();
+      this.calculationFuture = null;
+      this.calculationTask = null;
 
       this.swapDelayTimer.reset();
 
@@ -300,6 +298,9 @@ public class AutoCrystalModule extends Module {
 
    @Override
    public void onDisable() {
+      this.completeCalculation();
+      this.calculationFuture = null;
+      this.calculationTask = null;
       this.restoreSelectedSlot();
    }
 
@@ -368,10 +369,19 @@ public class AutoCrystalModule extends Module {
 
       for (double offsetX = -Math.floor((this.placeRangeSetting.getValue()).floatValue());
          offsetX < Math.ceil((this.placeRangeSetting.getValue()).floatValue()); offsetX += 1.0D) {
+         if (Thread.currentThread().isInterrupted()) {
+            return null;
+         }
          for (double offsetY = -Math.floor((this.placeRangeSetting.getValue()).floatValue());
             offsetY < Math.ceil((this.placeRangeSetting.getValue()).floatValue()); offsetY += 1.0D) {
+            if (Thread.currentThread().isInterrupted()) {
+               return null;
+            }
             for (double offsetZ = -Math.floor((this.placeRangeSetting.getValue()).floatValue());
                offsetZ < Math.ceil((this.placeRangeSetting.getValue()).floatValue()); offsetZ += 1.0D) {
+               if (Thread.currentThread().isInterrupted()) {
+                  return null;
+               }
                double scanXSnapshot = eyePositionSnapshot.x + offsetX;
                double scanYSnapshot = eyePositionSnapshot.y + offsetY;
                double scanZ = eyePositionSnapshot.z + offsetZ;
@@ -520,7 +530,7 @@ public class AutoCrystalModule extends Module {
                   placementKind = CrystalPlacementKind.OBSIDIAN;
                }
 
-               if (!(this.target instanceof Player)) {
+               if (!(candidateTargetDamage.target() instanceof Player)) {
                   placementKind = CrystalPlacementKind.NON_PLAYER;
                }
 
@@ -1970,13 +1980,26 @@ public class AutoCrystalModule extends Module {
             if (this.calculationFuture == null || this.calculationFuture.isDone() || this.calculationFuture.isCancelled()) {
                this.clearInvalidTarget();
                List<LivingEntity> targets = this.targeting.snapshot();
-               CompletableFuture<CrystalPlacementResult> scheduledCalculation = CompletableFuture.supplyAsync(
-                  () -> this.calculatePlacement(targets),
-                  calculationExecutor
-               );
-               TimeUnit timeoutUnit = TimeUnit.MILLISECONDS;
-               CrystalPlacementResult timeoutResult = null;
-               this.calculationFuture = scheduledCalculation.completeOnTimeout(timeoutResult, 750L, timeoutUnit).exceptionally((Function<Throwable, CrystalPlacementResult>)failure -> null);
+               CompletableFuture<CrystalPlacementResult> scheduledCalculation = new CompletableFuture<>();
+               FutureTask<Void> task = new FutureTask<>(() -> {
+                  try {
+                     scheduledCalculation.complete(this.calculatePlacement(targets));
+                  } catch (Throwable failure) {
+                     scheduledCalculation.completeExceptionally(failure);
+                  }
+                  return null;
+               });
+               this.calculationTask = task;
+               calculationExecutor.execute(task);
+               this.calculationFuture = scheduledCalculation
+                  .completeOnTimeout(null, 750L, TimeUnit.MILLISECONDS)
+                  .whenComplete((result, failure) -> {
+                     // A timed-out or superseded scan must not keep consuming CPU in the background.
+                     if (failure != null || result == null) {
+                        task.cancel(true);
+                     }
+                  })
+                  .exceptionally((Function<Throwable, CrystalPlacementResult>)failure -> null);
             }
 
             synchronized (this.predictedAttackIds) {
@@ -2176,6 +2199,11 @@ public class AutoCrystalModule extends Module {
       }
    }
    public void completeCalculation() {
+      FutureTask<Void> task = this.calculationTask;
+      if (task != null && !task.isDone()) {
+         task.cancel(true);
+      }
+
       CompletableFuture<CrystalPlacementResult> pending = this.calculationFuture;
       if (pending != null && !pending.isDone() && !pending.isCancelled()) {
          pending.complete(null);
