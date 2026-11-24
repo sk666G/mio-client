@@ -35,6 +35,25 @@ class ExplosionRaycastSnapshotTest {
    }
 
    @Test
+   void resolvesCapturedLocalShapeAtItsWorldBlockPosition() {
+      ExplosionRaycastSnapshot snapshot = snapshot(Map.of(
+         new BlockPos(0, 0, 0).asLong(), emptyBlock(),
+         new BlockPos(0, 0, 1).asLong(),
+         new ExplosionRaycastSnapshot.BlockGeometry(1200.0F, Shapes.block().toAabbs()),
+         new BlockPos(0, 0, 2).asLong(), emptyBlock()
+      ));
+
+      assertEquals(
+         ExplosionRaycastSnapshot.Result.HIT,
+         snapshot.raycast(
+            new Vec3(0.5D, 0.5D, 0.1D),
+            new Vec3(0.5D, 0.5D, 2.9D),
+            ExplosionRaycastSnapshot.Query.normal()
+         )
+      );
+   }
+
+   @Test
    void reportsIncompleteInsteadOfTreatingUncapturedBlocksAsAir() {
       ExplosionRaycastSnapshot snapshot = snapshot(Map.of(
          BLOCK.asLong(), emptyBlock(),
