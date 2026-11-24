@@ -36,6 +36,7 @@ public abstract class HudWidgetModule extends Module {
    );
    protected static HUDModule hud = ClientContext.getModule(HUDModule.class);
    protected HudWidgetRenderer renderer;
+   private final float[] dimensionBuffer = new float[2];
 
    public HudWidgetModule(String name, String... aliases) {
       super(name, ModuleCategory.HUD, aliases);
@@ -119,6 +120,13 @@ public abstract class HudWidgetModule extends Module {
 
    public float[] calculateDimensions() {
       throw new RuntimeException();
+   }
+
+   /** Returns this module's reusable calculation buffer. Renderers copy cached dimensions before rendering. */
+   protected final float[] dimensions(float width, float height) {
+      this.dimensionBuffer[0] = width;
+      this.dimensionBuffer[1] = height;
+      return this.dimensionBuffer;
    }
 
    public void renderContent(PoseStack poses) {
