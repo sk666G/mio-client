@@ -30,6 +30,7 @@ import com.jagrosh.discordipc.exceptions.NoDiscordClientException;
 import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -161,24 +162,32 @@ public abstract class Pipe {
          }
 
          if (pipe == null) {
+            closeCandidates(candidates, null, client);
             throw new NoDiscordClientException();
          }
       }
 
-      for (int candidateIndex = 0; candidateIndex < candidates.length; candidateIndex++) {
-         if (candidateIndex != DiscordBuild.ANY.ordinal() && candidates[candidateIndex] != null) {
-            try {
-               candidates[candidateIndex].close();
-            } catch (IOException failure) {
-               if (client.isDebugMode()) {
-                  client.getCurrentLogger(LOGGER).info(String.format("[DEBUG] Failed to close an open IPC pipe: %s", failure));
-               }
+      closeCandidates(candidates, pipe, client);
+      pipe.status = PipeStatus.CONNECTED;
+      return pipe;
+   }
+
+   private static void closeCandidates(Pipe[] candidates, Pipe keep, IPCClient client) {
+      IdentityHashMap<Pipe, Boolean> closed = new IdentityHashMap<>();
+      for (int index = 0; index < candidates.length; index++) {
+         Pipe candidate = candidates[index];
+         candidates[index] = null;
+         if (candidate == null || candidate == keep || closed.put(candidate, Boolean.TRUE) != null) {
+            continue;
+         }
+         try {
+            candidate.close();
+         } catch (IOException | RuntimeException closeFailure) {
+            if (client.isDebugMode()) {
+               client.getCurrentLogger(LOGGER).warn("Failed to close an unselected IPC candidate", closeFailure);
             }
          }
       }
-
-      pipe.status = PipeStatus.CONNECTED;
-      return pipe;
    }
 
    private static void closeIfUnreferenced(Pipe[] candidates, Pipe previous, IPCClient client) {
@@ -189,7 +198,7 @@ public abstract class Pipe {
       }
       try {
          previous.close();
-      } catch (IOException closeFailure) {
+      } catch (IOException | RuntimeException closeFailure) {
          if (client.isDebugMode()) {
             client.getCurrentLogger(LOGGER).warn("Failed to close a superseded IPC candidate", closeFailure);
          }
