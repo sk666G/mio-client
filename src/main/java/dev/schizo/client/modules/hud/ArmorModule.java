@@ -138,7 +138,8 @@ public class ArmorModule extends HudWidgetModule {
          RenderTargetUtils.overrideRenderTargets(
             PostProcessShaderPass.POST_TARGET
          );
-         LocalPlayer playerForArmor = ClientAccess.schizoMinecraft.player;
+         try {
+            LocalPlayer playerForArmor = ClientAccess.schizoMinecraft.player;
          List<ItemStack> armorStacks = EquipmentUtils.getArmorStacks(playerForArmor);
 
          for (int armorIndex = 3; armorIndex >= 0; armorIndex--) {
@@ -233,9 +234,10 @@ public class ArmorModule extends HudWidgetModule {
             }
          }
 
-         RenderUtils.INSTANCE
-            .flushEntities();
-         RenderTargetUtils.restoreRenderTargets();
+            RenderUtils.INSTANCE.flushEntities();
+         } finally {
+            RenderTargetUtils.restoreRenderTargets();
+         }
          RenderUtils.clearDepth(
             PostProcessShaderPass.POST_TARGET
          );
