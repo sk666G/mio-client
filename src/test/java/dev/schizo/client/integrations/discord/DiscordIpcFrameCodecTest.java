@@ -120,4 +120,17 @@ class DiscordIpcFrameCodecTest {
       );
    }
 
+   @Test
+   void validatesOpcodeAgainstTheKnownOpcodeCount() throws IOException {
+      assertEquals(0, DiscordIpcFrameCodec.validateOpcode(0, 4));
+      assertEquals(3, DiscordIpcFrameCodec.validateOpcode(3, 4));
+   }
+
+   @Test
+   void rejectsInvalidDiscordIpcOpcodes() {
+      assertThrows(IOException.class, () -> DiscordIpcFrameCodec.validateOpcode(-1, 4));
+      assertThrows(IOException.class, () -> DiscordIpcFrameCodec.validateOpcode(4, 4));
+      assertThrows(IOException.class, () -> DiscordIpcFrameCodec.validateOpcode(0, 0));
+   }
+
 }
