@@ -57,4 +57,15 @@ class TickRateControllerTest {
 
       assertEquals(1.0F, requests.getMultiplier(), EPSILON);
    }
+
+   @Test
+   void disconnectClearsEveryActiveRequest() {
+      TickRateController.Requests requests = new TickRateController.Requests();
+
+      requests.request(new Object(), 0.5F);
+      requests.request(new Object(), 2.0F);
+      requests.clear();
+
+      assertEquals(1.0F, requests.getMultiplier(), EPSILON);
+   }
 }
