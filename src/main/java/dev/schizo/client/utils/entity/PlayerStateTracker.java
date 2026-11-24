@@ -20,6 +20,7 @@ import dev.schizo.client.events.PacketEvent;
 import dev.schizo.client.events.SneakStateChangeEvent;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.LocalPlayerTickEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.events.bus.EventBus;
 
 import net.minecraft.client.player.LocalPlayer;
@@ -105,6 +106,30 @@ public final class PlayerStateTracker implements ClientAccess {
       this.packetRotations = new float[2];
       this.fallFlyingTimer = new ElapsedTimer();
       ClientAccess.eventBus.subscribe(this);
+   }
+
+   private void resetSessionState() {
+      this.packetX = 0.0D;
+      this.packetY = 0.0D;
+      this.packetZ = 0.0D;
+      this.packetOnGround = false;
+      this.sneaking = false;
+      this.lastSentInput = null;
+      this.lastGroundedY = 0.0D;
+      this.currentTickY = 0.0D;
+      this.previousTickY = 0.0D;
+      this.groundedTicks = 0;
+      this.airborneTicks = 0;
+      this.fallDistance = 0.0F;
+      this.packetRotations[0] = 0.0F;
+      this.packetRotations[1] = 0.0F;
+      this.tickDisplacement = null;
+      this.fallFlyingTimer.clear();
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.resetSessionState();
    }
 
    public void setFallDistance(float distance) {

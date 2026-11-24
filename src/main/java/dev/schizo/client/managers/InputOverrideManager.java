@@ -13,6 +13,7 @@ import dev.schizo.client.ClientAccess;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.KeyboardInputTickEvent;
 import dev.schizo.client.events.LocalPlayerTickEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.utils.InputUtils;
 import java.util.function.Consumer;
 import net.minecraft.client.player.ClientInput;
@@ -106,6 +107,20 @@ public final class InputOverrideManager {
         sprintBlock.reset();
     }
 
+    @EventHandler
+    private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+        pendingSneak.clear();
+        pendingJump.clear();
+        pendingForward.clear();
+        pendingBack.clear();
+        pendingLeft.clear();
+        pendingRight.clear();
+        pendingSprint.clear();
+        pendingForwardMovement.clear();
+        pendingSidewaysMovement.clear();
+        sprintBlock.reset();
+    }
+
     @EventHandler(priority = -100)
     private void onKeyboardInputTickEvent(KeyboardInputTickEvent event) {
         ClientInput input = event.getInput();
@@ -133,6 +148,11 @@ public final class InputOverrideManager {
                 consumer.accept(value);
                 reset();
             }
+        }
+
+        void clear() {
+            value = null;
+            reset();
         }
     }
 
