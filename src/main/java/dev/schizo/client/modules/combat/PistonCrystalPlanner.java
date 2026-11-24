@@ -59,21 +59,25 @@ final class PistonCrystalPlanner {
       return null;
    }
 
+   static boolean isCloserCandidate(double candidateDistance, double selectedDistance) {
+      return candidateDistance < selectedDistance;
+   }
+
    private PistonCrystalPlan findPlan(Player target, int height) {
       PistonCrystalPlan selected = null;
       double score = Double.MAX_VALUE;
       for (Candidate candidate : this.candidates(target)) {
          BlockPos position = candidate.position().offset(0, height, 0);
          Direction outward = candidate.outward();
-         double candidateScore = -ClientAccess.schizoMinecraft.player.getEyePosition().distanceTo(position.getCenter());
-         if (candidateScore < score) {
+         double candidateDistance = ClientAccess.schizoMinecraft.player.getEyePosition().distanceTo(position.getCenter());
+         if (isCloserCandidate(candidateDistance, score)) {
             if (!this.hasVerticalClearance(position, outward.getOpposite(), height)) {
-               return null;
+               continue;
             }
             PistonCrystalPlan plan = this.buildPlan(position, outward);
             if (plan != null) {
                selected = plan;
-               score = candidateScore;
+               score = candidateDistance;
             }
          }
       }
