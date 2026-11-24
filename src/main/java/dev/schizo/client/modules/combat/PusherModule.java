@@ -12,6 +12,7 @@ package dev.schizo.client.modules.combat;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.RotationRequestEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.settings.ValueProvider;
 import dev.schizo.client.managers.RotationManager;
@@ -390,6 +391,12 @@ public class PusherModule extends Module {
       } else {
          return null;
       }
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.target = null;
+      this.powerPlacementFound = false;
    }
 
    @EventHandler
