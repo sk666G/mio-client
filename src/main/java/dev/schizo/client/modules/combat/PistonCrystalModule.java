@@ -147,7 +147,9 @@ public final class PistonCrystalModule extends Module {
       if (this.target == null || multiTask.shouldPauseModule(this)) {
          return;
       }
-      if (!PistonCrystalPlanner.hasPowerSource(this.powerItem)) {
+      if (!PistonCrystalPlanner.hasPowerSource(
+         this.powerItem == Items.REDSTONE_BLOCK, this.powerItem == Items.REDSTONE_TORCH
+      )) {
          this.plan = null;
          this.resetStages();
          this.stageTracker.reset();
