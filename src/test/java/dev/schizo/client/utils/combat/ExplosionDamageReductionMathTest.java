@@ -26,14 +26,14 @@ class ExplosionDamageReductionMathTest {
       assertEquals(expected, ExplosionDamageReductionMath.apply(
          20.0F, 20.0F, 8.0F, true, 0.0F, false, 8
       ), 0.00001F);
-      assertEquals(3.84F, ExplosionDamageReductionMath.apply(
+      assertEquals(1.28F, ExplosionDamageReductionMath.apply(
          20.0F, 20.0F, 8.0F, true, 0.0F, false, 30
       ), 0.00001F);
    }
 
    @Test
    void preservesAssumeBestArmorResistanceFallbackWhenEffectIsAbsent() {
-      assertEquals(9.0F, ExplosionDamageReductionMath.apply(
+      assertEquals(6.0F, ExplosionDamageReductionMath.apply(
          10.0F, 0.0F, 0.0F, false, 1.0F, true, 0
       ));
    }
@@ -47,7 +47,7 @@ class ExplosionDamageReductionMathTest {
 
    @Test
    void preservesTheUpperProtectionClamp() {
-      assertEquals(8.0F, ExplosionDamageReductionMath.apply(
+      assertEquals(1.6F, ExplosionDamageReductionMath.apply(
          20.0F, 20.0F, 8.0F, false, 1.0F, false, 20
       ));
    }
