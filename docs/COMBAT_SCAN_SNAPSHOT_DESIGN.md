@@ -211,3 +211,11 @@ This completes extraction of the arithmetic, not the worker migration. The adapt
 The policy preserves ForceSuicide's self-only behavior; friend/creative/dead/dying/server-dead/spectator/range rejection; vertical clearance; IgnoreNakeds rules; lethal/obsidian/quiver range overrides; friend-kill abort; minimum-damage and half-point floor; and strict `>` replacement (equal damage keeps the earlier target). Tests exercise each decision branch.
 
 Important boundary: the current `TargetState` and `CandidateState` are still constructed inside `CrystalTargetDamage`'s existing asynchronous loop from live `LivingEntity` and module data. The policy is now testable and centralized, but the worker is not yet isolated from Minecraft state. The next migration must construct these same records during client-thread snapshot capture and replace `CrystalTargetDamage`'s live entity result with id/UUID data.
+
+`CrystalTargetSelectionPolicy` also fails closed on non-finite candidate damage, minimum thresholds, geometry and ranges, and it will allow a valid candidate to replace a previously non-finite best score. This prevents `NaN` comparisons from accidentally accepting a candidate or locking the scan onto an invalid best result. The ordinary target-range adapter rejects non-finite distances/ranges; ForceSuicide keeps its original early self-only bypass.
+
+## Async world identity fence
+
+`AutoCrystalModule` now records the `ClientLevel` identity for each scheduled calculation. Before publishing a completed result or scheduling more work, the tick handler compares that identity with the active client world. A mismatch cancels the old task, clears the old placement/target result, and prevents a previous-world entity reference from being published into the new world. Enable, disable and disconnect reset the identity.
+
+This is deliberately only a stale-result fence. The calculation still receives a shallow list of live `LivingEntity` references and its placement validator, damage utilities, settings, registries and prediction manager still read live state on the worker. World identity checking does not make those accesses thread-safe; the immutable scan capture and client-thread revalidation remain required.
