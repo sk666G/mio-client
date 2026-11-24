@@ -12,6 +12,7 @@ package dev.schizo.client.modules.combat;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.EventHandler;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.events.RotationRequestEvent;
 import dev.schizo.client.managers.InventoryStateManager;
 import dev.schizo.client.managers.ModuleRegistry;
@@ -111,8 +112,26 @@ public final class PistonCrystalModule extends Module {
 
    @Override
    public void onToggle() {
+      this.resetCycleState();
+   }
+
+   private void resetCycleState() {
+      this.plan = null;
+      this.target = null;
+      this.powerItem = Items.AIR;
       this.resetStages();
       this.stageTracker.reset();
+      this.forceCrystal = false;
+      this.wasBlocked = false;
+   }
+
+   static boolean hasPowerSource(Item item) {
+      return item != null && item != Items.AIR;
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.resetCycleState();
    }
 
    @EventHandler
@@ -126,9 +145,16 @@ public final class PistonCrystalModule extends Module {
       if (nextTarget != this.target) {
          this.plan = null;
          this.resetStages();
+         this.stageTracker.reset();
          this.target = nextTarget;
       }
       if (this.target == null || multiTask.shouldPauseModule(this)) {
+         return;
+      }
+      if (!hasPowerSource(this.powerItem)) {
+         this.plan = null;
+         this.resetStages();
+         this.stageTracker.reset();
          return;
       }
 
