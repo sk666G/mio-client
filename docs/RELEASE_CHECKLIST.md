@@ -2,6 +2,8 @@
 
 Status is intentionally conservative. A checked item requires recorded evidence.
 
+Latest verified artifact: workflow run [45276730538](https://github.com/sk666G/mio-client/actions/runs/45276730538), artifact `schizo-client` (ID `14868960536`, 7,618,189 bytes, SHA-256 `7051f9e3cc2eea3cbf1f3cdd8142a7c6c6d0606943ac8ca1466e364e70894f18`).
+
 ## Source and integration
 
 - [x] Start from the latest inspected `lunyx/theme-presets` head (`95335a877ee4b8d8472479f20db0f75381dcf6fb`).
@@ -15,9 +17,9 @@ Status is intentionally conservative. A checked item requires recorded evidence.
 ## Build and tests
 
 - [x] Run automated tests and clean Gradle build in GitHub Actions for the profiler integration commit.
-- [ ] Obtain a successful GitHub Actions run for the latest branch head after all final changes.
+- [x] GitHub Actions full build, tests, Python security tests and remapped JAR verification passed on the latest code head before this documentation-only update (run 45276730538).
 - [ ] Verify remapped artifact starts in the target Minecraft/Fabric environment.
-- [ ] Verify Python rebuild security tests after the final rebuild-script changes.
+- [x] Python rebuild security tests passed after the final rebuild-script and artifact-verifier changes (10 tests).
 - [ ] Run the rebuild workflow from a clean dedicated staging checkout and inspect the generated artifact.
 
 ## Security, data and documentation
@@ -26,7 +28,7 @@ Status is intentionally conservative. A checked item requires recorded evidence.
 - [x] Preserve atomic writes and safe path handling in the existing reliability stack.
 - [x] Harden rebuild destination validation and archive-entry preflight.
 - [x] Record architecture findings and known limitations.
-- [ ] Resolve DiscordIPC license status from authoritative upstream license evidence and update notices.
+- [x] Verified the DiscordIPC upstream Apache-2.0 license from its authoritative repository, included the full license text, and updated notices; the exact vendored revision and local modification provenance remain a release blocker.
 - [ ] Review all dependency versions and license metadata against authoritative sources.
 
 ## Release
@@ -52,17 +54,32 @@ No public release or merge is part of this branch task.
 
 - [ ] Complete source assessment for every module and relevant setting; keep unreviewed entries as `UNVERIFIED`.
 - [ ] Verify the conservative activation guard, chat warning, config persistence and keybind behavior in singleplayer and a controlled multiplayer server.
-- [ ] Add the classification inventory to the module/settings search index.
+- [x] ClickGUI search matches module/setting compatibility classes, evidence labels, and explanations; the complete classification matrix remains open.
 
 
 - [x] CI checks remapped JAR metadata, mixin/access-widener resources, all 17 module-binding helper/invoker classes, and absence of GrimDisabler/RaytraceBypass classes.
-- [ ] Inspect the remapped JAR artifact from a successful CI run and test Mixin application in a live 1.21.11 client.
-- [ ] Attribute and resolve Gradle deprecations reported with `--warning-mode all`.
+- [x] CI verifier inspected required metadata/resources, all 17 binding/target helper pairs, and removed-module absence in the remapped JAR. Live Mixin application remains unverified.
+- [x] Traced and removed the Gradle 10 `Task.project` deprecation in `processResources`; the latest detailed-warning build reported no Gradle deprecation warning. Existing Java compiler notes about deprecated APIs remain.
 
-- [ ] Confirm the Gradle 10 warning and GitHub Actions runtime warnings are cleared in the refreshed workflow.
+- [x] Latest CI cleared the Gradle 10 and Node 20 action-runtime warnings after the build-script and action updates.
 
 - [ ] Force Context Profile restore failure, verify the one-second retry and ensure recovery does not apply a new context before all pending categories restore.
 
 - [ ] Verify conservative policy decisions for all seven classifications and confirm disabled mode/singleplayer do not block module activation.
 
 - [ ] Confirm searching by classification, explanation and setting warning finds the owning module and that hover warning text is readable at supported UI scales.
+
+
+## Manual in-game verification
+
+- [ ] Normal startup and clean shutdown.
+- [ ] Safe Mode startup, recovery, and return to normal mode.
+- [ ] HUD editor open/close, selection, drag, resize, undo/redo, save, and restore.
+- [ ] Theme and named palette changes, persistence, and reset.
+- [ ] Context Profile switching, dimension/game-mode changes, disable/re-enable, disconnect, and failed-restore retry.
+- [ ] Task scheduling under load, delayed tasks, task exceptions, queue overflow feedback, and shutdown cancellation.
+- [ ] Multiplayer compatibility tooltips, classification search, conservative blocking, and singleplayer allowance on a locally controlled or explicitly authorized server.
+- [ ] Configuration backup and restore with existing user data.
+- [ ] Verify the released remapped JAR starts on Minecraft 1.21.11 with the target Fabric loader.
+
+Automated CI did not run a Minecraft game session or a multiplayer server.

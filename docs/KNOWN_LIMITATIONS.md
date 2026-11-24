@@ -42,7 +42,7 @@ This file separates verified behavior from work that still needs runtime or arch
 
 
 - Mixin remapping emits expected `Cannot remap schizo$bind...` warnings for 17 local `@Unique` helpers referenced by `remap = false` invokers. Their class/config presence is statically verified in the release JAR; applying the mixins in a live Minecraft runtime remains unverified.
-- A Gradle 10 deprecation in `processResources` was traced to execution-time `project.version` access and changed to a configuration-time value; the next CI run must confirm it is cleared. Java compiler notices about deprecated/unchecked existing APIs remain.
+- A Gradle 10 deprecation in `processResources` was traced to execution-time `project.version` access and changed to a configuration-time value; CI on the latest code head completed without Gradle deprecation warnings. Java compiler notes about existing deprecated APIs remain. Java compiler notices about deprecated/unchecked existing APIs remain.
 
 
 - Context Profiles distinguish module activation from profile-controlled settings, but do not merge a user's mid-profile edits to selected setting values; restoration intentionally returns those values to the saved baseline.

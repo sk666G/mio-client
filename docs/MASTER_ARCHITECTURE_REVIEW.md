@@ -90,7 +90,7 @@ The build now uses Gradle `--warning-mode all` so deprecated build features are 
 
 ## Build warning and action refresh
 
-The detailed Gradle warning report identified one Gradle 10 deprecation in `processResources`: reading `project.version` inside the file expansion action caused `Task.project` access during execution. The version is now captured during configuration and passed as a task input. CI actions were advanced to current major releases after GitHub reported the previous setup-java/action-runtime deprecations. CI with `--warning-mode all` verifies whether these warnings are cleared.
+The detailed Gradle warning report identified one Gradle 10 deprecation in `processResources`: reading `project.version` inside the file expansion action caused `Task.project` access during execution. The version is now captured during configuration and passed as a task input. CI actions were advanced to current major releases after GitHub reported the previous setup-java/action-runtime deprecations. The latest CI run with `--warning-mode all` completed without Gradle deprecation warnings. Java compiler notes about existing deprecated APIs remain.
 
 
 ## Context Profile retry behavior
