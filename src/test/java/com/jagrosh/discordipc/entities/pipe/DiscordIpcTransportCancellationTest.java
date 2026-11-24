@@ -7,6 +7,9 @@ import static org.junit.jupiter.api.Assumptions.assumeFalse;
 import com.jagrosh.discordipc.IPCClient;
 import com.jagrosh.discordipc.entities.Packet;
 import java.net.StandardProtocolFamily;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.charset.StandardCharsets;
 import java.net.UnixDomainSocketAddress;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
@@ -21,6 +24,32 @@ import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 
 class DiscordIpcTransportCancellationTest {
+   @Test
+   void windowsPipeReadsLittleEndianFramesThroughItsFileChannel() throws Exception {
+      Path filePath = Files.createTempFile("schizo-discord-ipc", ".pipe");
+      WindowsPipe pipe = new WindowsPipe(new IPCClient(1055222411819241572L), new HashMap<>(), filePath.toFile());
+      byte[] payload = "{}".getBytes(StandardCharsets.UTF_8);
+      byte[] frame = ByteBuffer.allocate(8 + payload.length)
+         .order(ByteOrder.LITTLE_ENDIAN)
+         .putInt(Packet.OpCode.FRAME.ordinal())
+         .putInt(payload.length)
+         .put(payload)
+         .array();
+
+      try {
+         pipe.write(frame);
+         pipe.channel.position(0L);
+
+         Packet packet = pipe.read();
+
+         assertEquals(Packet.OpCode.FRAME, packet.getOp());
+         assertEquals("{}", packet.getJson().toString());
+      } finally {
+         pipe.abort();
+         Files.deleteIfExists(filePath);
+      }
+   }
+
    @Test
    void cancellingClientAbortsABlockedUnixHandshakeRead() throws Exception {
       assumeFalse(System.getProperty("os.name", "").toLowerCase(Locale.ROOT).startsWith("windows"));
