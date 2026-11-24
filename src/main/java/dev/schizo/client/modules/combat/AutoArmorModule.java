@@ -217,10 +217,6 @@ public class AutoArmorModule extends Module {
       return piglinDistance <= range.floatValue();
    }
 
-   static boolean shouldCountPlayerForRange(boolean isFriend, boolean allowFriends) {
-      return !isFriend || allowFriends;
-   }
-
    private boolean hasRelevantPlayerInRange() {
       ClientLevel level = ClientAccess.schizoMinecraft.level;
       for (AbstractClientPlayer player : level.players()) {
@@ -231,10 +227,9 @@ public class AutoArmorModule extends Module {
                SocialRegistry socialRegistry = ClientContext.socialRegistry;
                GameProfile profile = player.getGameProfile();
                String playerName = profile.name();
-               boolean isFriend = socialRegistry.isFriendName(playerName);
-               if (shouldCountPlayerForRange(isFriend, this.allowFriendsSetting.getValue())) {
-                  return true;
-               }
+               if (!socialRegistry.isFriendName(playerName)) return true;
+
+               if (!this.allowFriendsSetting.getValue()) return true;
             }
          }
       }
@@ -544,13 +539,10 @@ public class AutoArmorModule extends Module {
                      }
                   }
 
-                  Runnable restoreCursorStack = () -> {
+                  ClientContext.taskScheduler.scheduleRotationTask(() -> {
                      InventoryUtils.clickSlot(0, 0, ClickType.PICKUP);
                      InventoryUtils.clickSlot(0, 0, ClickType.PICKUP);
-                  };
-                  if (!ClientContext.taskScheduler.scheduleRotationTask(restoreCursorStack, 0)) {
-                     ClientAccess.schizoMinecraft.execute(restoreCursorStack);
-                  }
+                  }, 0);
                }
             }
          }

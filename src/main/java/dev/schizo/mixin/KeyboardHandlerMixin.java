@@ -10,7 +10,6 @@
 package dev.schizo.mixin;
 
 import dev.schizo.client.modules.misc.BetterChatModule;
-import dev.schizo.client.gui.screens.CommandPaletteScreen;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.events.InputPressEvent;
 import dev.schizo.client.events.KeyboardHandlerCharTypedEvent;
@@ -26,7 +25,6 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.At.Shift;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
-import org.lwjgl.glfw.GLFW;
 
 @Mixin(KeyboardHandler.class)
 public class KeyboardHandlerMixin {
@@ -38,15 +36,6 @@ public class KeyboardHandlerMixin {
    private void postKeyPressEvent(
       long windowHandle, int action, KeyEvent keyEvent, CallbackInfo callback
    ) {
-      if (this.minecraft.screen == null
-         && action == GLFW.GLFW_PRESS
-         && keyEvent.key() == GLFW.GLFW_KEY_K
-         && GLFW.glfwGetKey(windowHandle, GLFW.GLFW_KEY_RIGHT_SHIFT) == GLFW.GLFW_PRESS) {
-         CommandPaletteScreen.openPalette();
-         callback.cancel();
-         return;
-      }
-
       if (keyEvent.key() >= 0 && this.minecraft.screen == null && action == 1) {
          InputPressEvent event = new InputPressEvent(keyEvent.key(), false);
          ClientAccess.eventBus

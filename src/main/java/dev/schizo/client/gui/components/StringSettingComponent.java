@@ -24,6 +24,9 @@ import dev.schizo.client.settings.Setting;
 import dev.schizo.client.settings.StringSetting;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import java.awt.Color;
+import java.util.regex.Matcher;
+import net.minecraft.util.Mth;
 import org.lwjgl.glfw.GLFW;
 
 public class StringSettingComponent extends SettingComponent<String> {
@@ -48,49 +51,69 @@ public class StringSettingComponent extends SettingComponent<String> {
       if (this.isUnavailable() || !this.editing) {
          return;
       }
+      ClientContext.getClickGui()
+         .suppressEscapeClose();
       switch (key) {
-         case GLFW.GLFW_KEY_V -> {
-            long window = ClientAccess.schizoMinecraft.getWindow().handle();
-            if (GLFW.glfwGetKey(window, GLFW.GLFW_KEY_LEFT_CONTROL) == GLFW.GLFW_PRESS
-               || GLFW.glfwGetKey(window, GLFW.GLFW_KEY_RIGHT_CONTROL) == GLFW.GLFW_PRESS) {
-               String clipboard = ClientAccess.schizoMinecraft.keyboardHandler.getClipboard();
-               this.editingText = new StringBuilder(this.editingText).insert(this.cursorIndex, clipboard).toString();
-               this.cursorIndex += clipboard.length();
+         case 86:
+            if (GLFW.glfwGetKey(
+                  ClientAccess.schizoMinecraft.getWindow().handle(),
+                  341
+               )
+               == 1) {
+               this.editingText = new StringBuilder(
+                     this.editingText
+                  )
+                  .insert(
+                     this.cursorIndex,
+                     ClientAccess.schizoMinecraft.keyboardHandler.getClipboard()
+                  )
+                  .toString();
             }
-         }
-         case GLFW.GLFW_KEY_ESCAPE -> {
-            ClientContext.getClickGui().suppressEscapeClose();
+            break;
+         case 256:
             this.editing = false;
-         }
-         case GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_KP_ENTER -> {
+            break;
+         case 257:
             this.editing = false;
-            this.setting.setValue(this.editingText);
-         }
-         case GLFW.GLFW_KEY_BACKSPACE -> {
+            this.setting
+               .setValue(
+                  this.editingText
+               );
+            this.cursorIndex = this.editingText
+               .length();
+            break;
+         case 259:
+            if (this.editingText.length() == 0
+               || this.cursorIndex == 0) {
+               return;
+            }
+
+            int deletionIndex = this.cursorIndex - 1;
+            if (this.cursorIndex
+               == this.editingText.length()) {
+               this.editingText = this.editingText
+                  .substring(0, this.editingText.length() - 1);
+            } else if (deletionIndex >= 0
+               && deletionIndex <= this.editingText.length()) {
+               this.editingText = new StringBuilder(
+                     this.editingText
+                  )
+                  .deleteCharAt(deletionIndex)
+                  .toString();
+            }
+
+            this.cursorIndex--;
+            break;
+         case 262:
+            if (this.cursorIndex
+               < this.editingText.length()) {
+               this.cursorIndex++;
+            }
+            break;
+         case 263:
             if (this.cursorIndex > 0) {
-               int previous = this.editingText.offsetByCodePoints(this.cursorIndex, -1);
-               this.editingText = new StringBuilder(this.editingText).delete(previous, this.cursorIndex).toString();
-               this.cursorIndex = previous;
+               this.cursorIndex--;
             }
-         }
-         case GLFW.GLFW_KEY_DELETE -> {
-            if (this.cursorIndex < this.editingText.length()) {
-               int next = this.editingText.offsetByCodePoints(this.cursorIndex, 1);
-               this.editingText = new StringBuilder(this.editingText).delete(this.cursorIndex, next).toString();
-            }
-         }
-         case GLFW.GLFW_KEY_HOME -> this.cursorIndex = 0;
-         case GLFW.GLFW_KEY_END -> this.cursorIndex = this.editingText.length();
-         case GLFW.GLFW_KEY_RIGHT -> {
-            if (this.cursorIndex < this.editingText.length()) {
-               this.cursorIndex = this.editingText.offsetByCodePoints(this.cursorIndex, 1);
-            }
-         }
-         case GLFW.GLFW_KEY_LEFT -> {
-            if (this.cursorIndex > 0) {
-               this.cursorIndex = this.editingText.offsetByCodePoints(this.cursorIndex, -1);
-            }
-         }
       }
    }
 
@@ -106,10 +129,9 @@ public class StringSettingComponent extends SettingComponent<String> {
 
    public void beginEditing() {
       if (!this.editing) {
-         this.getClickGui().setEditingSetting(this);
          this.editing = true;
-         this.editingText = this.setting.getValue();
-         this.cursorIndex = this.editingText.length();
+         this.editingText = this.setting
+            .getValue();
       }
    }
 
@@ -154,84 +176,89 @@ public class StringSettingComponent extends SettingComponent<String> {
             - 0.5F,
          this.getUiModule().colorSetting.getValue()
       );
+      if (this.editingText != null) {
+         this.cursorIndex = Mth.clamp(
+            this.cursorIndex,
+            0,
+            this.editingText.length()
+         );
+      }
 
       if (this.editing) {
          poseStack.pushPose();
-         try {
-            String cursorMarker = this.getCursorMarker();
-            String prefix = this.editingText.substring(0, this.cursorIndex);
-            float caretWidth = FontRenderer.INSTANCE
-               .getWidth(
-                  prefix + "_"
-               );
-            if (caretWidth
-               > this.getPanel()
-                     .getWidth()
-                  - this.getHorizontalPadding()
-                     * (
-                        2
-                     )) {
-               poseStack.translate(
-                  this.getPanel()
-                           .getWidth()
-                        - this.getHorizontalPadding()
-                           * (
-                              2
-                           )
-                     - caretWidth,
-                  0.0F,
-                  0.0F
-               );
-            }
+         String cursorMarker = this.getCursorMarker();
+         float caretWidth = FontRenderer.INSTANCE
+            .getWidth(
+               this.editingText.substring(0, this.cursorIndex) + "_"
+            );
+         if (caretWidth
+            > this.getPanel()
+                  .getWidth()
+               - this.getHorizontalPadding()
+                  * (
+                     2
+                  )) {
+            poseStack.translate(
+               this.getPanel()
+                        .getWidth()
+                     - this.getHorizontalPadding()
+                        * (
+                           2
+                        )
+                  - caretWidth,
+               0.0F,
+               0.0F
+            );
+         }
 
-            if (!this.editingText.isEmpty()) {
-               FontRenderer.INSTANCE
-                  .drawWithShadow(
-                     poseStack,
-                     this.editingText,
-                     this.panel
+         if (!this.editingText.isEmpty()) {
+            FontRenderer.INSTANCE
+               .drawWithShadow(
+                  poseStack,
+                  this.editingText,
+                  this.panel
+                        .getX()
+                     + (
+                        4
+                     ),
+                  this.panel
+                        .getY()
+                     + this.getTextYOffset()
+                     - this.getHoverAnimationValue()
+                     + this.yOffset,
+                  this.getUiModule()
+                     .textColorSetting
+                     .getValue()
+               );
+         }
+
+         if (!cursorMarker.isBlank()) {
+            FontRenderer.INSTANCE
+               .drawWithShadow(
+                  poseStack,
+                  cursorMarker,
+                  this.panel
                            .getX()
                         + (
                            4
+                        )
+                     + FontRenderer.INSTANCE
+                        .getWidth(
+                           this.editingText
+                              .substring(0, this.cursorIndex)
                         ),
-                     this.panel
-                           .getY()
-                        + this.getTextYOffset()
-                        - this.getHoverAnimationValue()
-                        + this.yOffset,
-                     this.getUiModule()
-                        .textColorSetting
-                        .getValue()
-                  );
-            }
-
-            if (!cursorMarker.isBlank()) {
-               FontRenderer.INSTANCE
-                  .drawWithShadow(
-                     poseStack,
-                     cursorMarker,
-                     this.panel
-                              .getX()
-                           + (
-                              4
-                           )
-                        + FontRenderer.INSTANCE
-                           .getWidth(
-                              prefix
-                           ),
-                     this.panel
-                           .getY()
-                        + this.getTextYOffset()
-                        - this.getHoverAnimationValue()
-                        + this.yOffset,
-                     this.getUiModule()
-                        .textColorSetting
-                        .getValue()
-                  );
-            }
-         } finally {
-            poseStack.popPose();
+                  this.panel
+                        .getY()
+                     + this.getTextYOffset()
+                     - this.getHoverAnimationValue()
+                     + this.yOffset,
+                  this.getUiModule()
+                     .textColorSetting
+                     .getValue()
+               );
          }
+
+         poseStack.popPose();
       } else {
          String labelText = this.getDisplayText();
          this.renderWithTextScroll(
@@ -240,7 +267,7 @@ public class StringSettingComponent extends SettingComponent<String> {
             () -> FontRenderer.INSTANCE
                .drawWithShadow(
                   poseStack,
-                  labelText,
+                  this.getDisplayText(),
                   this.panel
                         .getX()
                      + (
@@ -260,7 +287,11 @@ public class StringSettingComponent extends SettingComponent<String> {
    }
 
    private String getDisplayText() {
-      return this.setting.getName() + ": " + this.setting.getValue();
+      String name = this.setting.getName();
+      String value = this.setting.getValue();
+      return "\u0001: \u0001"
+         .replaceFirst("\u0001", Matcher.quoteReplacement(String.valueOf(name)))
+         .replaceFirst("\u0001", Matcher.quoteReplacement(String.valueOf(value)));
    }
 
    @Override
@@ -296,7 +327,11 @@ public class StringSettingComponent extends SettingComponent<String> {
 
          this.editingText = this.setting
             .getValue();
-         this.cursorIndex = this.editingText.length();
+         if (this.editingText != null
+            && !this.editingText.isEmpty()) {
+            this.cursorIndex = this.editingText
+               .length();
+         }
       }
    }
 

@@ -12,7 +12,6 @@ package dev.schizo.client.modules.combat;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.ClientLevelRemoveEntityEvent;
-import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.events.PacketEvent;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.utils.combat.BlockRaycastContext;
@@ -25,7 +24,6 @@ import dev.schizo.client.settings.BooleanSetting;
 import dev.schizo.client.settings.NumberSetting;
 import dev.schizo.client.settings.Setting;
 import dev.schizo.client.utils.math.MathUtils;
-import dev.schizo.client.utils.network.ServerSideDeathState;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -60,7 +58,6 @@ public class AntiPearlModule extends PlacementModule {
    private final Map<BlockPos, Long> placementExpiryByPosition;
    private final Map<Integer, AbstractClientPlayer> nearbyPlayerByPearlId;
    private final Map<Integer, PendingPlacement> pendingPlacementByPearlId;
-   private volatile long sessionGeneration;
 
    private void prependSupportPositions(List<BlockPos> positions) {
       List<BlockPos> supportPositions = null;
@@ -87,19 +84,9 @@ public class AntiPearlModule extends PlacementModule {
 
    @Override
    public void onToggle() {
-      this.clearPearlSessionState();
-   }
-
-   private void clearPearlSessionState() {
-      this.sessionGeneration++;
       this.nearbyPlayerByPearlId.clear();
-      this.pendingPlacementByPearlId.clear();
-      this.placementExpiryByPosition.clear();
-   }
 
-   @EventHandler
-   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
-      this.clearPearlSessionState();
+      this.pendingPlacementByPearlId.clear();
    }
 
    private void refreshAirbornePearls() {
@@ -152,30 +139,24 @@ public class AntiPearlModule extends PlacementModule {
 
       while (players.hasNext()) {
          AbstractClientPlayer player = (AbstractClientPlayer)players.next();
-         if (!CombatTargetPolicy.isEligible(
-            player.isAlive(),
-            player.isDeadOrDying(),
-            player == ClientAccess.schizoMinecraft.player,
-            player.isSpectator(),
-            player.isCreative(),
-            ClientContext.socialRegistry.isFriendPlayer(player),
-            ((ServerSideDeathState)player).isServerSideDead()
-         )) {
-            continue;
-         }
 
          Vec3 eyePositionSnapshot = player.getEyePosition();
          double distance = eyePositionSnapshot.distanceTo(pearlPosition);
 
-         if (distance <= 3.0D && distance < nearestDistance) {
+         if (!(distance > 3.0D) && distance < nearestDistance) {
             nearestDistance = distance;
             nearestPlayer = player;
          }
       }
 
       if (nearestPlayer != null) {
-         Map<Integer, AbstractClientPlayer> playerMap = this.nearbyPlayerByPearlId;
-         playerMap.put(pearlId, nearestPlayer);
+         if (nearestPlayer != ClientAccess.schizoMinecraft.player) {
+            if (!ClientContext.socialRegistry.isFriendPlayer(nearestPlayer)) {
+               Map<Integer, AbstractClientPlayer> playerMap = this.nearbyPlayerByPearlId;
+               Integer playerPearlId = pearlId;
+               playerMap.put(playerPearlId, nearestPlayer);
+            }
+         }
       }
    }
 
@@ -318,16 +299,7 @@ public class AntiPearlModule extends PlacementModule {
          if (spawnPacket.getType() == EntityType.ENDER_PEARL) {
             Vec3 spawnPosition = new Vec3(spawnPacket.getX(), spawnPacket.getY(), spawnPacket.getZ());
             var taskExecutor = ClientAccess.schizoMinecraft;
-            var levelSnapshot = ClientAccess.schizoMinecraft.level;
-            long generationSnapshot = this.sessionGeneration;
             Runnable processSpawn = () -> {
-               if (!this.isToggled()
-                  || this.isWorldUnavailable()
-                  || ClientAccess.schizoMinecraft.level != levelSnapshot
-                  || this.sessionGeneration != generationSnapshot) {
-                  return;
-               }
-
                int queuedIdSnapshot = spawnPacket.getId();
                Vec3 queuedMovement = spawnPacket.getMovement();
                this.processPearlSpawn(queuedIdSnapshot, spawnPosition, queuedMovement);

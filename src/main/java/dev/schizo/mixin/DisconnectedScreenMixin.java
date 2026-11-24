@@ -40,6 +40,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(DisconnectedScreen.class)
 public class DisconnectedScreenMixin extends Screen {
+   private static final AutoReconnectModule autoReconnectModule = ClientContext.getModule(AutoReconnectModule.class);
+   private static final UIModule uiModule = ClientContext.getModule(UIModule.class);
    @Unique
    private long reconnectTimerStartMillis;
    @Shadow
@@ -60,10 +62,6 @@ public class DisconnectedScreenMixin extends Screen {
    @Inject(method = "init()V", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/screens/DisconnectedScreen;repositionElements()V", shift = Shift.BEFORE))
    private void addReconnectButtons(CallbackInfo callback) {
       this.reconnectTimerStartMillis = System.currentTimeMillis();
-      AutoReconnectModule autoReconnectModule = ClientContext.getModule(AutoReconnectModule.class);
-      if (autoReconnectModule == null || ClientContext.serverStateManager == null) {
-         return;
-      }
       Builder reconnectBuilder = Button.builder(
             Component.literal("Reconnect"),
             button -> {
@@ -135,24 +133,21 @@ public class DisconnectedScreenMixin extends Screen {
 
    @Override
    public boolean keyPressed(KeyEvent keyEvent) {
-      UIModule uiModule = ClientContext.getModule(UIModule.class);
-      if (uiModule != null
-         && keyEvent.key() == uiModule.getKeybind().code()
+      if (keyEvent.key()
+            == uiModule.getKeybind()
+               .code()
          && !(this.getFocused() instanceof EditBox)) {
          uiModule.enable();
-         ClientContext.getClickGui().open();
+         ClientContext.getClickGui()
+            .open();
          return false;
+      } else {
+         return super.keyPressed(keyEvent);
       }
-      return super.keyPressed(keyEvent);
    }
 
    @Override
    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-      if (this.autoReconnectButton == null || ClientContext.getModule(AutoReconnectModule.class) == null
-            || ClientContext.serverStateManager == null) {
-         super.render(graphics, mouseX, mouseY, partialTick);
-         return;
-      }
       String reasonText = this.details.reason().getString();
       if (reasonText.contains("Schizo") && reasonText.contains("[AutoLog]")) {
          this.autoReconnectButton
@@ -169,8 +164,7 @@ public class DisconnectedScreenMixin extends Screen {
    }
 
    private void tryAutoReconnect() {
-      AutoReconnectModule autoReconnectModule = ClientContext.getModule(AutoReconnectModule.class);
-      if (autoReconnectModule != null && ClientContext.serverStateManager != null && autoReconnectModule.isToggled()) {
+      if (autoReconnectModule.isToggled()) {
          float remainingSeconds = this.getReconnectSecondsRemaining(
             autoReconnectModule
          );
@@ -185,10 +179,6 @@ public class DisconnectedScreenMixin extends Screen {
 
    private Component getAutoReconnectButtonMessage() {
       MutableComponent message = Component.literal("AutoReconnect ");
-      AutoReconnectModule autoReconnectModule = ClientContext.getModule(AutoReconnectModule.class);
-      if (autoReconnectModule == null || ClientContext.serverStateManager == null) {
-         return message.append(ChatFormatting.RED + "OFF");
-      }
       String reasonText = this.details.reason().getString();
       boolean showCountdown = autoReconnectModule.isToggled()
          && (!reasonText.contains("Schizo") || !reasonText.contains("[AutoLog]"));

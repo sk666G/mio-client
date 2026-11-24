@@ -411,9 +411,6 @@ public class AutoCraftModule extends Module {
          }
       }
 
-      if (!ClientAccess.schizoMinecraft.player.containerMenu.getCarried().isEmpty()) {
-         return;
-      }
       if (recipe == null) {
          return;
       }
@@ -526,30 +523,25 @@ public class AutoCraftModule extends Module {
          }
 
          if (gunpowderSlot != -1 && !gridHasGunpowder) {
-            int sourceGunpowderSlot = gunpowderSlot;
-            int capturedGunpowderUnits = gunpowderUnits;
-            InventoryUtils.runWithCursorCleanup(craftingMenu, sourceGunpowderSlot, () -> {
-               InventoryUtils.clickSlot(craftingMenu.containerId, sourceGunpowderSlot, 0, ClickType.PICKUP);
+            InventoryUtils.clickSlot(craftingMenu.containerId, gunpowderSlot, 0, ClickType.PICKUP);
 
-               for (int targetGridSlot : gunpowderGridSlots) {
-                  ItemStack capturedPlacementStack = craftingMenu.getSlot(targetGridSlot).getItem();
-                  Item placementGunpowder = Items.GUNPOWDER;
+            for (int targetGridSlot : gunpowderGridSlots) {
+               ItemStack capturedPlacementStack = craftingMenu.getSlot(targetGridSlot).getItem();
+               Item placementGunpowder = Items.GUNPOWDER;
 
-                  if (!capturedPlacementStack.is(placementGunpowder)) {
-                     ItemStack carriedStack = craftingMenu.getCarried();
-                     if (!carriedStack.isEmpty()) {
-                        int targetGridButton = capturedGunpowderUnits >= (3) ? 0 : 1;
-                        InventoryUtils.clickSlot(
-                           craftingMenu.containerId, targetGridSlot, targetGridButton, ClickType.PICKUP
-                        );
-                     }
-                     break;
+               if (!capturedPlacementStack.is(placementGunpowder)) {
+                  ItemStack carriedStack = craftingMenu.getCarried();
+                  if (!carriedStack.isEmpty()) {
+                     int targetGridButton = gunpowderUnits >= (3) ? 0 : 1;
+                     InventoryUtils.clickSlot(craftingMenu.containerId, targetGridSlot, targetGridButton, ClickType.PICKUP);
                   }
+                  break;
                }
+            }
 
-               InventoryUtils.clickSlot(craftingMenu.containerId, sourceGunpowderSlot, 0, ClickType.PICKUP);
-            });
+            InventoryUtils.clickSlot(craftingMenu.containerId, gunpowderSlot, 0, ClickType.PICKUP);
             capturedCraftTimer = this.craftTimer;
+
             capturedCraftTimer.reset();
             return;
          }

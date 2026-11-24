@@ -26,6 +26,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(PauseScreen.class)
 public abstract class PauseScreenMixin extends Screen {
+   private static final AntiQuitModule antiQuitModule = ClientContext.getModule(AntiQuitModule.class);
+   private static final IllegalDisconnectModule illegalDisconnectModule = ClientContext.getModule(IllegalDisconnectModule.class);
    @Unique
    private static boolean disconnectConfirmed;
 
@@ -37,10 +39,7 @@ public abstract class PauseScreenMixin extends Screen {
    @Inject(method = "method_72129()V", at = @At("HEAD"), cancellable = true)
    private void confirmOrInterceptDisconnect(CallbackInfo callback) {
       Minecraft client = Minecraft.getInstance();
-      AntiQuitModule antiQuitModule = ClientContext.getModule(AntiQuitModule.class);
-      IllegalDisconnectModule illegalDisconnectModule = ClientContext.getModule(IllegalDisconnectModule.class);
-      if (antiQuitModule != null
-         && antiQuitModule.isToggled()
+      if (antiQuitModule.isToggled()
          && antiQuitModule.disconnectSetting.getValue()
          && !disconnectConfirmed) {
          client.setScreen(new DisconnectConfirmationScreen(() -> {
@@ -49,8 +48,7 @@ public abstract class PauseScreenMixin extends Screen {
          }));
          callback.cancel();
       } else {
-         if (illegalDisconnectModule != null
-            && illegalDisconnectModule.isToggled()
+         if (illegalDisconnectModule.isToggled()
             && client.player != null
             && !client.isLocalServer()) {
             illegalDisconnectModule.requestDisconnect();

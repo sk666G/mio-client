@@ -159,12 +159,8 @@ public final class ObstaclePasserModule extends Module {
       return ClientContext.baritoneBridge.isPathingOrCalculating();
    }
 
-   private boolean ownsActivePath() {
-      return ClientContext.baritoneBridge.ownsPath(this);
-   }
-
    private void updateObstacleTarget() {
-      if (this.ownsActivePath()) {
+      if (ClientContext.baritoneBridge.isPathingOrCalculating()) {
          BlockPos activeTarget = ClientContext.baritoneBridge.getGoalPosition();
          if (activeTarget != null) {
             Vec3 targetCenter = activeTarget.getBottomCenter();
@@ -173,7 +169,7 @@ public final class ObstaclePasserModule extends Module {
             float currentTravelYaw = this.getTravelYaw();
             float yawDifference = Mth.degreesDifferenceAbs(targetYaw, currentTravelYaw);
             if (yawDifference > 100.0F) {
-               ClientContext.baritoneBridge.cancelPathing(this);
+               ClientContext.baritoneBridge.cancelPathing();
                return;
             }
 
@@ -181,14 +177,14 @@ public final class ObstaclePasserModule extends Module {
             float targetDistance = Vec3Utils.horizontalDistance(rangeOrigin, targetCenter);
             int maximumTravel = this.maxTravelSetting.getValue();
             if (targetDistance > maximumTravel + 2) {
-               ClientContext.baritoneBridge.cancelPathing(this);
+               ClientContext.baritoneBridge.cancelPathing();
                return;
             }
 
             Vec3 arrivalOrigin = ClientAccess.schizoMinecraft.player.position();
             float arrivalDistance = Vec3Utils.horizontalDistance(arrivalOrigin, targetCenter);
             if (arrivalDistance <= 1.0F) {
-               ClientContext.baritoneBridge.cancelPathing(this);
+               ClientContext.baritoneBridge.cancelPathing();
                this.passCooldownTicks = 10;
                if (elytraFly.isToggled()) {
                   this.elytraPassActive = true;
@@ -229,7 +225,7 @@ public final class ObstaclePasserModule extends Module {
                   alignedSearchOffset++;
                }
 
-               ClientContext.baritoneBridge.pathTo(this, alignedTarget);
+               ClientContext.baritoneBridge.pathTo(alignedTarget);
                return;
             }
          }
@@ -270,7 +266,7 @@ public final class ObstaclePasserModule extends Module {
             searchOffset++;
          }
 
-         ClientContext.baritoneBridge.pathTo(this, searchPosition.atY(travelHeight));
+         ClientContext.baritoneBridge.pathTo(searchPosition.atY(travelHeight));
       }
    }
 
@@ -311,7 +307,7 @@ public final class ObstaclePasserModule extends Module {
    }
 
    private void updatePathTransition() {
-      if (this.ownsActivePath()) {
+      if (ClientContext.baritoneBridge.isPathingOrCalculating()) {
          if (!this.pathWasActive) {
             this.pathWasActive = true;
             ClientContext.playerStateTracker.setSneaking(true);
@@ -339,7 +335,7 @@ public final class ObstaclePasserModule extends Module {
 
    @Override
    public void onDisable() {
-      ClientContext.baritoneBridge.cancelPathing(this);
+      ClientContext.baritoneBridge.cancelPathing();
       if (this.pathWasActive) {
          if (autoArmor.isToggled()) {
             autoArmor.elytraSetting.setValue(true);
@@ -348,7 +344,7 @@ public final class ObstaclePasserModule extends Module {
    }
 
    public boolean isPassingObstacles() {
-      return this.isToggled() && this.ownsActivePath();
+      return this.isToggled() && this.isPathActive();
    }
 
    private float getTravelYaw() {
@@ -460,9 +456,9 @@ public final class ObstaclePasserModule extends Module {
    }
 
    private double horizontalDistance(Vec3 first, Vec3 second) {
-      double dx = first.x - second.x;
-      double dz = first.z - second.z;
-      return Math.sqrt(dx * dx + dz * dz);
+      Vec3 firstFlat = first.multiply(1.0D, 0.0, 1.0D);
+      Vec3 secondFlat = second.multiply(1.0D, 0.0, 1.0D);
+      return firstFlat.distanceTo(secondFlat);
    }
 
    @EventHandler

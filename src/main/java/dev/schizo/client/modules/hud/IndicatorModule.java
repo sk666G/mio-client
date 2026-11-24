@@ -148,7 +148,7 @@ public class IndicatorModule extends HudWidgetModule {
    @Override
    public float[] calculateDimensions() {
       if (ClientAccess.schizoMinecraft.player == null) {
-         return this.dimensions(0.0F, 0.0F);
+         return new float[]{0.0F, 0.0F};
       }
       float width = 0.0F;
       float height = 0.0F;
@@ -166,7 +166,7 @@ public class IndicatorModule extends HudWidgetModule {
          else height += (count - 1) * 4.0F;
       }
       float scale = hud.getTextScale();
-      return this.dimensions(width * scale, height * scale);
+      return new float[]{width * scale, height * scale};
    }
 
    @Override

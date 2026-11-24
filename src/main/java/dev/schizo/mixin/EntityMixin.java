@@ -9,7 +9,6 @@
 
 package dev.schizo.mixin;
 
-import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.utils.math.MathConstants;
 
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
@@ -54,6 +53,12 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(Entity.class)
 public abstract class EntityMixin implements EntityMotionAccess {
+   private static NoSlowModule noSlowModule = ClientContext.getModule(NoSlowModule.class);
+   private static ElytraFlyModule elytraFlyModule = ClientContext.getModule(ElytraFlyModule.class);
+   private static FreecamModule freecamModule = ClientContext.getModule(FreecamModule.class);
+   private static VelocityModule velocityModule = ClientContext.getModule(VelocityModule.class);
+   private static FreeLookModule freelook = ClientContext.getModule(FreeLookModule.class);
+   private static NoRenderModule noRenderModule = ClientContext.getModule(NoRenderModule.class);
    @Unique
    private float cameraPitch;
    @Unique
@@ -84,8 +89,8 @@ public abstract class EntityMixin implements EntityMotionAccess {
       if ((Object)this != Minecraft.getInstance().player) {
          return originalBlock;
       } else {
-         return MixinModuleRegistry.entityNoSlowModule.isToggled()
-               && MixinModuleRegistry.entityNoSlowModule.soulSandSetting.getValue()
+         return noSlowModule.isToggled()
+               && noSlowModule.soulSandSetting.getValue()
             ? Blocks.STONE
             : originalBlock;
       }
@@ -94,8 +99,8 @@ public abstract class EntityMixin implements EntityMotionAccess {
    @Inject(method = "push(Lnet/minecraft/world/entity/Entity;)V", at = @At("HEAD"), cancellable = true)
    private void cancelEntityPush(Entity otherEntity, CallbackInfo callback) {
       if (this.equals(Minecraft.getInstance().player)
-         && MixinModuleRegistry.entityVelocityModule.isToggled()
-         && MixinModuleRegistry.entityVelocityModule.pushSetting.getValue()) {
+         && velocityModule.isToggled()
+         && velocityModule.pushSetting.getValue()) {
          callback.cancel();
       }
    }
@@ -108,24 +113,24 @@ public abstract class EntityMixin implements EntityMotionAccess {
       )
    )
    private Vec3 modifyFluidPush(Vec3 originalPush) {
-      return MixinModuleRegistry.entityVelocityModule.isToggled()
-            && MixinModuleRegistry.entityVelocityModule.liquidsSetting.getValue()
+      return velocityModule.isToggled()
+            && velocityModule.liquidsSetting.getValue()
          ? Vec3.ZERO
          : originalPush;
    }
 
    @ModifyExpressionValue(method = "pick", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/Entity;getViewVector(F)Lnet/minecraft/world/phys/Vec3;"))
    private Vec3 overridePickViewVector(Vec3 originalView) {
-      if (!MixinModuleRegistry.entityFreelook.isToggled()) {
+      if (!freelook.isToggled()) {
          return originalView;
       }
-      Vector2f cameraRotation = MixinModuleRegistry.entityFreelook.getCameraRotation();
+      Vector2f cameraRotation = freelook.getCameraRotation();
       return this.calculateViewVector(cameraRotation.y(), cameraRotation.x());
    }
 
    @Inject(method = "turn", at = @At("HEAD"), cancellable = true)
    public void updateFreelookRotation(double horizontalInput, double verticalInput, CallbackInfo callback) {
-      if (MixinModuleRegistry.entityFreecamModule.isToggled() || !MixinModuleRegistry.entityFreelook.isToggled() || !ClientAccess.isLocalPlayer(this)) {
+      if (freecamModule.isToggled() || !freelook.isToggled() || !ClientAccess.isLocalPlayer(this)) {
          return;
       }
       double pitchDelta = verticalInput * 0.15;
@@ -179,8 +184,8 @@ public abstract class EntityMixin implements EntityMotionAccess {
    @Inject(method = "getPose", at = @At("HEAD"), cancellable = true)
    private void overrideElytraPose(CallbackInfoReturnable<Pose> callback) {
       if ((Object)this == Minecraft.getInstance().player) {
-         if (MixinModuleRegistry.entityElytraFlyModule.isPacketFlightActive()
-            || MixinModuleRegistry.entityElytraFlyModule.isDurabilityBypassActive()) {
+         if (elytraFlyModule.isPacketFlightActive()
+            || elytraFlyModule.isDurabilityBypassActive()) {
             callback.setReturnValue(Pose.STANDING);
             callback.cancel();
          }
@@ -189,7 +194,7 @@ public abstract class EntityMixin implements EntityMotionAccess {
 
    @ModifyExpressionValue(method = "getEyePosition(F)Lnet/minecraft/world/phys/Vec3;", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/Entity;getEyeHeight()F"))
    private float applyLegacySneakingEyePosition(float originalEyeHeight) {
-      return MixinModuleRegistry.entityNoRenderModule.isToggled() && MixinModuleRegistry.entityNoRenderModule.newSneakingSetting.getValue() && this.hasPose(Pose.CROUCHING) ? 1.54F : originalEyeHeight;
+      return noRenderModule.isToggled() && noRenderModule.newSneakingSetting.getValue() && this.hasPose(Pose.CROUCHING) ? 1.54F : originalEyeHeight;
    }
 
    @WrapOperation(method = "saveWithoutId", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/Entity;addAdditionalSaveData(Lnet/minecraft/world/level/storage/ValueOutput;)V"))
@@ -250,4 +255,21 @@ public abstract class EntityMixin implements EntityMotionAccess {
       return this.previousVelocity;
    }
 
+   @Unique
+   private static void schizo$bindEntityModules(ModuleRegistry moduleRegistry) {
+      noSlowModule = (NoSlowModule)moduleRegistry.getModule(
+         NoSlowModule.class
+      );
+      elytraFlyModule = (ElytraFlyModule)moduleRegistry.getModule(
+         ElytraFlyModule.class
+      );
+      freecamModule = (FreecamModule)moduleRegistry.getModule(
+         FreecamModule.class
+      );
+      velocityModule = (VelocityModule)moduleRegistry.getModule(
+         VelocityModule.class
+      );
+      freelook = (FreeLookModule)moduleRegistry.getModule(FreeLookModule.class);
+      noRenderModule = (NoRenderModule)moduleRegistry.getModule(NoRenderModule.class);
+   }
 }

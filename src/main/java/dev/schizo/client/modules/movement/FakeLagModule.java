@@ -52,7 +52,6 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 public class FakeLagModule extends Module {
-   static final int MAX_BUFFERED_PACKETS = 4096;
    private final Queue<Packet<?>> bufferedPackets = new ArrayDeque<>();
    final Setting<ModeChoice> modeSetting;
    private final Setting<Boolean> cancelSetting;
@@ -118,11 +117,7 @@ public class FakeLagModule extends Module {
    public void onDisable() {
       if (!this.isWorldUnavailable()) {
          this.releaseBufferedPackets();
-      } else {
-         this.bufferedPackets.clear();
       }
-      this.bufferedPlayerSnapshot = null;
-      this.bufferedPositionBounds = null;
    }
 
    @EventHandler
@@ -162,11 +157,9 @@ public class FakeLagModule extends Module {
       if (event.isCancelled()) {
          return;
       }
-      if (this.bufferedPackets.size() >= MAX_BUFFERED_PACKETS) {
-         this.releaseBufferedPackets();
-         return;
-      }
-      this.bufferedPackets.add(event.getPacket());
+      Queue<Packet<?>> packetQueue = this.bufferedPackets;
+      Packet<?> packetToBuffer = event.getPacket();
+      packetQueue.add(packetToBuffer);
       event.cancel();
    }
 

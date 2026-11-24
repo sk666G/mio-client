@@ -89,6 +89,23 @@ import dev.schizo.client.modules.render.ShaderModule;
 import dev.schizo.client.modules.render.SkeletonModule;
 import dev.schizo.client.modules.render.TracersModule;
 import dev.schizo.client.settings.ColorSetting;
+import dev.schizo.mixin.BlockModuleBindings;
+import dev.schizo.mixin.BundleContentsModuleBindings;
+import dev.schizo.mixin.EntityModuleBindings;
+import dev.schizo.mixin.HoneyBlockModuleBindings;
+import dev.schizo.mixin.LevelModuleBindings;
+import dev.schizo.mixin.LiquidBlockModuleBindings;
+import dev.schizo.mixin.LivingEntityModuleBindings;
+import dev.schizo.mixin.MaterialModuleBindings;
+import dev.schizo.mixin.MinecraftModuleBindings;
+import dev.schizo.mixin.MobModuleBindings;
+import dev.schizo.mixin.PlayerModuleBindings;
+import dev.schizo.mixin.RenderTypeColorModuleBindings;
+import dev.schizo.mixin.SlimeBlockModuleBindings;
+import dev.schizo.mixin.SweetBerryBushBlockModuleBindings;
+import dev.schizo.mixin.TextureTransformModuleBindings;
+import dev.schizo.mixin.TridentItemModuleBindings;
+import dev.schizo.mixin.WebBlockModuleBindings;
 import java.util.Objects;
 
 public final class ModuleDependencies {
@@ -96,6 +113,7 @@ public final class ModuleDependencies {
 
    public static void bind(ModuleRegistry registry) {
       Objects.requireNonNull(registry, "Module manager is not initialized");
+      bindMinecraftHooks(registry);
       ServerStateManager.bindModules(registry);
       BlockBreakTracker.bindModules(registry);
       RotationManager.bindReferencedModules(registry);
@@ -178,4 +196,23 @@ public final class ModuleDependencies {
       ObstaclePasserModule.bindModules(registry);
    }
 
+   private static void bindMinecraftHooks(ModuleRegistry registry) {
+      BlockModuleBindings.bind(registry);
+      LiquidBlockModuleBindings.bind(registry);
+      WebBlockModuleBindings.bind(registry);
+      SlimeBlockModuleBindings.bind(registry);
+      SweetBerryBushBlockModuleBindings.bind(registry);
+      HoneyBlockModuleBindings.bind(registry);
+      MinecraftModuleBindings.bind(registry);
+      BundleContentsModuleBindings.bind(registry);
+      LevelModuleBindings.bind(registry);
+      EntityModuleBindings.bind(registry);
+      LivingEntityModuleBindings.bind(registry);
+      TridentItemModuleBindings.bind(registry);
+      TextureTransformModuleBindings.bind(registry);
+      RenderTypeColorModuleBindings.bind(registry);
+      MaterialModuleBindings.bind(registry);
+      MobModuleBindings.bind(registry);
+      PlayerModuleBindings.bind(registry);
+   }
 }

@@ -27,7 +27,6 @@ import dev.schizo.client.utils.world.BlockInteractionUtils;
 import dev.schizo.client.utils.entity.PlayerStateUtils;
 import dev.schizo.client.utils.inventory.InventoryUtils;
 import dev.schizo.client.utils.world.WorldUtils;
-import dev.schizo.client.utils.network.ServerSideDeathState;
 import dev.schizo.client.managers.ModuleRegistry;
 import dev.schizo.client.modules.ModuleCategory;
 import dev.schizo.client.modules.render.LogoutSpotsModule;
@@ -268,48 +267,65 @@ public class AutoTrapModule extends PlacementModule {
    }
 
    protected boolean isValidTarget(Player player) {
-      if (!CombatTargetPolicy.isEligible(
-         player.isAlive(),
-         player.isDeadOrDying(),
-         player == ClientAccess.schizoMinecraft.player,
-         player.isSpectator(),
-         player.isCreative(),
-         ClientContext.socialRegistry.isFriendPlayer(player),
-         ((ServerSideDeathState)player).isServerSideDead()
-      )) {
-         return false;
-      }
+      if (!player.isDeadOrDying()) {
+         if (player.isAlive() && player != ClientAccess.schizoMinecraft.player) {
+            if (ClientContext.socialRegistry.isFriendPlayer(player)) {
+               return false;
+            }
 
-      if (this.ignoreNakedsSetting.getValue() && !PlayerStateUtils.hasArmor(player)) {
-         return false;
-      }
-      if (this.onlyPhasedSetting.getValue() && !this.isPhasedPlayer(player)) {
-         return false;
-      }
-      if (this.ignoreCrawlSetting.getValue()
-         && PlayerStateUtils.isLowProfile(player)
-         && !player.isFallFlying()) {
-         return false;
-      }
+            if (this.ignoreNakedsSetting.getValue()) {
+               if (!PlayerStateUtils.hasArmor(player)) {
+                  return false;
+               }
+            }
 
-      if (!RotationManager.isMovementSyncEnabled() && !(player instanceof SidePlayer)) {
-         double movementAmount = MovementPhysics.getHorizontalSpeedKmh(player);
-         if (movementAmount > 20.0D || !EntityUtils.hasCollisionBelow(player)) {
-            return false;
+            if (this.onlyPhasedSetting.getValue()) {
+               if (!this.isPhasedPlayer(player)) {
+                  return false;
+               }
+            }
+
+            if (this.ignoreCrawlSetting.getValue()) {
+               if (PlayerStateUtils.isLowProfile(player)) {
+                  if (!player.isFallFlying()) {
+                     return false;
+                  }
+               }
+            }
+
+            if (!RotationManager.isMovementSyncEnabled()
+               && !(player instanceof SidePlayer)) {
+               double movementAmount = MovementPhysics.getHorizontalSpeedKmh(player);
+
+               if (movementAmount > 20.0D) {
+                  return false;
+               }
+
+               if (!EntityUtils.hasCollisionBelow(player)) {
+                  return false;
+               }
+
+               double previousY = player.yo;
+               double verticalDifference = previousY - player.getY();
+               double verticalMovement = Math.abs(verticalDifference);
+
+               if (verticalMovement > 0.6D) {
+                  return false;
+               }
+            }
+
+            float rangeValue = this.rangeSetting.getValue();
+
+            float maximumRange = rangeValue + 2.0F;
+            if (player.isFallFlying()) {
+               maximumRange = 14.0F;
+            }
+
+            return this.getTargetPosition(player).distanceTo(ClientAccess.schizoMinecraft.player.getEyePosition()) <= maximumRange;
          }
-
-         double verticalMovement = Math.abs(player.yo - player.getY());
-         if (verticalMovement > 0.6D) {
-            return false;
-         }
       }
 
-      float maximumRange = this.rangeSetting.getValue() + 2.0F;
-      if (player.isFallFlying()) {
-         maximumRange = 14.0F;
-      }
-      return this.getTargetPosition(player).distanceTo(ClientAccess.schizoMinecraft.player.getEyePosition())
-         <= maximumRange;
+      return false;
    }
 
    protected boolean includeLowerSideOffsets() {

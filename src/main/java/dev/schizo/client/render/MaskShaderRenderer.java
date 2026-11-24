@@ -82,12 +82,8 @@ public final class MaskShaderRenderer implements ClientAccess {
          RenderTargetUtils.setMainRenderTarget(
             MASK_TARGET
          );
-         try {
-            drawMask.run();
-         } finally {
-            // A failed mask draw must not leave Minecraft rendering into MASK_TARGET.
-            RenderTargetUtils.setMainRenderTarget(mainTarget);
-         }
+         drawMask.run();
+         RenderTargetUtils.setMainRenderTarget(mainTarget);
       }
    }
 

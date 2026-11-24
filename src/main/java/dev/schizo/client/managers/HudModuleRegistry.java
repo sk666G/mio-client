@@ -24,7 +24,6 @@ import dev.schizo.client.modules.hud.DirectionModule;
 import dev.schizo.client.modules.hud.EffectsModule;
 import dev.schizo.client.modules.hud.EntityListModule;
 import dev.schizo.client.modules.hud.GraphModule;
-import dev.schizo.client.modules.hud.FrameTimeGraphModule;
 import dev.schizo.client.modules.hud.IndicatorModule;
 import dev.schizo.client.modules.hud.InventoryModule;
 import dev.schizo.client.modules.hud.LagOMeterModule;
@@ -60,7 +59,6 @@ public final class HudModuleRegistry implements ClientAccess, JsonConfigurable {
       ClientContext.moduleRegistry.registerModule(new ModuleListModule());
       ClientContext.moduleRegistry.registerModule(new ArmorModule());
       ClientContext.moduleRegistry.registerModule(new GraphModule());
-      ClientContext.moduleRegistry.registerModule(new FrameTimeGraphModule());
       ClientContext.moduleRegistry.registerModule(new EffectsModule());
       ClientContext.moduleRegistry.registerModule(new WelcomerModule());
       ClientContext.moduleRegistry.registerModule(new PositionModule());

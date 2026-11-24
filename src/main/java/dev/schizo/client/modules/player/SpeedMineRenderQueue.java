@@ -46,13 +46,22 @@ public class SpeedMineRenderQueue {
    }
 
    public void render(WorldRenderEvent event) {
+      BlockPos fadedBlockPos = null;
       Iterator<SpeedMineBlockRenderState> states = this.blockRenderStates.values().iterator();
+
       while (states.hasNext()) {
          SpeedMineBlockRenderState renderState = states.next();
+
          renderState.render(event);
+
          if (renderState.isFadedOut()) {
-            states.remove();
+
+            fadedBlockPos = renderState.getBlockPos();
          }
+      }
+
+      if (fadedBlockPos != null) {
+         this.blockRenderStates.remove(fadedBlockPos);
       }
    }
 

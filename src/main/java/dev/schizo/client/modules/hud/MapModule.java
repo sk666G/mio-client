@@ -65,11 +65,14 @@ public class MapModule extends HudWidgetModule {
    @Override
    public float[] calculateDimensions() {
 
+      float[] dimensions = new float[2];
       Setting<Float> widthOption = this.widthSetting;
       Float width = widthOption.getValue();
+      dimensions[0] = width;
       Setting<Float> heightOption = this.heightSetting;
       Float height = heightOption.getValue();
-      return this.dimensions(width, height);
+      dimensions[1] = height;
+      return dimensions;
    }
 
    private boolean isChunkWithinRange(ChunkPos chunk) {
@@ -99,11 +102,8 @@ public class MapModule extends HudWidgetModule {
          int previousRenderState = renderColorValues[3];
 
          RenderUtils.setColorAlpha(255);
-         try {
-            GuiDrawUtils.flush();
-         } finally {
-            RenderUtils.setColorAlpha(previousRenderState);
-         }
+         GuiDrawUtils.flush();
+         RenderUtils.setColorAlpha(previousRenderState);
          RenderUtils backgroundRenderer = RenderUtils.INSTANCE;
          Setting<Float> backgroundWidthOption = this.widthSetting;
          Float backgroundWidth = backgroundWidthOption.getValue();
@@ -141,10 +141,9 @@ public class MapModule extends HudWidgetModule {
 
          float centerY = mapHeight / 2.0F;
          poses.pushPose();
-         try {
-            float mapDepth = 0.0F;
-            poses.translate(centerX, centerY, mapDepth);
-            NewChunksModule dungeonSource = newChunks;
+         float mapDepth = 0.0F;
+         poses.translate(centerX, centerY, mapDepth);
+         NewChunksModule dungeonSource = newChunks;
 
          Iterator chunks = dungeonSource.getDetectedDungeons().iterator();
 
@@ -190,9 +189,7 @@ public class MapModule extends HudWidgetModule {
                }
             }
          }
-         } finally {
-            poses.popPose();
-         }
+         poses.popPose();
          ScissorStack.push(
             (int)this.renderer
                .getX(),
@@ -201,11 +198,8 @@ public class MapModule extends HudWidgetModule {
             (int)widgetSize[0],
             (int)widgetSize[1]
          );
-         try {
-            GuiDrawUtils.flush();
-         } finally {
-            ScissorStack.pop();
-         }
+         GuiDrawUtils.flush();
+         ScissorStack.pop();
          this.renderPointer(poses, centerX, centerY);
       }
    }
@@ -229,25 +223,21 @@ public class MapModule extends HudWidgetModule {
 
       float offsetZ = scaledOffsetZ - 8.0F;
       poses.pushPose();
-      try {
-         float markerDepth = 0.0F;
-         poses.translate(offsetX, offsetZ, markerDepth);
+      float markerDepth = 0.0F;
+      poses.translate(offsetX, offsetZ, markerDepth);
 
-         float markerWidth = 8.0F;
+      float markerWidth = 8.0F;
 
-         GuiDrawUtils.fillRect(
-            poses, 0.0F, 0.0F, markerWidth, 8.0F, color
-         );
-      } finally {
-         poses.popPose();
-      }
+      GuiDrawUtils.fillRect(
+         poses, 0.0F, 0.0F, markerWidth, 8.0F, color
+      );
+      poses.popPose();
    }
 
    private void renderPointer(PoseStack poses, float centerX, float centerY) {
       poses.pushPose();
-      try {
-         float pointerDepth = 0.0F;
-         poses.translate(centerX, centerY, pointerDepth);
+      float pointerDepth = 0.0F;
+      poses.translate(centerX, centerY, pointerDepth);
       Setting<PointerMode> dotModeOption = this.pointerModeSetting;
       if (dotModeOption.getValue() == MapModule.PointerMode.DOT) {
          RenderUtils dotRenderer = RenderUtils.INSTANCE;
@@ -308,9 +298,7 @@ public class MapModule extends HudWidgetModule {
             bufferSource.endBatch();
          }
       }
-      } finally {
-         poses.popPose();
-      }
+      poses.popPose();
    }
 
    public MapModule() {

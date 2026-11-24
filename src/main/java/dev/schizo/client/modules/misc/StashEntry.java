@@ -55,20 +55,6 @@ public class StashEntry implements NamedEntry {
       return this.server;
    }
 
-   public boolean hasSameLocation(StashEntry other) {
-      return other != null
-         && this.x == other.x
-         && this.z == other.z
-         && java.util.Objects.equals(this.dimension, other.dimension)
-         && java.util.Objects.equals(this.server, other.server);
-   }
-
-   public boolean isPersistable() {
-      return this.id != null && !this.id.isBlank()
-         && this.dimension != null && !this.dimension.isBlank()
-         && this.server != null && !this.server.isBlank();
-   }
-
    @Override
    public String getName() {
       return this.id;

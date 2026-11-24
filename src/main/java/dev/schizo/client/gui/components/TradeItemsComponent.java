@@ -65,133 +65,130 @@ public class TradeItemsComponent extends AbstractComponent {
       super.render(poses, mouseX, mouseY);
       GuiDrawUtils.flush();
       poses.pushPose();
-      try {
-         poses.translate(
-            this.panel
-                  .getX()
-               + 1,
-            this.panel
-                  .getY()
-               + this.yOffset,
-            0.0F
-         );
-         GuiDrawUtils.drawItem(
+      poses.translate(
+         this.panel
+               .getX()
+            + 1,
+         this.panel
+               .getY()
+            + this.yOffset,
+         0.0F
+      );
+      GuiDrawUtils.drawItem(
+         poses,
+         this.fromStack,
+         1.0F,
+         -Math.round(
+            this.fromHoverAnimation
+               .getValue()
+         ),
+         0.0F
+      );
+      GuiDrawUtils.drawItem(
+         poses,
+         this.toStack,
+         this.panel
+               .getWidth()
+            - (4)
+            - (16),
+         -Math.round(
+            this.toHoverAnimation
+               .getValue()
+         ),
+         0.0F
+      );
+      float arrowWidth = FontRenderer.INSTANCE
+         .getWidth(">");
+      FontRenderer.INSTANCE
+         .drawWithoutShadow(
             poses,
-            this.fromStack,
-            1.0F,
-            -Math.round(
-               this.fromHoverAnimation
-                  .getValue()
-            ),
-            0.0F
+            ">",
+            (
+                  this.panel
+                        .getWidth()
+                     - arrowWidth
+               )
+               / 2.0F,
+            4.0F,
+            Color.white
          );
-         GuiDrawUtils.drawItem(
-            poses,
-            this.toStack,
-            this.panel
-                  .getWidth()
-               - (4)
-               - (16),
-            -Math.round(
-               this.toHoverAnimation
-                  .getValue()
-            ),
-            0.0F
-         );
-         float arrowWidth = FontRenderer.INSTANCE
-            .getWidth(">");
-         FontRenderer.INSTANCE
-            .drawWithoutShadow(
-               poses,
-               ">",
-               (
-                     this.panel
-                           .getWidth()
-                        - arrowWidth
-                  )
-                  / 2.0F,
-               4.0F,
-               Color.white
+      FloatBounds fromHoverBounds = FloatBounds.fromPositionAndSize(
+         this.panel
+               .getX()
+            + (2),
+         this.panel
+               .getY()
+            + this.yOffset,
+         16.0F,
+         16.0F
+      );
+      if (fromHoverBounds.contains(mouseX, mouseY)) {
+         this.screen
+            .setTooltipStack(
+               this.fromStack
             );
-         FloatBounds fromHoverBounds = FloatBounds.fromPositionAndSize(
-            this.panel
-                  .getX()
-               + (2),
-            this.panel
-                  .getY()
-               + this.yOffset,
-            16.0F,
-            16.0F
-         );
-         if (fromHoverBounds.contains(mouseX, mouseY)) {
-            this.screen
-               .setTooltipStack(
-                  this.fromStack
-               );
-            this.fromHoverAnimation
-               .setTarget(true);
-         } else {
-            this.fromHoverAnimation
-               .setTarget(false);
-         }
-
-         FloatBounds toHoverBounds = FloatBounds.fromPositionAndSize(
-            this.panel
-                  .getX()
-               + this.panel
-                  .getWidth()
-               - (2)
-               - (16),
-            this.panel
-                  .getY()
-               + this.yOffset,
-            16.0F,
-            16.0F
-         );
-         if (toHoverBounds.contains(mouseX, mouseY)) {
-            this.screen
-               .setTooltipStack(
-                  this.toStack
-               );
-            this.toHoverAnimation
-               .setTarget(true);
-         } else {
-            this.toHoverAnimation
-               .setTarget(false);
-         }
-
          this.fromHoverAnimation
-            .updateAndGet();
-         this.toHoverAnimation
-            .updateAndGet();
-         this.drawHoverGradient(
-            poses,
-            0.0F,
-            0.0F,
-            32.0F,
-            this.getBaseHeight()
-               - 0.5F,
-            true
-         );
-         poses.translate(
-            this.panel
-                  .getWidth()
-               - (34),
-            0.0F,
-            0.0F
-         );
-         this.drawHoverGradient(
-            poses,
-            0.0F,
-            0.0F,
-            32.0F,
-            this.getBaseHeight()
-               - 0.5F,
-            false
-         );
-      } finally {
-         poses.popPose();
+            .setTarget(true);
+      } else {
+         this.fromHoverAnimation
+            .setTarget(false);
       }
+
+      FloatBounds toHoverBounds = FloatBounds.fromPositionAndSize(
+         this.panel
+               .getX()
+            + this.panel
+               .getWidth()
+            - (2)
+            - (16),
+         this.panel
+               .getY()
+            + this.yOffset,
+         16.0F,
+         16.0F
+      );
+      if (toHoverBounds.contains(mouseX, mouseY)) {
+         this.screen
+            .setTooltipStack(
+               this.toStack
+            );
+         this.toHoverAnimation
+            .setTarget(true);
+      } else {
+         this.toHoverAnimation
+            .setTarget(false);
+      }
+
+      this.fromHoverAnimation
+         .updateAndGet();
+      this.toHoverAnimation
+         .updateAndGet();
+      this.drawHoverGradient(
+         poses,
+         0.0F,
+         0.0F,
+         32.0F,
+         this.getBaseHeight()
+            - 0.5F,
+         true
+      );
+      poses.translate(
+         this.panel
+               .getWidth()
+            - (34),
+         0.0F,
+         0.0F
+      );
+      this.drawHoverGradient(
+         poses,
+         0.0F,
+         0.0F,
+         32.0F,
+         this.getBaseHeight()
+            - 0.5F,
+         false
+      );
+      poses.popPose();
    }
 
    @Override

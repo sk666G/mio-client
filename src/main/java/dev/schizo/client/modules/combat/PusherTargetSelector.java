@@ -15,7 +15,6 @@ import dev.schizo.client.managers.RotationManager;
 import dev.schizo.client.utils.entity.EntityUtils;
 import dev.schizo.client.utils.entity.PlayerStateUtils;
 import dev.schizo.client.managers.WorldStateManager;
-import dev.schizo.client.utils.network.ServerSideDeathState;
 
 import java.util.Comparator;
 import java.util.List;
@@ -96,14 +95,7 @@ public final class PusherTargetSelector implements ClientAccess {
 
    public Player selectTarget() {
       Optional<AbstractClientPlayer> selectedSnapshot = ClientAccess.schizoMinecraft.level.players().stream().filter((Predicate<AbstractClientPlayer>)candidate -> {
-            if (PusherTargetPolicy.isEligible(
-               candidate.isAlive(),
-               candidate == ClientAccess.schizoMinecraft.player,
-               candidate.isSpectator(),
-               candidate.isCreative(),
-               ClientContext.socialRegistry.isFriendPlayer(candidate),
-               ((ServerSideDeathState)candidate).isServerSideDead()
-            )) {
+            if (candidate.isAlive() && candidate != ClientAccess.schizoMinecraft.player) {
                AABB bounds = candidate.getBoundingBox();
                double height = bounds.getYsize();
 
@@ -113,7 +105,9 @@ public final class PusherTargetSelector implements ClientAccess {
                      PusherModule moduleSnapshot = this.module;
 
                      if (distance <= moduleSnapshot.getRange()) {
-                        return true;
+                        if (!ClientContext.socialRegistry.isFriendPlayer(candidate)) {
+                           return true;
+                        }
                      }
                   }
                }
