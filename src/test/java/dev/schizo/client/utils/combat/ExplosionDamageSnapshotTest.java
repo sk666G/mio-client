@@ -171,6 +171,8 @@ class ExplosionDamageSnapshotTest {
    private static Map<Long, ExplosionRaycastSnapshot.BlockGeometry> airBlocks() {
       return Map.of(
          new BlockPos(-1, -1, -1).asLong(), air(),
+         new BlockPos(-1, -1, 0).asLong(), air(),
+         new BlockPos(-1, 0, 0).asLong(), air(),
          BlockPos.ZERO.asLong(), air()
       );
    }
