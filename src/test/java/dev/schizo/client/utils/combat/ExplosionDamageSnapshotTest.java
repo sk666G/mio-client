@@ -173,7 +173,7 @@ class ExplosionDamageSnapshotTest {
 
    @Test
    void capturesLethalAndTotemFlagsForLaterTargetPolicy() {
-      ExplosionDamageSnapshot profile = profile(true, 1.0F, true);
+      ExplosionDamageSnapshot profile = profile(false, 1.0F, true);
       ExplosionDamageSnapshot.DamageResult result = calculate(
          profile, 0.5D,
          raySnapshot(42, 100L, 12L, "minecraft:overworld", airBlocks())
