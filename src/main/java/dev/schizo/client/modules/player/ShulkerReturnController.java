@@ -55,6 +55,15 @@ public class ShulkerReturnController extends ChestStealerController {
    private boolean returnedThisTick;
    private boolean leftEnderChest;
 
+   void resetSession() {
+      this.trackedShulkers.clear();
+      this.pendingShulkers.clear();
+      this.reopenRequested = false;
+      this.handlingReturnClick = false;
+      this.returnedThisTick = false;
+      this.leftEnderChest = false;
+   }
+
    private boolean isPlayerInventorySlot(int slotIndex) {
       return slotIndex >= 0
          && slotIndex <= (26);
