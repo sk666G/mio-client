@@ -184,11 +184,15 @@ public final class ExplosionRaycastSnapshotBuilder {
       Objects.requireNonNull(level, "level");
       Objects.requireNonNull(collisionEntity, "collisionEntity");
       Objects.requireNonNull(region, "region");
-      if (maximumCapturedBlocks < 1) {
-         throw new IllegalArgumentException("maximumCapturedBlocks must be positive");
+      if (maximumCapturedBlocks < 1 || maximumCapturedBlocks > DEFAULT_MAX_CAPTURED_BLOCKS) {
+         throw new IllegalArgumentException(
+            "maximumCapturedBlocks must be between 1 and " + DEFAULT_MAX_CAPTURED_BLOCKS
+         );
       }
-      if (maximumCaptureNanos < 1L) {
-         throw new IllegalArgumentException("maximumCaptureNanos must be positive");
+      if (maximumCaptureNanos < 1L || maximumCaptureNanos > DEFAULT_MAX_CAPTURE_NANOS) {
+         throw new IllegalArgumentException(
+            "maximumCaptureNanos must be between 1 and " + DEFAULT_MAX_CAPTURE_NANOS
+         );
       }
 
       Minecraft minecraft = Minecraft.getInstance();
@@ -264,6 +268,15 @@ public final class ExplosionRaycastSnapshotBuilder {
       }
 
       if (System.nanoTime() - captureStartedAt > maximumCaptureNanos) {
+         throw new CaptureBudgetExceededException(
+            capturedBlocks.size(),
+            volume,
+            maximumCaptureNanos
+         );
+      }
+
+      long elapsedCaptureNanos = System.nanoTime() - captureStartedAt;
+      if (elapsedCaptureNanos > maximumCaptureNanos) {
          throw new CaptureBudgetExceededException(
             capturedBlocks.size(),
             volume,
