@@ -29,6 +29,7 @@ public class HudTextRow {
    private final Supplier<?> visibilitySupplier;
    private float visibility;
    private Component cachedText;
+   private float measuredTextWidth;
    public final InterpolatedFloat widthAnimation;
 
    public void updateVisibility() {
@@ -71,8 +72,7 @@ public class HudTextRow {
          resetWidth(animationForReset);
       } else {
          FontRenderer font = FontRenderer.INSTANCE;
-         Component widthText = this.getText();
-         float textWidth = font.getWidth(widthText.getString());
+         float textWidth = this.measuredTextWidth;
          Setting<Boolean> smoothWidthOption = hudSettings.smoothWidthSetting;
          Boolean smoothWidth = smoothWidthOption.getValue();
          if (smoothWidth) {
@@ -103,6 +103,11 @@ public class HudTextRow {
 
    public Component getText() {
       return this.cachedText;
+   }
+
+   public float measureTextWidth(FontRenderer font) {
+      this.measuredTextWidth = font.getWidth(this.cachedText.getString());
+      return this.measuredTextWidth;
    }
 
    public float getVisibility() {
