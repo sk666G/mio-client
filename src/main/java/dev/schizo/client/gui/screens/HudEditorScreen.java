@@ -28,6 +28,7 @@ import dev.schizo.client.render.GuiProjectionUtils;
 import dev.schizo.client.gui.components.ModuleComponent;
 import dev.schizo.client.render.HudWidgetRenderer;
 import dev.schizo.client.render.HudWidgetDrag;
+import dev.schizo.client.render.HudWidgetSnap;
 import dev.schizo.client.render.HudHorizontalAlignment;
 import dev.schizo.client.render.HudVerticalAlignment;
 import dev.schizo.client.utils.KeyUtils;
@@ -366,6 +367,32 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
       }
    }
 
+   private void applyDragSnapping(HudWidgetRenderer widget, float[] size, float screenWidth, float screenHeight) {
+      float snappedX = HudWidgetSnap.snap(widget.getX(), size[0], screenWidth, hud.getSafeX(), 5.0F);
+      float snappedY = HudWidgetSnap.snap(widget.getY(), size[1], screenHeight, hud.getSafeY(), 5.0F);
+      widget.setX(snappedX, true);
+      widget.setY(snappedY, true);
+   }
+
+   @Override
+   public boolean mouseDragged(MouseButtonEvent event, double dragX, double dragY) {
+      if (this.draggingWidget && event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+         HudAnchorGroup freeGroup = this.getAnchorGroup(HudAnchor.NONE);
+         if (!freeGroup.getWidgets().isEmpty()) {
+            HudWidgetRenderer widget = (HudWidgetRenderer)freeGroup.getWidgets().getLast();
+            float[] size = widget.getDimensions();
+            float screenWidth = ClientAccess.schizoMinecraft.getWindow().getGuiScaledWidth();
+            float screenHeight = ClientAccess.schizoMinecraft.getWindow().getGuiScaledHeight();
+            widget.setX(HudWidgetDrag.clampCoordinate(event.x(), this.dragOffsetX, screenWidth, size[0]), true);
+            widget.setY(HudWidgetDrag.clampCoordinate(event.y(), this.dragOffsetY, screenHeight, size[1]), true);
+            this.applyDragSnapping(widget, size, screenWidth, screenHeight);
+            widget.updateDirections();
+            return true;
+         }
+      }
+      return super.mouseDragged(event, dragX, dragY);
+   }
+
    @Override
    public boolean mouseReleased(MouseButtonEvent event) {
       this.marginController.mouseReleased(event.button());
@@ -495,47 +522,22 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
    private void snapWidgetAxis(
       PoseStack poseStack, HudWidgetRenderer widget, float widgetSize, float screenSize, float margin, boolean horizontal
    ) {
-      float position = horizontal
-         ? widget.getX()
-         : widget.getY();
-      float screenCenter = screenSize
-         / 2.0F;
-      float snappedPosition;
-      if (Math.abs(
-            position
-               + widgetSize
-                  / 2.0F
-               - screenCenter
-         )
-         <= 5.0F) {
-         snappedPosition = screenCenter
-            - widgetSize
-               / 2.0F;
-         this.renderSnapGuide(
-            poseStack,
-            snappedPosition
-               - 0.5F,
-            horizontal
-         );
-         this.renderSnapGuide(poseStack, snappedPosition + widgetSize, horizontal);
-      } else if (Math.abs(position - margin)
-         <= 5.0F) {
-         snappedPosition = margin;
-         this.renderSnapGuide(
-            poseStack,
-            snappedPosition - 0.5F,
-            horizontal
-         );
-      } else {
-         if (!(
-            Math.abs(position + widgetSize - (screenSize - margin))
-               <= 5.0F
-         )) {
-            return;
-         }
+      float position = horizontal ? widget.getX() : widget.getY();
+      HudWidgetSnap.Target target = HudWidgetSnap.resolve(position, widgetSize, screenSize, margin, 5.0F);
+      if (target == HudWidgetSnap.Target.NONE) {
+         return;
+      }
 
-         snappedPosition = screenSize - margin - widgetSize;
-         this.renderSnapGuide(poseStack, snappedPosition + widgetSize, horizontal);
+      float snappedPosition = HudWidgetSnap.position(target, widgetSize, screenSize, margin);
+      switch (target) {
+         case CENTER -> {
+            this.renderSnapGuide(poseStack, snappedPosition - 0.5F, horizontal);
+            this.renderSnapGuide(poseStack, snappedPosition + widgetSize, horizontal);
+         }
+         case LEADING -> this.renderSnapGuide(poseStack, snappedPosition - 0.5F, horizontal);
+         case TRAILING -> this.renderSnapGuide(poseStack, snappedPosition + widgetSize, horizontal);
+         case NONE -> {
+         }
       }
 
       if (horizontal) {
@@ -851,19 +853,10 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
       );
       if (this.draggingWidget) {
          HudAnchorGroup freeGroup = this.getAnchorGroup(HudAnchor.NONE);
-         HudWidgetRenderer widget = (HudWidgetRenderer)freeGroup.getWidgets()
-            .getLast();
-         float[] size = widget.getDimensions();
-         widget.setX(
-            HudWidgetDrag.clampCoordinate(mouseX, this.dragOffsetX, graphics.guiWidth(), size[0]),
-            true
-         );
-         widget.setY(
-            HudWidgetDrag.clampCoordinate(mouseY, this.dragOffsetY, graphics.guiHeight(), size[1]),
-            true
-         );
-         widget.updateDirections();
-         this.snapWidget(graphics, poseStack, widget, size);
+         if (!freeGroup.getWidgets().isEmpty()) {
+            HudWidgetRenderer widget = (HudWidgetRenderer)freeGroup.getWidgets().getLast();
+            this.snapWidget(graphics, poseStack, widget, widget.getDimensions());
+         }
       }
 
       float labelOpacity = this.hoverLabelOpacity
