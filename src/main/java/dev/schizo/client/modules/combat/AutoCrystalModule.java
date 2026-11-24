@@ -229,6 +229,7 @@ public class AutoCrystalModule extends Module {
    private final Set ignoredBlocks;
    private CompletableFuture<CrystalPlacementResult> calculationFuture;
    private FutureTask<Void> calculationTask;
+   private ClientLevel calculationWorld;
    protected volatile BlockPos lastPlacedBase;
    protected volatile BlockPos lastAttackedBase;
    protected volatile BlockPos lastForcedBase;
@@ -289,6 +290,7 @@ public class AutoCrystalModule extends Module {
       this.completeCalculation();
       this.calculationFuture = null;
       this.calculationTask = null;
+      this.calculationWorld = null;
 
       this.swapDelayTimer.reset();
 
@@ -301,6 +303,7 @@ public class AutoCrystalModule extends Module {
       this.completeCalculation();
       this.calculationFuture = null;
       this.calculationTask = null;
+      this.calculationWorld = null;
       this.restoreSelectedSlot();
    }
 
@@ -1842,6 +1845,7 @@ public class AutoCrystalModule extends Module {
       this.completeCalculation();
       this.calculationFuture = null;
       this.calculationTask = null;
+      this.calculationWorld = null;
       this.placementData.set(null);
       this.rotationTarget.set(null);
       this.target = null;
@@ -1995,13 +1999,29 @@ public class AutoCrystalModule extends Module {
    @EventHandler
    private void onMinecraftRunTickEvent(MinecraftRunTickEvent event) {
       if (!this.isWorldUnavailable()) {
+         ClientLevel activeLevel = ClientAccess.schizoMinecraft.level;
+         if (this.calculationFuture != null && this.calculationWorld != activeLevel) {
+            // A scan started in another world must never publish an entity from that world.
+            this.completeCalculation();
+            this.calculationFuture = null;
+            this.calculationTask = null;
+            this.calculationWorld = null;
+            this.placementData.set(null);
+            this.selectedDamage = 0.0F;
+            this.target = null;
+         }
+
          if (!this.prepareCalculation()) {
             // Publish a completed scan before scheduling another one with a fresh target snapshot.
             if (this.calculationFuture != null) {
                if (this.calculationFuture.isDone()) {
                   try {
                      CrystalPlacementResult calculatedPlacement = this.calculationFuture.get();
-                     if (calculatedPlacement == null) {
+                     if (this.calculationWorld != activeLevel) {
+                        this.placementData.set(null);
+                        this.selectedDamage = 0.0F;
+                        this.target = null;
+                     } else if (calculatedPlacement == null) {
                         this.placementData.set(null);
                         this.selectedDamage = 0.0F;
                      } else {
@@ -2018,6 +2038,7 @@ public class AutoCrystalModule extends Module {
             if (this.calculationFuture == null || this.calculationFuture.isDone() || this.calculationFuture.isCancelled()) {
                this.clearInvalidTarget();
                List<LivingEntity> targets = this.targeting.snapshot();
+               this.calculationWorld = activeLevel;
                CompletableFuture<CrystalPlacementResult> scheduledCalculation = new CompletableFuture<>();
                FutureTask<Void> task = new FutureTask<>(() -> {
                   try {
