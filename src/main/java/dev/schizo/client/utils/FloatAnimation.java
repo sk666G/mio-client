@@ -35,7 +35,9 @@ public class FloatAnimation {
    }
 
    public void setValue(float value) {
-      this.setTarget(value, 0L);
+      this.startValue = value;
+      this.targetValue = value;
+      this.durationNanos = 0L;
    }
 
    public void setTarget(boolean targetState, long newDurationMillis) {

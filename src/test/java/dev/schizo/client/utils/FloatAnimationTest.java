@@ -77,4 +77,38 @@ class FloatAnimationTest {
       clock.addAndGet(50L * MILLIS);
       assertEquals(1.0F, animation.getValue(), 0.000001F);
    }
+
+   @Test
+   void setValueSnapsEvenWhenTheRequestedValueIsAlreadyTheActiveTarget() {
+      AtomicLong clock = new AtomicLong(0L);
+      FloatAnimation animation = new FloatAnimation(clock::get);
+
+      animation.setValue(1.0F);
+      animation.setTarget(0.0F, 1_000L);
+      clock.addAndGet(500L * MILLIS);
+      assertEquals(0.5F, animation.getValue(), 0.000001F);
+
+      animation.setValue(0.0F);
+      assertEquals(0.0F, animation.getValue(), 0.000001F);
+
+      clock.addAndGet(500L * MILLIS);
+      assertEquals(0.0F, animation.getValue(), 0.000001F);
+   }
+
+   @Test
+   void setValueCanRestartAnAnimationFromAnExactBaseline() {
+      AtomicLong clock = new AtomicLong(0L);
+      FloatAnimation animation = new FloatAnimation(clock::get);
+
+      animation.setTarget(1.0F, 1_000L);
+      clock.addAndGet(600L * MILLIS);
+      assertEquals(0.6F, animation.getValue(), 0.000001F);
+
+      animation.setValue(0.0F);
+      animation.setTarget(1.0F, 200L);
+      assertEquals(0.0F, animation.getValue(), 0.000001F);
+
+      clock.addAndGet(100L * MILLIS);
+      assertEquals(0.5F, animation.getValue(), 0.000001F);
+   }
 }
