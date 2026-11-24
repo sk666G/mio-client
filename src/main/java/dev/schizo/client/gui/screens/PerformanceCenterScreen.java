@@ -49,7 +49,7 @@ public final class PerformanceCenterScreen extends ClientScreen {
    private int selectedTab;
    private int rowOffset;
    private final MonotonicRefreshGate refreshGate = new MonotonicRefreshGate(250_000_000L);
-   private List<DisplayRow> rows = List.of();
+   private List<ProfilerDisplayRow> rows = List.of();
    private MetricsSnapshot metrics = MetricsSnapshot.EMPTY;
    private float[] frameHistorySamples = new float[0];
 
@@ -254,7 +254,8 @@ public final class PerformanceCenterScreen extends ClientScreen {
       } else {
          int visible = Math.min(this.visibleRowCount(), this.rows.size() - this.rowOffset);
          for (int index = 0; index < visible; index++) {
-            DisplayRow row = this.rows.get(this.rowOffset + index);
+            ProfilerDisplayRow row = this.rows.get(this.rowOffset + index);
+            ProfilerDisplayRow.Values values = row.values();
             float rowTop = tableTop + 20.0F + index * 20.0F;
             if ((index & 1) == 1) {
                GuiDrawUtils.fillRect(
@@ -268,15 +269,15 @@ public final class PerformanceCenterScreen extends ClientScreen {
             }
             font.drawWithShadow(
                poseStack,
-               abbreviate(row.name(), nameLimit),
+               row.displayName(nameLimit),
                tableLeft + 7.0F,
                rowTop + 3.0F,
                Color.WHITE
             );
-            this.drawRightAligned(font, poseStack, Long.toString(row.calls()), callsRight, rowTop + 3.0F, muted);
-            this.drawRightAligned(font, poseStack, milliseconds(row.averageNanos()), averageRight, rowTop + 3.0F, muted);
-            this.drawRightAligned(font, poseStack, milliseconds(row.maximumNanos()), maximumRight, rowTop + 3.0F, muted);
-            this.drawRightAligned(font, poseStack, milliseconds(row.totalNanos()), totalRight, rowTop + 3.0F, accent);
+            this.drawRightAligned(font, poseStack, values.calls(), callsRight, rowTop + 3.0F, muted);
+            this.drawRightAligned(font, poseStack, values.average(), averageRight, rowTop + 3.0F, muted);
+            this.drawRightAligned(font, poseStack, values.maximum(), maximumRight, rowTop + 3.0F, muted);
+            this.drawRightAligned(font, poseStack, values.total(), totalRight, rowTop + 3.0F, accent);
          }
       }
 
@@ -619,10 +620,10 @@ public final class PerformanceCenterScreen extends ClientScreen {
       font.drawWithShadow(poseStack, text, right - font.getWidth(text), y, color);
    }
 
-   private static List<DisplayRow> moduleRows(List<EventProfiler.ModuleSnapshot> snapshots) {
-      List<DisplayRow> result = new ArrayList<>(snapshots.size());
+   private static List<ProfilerDisplayRow> moduleRows(List<EventProfiler.ModuleSnapshot> snapshots) {
+      List<ProfilerDisplayRow> result = new ArrayList<>(snapshots.size());
       for (EventProfiler.ModuleSnapshot snapshot : snapshots) {
-         result.add(new DisplayRow(
+         result.add(new ProfilerDisplayRow(
             snapshot.moduleName(), snapshot.invocationCount(),
             snapshot.totalNanos(), snapshot.averageNanos(), snapshot.maximumNanos()
          ));
@@ -630,10 +631,10 @@ public final class PerformanceCenterScreen extends ClientScreen {
       return List.copyOf(result);
    }
 
-   private static List<DisplayRow> callbackRows(List<EventProfiler.CallbackSnapshot> snapshots) {
-      List<DisplayRow> result = new ArrayList<>(snapshots.size());
+   private static List<ProfilerDisplayRow> callbackRows(List<EventProfiler.CallbackSnapshot> snapshots) {
+      List<ProfilerDisplayRow> result = new ArrayList<>(snapshots.size());
       for (EventProfiler.CallbackSnapshot snapshot : snapshots) {
-         result.add(new DisplayRow(
+         result.add(new ProfilerDisplayRow(
             snapshot.label(), snapshot.invocationCount(),
             snapshot.totalNanos(), snapshot.averageNanos(), snapshot.maximumNanos()
          ));
@@ -641,10 +642,10 @@ public final class PerformanceCenterScreen extends ClientScreen {
       return List.copyOf(result);
    }
 
-   private static List<DisplayRow> hudRows(List<EventProfiler.HudSnapshot> snapshots) {
-      List<DisplayRow> result = new ArrayList<>(snapshots.size());
+   private static List<ProfilerDisplayRow> hudRows(List<EventProfiler.HudSnapshot> snapshots) {
+      List<ProfilerDisplayRow> result = new ArrayList<>(snapshots.size());
       for (EventProfiler.HudSnapshot snapshot : snapshots) {
-         result.add(new DisplayRow(
+         result.add(new ProfilerDisplayRow(
             snapshot.widgetName(), snapshot.invocationCount(),
             snapshot.totalNanos(), snapshot.averageNanos(), snapshot.maximumNanos()
          ));
@@ -658,26 +659,10 @@ public final class PerformanceCenterScreen extends ClientScreen {
          : "—";
    }
 
-   private static String milliseconds(long nanos) {
-      return String.format(Locale.ROOT, "%.3f", nanos / 1_000_000.0D);
-   }
-
-   private static String abbreviate(String value, int maximumLength) {
-      if (value.length() <= maximumLength) {
-         return value;
-      }
-      return value.substring(0, maximumLength - 1) + "…";
-   }
-
    private static boolean contains(
       double mouseX, double mouseY, float x, float y, float width, float height
    ) {
       return mouseX >= x && mouseX <= x + width && mouseY >= y && mouseY <= y + height;
-   }
-
-   private record DisplayRow(
-      String name, long calls, long totalNanos, long averageNanos, long maximumNanos
-   ) {
    }
 
    private record MetricsSnapshot(
