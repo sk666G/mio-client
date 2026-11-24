@@ -235,6 +235,9 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
    }
 
    public void setEditingSetting(SettingComponent<?> component) {
+      if (this.editingSetting != null && this.editingSetting != component) {
+         this.editingSetting.editing = false;
+      }
       this.editingSetting = component;
    }
 
@@ -379,21 +382,9 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
          return true;
       }
 
-      if (this.editingSetting != null) {
-         SettingComponent<?> editor = this.editingSetting;
-         if (editor.editing && this.panels.contains(editor.getPanel())
-            && editor.getPanel().acceptsSettingInput(editor) && !editor.isUnavailable()) {
-            editor.keyPressed(event.key());
-            if (!editor.editing) {
-               this.setEditingSetting(null);
-            }
-            return true;
-         }
-         editor.editing = false;
-         this.setEditingSetting(null);
+      if (super.keyPressed(event)) {
+         return true;
       }
-
-      super.keyPressed(event);
       Keybind toggleKeybind = UIModule.INSTANCE.getKeybind();
       if (toggleKeybind.code()
             == event.key()
@@ -439,15 +430,6 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
          () -> ClientContext.configurationManager
             .save()
       );
-   }
-
-   @Override
-   public void removed() {
-      if (this.editingSetting != null) {
-         this.editingSetting.editing = false;
-         this.setEditingSetting(null);
-      }
-      super.removed();
    }
 
    public boolean isGamePanelUnlocked() {

@@ -106,6 +106,7 @@ public class StringSettingComponent extends SettingComponent<String> {
 
    public void beginEditing() {
       if (!this.editing) {
+         this.getClickGui().setEditingSetting(this);
          this.editing = true;
          this.editingText = this.setting.getValue();
          this.cursorIndex = this.editingText.length();

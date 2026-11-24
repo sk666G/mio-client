@@ -12,6 +12,7 @@ package dev.schizo.client.gui.screens;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.gui.panels.Panel;
+import dev.schizo.client.gui.components.SettingComponent;
 import dev.schizo.client.gui.panels.ModuleCategoryPanel;
 import dev.schizo.client.render.GuiDrawUtils;
 import dev.schizo.client.utils.InterpolatedFloat;
@@ -225,6 +226,14 @@ public class ClientScreen extends Screen implements ClientAccess {
 
    @Override
    public boolean charTyped(CharacterEvent event) {
+      SettingComponent<?> editor = this.focusedSetting();
+      if (editor != null) {
+         String input = event.codepointAsString();
+         for (int index = 0; index < input.length(); index++) {
+            editor.charTyped(input.charAt(index));
+         }
+         return true;
+      }
       String characters = event.codepointAsString();
       for (int panelIndex = this.panels.size() - 1; panelIndex >= 0; panelIndex--) {
          Panel panel = this.panels.get(panelIndex);
@@ -372,9 +381,44 @@ public class ClientScreen extends Screen implements ClientAccess {
       }
    }
 
+   protected SettingComponent<?> focusedSetting() {
+      ClickGuiScreen clickGui = ClientContext.getClickGui();
+      SettingComponent<?> editor = clickGui.getEditingSetting();
+      if (editor == null || !this.panels.contains(editor.getPanel())) {
+         return null;
+      }
+      if (editor.editing && editor.getPanel().acceptsSettingInput(editor) && !editor.isUnavailable()) {
+         return editor;
+      }
+      editor.editing = false;
+      clickGui.setEditingSetting(null);
+      return null;
+   }
+
+   @Override
+   public void removed() {
+      SettingComponent<?> editor = this.focusedSetting();
+      if (editor != null) {
+         editor.editing = false;
+         ClientContext.getClickGui().setEditingSetting(null);
+      }
+      for (Panel panel : this.panels) {
+         panel.setDragging(false);
+      }
+      super.removed();
+   }
+
    @Override
    public boolean keyPressed(KeyEvent event) {
       this.escapeCloseAllowed = true;
+      SettingComponent<?> editor = this.focusedSetting();
+      if (editor != null) {
+         editor.keyPressed(event.key());
+         if (!editor.editing) {
+            ClientContext.getClickGui().setEditingSetting(null);
+         }
+         return true;
+      }
 
       for (int panelIndex = this.panels.size() - 1; panelIndex >= 0; panelIndex--) {
          this.panels.get(panelIndex)

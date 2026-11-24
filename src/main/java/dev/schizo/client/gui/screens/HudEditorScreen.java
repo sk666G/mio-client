@@ -398,6 +398,10 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
          return true;
       }
       if (this.draggedWidget != null && event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+         if (!this.draggedWidget.isEnabled()) {
+            this.cancelPendingLayoutGesture();
+            return true;
+         }
          HudWidgetRenderer widget = this.draggedWidget;
          float[] size = widget.getDimensions();
          float screenWidth = ClientAccess.schizoMinecraft.getWindow().getGuiScaledWidth();
@@ -425,6 +429,10 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
       this.marginController.mouseReleased(event.button());
       boolean released = super.mouseReleased(event);
       if (this.draggedWidget != null && event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+         if (!this.draggedWidget.isEnabled()) {
+            this.cancelPendingLayoutGesture();
+            return true;
+         }
          HudWidgetRenderer widget = this.draggedWidget;
          this.draggedWidget = null;
          HudAnchorGroup freeGroup = this.getAnchorGroup(HudAnchor.NONE);
@@ -712,6 +720,9 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
 
    @Override
    public boolean keyPressed(KeyEvent event) {
+      if (this.focusedSetting() != null) {
+         return super.keyPressed(event);
+      }
       if (!this.pointerOverPanel(this.mouseX, this.mouseY)) {
          if (KeyUtils.isControlDown() && event.key() == GLFW.GLFW_KEY_Z) {
             if (KeyUtils.isShiftDown()) {
@@ -912,22 +923,10 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
          .getFirst();
       int panelWidth = panel.getWidth();
       int panelHeight = panel.getHeight();
-      int panelX = (int)(
-         ClientAccess.schizoMinecraft.getWindow().getGuiScaledWidth()
-               / 2.0F
-            - panelWidth
-               * 1.5F
-      );
-      int panelY = (int)(
-         (ClientAccess.schizoMinecraft.getWindow().getGuiScaledHeight() - panelHeight)
-            / 2.0F
-      );
-      panel.setX(
-         panelX
-      );
-      panel.setY(
-         panelY
-      );
+      double scale = GuiScaleUtils.calculateScaleMultiplier(this.guiScale);
+      double width = ClientAccess.schizoMinecraft.getWindow().getGuiScaledWidth() / scale;
+      double height = ClientAccess.schizoMinecraft.getWindow().getGuiScaledHeight() / scale;
+      panel.placeWithinViewport((int)(width / 2.0 - panelWidth * 1.5), (int)((height - panelHeight) / 2.0), width, height);
    }
 
    public List<HudAnchorGroup> getAnchorGroups() {
