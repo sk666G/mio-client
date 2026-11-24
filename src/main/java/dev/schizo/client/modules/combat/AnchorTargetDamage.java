@@ -10,7 +10,6 @@
 package dev.schizo.client.modules.combat;
 
 import dev.schizo.client.utils.combat.DamageUtils;
-import dev.schizo.client.utils.math.MathConstants;
 import java.util.List;
 import java.util.Iterator;
 import net.minecraft.core.BlockPos;
@@ -21,6 +20,7 @@ import dev.schizo.client.ClientContext;
 import dev.schizo.client.utils.network.ServerSideDeathState;
 
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.client.player.LocalPlayer;
 
 public record AnchorTargetDamage(
    Player target,
@@ -52,16 +52,16 @@ public record AnchorTargetDamage(
                explosionPositionSnapshot, candidate, boundsSnapshot, 5.0D, true, ignoredBaseSnapshot, (BlockPos)null
             );
 
-            if (!((module.minDamageSetting.getValue()).floatValue() > damage)
-               && !(damage < MathConstants.ONE_HALF)) {
-               if (bestDamage != null) {
-                  if (!(damage > bestDamage.damage())) {
-                     continue;
-                  }
-               }
-
-               bestDamage = new AnchorTargetDamage(candidate, damage);
+            double minimumDamage = module.minDamageSetting.getValue().doubleValue();
+            if (!AnchorTargetSelectionPolicy.acceptsDamage(damage, minimumDamage)) {
+               continue;
             }
+
+            if (bestDamage != null && !(damage > bestDamage.damage())) {
+               continue;
+            }
+
+            bestDamage = new AnchorTargetDamage(candidate, damage);
          }
       }
 
@@ -69,17 +69,21 @@ public record AnchorTargetDamage(
    }
 
    public static boolean isInvalidTarget(Player target, double range) {
-      if (target == null || target == ClientAccess.schizoMinecraft.player || !target.isAlive()) {
+      if (target == null) {
          return true;
       }
 
-      if (ClientContext.socialRegistry.isFriendPlayer(target) || ((ServerSideDeathState)target).isServerSideDead()) {
-         return true;
-      }
-      if (target.isSpectator() || target.getAbilities().instabuild) {
-         return true;
-      }
-
-      return ClientAccess.schizoMinecraft.player.distanceTo(target) > range;
+      LocalPlayer localPlayer = ClientAccess.schizoMinecraft.player;
+      boolean invalidWorld = target.level() != ClientAccess.schizoMinecraft.level || target.isRemoved();
+      AnchorTargetSelectionPolicy.TargetState state = new AnchorTargetSelectionPolicy.TargetState(
+         target == localPlayer,
+         target.isAlive(),
+         ClientContext.socialRegistry.isFriendPlayer(target),
+         ((ServerSideDeathState)target).isServerSideDead(),
+         target.isSpectator(),
+         target.getAbilities().instabuild,
+         localPlayer.distanceTo(target)
+      );
+      return invalidWorld || AnchorTargetSelectionPolicy.isInvalidTarget(state, range);
    }
 }
