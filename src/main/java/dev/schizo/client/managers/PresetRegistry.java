@@ -107,6 +107,10 @@ public final class PresetRegistry extends Registry<PresetData> {
       preset.saveToDirectory(this.directory);
       try {
          if (!replacedPath.equals(restoredPath) && Files.exists(replacedPath, LinkOption.NOFOLLOW_LINKS)) {
+            if (Files.isSymbolicLink(replacedPath)
+               || !Files.isRegularFile(replacedPath, LinkOption.NOFOLLOW_LINKS)) {
+               throw new IOException("Replaced preset path is not a regular file: " + replacedPath.getFileName());
+            }
             Files.delete(replacedPath);
          }
       } catch (IOException failure) {
@@ -229,6 +233,7 @@ public final class PresetRegistry extends Registry<PresetData> {
                      || Files.isSymbolicLink(file)
                      || !Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)) continue;
                   String rawName = fileName.substring(0, fileName.length() - 5);
+                  if (rawName.toLowerCase(Locale.ROOT).endsWith(".json")) continue;
                   try {
                      String name = PresetNameValidator.normalize(rawName);
                      String serialized = ConfigFileReader.readUtf8(file, MAX_PRESET_BYTES);
