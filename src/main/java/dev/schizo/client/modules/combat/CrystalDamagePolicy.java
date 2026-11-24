@@ -129,56 +129,31 @@ public enum CrystalDamagePolicy implements ClientAccess, NamedEntry {
    public boolean shouldRejectDamage(
       LivingEntity target, double selfDamage, double targetDamage, CrystalLethality lethality
    ) {
-      Item totem = Items.TOTEM_OF_UNDYING;
+      boolean selfHoldingTotem = ClientAccess.schizoMinecraft.player.isHolding(Items.TOTEM_OF_UNDYING);
+      boolean selfInvulnerable = autoCrystal.isSelfInvulnerable();
+      boolean forceSuicide = autoCrystal.forceSuicideSetting.getValue();
+      boolean antiSuicide = autoCrystal.antiSuicideSetting.getValue();
+      double selfHealth = EntityUtils.getPlayerHealthWithAbsorption();
+      double targetHealth = EntityUtils.getHealthWithAbsorption(target);
+      double minimumTargetDamage = this.getMinimumDamage(target);
+      double maximumSelfDamage = this.getMaximumSelfDamage();
+      double minimumRatio = autoCrystal.placeDamageRatioSetting.getValue().floatValue();
 
-      boolean holdingTotem = ClientAccess.schizoMinecraft.player.isHolding(totem);
-
-      if (autoCrystal.isSelfInvulnerable()) {
-         selfDamage = 0.0;
-      }
-
-      if (autoCrystal.forceSuicideSetting.getValue()) {
-         return false;
-      }
-
-      if (selfDamage >= EntityUtils.getPlayerHealthWithAbsorption()) {
-         if (autoCrystal.antiSuicideSetting.getValue()) {
-            if (!lethality.isKill() || !holdingTotem) {
-               return true;
-            }
-         }
-      }
-
-      if (this == HIT) {
-         if (lethality.isIntersection()) {
-            return false;
-         }
-      }
-
-      if (lethality.isKill()) {
-         return false;
-      }
-
-      if (this == PLACE && selfDamage > 0.0) {
-         double damageRatio = targetDamage / selfDamage;
-
-         Float minimumRatio = autoCrystal.placeDamageRatioSetting.getValue();
-         if (damageRatio < minimumRatio.floatValue()) {
-            return true;
-         }
-      }
-
-      if (!(targetDamage >= EntityUtils.getHealthWithAbsorption(target))) {
-         if (!(targetDamage >= this.getMinimumDamage(target))) {
-            return true;
-         }
-
-         if (!(selfDamage <= this.getMaximumSelfDamage())) {
-            return true;
-         }
-      }
-
-      return false;
+      CrystalDamageSafetyInputs inputs = new CrystalDamageSafetyInputs(
+         this == HIT,
+         selfInvulnerable,
+         forceSuicide,
+         antiSuicide,
+         selfHoldingTotem,
+         lethality.isKill(),
+         lethality.isIntersection(),
+         selfHealth,
+         targetHealth,
+         minimumTargetDamage,
+         maximumSelfDamage,
+         minimumRatio
+      );
+      return inputs.shouldReject(selfDamage, targetDamage);
    }
 
    @Override
