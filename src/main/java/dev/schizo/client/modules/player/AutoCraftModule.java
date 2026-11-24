@@ -527,6 +527,7 @@ public class AutoCraftModule extends Module {
 
          if (gunpowderSlot != -1 && !gridHasGunpowder) {
             int sourceGunpowderSlot = gunpowderSlot;
+            int capturedGunpowderUnits = gunpowderUnits;
             InventoryUtils.runWithCursorCleanup(craftingMenu, sourceGunpowderSlot, () -> {
                InventoryUtils.clickSlot(craftingMenu.containerId, sourceGunpowderSlot, 0, ClickType.PICKUP);
 
@@ -537,7 +538,7 @@ public class AutoCraftModule extends Module {
                   if (!capturedPlacementStack.is(placementGunpowder)) {
                      ItemStack carriedStack = craftingMenu.getCarried();
                      if (!carriedStack.isEmpty()) {
-                        int targetGridButton = gunpowderUnits >= (3) ? 0 : 1;
+                        int targetGridButton = capturedGunpowderUnits >= (3) ? 0 : 1;
                         InventoryUtils.clickSlot(
                            craftingMenu.containerId, targetGridSlot, targetGridButton, ClickType.PICKUP
                         );
