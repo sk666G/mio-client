@@ -61,6 +61,69 @@ class ExplosionExposureMathTest {
    }
 
    @Test
+   void detailedCalculationStopsAndMarksUnknownRayAsIncomplete() {
+      AtomicInteger calls = new AtomicInteger();
+
+      ExplosionExposureMath.ExposureResult result = ExplosionExposureMath.calculateDetailed(
+         0.0D, 0.0D, 0.0D,
+         0.0D, 0.0D, 0.0D,
+         1.0D, 1.0D, 1.0D,
+         (sampleX, sampleY, sampleZ, explosionX, explosionY, explosionZ) -> {
+            calls.incrementAndGet();
+            return ExplosionExposureMath.Visibility.INCOMPLETE;
+         }
+      );
+
+      assertEquals(false, result.complete());
+      assertEquals(0.0F, result.exposure());
+      assertEquals(1, result.totalSamples());
+      assertEquals(1, calls.get());
+   }
+
+   @Test
+   void snapshotExposureUsesCapturedBlockGeometryAndReportsCompletion() {
+      ExplosionRaycastSnapshot emptySnapshot = new ExplosionRaycastSnapshot(
+         7L,
+         99L,
+         "minecraft:overworld",
+         java.util.Map.of(
+            net.minecraft.core.BlockPos.ZERO.asLong(),
+            new ExplosionRaycastSnapshot.BlockGeometry(0.0F, java.util.List.of())
+         )
+      );
+
+      ExplosionExposureMath.ExposureResult visible = ExplosionExposureMath.calculateFromSnapshot(
+         0.0D, 0.0D, 0.0D,
+         0.0D, 0.0D, 0.0D,
+         0.5D, 0.5D, 0.5D,
+         emptySnapshot,
+         ExplosionRaycastSnapshot.Query.normal()
+      );
+
+      assertEquals(true, visible.complete());
+      assertEquals(1.0F, visible.exposure());
+      assertEquals(8, visible.totalSamples());
+
+      ExplosionRaycastSnapshot incompleteSnapshot = new ExplosionRaycastSnapshot(
+         7L,
+         99L,
+         "minecraft:overworld",
+         java.util.Map.of()
+      );
+      ExplosionExposureMath.ExposureResult incomplete = ExplosionExposureMath.calculateFromSnapshot(
+         0.0D, 0.0D, 0.0D,
+         0.0D, 0.0D, 0.0D,
+         0.5D, 0.5D, 0.5D,
+         incompleteSnapshot,
+         ExplosionRaycastSnapshot.Query.normal()
+      );
+
+      assertEquals(false, incomplete.complete());
+      assertEquals(0.0F, incomplete.exposure());
+      assertEquals(1, incomplete.totalSamples());
+   }
+
+   @Test
    void requiresAVisibilityTester() {
       assertThrows(NullPointerException.class, () -> ExplosionExposureMath.calculate(
          0.0D, 0.0D, 0.0D,
