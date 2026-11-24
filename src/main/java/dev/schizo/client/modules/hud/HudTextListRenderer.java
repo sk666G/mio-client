@@ -48,11 +48,7 @@ public class HudTextListRenderer extends HudWidgetRenderer {
             easedVisibility = (float)Mth.clamp(
                1.0D - Math.pow(1.0F - easedVisibility, 4.0D), 0.0, 1.0D
             );
-            float textWidth = FontRenderer.INSTANCE
-               .getWidth(
-                  row.getText()
-                     .getString()
-               );
+            float textWidth = row.measureTextWidth(FontRenderer.INSTANCE);
             height += this.getHeight() * easedVisibility + 1;
             if (textWidth > width) {
                width = textWidth;
