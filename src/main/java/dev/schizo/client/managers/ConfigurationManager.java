@@ -127,6 +127,30 @@ public final class ConfigurationManager implements ClientAccess {
       }
    }
 
+   private static void createDirectoryTreeNoFollow(Path root, Path destination) throws IOException {
+      Path normalizedRoot = root.toAbsolutePath().normalize();
+      Path normalizedDestination = destination.toAbsolutePath().normalize();
+      if (!normalizedDestination.startsWith(normalizedRoot)) {
+         throw new IOException("Configuration directory escapes the data root: " + destination);
+      }
+      if (Files.isSymbolicLink(normalizedRoot)
+         || !Files.isDirectory(normalizedRoot, LinkOption.NOFOLLOW_LINKS)) {
+         throw new IOException("Configuration data root is not a real directory: " + normalizedRoot);
+      }
+
+      Path current = normalizedRoot;
+      for (Path component : normalizedRoot.relativize(normalizedDestination)) {
+         current = current.resolve(component);
+         if (!Files.exists(current, LinkOption.NOFOLLOW_LINKS)) {
+            Files.createDirectory(current);
+         }
+         if (Files.isSymbolicLink(current)
+            || !Files.isDirectory(current, LinkOption.NOFOLLOW_LINKS)) {
+            throw new IOException("Configuration directory component is not a real directory: " + current);
+         }
+      }
+   }
+
    public void prepareDirectories() {
       try {
          if (Files.isSymbolicLink(ROOT_DIRECTORY)) throw new IOException("Configuration root must not be a symbolic link");
@@ -146,7 +170,7 @@ public final class ConfigurationManager implements ClientAccess {
       }
       for (Path path : directories) {
          try {
-            Files.createDirectories(path);
+            createDirectoryTreeNoFollow(ROOT_DIRECTORY, path);
          } catch (IOException failure) {
             ClientAccess.logger.warn("Could not create configuration directory {}", path.getFileName(), failure);
          }
