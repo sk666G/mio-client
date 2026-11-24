@@ -14,6 +14,7 @@ import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.PacketEvent;
 import dev.schizo.client.events.EventHandler;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.events.LocalPlayerSendPositionEvent;
 import dev.schizo.client.managers.TickRateController;
 import dev.schizo.client.events.EventStage;
@@ -140,19 +141,40 @@ public class WarpModule extends Module {
 
    @Override
    public void onDisable() {
+      this.releaseTickRateRequests();
       this.setFakeLagEnabled(false);
-      if (this.modeSetting.getValue() == WarpModule.ModeChoice.ALTERNATIVE && !this.isWorldUnavailable()) {
-         try {
-            while (
-               !this.rechargeController.pendingPongs.isEmpty()
-            ) {
-               ClientCommonPacketListenerImpl connection = ClientAccess.schizoMinecraft.player.connection;
-               Packet<?> packet = this.rechargeController.pendingPongs.poll();
-               connection.send(packet);
-            }
-         } catch (Exception ignored) {
-         }
+      this.flushPendingPongs();
+   }
 
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.releaseTickRateRequests();
+      this.setFakeLagEnabled(false);
+      this.rechargeController.pendingPongs.clear();
+      this.plainCharge = 0;
+      this.receivedCorrection = false;
+   }
+
+   private void onModeChanged() {
+      this.releaseTickRateRequests();
+      this.setFakeLagEnabled(false);
+      this.flushPendingPongs();
+   }
+
+   private void flushPendingPongs() {
+      if (this.isWorldUnavailable()) {
+         this.rechargeController.pendingPongs.clear();
+         return;
+      }
+
+      try {
+         while (!this.rechargeController.pendingPongs.isEmpty()) {
+            ClientCommonPacketListenerImpl connection = ClientAccess.schizoMinecraft.player.connection;
+            Packet<?> packet = this.rechargeController.pendingPongs.poll();
+            connection.send(packet);
+         }
+      } catch (Exception ignored) {
+      } finally {
          this.rechargeController.pendingPongs.clear();
       }
    }
@@ -208,7 +230,7 @@ public class WarpModule extends Module {
       this.disableGroundSetting = this.add(new BooleanSetting("DisableGround", false).dependsOn(this.fakeLagSetting));
       this.autoDisableSetting = this.add(new BooleanSetting("AutoDisable", false));
       this.rechargeController = new WarpRechargeController(this);
-      this.modeSetting.setChangeCallback(this::releaseTickRateRequests);
+      this.modeSetting.setChangeCallback(this::onModeChanged);
    }
 
    private void releaseTickRateRequests() {
