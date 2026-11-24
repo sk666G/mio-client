@@ -139,7 +139,7 @@ public final class PlayerStateTracker implements ClientAccess {
    }
 
    public void runSneaking(Runnable action) {
-      this.runWithSneakingState(true, action);
+      runWithSneakingState(true, ClientContext.playerStateTracker.isSneaking(), this::setSneaking, action);
    }
 
    static void runWithSneakingState(
@@ -171,7 +171,7 @@ public final class PlayerStateTracker implements ClientAccess {
    }
 
    public void runWithoutSneaking(Runnable action) {
-      this.runWithSneakingState(false, action);
+      runWithSneakingState(false, ClientContext.playerStateTracker.isSneaking(), this::setSneaking, action);
    }
 
    @EventHandler(priority = -9999)
