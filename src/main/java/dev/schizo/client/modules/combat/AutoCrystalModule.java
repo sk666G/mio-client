@@ -1495,6 +1495,10 @@ public class AutoCrystalModule extends Module {
       return this.autoSwapSetting.getValue() == ItemSwapMode.SILENT;
    }
 
+   static boolean isSamePreviousPlacement(BlockPos previousPlacement, BlockPos crystalPosition) {
+      return previousPlacement != null && previousPlacement.equals(crystalPosition);
+   }
+
    private void onCrystalSpawn(ClientboundAddEntityPacket packet) {
       if (packet.getType() != EntityType.END_CRYSTAL || this.target == null) {
          return;
@@ -1588,7 +1592,7 @@ public class AutoCrystalModule extends Module {
       BlockPos crystalPosition = BlockPos.containing(spawnPosition);
 
       if (this.instantSetting.getValue() == AutoCrystalInstantChoice.STRICT
-         && this.previousPlacement.equals(crystalPosition)) {
+         && isSamePreviousPlacement(this.previousPlacement, crystalPosition)) {
          return;
       }
 
