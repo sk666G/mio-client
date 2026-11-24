@@ -36,10 +36,10 @@ class ExplosionDamageSnapshotTest {
       ExplosionRaycastSnapshot rays = raySnapshot(42, 100L, 12L, "minecraft:overworld", rayCells());
 
       ExplosionDamageSnapshot.DamageResult near = profile.calculate(
-         0.5D, 0.5D, 0.5D, 0.5D, ExplosionRaycastSnapshot.Query.normal(), rays
+         0.5D, 0.0D, 0.0D, 0.5D, ExplosionRaycastSnapshot.Query.normal(), rays
       );
       ExplosionDamageSnapshot.DamageResult farther = profile.calculate(
-         0.5D, 0.5D, 0.5D, 0.25D, ExplosionRaycastSnapshot.Query.normal(), rays
+         0.5D, 0.5D, 0.5D, 0.5D, ExplosionRaycastSnapshot.Query.normal(), rays
       );
 
       assertTrue(near.complete());
@@ -277,8 +277,8 @@ class ExplosionDamageSnapshotTest {
    ) {
       return profile.calculate(
          0.5D,
-         0.5D,
-         0.5D,
+         0.0D,
+         0.0D,
          power,
          ExplosionRaycastSnapshot.Query.normal(),
          rays
@@ -304,6 +304,7 @@ class ExplosionDamageSnapshotTest {
    private static Map<Long, ExplosionRaycastSnapshot.BlockGeometry> rayCells() {
       return Map.of(
          new BlockPos(-1, -1, -1).asLong(), air(),
+         new BlockPos(0, -1, -1).asLong(), air(),
          new BlockPos(-1, -1, 0).asLong(), air(),
          new BlockPos(-1, 0, 0).asLong(), air(),
          BlockPos.ZERO.asLong(), air()
