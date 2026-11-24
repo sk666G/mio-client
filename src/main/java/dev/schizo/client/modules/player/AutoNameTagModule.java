@@ -81,13 +81,16 @@ public class AutoNameTagModule extends Module {
 
       int nameTagSlot = InventoryUtils.findHotbarSlot(nameTagPredicate);
       int previousSlot = ClientAccess.schizoMinecraft.player.getInventory().getSelectedSlot();
+      ItemSwapMode swapMode = this.swapSetting.getValue();
+      boolean selectedNameTagSlot = swapMode != ItemSwapMode.NONE && nameTagSlot != -1;
       int taggedCount = 0;
-      if (this.swapSetting.getValue() != ItemSwapMode.NONE) {
+      if (selectedNameTagSlot) {
          InventoryUtils.selectHotbarSlotForPlacement(nameTagSlot);
       }
 
-      ClientLevel level = ClientAccess.schizoMinecraft.level;
-      for (Entity entity : level.entitiesForRendering()) {
+      try {
+         ClientLevel level = ClientAccess.schizoMinecraft.level;
+         for (Entity entity : level.entitiesForRendering()) {
          ItemStack heldStack = ClientAccess.schizoMinecraft.player.getMainHandItem();
          if (!this.isNamedNameTag(heldStack)) {
             break;
@@ -141,10 +144,11 @@ public class AutoNameTagModule extends Module {
             break;
          }
 
-      }
-
-      if (this.swapSetting.getValue() == ItemSwapMode.SILENT) {
-         InventoryUtils.selectHotbarSlotForPlacement(previousSlot);
+         }
+      } finally {
+         if (selectedNameTagSlot && swapMode == ItemSwapMode.SILENT) {
+            InventoryUtils.selectHotbarSlot(previousSlot);
+         }
       }
 
       timerSnapshot = this.nameTagTimer;
