@@ -187,6 +187,7 @@ public class ResizableHudWidgetRenderer extends HudWidgetRenderer {
       } finally {
          poses.popPose();
       }
+   }
 
    public boolean isResizeHandleHovered(double mouseX, double mouseY) {
       if (!this.resizingEnabled) {
