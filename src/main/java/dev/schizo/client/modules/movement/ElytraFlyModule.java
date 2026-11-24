@@ -216,8 +216,19 @@ public class ElytraFlyModule extends Module {
       if (!this.canStartFlightFromJump()) {
          return false;
       }
-      ClientAccess.schizoMinecraft.execute(() -> {
-         ClientAccess.schizoMinecraft.player.startFallFlying();
+      var minecraft = ClientAccess.schizoMinecraft;
+      var playerSnapshot = minecraft.player;
+      var levelSnapshot = minecraft.level;
+      minecraft.execute(() -> {
+         if (!this.isToggled()
+            || minecraft.player != playerSnapshot
+            || minecraft.level != levelSnapshot
+            || !playerSnapshot.isAlive()
+            || !this.canStartFlightFromJump()) {
+            return;
+         }
+
+         playerSnapshot.startFallFlying();
          PacketSender.sendStartFallFlying();
       });
       return true;
