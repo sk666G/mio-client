@@ -33,6 +33,7 @@ import dev.schizo.client.settings.options.DimensionType;
 
 import java.awt.Color;
 import java.util.Iterator;
+import java.util.List;
 import java.util.function.Predicate;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.multiplayer.MultiPlayerGameMode;
