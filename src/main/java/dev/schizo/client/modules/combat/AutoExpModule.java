@@ -215,30 +215,32 @@ public class AutoExpModule extends Module {
                   owner.stopped = false;
 
                   int previousSlot = ClientAccess.schizoMinecraft.player.getInventory().getSelectedSlot();
-                  InventoryUtils.swapTo(bottleSlot);
-                  for (int bottlesThrown = 0; bottlesThrown < owner.frequencySetting.getValue(); bottlesThrown++) {
-                     if (owner.rotateSetting.getValue()) {
-                        InteractionHand throwHand = bottleSlot.hand();
-                        float throwYaw = targetRotation[0];
-                        float throwPitch = targetRotation[1];
-                        PacketSender.sendUseItem(throwHand, throwYaw, throwPitch);
-                     } else {
-                        InteractionHand throwHandWithoutRotation = bottleSlot.hand();
-                        PacketSender.sendUseItem(throwHandWithoutRotation);
+                  Runnable throwBottles = () -> {
+                     for (int bottlesThrown = 0; bottlesThrown < owner.frequencySetting.getValue(); bottlesThrown++) {
+                        if (owner.rotateSetting.getValue()) {
+                           InteractionHand throwHand = bottleSlot.hand();
+                           float throwYaw = targetRotation[0];
+                           float throwPitch = targetRotation[1];
+                           PacketSender.sendUseItem(throwHand, throwYaw, throwPitch);
+                        } else {
+                           InteractionHand throwHandWithoutRotation = bottleSlot.hand();
+                           PacketSender.sendUseItem(throwHandWithoutRotation);
+                        }
                      }
-                  }
 
-                  SwingInteractionManager swingManager = ClientContext.swingManager;
-                  InteractionHand swingHand = bottleSlot.hand();
-                  SwingAction interactionType = SwingAction.INTERACT;
-
-                  swingManager.swingPacket(swingHand, interactionType);
+                     SwingInteractionManager swingManager = ClientContext.swingManager;
+                     InteractionHand swingHand = bottleSlot.hand();
+                     SwingAction interactionType = SwingAction.INTERACT;
+                     swingManager.swingPacket(swingHand, interactionType);
+                     owner.throwTimer.reset();
+                  };
 
                   if (owner.modeSetting.getValue() == AutoExpModule.ModeChoice.SILENT) {
-                     InventoryUtils.swapBack(previousSlot, bottleSlot);
+                     InventoryUtils.runWithSwap(previousSlot, bottleSlot, throwBottles);
+                  } else {
+                     InventoryUtils.swapTo(bottleSlot);
+                     throwBottles.run();
                   }
-
-                  owner.throwTimer.reset();
                }
             }
 
