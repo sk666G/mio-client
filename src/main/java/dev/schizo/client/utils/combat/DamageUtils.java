@@ -269,7 +269,19 @@ public final class DamageUtils implements ClientAccess {
       double dot = attackDirection.dot(viewVector);
       double angle = Math.acos(dot);
 
-      return blocksAttacks.resolveBlockedDamage(damageSource, damage, angle);
+      List<ExplosionBlockingDamageMath.Reduction> reductions = new java.util.ArrayList<>();
+      for (BlocksAttacks.DamageReduction reduction : blocksAttacks.damageReductions()) {
+         boolean damageTypeMatches = reduction.type().isEmpty()
+            || reduction.type().get().contains(damageSource.typeHolder());
+         reductions.add(new ExplosionBlockingDamageMath.Reduction(
+            reduction.horizontalBlockingAngle(),
+            damageTypeMatches,
+            reduction.base(),
+            reduction.factor()
+         ));
+      }
+
+      return ExplosionBlockingDamageMath.apply(damage, angle, reductions);
    }
 
    public static float scaleForDifficulty(float damage) {
