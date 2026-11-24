@@ -27,6 +27,7 @@ import dev.schizo.client.utils.world.BlockInteractionUtils;
 import dev.schizo.client.utils.entity.PlayerStateUtils;
 import dev.schizo.client.utils.inventory.InventoryUtils;
 import dev.schizo.client.utils.world.WorldUtils;
+import dev.schizo.client.utils.network.ServerSideDeathState;
 import dev.schizo.client.managers.ModuleRegistry;
 import dev.schizo.client.modules.ModuleCategory;
 import dev.schizo.client.modules.render.LogoutSpotsModule;
@@ -267,12 +268,15 @@ public class AutoTrapModule extends PlacementModule {
    }
 
    protected boolean isValidTarget(Player player) {
-      if (!player.isDeadOrDying()) {
-         if (player.isAlive() && player != ClientAccess.schizoMinecraft.player) {
-            if (ClientContext.socialRegistry.isFriendPlayer(player)) {
-               return false;
-            }
-
+      if (CombatTargetPolicy.isEligible(
+         player.isAlive(),
+         player.isDeadOrDying(),
+         player == ClientAccess.schizoMinecraft.player,
+         player.isSpectator(),
+         player.isCreative(),
+         ClientContext.socialRegistry.isFriendPlayer(player),
+         ((ServerSideDeathState)player).isServerSideDead()
+      )) {
             if (this.ignoreNakedsSetting.getValue()) {
                if (!PlayerStateUtils.hasArmor(player)) {
                   return false;
@@ -322,7 +326,6 @@ public class AutoTrapModule extends PlacementModule {
             }
 
             return this.getTargetPosition(player).distanceTo(ClientAccess.schizoMinecraft.player.getEyePosition()) <= maximumRange;
-         }
       }
 
       return false;
