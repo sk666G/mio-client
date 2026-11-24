@@ -176,15 +176,9 @@ public class WelcomerModule extends HudWidgetModule {
          }
       }
 
-      float[] dimensions = new float[2];
-      dimensions[0] = maximumWidth * hudScale;
-      dimensions[1] = (
-            FontRenderer.INSTANCE
-                  .getHeight()
-               + 1
-         )
-         * hudScale;
-      return dimensions;
+      float width = maximumWidth * hudScale;
+      float height = (FontRenderer.INSTANCE.getHeight() + 1) * hudScale;
+      return this.dimensions(width, height);
    }
 
    private boolean overlapsWidget(HudWidgetModule widget) {
