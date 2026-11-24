@@ -256,10 +256,10 @@ public final class PresetRegistry extends Registry<PresetData> {
       PresetData source = this.getPreset(normalizedSource);
       if (source == null) return false;
       ensureNoCollision(normalizedTarget, null);
-      Path targetPath = PresetNameValidator.resolve(this.directory, normalizedTarget);
-      FileUtils.writeUtf8Atomically(targetPath, GSON.toJson(source.contents()));
+      PresetData copy = new PresetData(normalizedTarget, source.contents().deepCopy());
+      copy.saveToDirectory(this.directory);
       synchronized (this.getRegistry()) {
-         this.entries.add(new PresetData(normalizedTarget, source.contents().deepCopy()));
+         this.entries.add(copy);
       }
       return true;
    }
