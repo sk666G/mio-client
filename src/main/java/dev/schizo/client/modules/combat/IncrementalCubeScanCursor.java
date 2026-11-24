@@ -13,14 +13,15 @@ final class IncrementalCubeScanCursor {
    private boolean complete;
 
    IncrementalCubeScanCursor(int minimum, int maximumExclusive) {
-      if (maximumExclusive <= minimum) {
-         throw new IllegalArgumentException("Scan range must contain at least one offset");
+      if (maximumExclusive < minimum) {
+         throw new IllegalArgumentException("Maximum scan offset must not precede the minimum");
       }
       this.minimum = minimum;
       this.maximumExclusive = maximumExclusive;
       this.x = minimum;
       this.y = minimum;
       this.z = minimum;
+      this.complete = maximumExclusive == minimum;
    }
 
    Offset next() {
