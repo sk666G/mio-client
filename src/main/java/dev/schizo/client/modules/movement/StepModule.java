@@ -13,6 +13,7 @@ package dev.schizo.client.modules.movement;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.EventHandler;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.events.LocalPlayerTickEvent;
 import dev.schizo.client.events.LocalPlayerPreTickEvent;
 import dev.schizo.client.events.StepHeightEvent;
@@ -51,6 +52,12 @@ public class StepModule extends Module {
 
    @Override
    public void onDisable() {
+      this.releaseStepTimer();
+      this.stepCount = 0;
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
       this.releaseStepTimer();
       this.stepCount = 0;
    }
