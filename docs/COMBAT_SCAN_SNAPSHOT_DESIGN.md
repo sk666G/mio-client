@@ -165,3 +165,15 @@ Together, the impact, armor/resistance/protection, and blocking arithmetic are n
 `ExplosionExposureMath` now owns the sample-grid calculation from target bounds to explosion rays. It accepts primitive bounds and explosion coordinates and calls a supplied visibility tester for each sample. `DamageUtils.getExposure` supplies the existing `RaycastUtils.raycast` callback, so the ray behavior is unchanged while the sampling geometry can now be reused by a snapshot-only tester.
 
 Tests cover the eight-sample degenerate-bound case, endpoint forwarding, negative-step early exit and null tester rejection. The callback boundary is important: the helper itself is pure, but the current callback still reaches the active `ClientLevel` through `RaycastUtils`. This is a sampling extraction, not a completed exposure snapshot.
+## Snapshot-only ray infrastructure
+
+The first reusable ray snapshot layer is now present, but AutoCrystal and AnchorAura have not been switched to it.
+
+- `ExplosionRaycastSnapshot` stores packed block-position keys and immutable copies of block-local collision-box lists plus explosion-resistance values. It retains only generation/tick/dimension metadata and those value objects; it does not retain `BlockState`, `Level`, `Entity`, `CollisionContext`, or managers.
+- Its ray method uses the static `BlockGetter.traverseBlocks` DDA with the snapshot as callback data, not as a live `BlockGetter`. It resolves only captured box geometry using the static `AABB.clip` helper and the same initial-point-in-shape check as `VoxelShape.clip`.
+- The result is tri-state: `HIT`, `MISS`, or `INCOMPLETE`. A block position missing from the capture returns `INCOMPLETE`; it is never silently treated as air. Query overrides preserve the current classifier order: ignored positions, explicit solid position, then low-resistance filtering.
+- `ExplosionRaycastSnapshotBuilder` is a separate client-thread adapter. It checks the active `ClientLevel`, collision entity world identity and client-thread ownership; bounds the capture to 32,768 blocks by default; rejects unloaded chunks or regions outside build height; computes context-dependent collision shapes on the client thread; and flattens them to AABBs before the snapshot is handed off.
+- `ExplosionRaycastSnapshotBuilder.Region.enclosingRays` creates a padded integer region enclosing the target AABB and explosion endpoint. The padding accounts for the existing exposure sample offsets and ray traversal boundary handling.
+- `ExplosionExposureMath.calculateFromSnapshot` can now use this value-only ray layer. It propagates an unknown ray as an incomplete exposure result so the caller can discard the scan rather than ranking a candidate using guessed exposure.
+
+Current limit: this is only the geometry/exposure foundation. No combat module calls the builder or snapshot yet. The next work is to define one bounded scan-wide capture that covers every candidate ray and relevant target collision profile, add world-generation/settings/entity identity checks, and then migrate AutoCrystal with client-thread revalidation before considering AnchorAura.
