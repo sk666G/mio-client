@@ -106,12 +106,13 @@ public final class DamageUtils implements ClientAccess {
       }
 
       float exposure = getExposure(explosionPosition, target, bounds, ignoredPositions, solidPosition, ignoreLowResistance);
-      double impact = (1.0D - normalizedDistance) * exposure;
-      double quadraticImpact = impact * impact + impact;
-      double scaledImpact = quadraticImpact / 2.0D;
-      double rawDamage = scaledImpact * 7.0D * diameter;
-      float damage = (float)(rawDamage + 1.0D);
-      damage = scaleForDifficulty(damage);
+      ExplosionDamageMath.Difficulty difficulty = switch (ClientAccess.schizoMinecraft.level.getDifficulty()) {
+         case PEACEFUL -> ExplosionDamageMath.Difficulty.PEACEFUL;
+         case EASY -> ExplosionDamageMath.Difficulty.EASY;
+         case HARD -> ExplosionDamageMath.Difficulty.HARD;
+         default -> ExplosionDamageMath.Difficulty.NORMAL;
+      };
+      float damage = ExplosionDamageMath.calculate(normalizedDistance, exposure, power, difficulty);
 
       damage = applyDamageReduction(target, damage);
       damage = resolveBlockingDamage(target, explosionPosition, damage);
