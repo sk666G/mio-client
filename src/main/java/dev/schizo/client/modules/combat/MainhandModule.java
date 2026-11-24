@@ -254,10 +254,10 @@ public class MainhandModule extends Module implements LethalDamageTracker.Lethal
             if (previousSlot == gappleSlot) {
                return;
             }
-            InventoryUtils.selectHotbarSlotForPlacement(gappleSlot);
             this.previousSelectedHotbarSlot = previousSlot;
             this.temporarySelectedHotbarSlot = gappleSlot;
             this.temporaryHotbarSelection = true;
+            InventoryUtils.selectHotbarSlotForPlacement(gappleSlot);
             return;
          }
       }
@@ -308,6 +308,9 @@ public class MainhandModule extends Module implements LethalDamageTracker.Lethal
          }
       }
 
+      if (this.temporaryHotbarSelection && !this.hotbarSetting.getValue()) {
+         this.restoreTemporaryHotbarSelection(true);
+      }
       if (this.hotbarSetting.getValue() && this.tickReady) {
          if (shouldTemporarilySelectGapple()) {
             selectGappleTemporarily();
