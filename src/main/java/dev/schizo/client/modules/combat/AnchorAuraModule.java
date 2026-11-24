@@ -46,13 +46,7 @@ import java.awt.Color;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.SynchronousQueue;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.atomic.AtomicReference;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.multiplayer.ClientLevel;
@@ -83,7 +77,8 @@ public class AnchorAuraModule extends Module {
    private static OffhandModule offhand = (OffhandModule)ClientContext.getModule(OffhandModule.class);
    private static AutoCrystalModule autoCrystal = (AutoCrystalModule)ClientContext.getModule(AutoCrystalModule.class);
    private static SpeedMineModule speedMine = (SpeedMineModule)ClientContext.getModule(SpeedMineModule.class);
-   private static final ThreadPoolExecutor calculationExecutor = createCalculationExecutor();
+   private static final long SCAN_BUDGET_NANOS = TimeUnit.MILLISECONDS.toNanos(2L);
+   private static final int MAX_SCAN_CANDIDATES_PER_TICK = 64;
    private final Setting<Integer> delaySetting;
    private final Setting<Float> rangeSetting;
    private final Setting<Float> wallRangeSetting;
@@ -106,8 +101,7 @@ public class AnchorAuraModule extends Module {
    private final Setting<Boolean> miningSetting;
    private final Setting<Boolean> eatingSetting;
    private final Setting<Float> healthSetting;
-   private CompletableFuture<AnchorPlacementResult> calculationFuture;
-   private FutureTask<Void> calculationTask;
+   private AnchorScanState scanState;
    private ClientLevel calculationWorld;
    private final ElapsedTimer actionTimer;
    public final AtomicReference placementData;
@@ -155,21 +149,11 @@ public class AnchorAuraModule extends Module {
    }
 
    private void completeCalculation() {
-      FutureTask<Void> task = this.calculationTask;
-      if (task != null && !task.isDone()) {
-         task.cancel(true);
-      }
-
-      CompletableFuture<AnchorPlacementResult> pending = this.calculationFuture;
-      if (pending != null && !pending.isDone() && !pending.isCancelled()) {
-         pending.complete(null);
-      }
+      this.scanState = null;
    }
 
    private void resetCalculationState() {
       this.completeCalculation();
-      this.calculationFuture = null;
-      this.calculationTask = null;
       this.calculationWorld = null;
       this.placementData.set(null);
       this.targetDamage = null;
@@ -512,162 +496,153 @@ public class AnchorAuraModule extends Module {
       }
    }
 
-   private AnchorPlacementResult calculatePlacement() {
-      LocalPlayer playerSnapshot = ClientAccess.schizoMinecraft.player;
-      double originX = playerSnapshot.getX();
-      double originY = playerSnapshot.getEyeY();
-      double originZ = playerSnapshot.getZ();
-      Vec3 eyeSnapshot = playerSnapshot.getEyePosition();
-      MutableBlockPos scanPosition = new MutableBlockPos();
-      AnchorPlacementResult bestPlacement = null;
-      for (double offsetX = -Math.floor((this.rangeSetting.getValue()).floatValue());
-         offsetX < Math.ceil((this.rangeSetting.getValue()).floatValue()); offsetX += 1.0D) {
-         if (Thread.currentThread().isInterrupted()) {
-            return null;
-         }
-         for (double offsetY = -Math.floor((this.rangeSetting.getValue()).floatValue());
-            offsetY < Math.ceil((this.rangeSetting.getValue()).floatValue()); offsetY += 1.0D) {
-            if (Thread.currentThread().isInterrupted()) {
-               return null;
-            }
-            for (double offsetZ = -Math.floor((this.rangeSetting.getValue()).floatValue());
-               offsetZ < Math.ceil((this.rangeSetting.getValue()).floatValue()); offsetZ += 1.0D) {
-               if (Thread.currentThread().isInterrupted()) {
-                  return null;
-               }
-               MutableBlockPos scanPositionSnapshot = scanPosition;
+   private AnchorPlacementResult evaluatePlacementCandidate(
+      AnchorScanState state,
+      IncrementalCubeScanCursor.Offset offset
+   ) {
+      MutableBlockPos scanPosition = state.scanPosition;
+      scanPosition.set(
+         state.originX + offset.x(),
+         state.originY + offset.y(),
+         state.originZ + offset.z()
+      );
 
-               double scanXSnapshot = originX + offsetX;
+      if (BlockInteractionUtils.isOutsidePlacementBounds(scanPosition)) {
+         return null;
+      }
 
-               double scanYSnapshot = originY + offsetY;
+      boolean miningBlockIgnored = false;
+      if (this.shouldIgnoreMiningBlock() && scanPosition.equals(speedMine.getMiningPos())) {
+         miningBlockIgnored = true;
+      }
 
-               double scanZ = originZ + offsetZ;
-               scanPositionSnapshot.set(scanXSnapshot, scanYSnapshot, scanZ);
-               scanPositionSnapshot = scanPosition;
+      if (WorldUtils.isPlacementOccupied(scanPosition) && !miningBlockIgnored) {
+         return null;
+      }
 
-               if (BlockInteractionUtils.isOutsidePlacementBounds(scanPositionSnapshot)) {
-                  continue;
-               }
+      AABB boundsSnapshot = new AABB(scanPosition);
+      if (BlockInteractionUtils.hasBlockingEntity(boundsSnapshot, true, true)
+         && !this.isAnchorBlock(scanPosition)) {
+         return null;
+      }
 
-               boolean miningBlockIgnored = false;
-               if (this.shouldIgnoreMiningBlock()) {
-                  scanPositionSnapshot = scanPosition;
+      BlockSampleMode samplingMode = BlockSampleMode.X8;
+      List samples = samplingMode.sampleBlock(scanPosition);
+      boolean visible = WorldUtils.canSeeAny(samples);
 
-                  if (scanPositionSnapshot.equals(speedMine.getMiningPos())) {
-                     miningBlockIgnored = true;
-                  }
-               }
+      Vec3 center = scanPosition.getCenter();
+      double distance = state.eyePosition.distanceTo(center);
+      if (!visible && distance > this.wallRangeSetting.getValue().floatValue()) {
+         return null;
+      }
+      if (distance > state.range) {
+         return null;
+      }
 
-               if (WorldUtils.isPlacementOccupied(scanPosition) && !miningBlockIgnored) {
-                  continue;
-               }
+      boolean directionModeSnapshot = BlockInteractionUtils.isStrictDirectionEnabled();
+      boolean zeroWallRange = this.wallRangeSetting.getValue() <= 0.0F;
+      Direction direction = BlockInteractionUtils.findSupportDirection(
+         scanPosition,
+         directionModeSnapshot,
+         zeroWallRange
+      );
 
-               AABB boundsSnapshot = new AABB(scanPosition);
-               if (BlockInteractionUtils.hasBlockingEntity(boundsSnapshot, true, true)) {
-                  MutableBlockPos entityAnchorSnapshot = scanPosition;
-                  if (!this.isAnchorBlock(entityAnchorSnapshot)) {
-                     continue;
-                  }
-               }
+      AnchorTargetDamage targetDamage = AnchorTargetDamage.calculateForBase(this, scanPosition);
+      if (direction == null && this.airPlaceSetting.getValue()) {
+         direction = Direction.DOWN;
+      } else if (this.isAnchorBlock(scanPosition)) {
+         direction = Direction.DOWN;
+      }
 
-               MutableBlockPos samplePosition = scanPosition;
-               BlockSampleMode samplingMode = BlockSampleMode.X8;
-               List samples = samplingMode.sampleBlock(samplePosition);
-               boolean visible = WorldUtils.canSeeAny(samples);
-
-               Vec3 center = scanPosition.getCenter();
-               double distance = eyeSnapshot.distanceTo(center);
-               if (!visible) {
-                  Float visibilityWallRange = this.wallRangeSetting.getValue();
-                  if (distance > visibilityWallRange.floatValue()) {
-                     continue;
-                  }
-               }
-
-               Float placementRange = this.rangeSetting.getValue();
-               if (distance > placementRange.floatValue()) {
-                  continue;
-               }
-
-               scanPositionSnapshot = scanPosition;
-
-               boolean directionModeSnapshot = BlockInteractionUtils.isStrictDirectionEnabled();
-
-               boolean zeroWallRange = this.wallRangeSetting.getValue() <= 0.0F;
-               Direction direction = BlockInteractionUtils.findSupportDirection(
-                  scanPositionSnapshot, directionModeSnapshot, zeroWallRange
-               );
-               MutableBlockPos damagePositionSnapshot = scanPosition;
-
-               AnchorTargetDamage targetDamage = AnchorTargetDamage.calculateForBase(this, damagePositionSnapshot);
-               if (direction == null && this.airPlaceSetting.getValue()) {
-                  direction = Direction.DOWN;
-               } else {
-                  MutableBlockPos fallbackAnchorSnapshot = scanPosition;
-                  if (this.isAnchorBlock(fallbackAnchorSnapshot)) {
-                     direction = Direction.DOWN;
-                  }
-               }
-
-               if (direction == null) {
-                  MutableBlockPos fluidPosition = scanPosition;
-
-                  FluidState fluid = ClientAccess.schizoMinecraft.level.getFluidState(fluidPosition);
-                  if (!fluid.isEmpty()) {
-                     if (this.liquidPlaceSetting.getValue()) {
-                        direction = Direction.DOWN;
-                     }
-                  }
-               }
-
-               if (direction == null || targetDamage == null) {
-                  continue;
-               }
-               MutableBlockPos damagePosition = scanPosition;
-               if (this.shouldRejectDamage(damagePosition, targetDamage)) {
-                  continue;
-               }
-
-               AnchorPlacementResult candidatePlacement = new AnchorPlacementResult(scanPosition.immutable(), direction, targetDamage);
-               MutableBlockPos anchorSnapshot = scanPosition;
-
-               if (this.isAnchorBlock(anchorSnapshot)) {
-                  return candidatePlacement;
-               }
-
-               bestPlacement = candidatePlacement.selectHigherDamage(bestPlacement);
-            }
+      if (direction == null) {
+         FluidState fluid = ClientAccess.schizoMinecraft.level.getFluidState(scanPosition);
+         if (!fluid.isEmpty() && this.liquidPlaceSetting.getValue()) {
+            direction = Direction.DOWN;
          }
       }
-      return bestPlacement;
+
+      if (direction == null || targetDamage == null) {
+         return null;
+      }
+      if (this.shouldRejectDamage(scanPosition, targetDamage)) {
+         return null;
+      }
+
+      return new AnchorPlacementResult(scanPosition.immutable(), direction, targetDamage);
    }
 
-   static ThreadPoolExecutor createCalculationExecutor() {
-      // Timed-out scans can remain inside a live-state helper after interruption.
-      // Keep only one active scan and do not queue replacements behind it.
-      return new ThreadPoolExecutor(
-         0,
-         1,
-         30L,
-         TimeUnit.SECONDS,
-         new SynchronousQueue<>()
-      );
+   private AnchorScanState createScanState(ClientLevel activeLevel) {
+      LocalPlayer playerSnapshot = ClientAccess.schizoMinecraft.player;
+      float range = this.rangeSetting.getValue();
+      return new AnchorScanState(activeLevel, playerSnapshot, range);
+   }
+
+   private void advanceScan(AnchorScanState state) {
+      long startedNanos = System.nanoTime();
+      int processed = 0;
+
+      while (!state.cursor.isComplete() && processed < MAX_SCAN_CANDIDATES_PER_TICK) {
+         if (processed > 0 && System.nanoTime() - startedNanos >= SCAN_BUDGET_NANOS) {
+            break;
+         }
+
+         IncrementalCubeScanCursor.Offset offset = state.cursor.next();
+         if (offset == null) {
+            break;
+         }
+         processed++;
+
+         AnchorPlacementResult candidate = this.evaluatePlacementCandidate(state, offset);
+         if (candidate == null) {
+            continue;
+         }
+
+         if (this.isAnchorBlock(candidate.base())) {
+            state.bestPlacement = candidate;
+            state.finished = true;
+            return;
+         }
+         state.bestPlacement = candidate.selectHigherDamage(state.bestPlacement);
+      }
+
+      if (state.cursor.isComplete()) {
+         state.finished = true;
+      }
+   }
+
+   private void publishScanResult(AnchorPlacementResult completedPlacement, ClientLevel activeLevel) {
+      AnchorTargetDamage completedDamage = completedPlacement == null
+         ? null
+         : completedPlacement.targetDamage();
+      Player completedTarget = completedDamage == null ? null : completedDamage.target();
+      double validationRange = this.targetRangeSetting.getValue().doubleValue();
+
+      if (completedPlacement == null
+         || completedTarget == null
+         || completedTarget.level() != activeLevel
+         || completedTarget.isRemoved()
+         || AnchorTargetDamage.isInvalidTarget(completedTarget, validationRange)
+         || this.isInvalidPlacement(completedPlacement.base())) {
+         this.placementData.set(null);
+         this.targetDamage = null;
+         return;
+      }
+
+      this.placementData.set(completedPlacement);
+      this.targetDamage = completedDamage;
    }
 
    private void updateCalculation() {
       ClientLevel activeLevel = ClientAccess.schizoMinecraft.level;
       if (this.calculationWorld != activeLevel) {
-         // Cancel and discard any result that belongs to a replaced client world.
          this.completeCalculation();
-         this.calculationFuture = null;
-         this.calculationTask = null;
-         this.calculationWorld = null;
+         this.calculationWorld = activeLevel;
          this.placementData.set(null);
          this.targetDamage = null;
       }
 
-      if (this.placementData.get() != null) {
-         AnchorPlacementResult existingPlacement = (AnchorPlacementResult)this.placementData.get();
+      AnchorPlacementResult existingPlacement = (AnchorPlacementResult)this.placementData.get();
+      if (existingPlacement != null) {
          Player existingTarget = existingPlacement.targetDamage() == null
             ? null
             : existingPlacement.targetDamage().target();
@@ -679,46 +654,15 @@ public class AnchorAuraModule extends Module {
             || AnchorTargetDamage.isInvalidTarget(existingTarget, validationRange)) {
             this.placementData.set(null);
             this.targetDamage = null;
+         } else {
+            this.completeCalculation();
+            return;
          }
-      }
-
-      if (this.calculationFuture != null && this.calculationFuture.isDone() && this.placementData.get() == null) {
-         try {
-            AnchorPlacementResult completedPlacement = this.calculationFuture.get();
-            AnchorTargetDamage completedDamage = completedPlacement == null
-               ? null
-               : completedPlacement.targetDamage();
-            Player completedTarget = completedDamage == null ? null : completedDamage.target();
-            double validationRange = this.targetRangeSetting.getValue().doubleValue();
-
-            if (this.calculationWorld != activeLevel
-               || completedPlacement == null
-               || completedTarget == null
-               || completedTarget.level() != activeLevel
-               || completedTarget.isRemoved()
-               || AnchorTargetDamage.isInvalidTarget(completedTarget, validationRange)
-               || this.isInvalidPlacement(completedPlacement.base())) {
-               this.placementData.set(null);
-               this.targetDamage = null;
-            } else {
-               this.placementData.set(completedPlacement);
-               this.targetDamage = completedDamage;
-            }
-         } catch (InterruptedException | ExecutionException failure) {
-            failure.printStackTrace();
-            this.placementData.set(null);
-            this.targetDamage = null;
-         }
-      }
-
-      if (this.calculationFuture != null && !this.calculationFuture.isDone() && !this.calculationFuture.isCancelled()) {
-         return;
       }
 
       if (this.targetDamage != null) {
          Player currentTarget = this.targetDamage.target();
-
-         double validationRange = (this.targetRangeSetting.getValue()).floatValue();
+         double validationRange = this.targetRangeSetting.getValue().floatValue();
          if (currentTarget == null
             || currentTarget.level() != activeLevel
             || currentTarget.isRemoved()
@@ -728,34 +672,45 @@ public class AnchorAuraModule extends Module {
          }
       }
 
-      CompletableFuture<AnchorPlacementResult> scheduledCalculation = new CompletableFuture<>();
-      FutureTask<Void> task = new FutureTask<>(() -> {
-         try {
-            scheduledCalculation.complete(this.calculatePlacement());
-         } catch (Throwable failure) {
-            scheduledCalculation.completeExceptionally(failure);
-         }
-         return null;
-      });
-      this.calculationWorld = activeLevel;
-      try {
-         calculationExecutor.execute(task);
-         this.calculationTask = task;
-         this.calculationFuture = scheduledCalculation
-            .completeOnTimeout(null, 750L, TimeUnit.MILLISECONDS)
-            .whenComplete((result, failure) -> {
-               // Stop timed-out scans instead of letting them overlap later calculations.
-               if (failure != null || result == null) {
-                  task.cancel(true);
-               }
-            })
-            .exceptionally(failure -> null);
-      } catch (RejectedExecutionException busyExecutor) {
-         // The previous cancelled scan has not exited yet. Retry on a later tick;
-         // never perform this scan synchronously on the client thread.
-         task.cancel(false);
-         this.calculationTask = null;
-         this.calculationFuture = null;
+      if (this.scanState == null || this.scanState.world != activeLevel) {
+         this.scanState = this.createScanState(activeLevel);
+      }
+
+      AnchorScanState activeScan = this.scanState;
+      this.advanceScan(activeScan);
+      if (!activeScan.finished) {
+         return;
+      }
+
+      AnchorPlacementResult completedPlacement = activeScan.bestPlacement;
+      this.scanState = null;
+      this.publishScanResult(completedPlacement, activeLevel);
+   }
+
+   private static final class AnchorScanState {
+      final ClientLevel world;
+      final double originX;
+      final double originY;
+      final double originZ;
+      final Vec3 eyePosition;
+      final float range;
+      final MutableBlockPos scanPosition = new MutableBlockPos();
+      final IncrementalCubeScanCursor cursor;
+      AnchorPlacementResult bestPlacement;
+      boolean finished;
+
+      AnchorScanState(ClientLevel world, LocalPlayer player, float range) {
+         this.world = world;
+         this.originX = player.getX();
+         this.originY = player.getEyeY();
+         this.originZ = player.getZ();
+         this.eyePosition = player.getEyePosition();
+         this.range = range;
+
+         int minimum = -(int)Math.floor(range);
+         int maximumExclusive = (int)Math.ceil(range);
+         this.cursor = new IncrementalCubeScanCursor(minimum, maximumExclusive);
+         this.finished = this.cursor.isComplete();
       }
    }
 
