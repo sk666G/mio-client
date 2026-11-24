@@ -159,8 +159,12 @@ public final class ObstaclePasserModule extends Module {
       return ClientContext.baritoneBridge.isPathingOrCalculating();
    }
 
+   private boolean ownsActivePath() {
+      return ClientContext.baritoneBridge.ownsPath(this);
+   }
+
    private void updateObstacleTarget() {
-      if (ClientContext.baritoneBridge.isPathingOrCalculating()) {
+      if (this.ownsActivePath()) {
          BlockPos activeTarget = ClientContext.baritoneBridge.getGoalPosition();
          if (activeTarget != null) {
             Vec3 targetCenter = activeTarget.getBottomCenter();
@@ -307,7 +311,7 @@ public final class ObstaclePasserModule extends Module {
    }
 
    private void updatePathTransition() {
-      if (ClientContext.baritoneBridge.isPathingOrCalculating()) {
+      if (this.ownsActivePath()) {
          if (!this.pathWasActive) {
             this.pathWasActive = true;
             ClientContext.playerStateTracker.setSneaking(true);
@@ -344,7 +348,7 @@ public final class ObstaclePasserModule extends Module {
    }
 
    public boolean isPassingObstacles() {
-      return this.isToggled() && this.isPathActive();
+      return this.isToggled() && this.ownsActivePath();
    }
 
    private float getTravelYaw() {
