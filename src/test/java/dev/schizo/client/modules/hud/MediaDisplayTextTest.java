@@ -9,11 +9,11 @@ class MediaDisplayTextTest {
    @Test
    void formatsOneImmutableSnapshotWithoutCrossUpdateReads() {
       MediaSnapshot snapshot = new MediaSnapshot(MediaSnapshot.PLAYING, "Artist", "Track", 10L, 20L);
-      assertEquals("Artist - Track", MediaSessionBridge.getDisplayText(snapshot));
+      assertEquals("Artist - Track", MediaDisplayText.format(snapshot));
    }
 
    @Test
    void preservesEmptySnapshotFormatting() {
-      assertEquals(" - ", MediaSessionBridge.getDisplayText(MediaSnapshot.empty()));
+      assertEquals(" - ", MediaDisplayText.format(MediaSnapshot.empty()));
    }
 }
