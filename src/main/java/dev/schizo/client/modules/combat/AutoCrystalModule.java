@@ -1847,6 +1847,25 @@ public class AutoCrystalModule extends Module {
       this.lastPlacedBase = null;
       this.lastAttackedBase = null;
       this.lastForcedBase = null;
+      this.previousPlacement = null;
+      this.lastAttackedCrystalId = -1;
+      this.attackRetries = 0;
+      this.restoreSlot = -1;
+      this.ignoredSlotChanges = 0;
+      this.selectedDamage = 0.0F;
+      this.spawnFollowupQueued = false;
+      this.breakRotationRequested = false;
+      this.obsidianDropNearTarget = false;
+      this.quiverThreatActive = false;
+      this.rotationTarget.set(null);
+      this.placementGate.set(false);
+      this.placementTimes.clear();
+      synchronized (this.predictedAttackIds) {
+         this.predictedAttackIds.clear();
+      }
+      synchronized (this.ignoredBlocks) {
+         this.ignoredBlocks.clear();
+      }
       Setting<Boolean> suicideSettingSnapshot = this.forceSuicideSetting;
       Boolean disabledValue = false;
       suicideSettingSnapshot.setValue(disabledValue);
