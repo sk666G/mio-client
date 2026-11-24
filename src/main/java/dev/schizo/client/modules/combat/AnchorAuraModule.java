@@ -105,7 +105,6 @@ public class AnchorAuraModule extends Module {
    private final Setting<Float> healthSetting;
    private CompletableFuture<AnchorPlacementResult> calculationFuture;
    private FutureTask<Void> calculationTask;
-   private final MutableBlockPos scanPosition;
    private final ElapsedTimer actionTimer;
    public final AtomicReference placementData;
    public AnchorTargetDamage targetDamage;
@@ -512,6 +511,9 @@ public class AnchorAuraModule extends Module {
       AnchorPlacementResult bestPlacement = null;
       for (double offsetX = -Math.floor((this.rangeSetting.getValue()).floatValue());
          offsetX < Math.ceil((this.rangeSetting.getValue()).floatValue()); offsetX += 1.0D) {
+         if (Thread.currentThread().isInterrupted()) {
+            return null;
+         }
          for (double offsetY = -Math.floor((this.rangeSetting.getValue()).floatValue());
             offsetY < Math.ceil((this.rangeSetting.getValue()).floatValue()); offsetY += 1.0D) {
             if (Thread.currentThread().isInterrupted()) {
@@ -519,9 +521,6 @@ public class AnchorAuraModule extends Module {
             }
             for (double offsetZ = -Math.floor((this.rangeSetting.getValue()).floatValue());
                offsetZ < Math.ceil((this.rangeSetting.getValue()).floatValue()); offsetZ += 1.0D) {
-               if (Thread.currentThread().isInterrupted()) {
-                  return null;
-               }
                if (Thread.currentThread().isInterrupted()) {
                   return null;
                }
@@ -843,7 +842,6 @@ public class AnchorAuraModule extends Module {
       this.miningSetting = this.add(new BooleanSetting("Mining", false).dependsOn(this.pauseSetting));
       this.eatingSetting = this.add(new BooleanSetting("Eating", false).dependsOn(this.pauseSetting));
       this.healthSetting = this.add(new NumberSetting<>("Health", 4.0F, 0.0F, 36.0F).withUnit("hp").dependsOn(this.pauseSetting));
-      this.scanPosition = new MutableBlockPos();
       this.actionTimer = new ElapsedTimer();
       this.placementData = new AtomicReference();
       FeatureBoxRenderer renderer = ClientContext.featureBoxRenderer;
