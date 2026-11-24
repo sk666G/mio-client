@@ -190,3 +190,10 @@ Current limit: this is only the geometry/exposure foundation. No combat module c
 - Tests cover reuse across different candidate explosion positions, deterministic damage, armor/resistance/protection ordering, blocking reductions, totem/lethal output, collision entity UUID reuse, world/tick/dimension mismatch, and incomplete ray coverage.
 
 **Not yet integrated into AutoCrystal or AnchorAura.** `CrystalTargetDamage` and `CrystalDamagePolicy` still read live target and module state. In particular, face-place health/armor thresholds, lowest armor durability, active shield, target portal block state, minimum place/break damage settings, mining policy, friend policy, target range, naked/armor checks and crystal-holding checks must be captured separately. Placement validation also depends on collision entities, support directions, block states and movement prediction. Switching only the damage call would leave the rest of each worker unsafe.
+## AutoCrystal target threshold extraction
+
+`CrystalDamageThresholds` now contains the pure arithmetic for the `PLACE` and `HIT` minimum target-damage rules. `CrystalDamagePolicy.getMinimumDamage` remains the client-state adapter: it reads target health, face-place conditions (health/armor/shield), portal state, settings and mining state, then creates the immutable threshold input.
+
+The value object preserves the priority order: obsidian-drop/quiver threat gives `0.1`; face-place or Nether Portal gives `0.6`; otherwise the Place/Hit settings apply, with the Place boundary label substituting target health and mining-ignore policy lowering Place to `0.6` or `5.0` and setting Hit to `3.0`; the final selected threshold is capped at target health.
+
+Focused tests cover override priority, separate Place/Hit values, boundary-label behavior, both mining-ignore modes and target-health capping. This extraction does not yet migrate `CrystalTargetDamage` to snapshot-only target eligibility or remove its live entity/module dependencies.
