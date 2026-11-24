@@ -90,6 +90,6 @@ public record AnchorTargetDamage(
          target.getAbilities().instabuild,
          localPlayer.distanceTo(target)
       );
-      return invalidWorld || AnchorTargetSelectionPolicy.isInvalidTarget(state, range);
+      return AnchorTargetSelectionPolicy.isInvalidTarget(state, range);
    }
 }
