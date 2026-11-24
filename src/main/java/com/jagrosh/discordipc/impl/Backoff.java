@@ -1,6 +1,5 @@
 /*
- * Copyright 2017 John Grosh (john.a.grosh@gmail.com).
- *
+ * Source: CDAGaming/DiscordIPC.
  * Downstream changes from the Open Zio and Schizo source snapshots are included.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
