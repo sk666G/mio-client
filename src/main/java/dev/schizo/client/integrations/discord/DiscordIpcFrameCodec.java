@@ -31,10 +31,7 @@ public final class DiscordIpcFrameCodec {
       header.flip();
 
       int opcode = header.getInt();
-      int payloadLength = header.getInt();
-      if (payloadLength < 0 || payloadLength > MAX_PAYLOAD_BYTES) {
-         throw new IOException("Discord IPC payload length is outside the supported range");
-      }
+      int payloadLength = validatePayloadLength(header.getInt());
 
       ByteBuffer payload = ByteBuffer.allocate(payloadLength);
       readFully(input, payload);
@@ -66,6 +63,13 @@ public final class DiscordIpcFrameCodec {
             throw new IOException("Discord IPC writer made no progress");
          }
       }
+   }
+
+   public static int validatePayloadLength(int payloadLength) throws IOException {
+      if (payloadLength < 0 || payloadLength > MAX_PAYLOAD_BYTES) {
+         throw new IOException("Discord IPC payload length is outside the supported range");
+      }
+      return payloadLength;
    }
 
    private static void readFully(ReadableByteChannel input, ByteBuffer target) throws IOException {
