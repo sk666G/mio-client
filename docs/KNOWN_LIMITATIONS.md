@@ -11,12 +11,13 @@ This file separates verified behavior from work that still needs runtime or arch
 
 ## Performance
 
+- Discord IPC now has a 12-second module-side connection deadline, a cancellation state, tracked in-flight pipes and immediate raw transport abort for Unix and Windows after a pipe object exists. A blocking Unix handshake-read regression test verifies that cancellation unblocks the read. Windows `RandomAccessFile` endpoint construction happens before a pipe object can be tracked; if that native open itself blocks, the module can time out and turn off but cannot forcibly stop that native open. Windows runtime cancellation has not been tested.
+
 - Event profiling is disabled by default. Callback timings can include nested event dispatch; sums are inclusive and are not total frame time.
 - Frame timing and profiler data require in-game capture to diagnose actual performance. No benchmark or module hot spot is claimed from static inspection.
-- `TaskScheduler` queues remain unbounded. Introducing a bound requires a defined rejection/backpressure contract and caller review.
 - GC pressure, allocation rates, render cost and entity-loop costs have not been benchmarked in a live client.
 - The frame graph uses sample order horizontally and has no elapsed-seconds axis; pause and focus-loss behavior still needs runtime validation.
-- The Gradle build reports deprecated Gradle features that will not be compatible with Gradle 10 without cleanup. The remapped build also emits `Cannot remap schizo$bind…` warnings for custom mixin invokers declared with `remap = false`; the JAR builds, but those warnings still need remapper/mixin review.
+- The Gradle build reports deprecated Gradle features that will not be compatible with Gradle 10 without cleanup. The Schizo-generated `schizo$bind…` remapping warnings are resolved; other warnings remain for Minecraft synthetic lambda/method names and a Lithium hook, and have not been suppressed.
 
 ## Persistence and rebuild
 
@@ -27,5 +28,5 @@ This file separates verified behavior from work that still needs runtime or arch
 ## Release
 
 - A GitHub Actions build is the available build verification; local runtime verification and artifact launch verification remain outstanding.
-- Third-party license terms for the vendored DiscordIPC source are still not established by repository evidence. `THIRD_PARTY_NOTICES.md` records that gap rather than inventing terms.
+- The vendored DiscordIPC source carries Apache-2.0 attribution and the full license in `LICENSES/DiscordIPC-APACHE-2.0.txt`. Unix framing uses the original Schizo MIT codec; two helpers with unverified provenance were removed.
 - No public release was created. The branch is not merged.
