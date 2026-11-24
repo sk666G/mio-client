@@ -13,6 +13,13 @@ class ExplosionDamageReductionMathTest {
    }
 
    @Test
+   void preservesVanillaClampOrderingWhenTheArmorBoundsCross() {
+      assertEquals(4.0F, ExplosionDamageReductionMath.apply(
+         20.0F, 101.0F, 0.0F, false, 1.0F, false, 0
+      ));
+   }
+
+   @Test
    void appliesResistanceAfterArmor() {
       assertEquals(6.4F, ExplosionDamageReductionMath.apply(
          20.0F, 20.0F, 8.0F, true, 0.0F, false, 0
