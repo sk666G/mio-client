@@ -38,6 +38,7 @@ import dev.schizo.client.modules.client.AntiCheatModule;
 import dev.schizo.client.settings.Setting;
 import dev.schizo.client.settings.options.AntiCheatRotationsChoice;
 
+import java.util.concurrent.atomic.AtomicBoolean;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.multiplayer.MultiPlayerGameMode;
 import net.minecraft.client.player.ClientInput;
@@ -74,9 +75,9 @@ public final class RotationManager implements ClientAccess {
    private static final int MAX_DEFERRED_ACTIONS = 4096;
    private static final int MAX_DEFERRED_ACTIONS_PER_PASS = 500;
    private final BoundedActionQueue deferredActions = new BoundedActionQueue(MAX_DEFERRED_ACTIONS);
-   private boolean deferredQueueOverflowWarningLogged;
-   private boolean collectingActions;
-   private boolean executingAction;
+   private final AtomicBoolean deferredQueueOverflowWarningLogged = new AtomicBoolean();
+   private volatile boolean collectingActions;
+   private volatile boolean executingAction;
    private RotationRequest request;
    private boolean forcedOverride;
    private float movementYaw;
@@ -113,7 +114,7 @@ public final class RotationManager implements ClientAccess {
    private void runDeferredActions() {
       this.deferredActions.drain(MAX_DEFERRED_ACTIONS_PER_PASS, this::executeAction);
       if (!this.deferredActions.isFull()) {
-         this.deferredQueueOverflowWarningLogged = false;
+         this.deferredQueueOverflowWarningLogged.set(false);
       }
    }
 
@@ -127,12 +128,11 @@ public final class RotationManager implements ClientAccess {
          return true;
       }
 
-      if (!this.deferredQueueOverflowWarningLogged) {
+      if (this.deferredQueueOverflowWarningLogged.compareAndSet(false, true)) {
          ClientAccess.logger.warn(
             "Rotation action queue reached its {} action limit; incoming actions will run normally until it drains.",
             MAX_DEFERRED_ACTIONS
          );
-         this.deferredQueueOverflowWarningLogged = true;
       }
       return false;
    }
