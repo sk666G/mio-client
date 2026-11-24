@@ -9,6 +9,8 @@
 
 package dev.schizo.client.utils.combat;
 
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -58,6 +60,23 @@ public final class ExplosionRaycastSnapshot {
 
       public static Query normal() {
          return new Query(Set.of(), null, false);
+      }
+
+      public static Query fromPositions(
+         Collection<? extends BlockPos> ignoredPositions,
+         BlockPos solidPosition,
+         boolean ignoreLowResistance
+      ) {
+         Objects.requireNonNull(ignoredPositions, "ignoredPositions");
+         Set<Long> packedPositions = new HashSet<>(ignoredPositions.size());
+         for (BlockPos position : ignoredPositions) {
+            packedPositions.add(Objects.requireNonNull(position, "ignored position").asLong());
+         }
+         return new Query(
+            packedPositions,
+            solidPosition == null ? null : solidPosition.asLong(),
+            ignoreLowResistance
+         );
       }
    }
 
