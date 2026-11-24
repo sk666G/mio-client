@@ -18,6 +18,8 @@ import dev.schizo.client.utils.FloatAnimation;
 import dev.schizo.client.utils.ClampedInterpolatedFloat;
 import dev.schizo.client.utils.inventory.RegistryContainer;
 import dev.schizo.client.render.ColorUtils;
+import dev.schizo.client.gui.components.ModuleComponent;
+import dev.schizo.client.gui.components.SettingComponent;
 import dev.schizo.client.gui.GuiElement;
 import dev.schizo.client.render.FontRenderer;
 import dev.schizo.client.gui.ScissorStack;
@@ -238,7 +240,9 @@ public class Panel implements RegistryContainer, GuiElement, NamedEntry {
    public void keyPressed(int keyCode) {
       if (this.expanded) {
          for (GuiElement child : this.children) {
-            child.keyPressed(keyCode);
+            if (this.isChildVisible(child)) {
+               child.keyPressed(keyCode);
+            }
          }
       }
    }
@@ -529,6 +533,14 @@ public class Panel implements RegistryContainer, GuiElement, NamedEntry {
       GuiDrawUtils.flush();
    }
 
+   public boolean acceptsSettingInput(SettingComponent<?> setting) {
+      if (!this.expanded || !setting.getParentCloseState().isOpen()) {
+         return false;
+      }
+      GuiElement owner = setting.getParentCloseState() instanceof ModuleComponent module ? module : setting;
+      return this.children.contains(owner) && this.isChildVisible(owner);
+   }
+
    protected boolean isChildVisible(GuiElement child) {
       return true;
    }
@@ -564,7 +576,9 @@ public class Panel implements RegistryContainer, GuiElement, NamedEntry {
 
       if (this.expanded) {
          for (GuiElement child : this.children) {
-            child.mouseClicked(mouseX, mouseY, button);
+            if (this.isChildVisible(child)) {
+               child.mouseClicked(mouseX, mouseY, button);
+            }
          }
       }
    }
@@ -593,7 +607,9 @@ public class Panel implements RegistryContainer, GuiElement, NamedEntry {
          }
 
          for (GuiElement child : this.children) {
-            child.mouseScrolled(mouseX, mouseY, scrollAmount);
+            if (this.isChildVisible(child)) {
+               child.mouseScrolled(mouseX, mouseY, scrollAmount);
+            }
          }
       }
    }
@@ -602,7 +618,9 @@ public class Panel implements RegistryContainer, GuiElement, NamedEntry {
    public void charTyped(char character) {
       if (this.expanded) {
          for (GuiElement child : this.children) {
-            child.charTyped(character);
+            if (this.isChildVisible(child)) {
+               child.charTyped(character);
+            }
          }
       }
    }
