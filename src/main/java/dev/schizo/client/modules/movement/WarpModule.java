@@ -208,6 +208,12 @@ public class WarpModule extends Module {
       this.disableGroundSetting = this.add(new BooleanSetting("DisableGround", false).dependsOn(this.fakeLagSetting));
       this.autoDisableSetting = this.add(new BooleanSetting("AutoDisable", false));
       this.rechargeController = new WarpRechargeController(this);
+      this.modeSetting.setChangeCallback(this::releaseTickRateRequests);
+   }
+
+   private void releaseTickRateRequests() {
+      ClientContext.tickRateController.releaseMultiplier(this);
+      ClientContext.playerTickController.releaseMultiplier(this);
    }
 
    public enum ModeChoice implements NamedEntry {
