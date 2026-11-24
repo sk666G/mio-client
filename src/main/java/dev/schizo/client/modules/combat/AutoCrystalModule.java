@@ -1604,14 +1604,15 @@ public class AutoCrystalModule extends Module {
 
       CrystalInteractionManager attackManagerSnapshot = ClientContext.crystalInteractionManager;
       int packetEntityId = packet.getId();
-      if (attackManagerSnapshot.attackEntity(packetEntityId, true)) {
-         this.lastAttackedBase = crystalPosition;
-         this.previousPlacement = crystalPosition;
-         this.lastAttackedCrystalId = packet.getId();
-         this.attackRetries = 0;
-
-         this.basePlaceTimer.reset();
+      if (!attackManagerSnapshot.attackEntity(packetEntityId, true)) {
+         return;
       }
+
+      this.lastAttackedBase = crystalPosition;
+      this.previousPlacement = crystalPosition;
+      this.lastAttackedCrystalId = packet.getId();
+      this.attackRetries = 0;
+      this.basePlaceTimer.reset();
 
       Item crystalItem = Items.END_CRYSTAL;
 
