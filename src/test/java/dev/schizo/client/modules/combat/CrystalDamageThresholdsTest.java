@@ -38,11 +38,11 @@ class CrystalDamageThresholdsTest {
    @Test
    void boundaryLabelUsesTargetHealthOnlyForPlaceThreshold() {
       CrystalDamageThresholds thresholds = thresholds(
-         false, false, false, false, 6.0D, 4.0D, 8.0D, true, false, false
+         false, false, false, false, 20.0D, 4.0D, 8.0D, true, false, false
       );
 
-      assertEquals(6.0D, thresholds.minimumDamage(false));
-      assertEquals(6.0D, thresholds.minimumDamage(true));
+      assertEquals(20.0D, thresholds.minimumDamage(false));
+      assertEquals(8.0D, thresholds.minimumDamage(true));
    }
 
    @Test
@@ -56,7 +56,7 @@ class CrystalDamageThresholdsTest {
    }
 
    @Test
-   void alwaysIgnoreMiningUsesPointSixAsPlaceFloor() {
+   void alwaysIgnoreMiningCapsPlaceThresholdAtPointSix() {
       CrystalDamageThresholds thresholds = thresholds(
          false, false, false, false, 20.0D, 8.0D, 12.0D, false, true, true
       );
