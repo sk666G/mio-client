@@ -73,20 +73,34 @@ public enum CrystalDamagePolicy implements ClientAccess, NamedEntry {
          }
       }
 
+      double targetHealth = EntityUtils.getHealthWithAbsorption(target);
+      if (facePlaceOverride) {
+         return new CrystalDamageThresholds(
+            false, false, true, false, targetHealth,
+            0.0D, 0.0D, false, false, false
+         ).minimumDamage(this == HIT);
+      }
+
       BlockState stateSnapshot = ClientAccess.schizoMinecraft.level.getBlockState(target.blockPosition());
       boolean targetInNetherPortal = stateSnapshot.is(Blocks.NETHER_PORTAL);
+      if (targetInNetherPortal) {
+         return new CrystalDamageThresholds(
+            false, false, false, true, targetHealth,
+            0.0D, 0.0D, false, false, false
+         ).minimumDamage(this == HIT);
+      }
+
       double placeMinimum = autoCrystal.minPlaceDamageSetting.getValue().floatValue();
       double hitMinimum = autoCrystal.minBreakDamageSetting.getValue().floatValue();
       boolean placeMinimumUsesTargetHealth = autoCrystal.minPlaceDamageSetting.shouldDisplayBoundaryLabel();
       boolean ignoreMiningBlock = autoCrystal.shouldIgnoreMiningBlock();
       boolean alwaysIgnoreMining = autoCrystal.alwaysIgnoreMiningSetting.getValue();
-      double targetHealth = EntityUtils.getHealthWithAbsorption(target);
 
       CrystalDamageThresholds thresholds = new CrystalDamageThresholds(
          false,
          false,
-         facePlaceOverride,
-         targetInNetherPortal,
+         false,
+         false,
          targetHealth,
          placeMinimum,
          hitMinimum,
