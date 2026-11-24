@@ -13,6 +13,7 @@ import dev.schizo.client.ClientContext;
 import dev.schizo.client.render.FontRenderer;
 import dev.schizo.client.render.ResizableHudWidgetRenderer;
 import dev.schizo.client.managers.ModuleRegistry;
+import dev.schizo.client.media.MediaSnapshot;
 import dev.schizo.client.modules.HudWidgetModule;
 import dev.schizo.client.settings.BooleanSetting;
 import dev.schizo.client.settings.Setting;
@@ -27,9 +28,7 @@ public class MusicModule extends HudWidgetModule {
 
    private boolean shouldSkipMediaRendering() {
       if (!this.isInHudEditor()) {
-         int playbackStatus = MediaSessionBridge.playbackStatus;
-
-         return playbackStatus != 4;
+         return MediaSessionBridge.snapshot().playbackStatus() != MediaSnapshot.PLAYING;
       }
 
       return false;
@@ -87,14 +86,10 @@ public class MusicModule extends HudWidgetModule {
    }
 
    private String getMusicText() {
-      String text = MediaSessionBridge.getDisplayText();
-      if (this.isInHudEditor()) {
-         int playbackStatus = MediaSessionBridge.playbackStatus;
-
-         if (playbackStatus != 4) {
-
-            text = "HydrachFM - f3dot";
-         }
+      MediaSnapshot snapshot = MediaSessionBridge.snapshot();
+      String text = MediaSessionBridge.getDisplayText(snapshot);
+      if (this.isInHudEditor() && snapshot.playbackStatus() != MediaSnapshot.PLAYING) {
+         text = "HydrachFM - f3dot";
       }
 
       Setting<Boolean> prefixOption = this.prefixSetting;
