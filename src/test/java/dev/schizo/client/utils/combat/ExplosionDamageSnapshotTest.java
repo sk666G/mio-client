@@ -32,6 +32,8 @@ class ExplosionDamageSnapshotTest {
       assertEquals(1.0F, result.exposure());
       assertEquals(32.5F, result.damage(), 0.00001F);
       assertEquals(8, result.exposureSamples());
+      assertTrue(result.lethal());
+      assertFalse(result.targetHoldsTotem());
    }
 
    @Test
@@ -112,7 +114,7 @@ class ExplosionDamageSnapshotTest {
          0.0D, 0.0D, 0.0D, 0.0D, 0.0D, 0.0D,
          0.5D, 0.5D, 0.5D, 0.0D, 6.0D,
          ExplosionDamageMath.Difficulty.NORMAL,
-         false, 20.0F, 20.0F, 8.0F, true, 0.0F, false, 5,
+         false, 20.0F, false, 20.0F, 8.0F, true, 0.0F, false, 5,
          false, 0.0D, List.of(), ExplosionRaycastSnapshot.Query.normal()
       );
 
@@ -131,7 +133,7 @@ class ExplosionDamageSnapshotTest {
          0.0D, 0.0D, 0.0D, 0.0D, 0.0D, 0.0D,
          0.5D, 0.5D, 0.5D, 0.0D, 6.0D,
          ExplosionDamageMath.Difficulty.NORMAL,
-         false, 20.0F, 0.0F, 0.0F, false, 1.0F, false, 0,
+         false, 20.0F, false, 0.0F, 0.0F, false, 1.0F, false, 0,
          true, 0.0D,
          List.of(new ExplosionBlockingDamageMath.Reduction(90.0F, true, 1.0F, 0.5F)),
          ExplosionRaycastSnapshot.Query.normal()
@@ -210,7 +212,7 @@ class ExplosionDamageSnapshotTest {
          0.0D, 0.0D, 0.0D, 0.0D, 0.0D, 0.0D,
          0.5D, 0.5D, 0.5D, 0.5D, 6.0D,
          ExplosionDamageMath.Difficulty.NORMAL,
-         false, 20.0F, 0.0F, 0.0F, false, 1.0F, false, 0,
+         false, 20.0F, false, 0.0F, 0.0F, false, 1.0F, false, 0,
          true, 0.0D, reductions, ExplosionRaycastSnapshot.Query.normal()
       );
       reductions.clear();
@@ -224,7 +226,7 @@ class ExplosionDamageSnapshotTest {
          0.0D, 0.0D, 0.0D, 0.0D, 0.0D, 0.0D,
          0.5D, 0.5D, 0.5D, normalizedDistance, 6.0D,
          ExplosionDamageMath.Difficulty.NORMAL,
-         immune, 20.0F, 0.0F, 0.0F, false, 1.0F, false, 0,
+         immune, 20.0F, false, 0.0F, 0.0F, false, 1.0F, false, 0,
          false, 0.0D, List.of(), ExplosionRaycastSnapshot.Query.normal()
       );
    }
