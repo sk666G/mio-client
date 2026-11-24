@@ -29,7 +29,6 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.tags.ItemTags;
 import net.minecraft.tags.TagKey;
 import net.minecraft.util.Mth;
-import net.minecraft.world.damagesource.CombatRules;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.damagesource.DamageSources;
 import net.minecraft.world.effect.MobEffectInstance;
@@ -189,26 +188,19 @@ public final class DamageUtils implements ClientAccess {
          assumeBestArmor = false;
       }
 
-      DamageSources damageSources = ClientAccess.schizoMinecraft.level.damageSources();
-      DamageSource damageSource = damageSources.explosion((Explosion)null);
-
       float armor = target.getArmorValue();
       var toughnessAttribute = Attributes.ARMOR_TOUGHNESS;
       float toughness = (float)target.getAttributeValue(toughnessAttribute);
-      damage = CombatRules.getDamageAfterAbsorb(target, damage, damageSource, armor, toughness);
       var resistanceEffect = MobEffects.RESISTANCE;
-      if (target.hasEffect(resistanceEffect) || assumeBestArmor) {
-         var activeResistanceEffect = MobEffects.RESISTANCE;
-
-         MobEffectInstance resistance = target.getEffect(activeResistanceEffect);
-         float resistanceAmplifier = 1.0F;
+      boolean hasResistance = target.hasEffect(resistanceEffect);
+      float resistanceAmplifier = 1.0F;
+      if (hasResistance || assumeBestArmor) {
+         MobEffectInstance resistance = target.getEffect(resistanceEffect);
          if (resistance != null) {
             resistanceAmplifier = resistance.getAmplifier();
          }
-         float resistanceLevel = resistanceAmplifier + 1.0F;
-         float resistanceNumerator = damage * (25.0F - resistanceLevel * 5.0F);
-         damage = resistanceNumerator / 25.0F;
       }
+
       int protectionScore = 0;
       if (target instanceof Player player) {
          int assumedArmorUnits = 1;
@@ -239,12 +231,16 @@ public final class DamageUtils implements ClientAccess {
             protectionScore = (int)(assumedArmorFraction * 20.0F);
          }
       }
-      if (protectionScore > 20) {
-         protectionScore = 20;
-      }
-      float protectionAsFloat = protectionScore;
-      damage *= 1.0F - protectionAsFloat / 25.0F;
-      return damage < 0.0F ? 0.0F : damage;
+
+      return ExplosionDamageReductionMath.apply(
+         damage,
+         armor,
+         toughness,
+         hasResistance,
+         resistanceAmplifier,
+         assumeBestArmor,
+         protectionScore
+      );
    }
 
    private static float resolveBlockingDamage(
