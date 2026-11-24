@@ -268,7 +268,7 @@ public class AutoTrapModule extends PlacementModule {
    }
 
    protected boolean isValidTarget(Player player) {
-      if (CombatTargetPolicy.isEligible(
+      if (!CombatTargetPolicy.isEligible(
          player.isAlive(),
          player.isDeadOrDying(),
          player == ClientAccess.schizoMinecraft.player,
@@ -277,58 +277,39 @@ public class AutoTrapModule extends PlacementModule {
          ClientContext.socialRegistry.isFriendPlayer(player),
          ((ServerSideDeathState)player).isServerSideDead()
       )) {
-            if (this.ignoreNakedsSetting.getValue()) {
-               if (!PlayerStateUtils.hasArmor(player)) {
-                  return false;
-               }
-            }
-
-            if (this.onlyPhasedSetting.getValue()) {
-               if (!this.isPhasedPlayer(player)) {
-                  return false;
-               }
-            }
-
-            if (this.ignoreCrawlSetting.getValue()) {
-               if (PlayerStateUtils.isLowProfile(player)) {
-                  if (!player.isFallFlying()) {
-                     return false;
-                  }
-               }
-            }
-
-            if (!RotationManager.isMovementSyncEnabled()
-               && !(player instanceof SidePlayer)) {
-               double movementAmount = MovementPhysics.getHorizontalSpeedKmh(player);
-
-               if (movementAmount > 20.0D) {
-                  return false;
-               }
-
-               if (!EntityUtils.hasCollisionBelow(player)) {
-                  return false;
-               }
-
-               double previousY = player.yo;
-               double verticalDifference = previousY - player.getY();
-               double verticalMovement = Math.abs(verticalDifference);
-
-               if (verticalMovement > 0.6D) {
-                  return false;
-               }
-            }
-
-            float rangeValue = this.rangeSetting.getValue();
-
-            float maximumRange = rangeValue + 2.0F;
-            if (player.isFallFlying()) {
-               maximumRange = 14.0F;
-            }
-
-            return this.getTargetPosition(player).distanceTo(ClientAccess.schizoMinecraft.player.getEyePosition()) <= maximumRange;
+         return false;
       }
 
-      return false;
+      if (this.ignoreNakedsSetting.getValue() && !PlayerStateUtils.hasArmor(player)) {
+         return false;
+      }
+      if (this.onlyPhasedSetting.getValue() && !this.isPhasedPlayer(player)) {
+         return false;
+      }
+      if (this.ignoreCrawlSetting.getValue()
+         && PlayerStateUtils.isLowProfile(player)
+         && !player.isFallFlying()) {
+         return false;
+      }
+
+      if (!RotationManager.isMovementSyncEnabled() && !(player instanceof SidePlayer)) {
+         double movementAmount = MovementPhysics.getHorizontalSpeedKmh(player);
+         if (movementAmount > 20.0D || !EntityUtils.hasCollisionBelow(player)) {
+            return false;
+         }
+
+         double verticalMovement = Math.abs(player.yo - player.getY());
+         if (verticalMovement > 0.6D) {
+            return false;
+         }
+      }
+
+      float maximumRange = this.rangeSetting.getValue() + 2.0F;
+      if (player.isFallFlying()) {
+         maximumRange = 14.0F;
+      }
+      return this.getTargetPosition(player).distanceTo(ClientAccess.schizoMinecraft.player.getEyePosition())
+         <= maximumRange;
    }
 
    protected boolean includeLowerSideOffsets() {
