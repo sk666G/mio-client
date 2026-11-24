@@ -144,6 +144,25 @@ final class BoundedCountdownTaskQueue {
       }
    }
 
+   int clear() {
+      synchronized (this.lock) {
+         this.queue.clear();
+         int cancelled = 0;
+         var iterator = this.reservations.iterator();
+         while (iterator.hasNext()) {
+            Reservation reservation = iterator.next();
+            if (reservation.state == ReservationState.RUNNING) {
+               continue;
+            }
+            reservation.state = ReservationState.CANCELLED;
+            iterator.remove();
+            this.outstanding--;
+            cancelled++;
+         }
+         return cancelled;
+      }
+   }
+
    void close() {
       synchronized (this.lock) {
          if (this.closed) {
