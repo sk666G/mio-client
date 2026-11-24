@@ -69,6 +69,12 @@ public class UnixPipe extends Pipe {
    }
 
    @Override
+   public void abort() throws IOException {
+      this.status = PipeStatus.CLOSED;
+      this.socket.close();
+   }
+
+   @Override
    public void close() throws IOException {
       if (this.status == PipeStatus.CLOSED) return;
       try {
