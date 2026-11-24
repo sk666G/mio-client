@@ -18,7 +18,6 @@ import dev.schizo.client.events.LocalPlayerPreTickEvent;
 import dev.schizo.client.events.StepHeightEvent;
 import dev.schizo.client.utils.network.PacketSender;
 import dev.schizo.client.render.FontRenderer;
-import dev.schizo.client.managers.TickRateController;
 import dev.schizo.client.managers.HoleManager;
 import dev.schizo.client.utils.entity.PlayerStateUtils;
 import dev.schizo.client.events.EventStage;
