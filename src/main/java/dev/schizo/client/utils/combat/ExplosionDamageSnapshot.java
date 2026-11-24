@@ -229,6 +229,13 @@ public record ExplosionDamageSnapshot(
    ) {
       Objects.requireNonNull(rayQuery, "rayQuery");
       Objects.requireNonNull(raySnapshot, "raySnapshot");
+      if (!Double.isFinite(explosionX)
+         || !Double.isFinite(explosionY)
+         || !Double.isFinite(explosionZ)
+         || !Double.isFinite(power)
+         || power <= 0.0D) {
+         throw new IllegalArgumentException("Explosion coordinates must be finite and power must be positive");
+      }
       if (raySnapshot.worldGeneration() != this.worldGeneration
          || raySnapshot.captureTick() != this.captureTick
          || !raySnapshot.dimensionId().equals(this.dimensionId)
