@@ -248,10 +248,12 @@ public final class BedAuraModule extends Module {
       return entity.getBoundingBox();
    }
 
-   private static Direction selectInteractionDirection(BlockPos position, Direction fallbackDirection) {
+   static Direction selectInteractionDirection(List<Direction> strictDirections, Direction fallbackDirection) {
+      return strictDirections.isEmpty() ? fallbackDirection : strictDirections.getFirst();
+   }
 
-      BlockInteractionUtils.getStrictDirections(position);
-      return fallbackDirection;
+   private static Direction selectInteractionDirection(BlockPos position, Direction fallbackDirection) {
+      return selectInteractionDirection(BlockInteractionUtils.getStrictDirections(position), fallbackDirection);
    }
 
    @EventHandler
