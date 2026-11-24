@@ -60,7 +60,7 @@ public record CrystalTargetDamage(
          double distanceToBase = boundsCenter.distanceTo(baseCenter);
 
          boolean friendEntity = ClientContext.socialRegistry.isFriendEntity(candidate)
-            && !localCandidate;
+            && candidate != ClientAccess.schizoMinecraft.player;
          boolean antiFriendKill = friendEntity && module.antiFriendKillSetting.getValue();
          double targetHealth = antiFriendKill
             ? EntityUtils.getHealthWithAbsorption(candidate)
