@@ -12,6 +12,7 @@ package dev.schizo.client.utils.combat;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
@@ -30,6 +31,7 @@ import net.minecraft.world.phys.shapes.VoxelShape;
  */
 public final class ExplosionRaycastSnapshotBuilder {
    public static final int DEFAULT_MAX_CAPTURED_BLOCKS = 32_768;
+   public static final long DEFAULT_MAX_CAPTURE_NANOS = TimeUnit.MILLISECONDS.toNanos(8L);
    private static final int DEFAULT_REGION_PADDING = 1;
 
    private ExplosionRaycastSnapshotBuilder() {
@@ -159,11 +161,34 @@ public final class ExplosionRaycastSnapshotBuilder {
       long captureTick,
       int maximumCapturedBlocks
    ) {
+      return capture(
+         level,
+         collisionEntity,
+         region,
+         worldGeneration,
+         captureTick,
+         maximumCapturedBlocks,
+         DEFAULT_MAX_CAPTURE_NANOS
+      );
+   }
+
+   public static ExplosionRaycastSnapshot capture(
+      ClientLevel level,
+      Entity collisionEntity,
+      Region region,
+      long worldGeneration,
+      long captureTick,
+      int maximumCapturedBlocks,
+      long maximumCaptureNanos
+   ) {
       Objects.requireNonNull(level, "level");
       Objects.requireNonNull(collisionEntity, "collisionEntity");
       Objects.requireNonNull(region, "region");
       if (maximumCapturedBlocks < 1) {
          throw new IllegalArgumentException("maximumCapturedBlocks must be positive");
+      }
+      if (maximumCaptureNanos < 1L) {
+         throw new IllegalArgumentException("maximumCaptureNanos must be positive");
       }
 
       Minecraft minecraft = Minecraft.getInstance();
@@ -208,6 +233,7 @@ public final class ExplosionRaycastSnapshotBuilder {
       CollisionContext collisionContext = CollisionContext.of(collisionEntity);
       Map<Long, ExplosionRaycastSnapshot.BlockGeometry> capturedBlocks = new HashMap<>((int)volume);
       BlockPos.MutableBlockPos position = new BlockPos.MutableBlockPos();
+      long captureStartedAt = System.nanoTime();
 
       for (long x = region.minX(); x <= (long)region.maxX(); x++) {
          for (long y = region.minY(); y <= (long)region.maxY(); y++) {
@@ -224,6 +250,15 @@ public final class ExplosionRaycastSnapshotBuilder {
                      collisionShape.toAabbs()
                   )
                );
+
+               if ((capturedBlocks.size() & 63) == 0
+                  && System.nanoTime() - captureStartedAt > maximumCaptureNanos) {
+                  throw new CaptureBudgetExceededException(
+                     capturedBlocks.size(),
+                     volume,
+                     maximumCaptureNanos
+                  );
+               }
             }
          }
       }
@@ -237,5 +272,42 @@ public final class ExplosionRaycastSnapshotBuilder {
          collisionEntity.getUUID(),
          capturedBlocks
       );
+   }
+
+   public static final class CaptureBudgetExceededException extends IllegalStateException {
+      private final int capturedBlocks;
+      private final long requestedBlocks;
+      private final long budgetNanos;
+
+      public CaptureBudgetExceededException(
+         int capturedBlocks,
+         long requestedBlocks,
+         long budgetNanos
+      ) {
+         super(
+            "Explosion ray snapshot exceeded its "
+               + budgetNanos
+               + " ns capture budget after "
+               + capturedBlocks
+               + " of "
+               + requestedBlocks
+               + " blocks"
+         );
+         this.capturedBlocks = capturedBlocks;
+         this.requestedBlocks = requestedBlocks;
+         this.budgetNanos = budgetNanos;
+      }
+
+      public int capturedBlocks() {
+         return this.capturedBlocks;
+      }
+
+      public long requestedBlocks() {
+         return this.requestedBlocks;
+      }
+
+      public long budgetNanos() {
+         return this.budgetNanos;
+      }
    }
 }
