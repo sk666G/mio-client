@@ -230,6 +230,21 @@ class ExplosionRaycastSnapshotTest {
    }
 
    @Test
+   void queryFactoryPacksMutablePositionValuesBeforeTheyCanChange() {
+      BlockPos.MutableBlockPos ignored = new BlockPos.MutableBlockPos(2, 3, 4);
+      ExplosionRaycastSnapshot.Query query = ExplosionRaycastSnapshot.Query.fromPositions(
+         List.of(ignored),
+         new BlockPos(5, 6, 7),
+         true
+      );
+      ignored.set(100, 100, 100);
+
+      assertEquals(Set.of(new BlockPos(2, 3, 4).asLong()), query.ignoredBlockPositions());
+      assertEquals(new BlockPos(5, 6, 7).asLong(), query.solidBlockPosition());
+      assertEquals(true, query.ignoreLowResistance());
+   }
+
+   @Test
    void requiresNonNullSnapshotMetadataAndQueryValues() {
       assertThrows(NullPointerException.class,
          () -> new ExplosionRaycastSnapshot(1L, 1L, null, Map.of()));
