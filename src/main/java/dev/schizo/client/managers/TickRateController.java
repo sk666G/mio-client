@@ -12,6 +12,7 @@ package dev.schizo.client.managers;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.LocalPlayerTickEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.events.ModuleToggleEvent;
 import dev.schizo.client.modules.Module;
 import java.util.LinkedHashMap;
@@ -32,6 +33,11 @@ public class TickRateController implements ClientAccess {
          Module moduleToRelease = event.getModule();
          this.releaseMultiplier(moduleToRelease);
       }
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.requests.clear();
    }
 
    public void requestMultiplier(Module module, float requestedMultiplier) {
@@ -67,6 +73,11 @@ public class TickRateController implements ClientAccess {
          for (Float requestedMultiplier : this.activeRequests.values()) {
             this.multiplier = requestedMultiplier;
          }
+      }
+
+      synchronized void clear() {
+         this.activeRequests.clear();
+         this.multiplier = 1.0F;
       }
 
       synchronized float getMultiplier() {
