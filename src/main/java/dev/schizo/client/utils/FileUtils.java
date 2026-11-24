@@ -70,16 +70,12 @@ public final class FileUtils {
       writeAtomically(path, temporary -> Files.writeString(temporary, text, StandardCharsets.UTF_8));
    }
 
-   public static void writeBytesAtomically(Path path, byte[] bytes) throws IOException {
-      writeAtomically(path, temporary -> Files.write(temporary, bytes));
-   }
-
    @FunctionalInterface
-   private interface TemporaryFileWriter {
+   public interface TemporaryFileWriter {
       void write(Path temporary) throws IOException;
    }
 
-   private static void writeAtomically(Path path, TemporaryFileWriter writer) throws IOException {
+   public static void writeAtomically(Path path, TemporaryFileWriter writer) throws IOException {
       Path target = path.toAbsolutePath().normalize();
       Path parent = target.getParent();
       if (parent == null) {
