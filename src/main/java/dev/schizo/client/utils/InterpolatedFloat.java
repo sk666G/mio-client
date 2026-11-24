@@ -81,11 +81,9 @@ public class InterpolatedFloat {
    }
 
    public void setValue(float value) {
-      if (this.currentValue != value) {
-         this.previousValue = value;
-         this.currentValue = value;
-         this.targetValue = value;
-      }
+      this.previousValue = value;
+      this.currentValue = value;
+      this.targetValue = value;
    }
 
    public void setEasingEnabled(boolean easingEnabled) {
