@@ -259,7 +259,6 @@ public final class BedAuraModule extends Module {
    }
 
    @EventHandler
-   @EventHandler
    private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
       this.target = null;
       this.placement = null;
@@ -268,6 +267,7 @@ public final class BedAuraModule extends Module {
       this.breakTimer.clear();
    }
 
+   @EventHandler
    private void onPlayerUpdate(RotationRequestEvent event) {
       DimensionType dimension = WorldUtils.getDimension();
       if (dimension.isOverworld()) {
