@@ -83,12 +83,11 @@ public class HudAnchorGroup implements ClientAccess, GuiElement {
          boolean visible = widget.isEnabled() || enabledProgress > 0.0F;
          float[] size;
          if (!visible) {
-            size = new float[2];
+            size = widget.useHiddenDimensions();
          } else {
             size = widget.calculateDimensions();
+            widget.setDimensions(size);
          }
-
-         widget.setDimensions(size);
          if (this.anchor != HudAnchor.NONE) {
             this.layoutAnchoredWidget(widget, size, widgetIndex);
          } else {
