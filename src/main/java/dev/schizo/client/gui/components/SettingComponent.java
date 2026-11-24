@@ -115,38 +115,36 @@ public abstract class SettingComponent<T> extends AbstractComponent {
       PoseStack poseStack, String text, Runnable renderer
    ) {
       poseStack.pushPose();
-      this.updateTextScroll(
-         FontRenderer.INSTANCE
-            .getWidth(text)
-      );
-      float scrollOffset = -this.textScrollAnimation
-         .getValue();
-      boolean scissorRequired = scrollOffset != 0.0F && !(this instanceof EnumSettingComponent<?>);
-      if (scissorRequired) {
-         ModuleComponent parentModule = (ModuleComponent)this.parentCloseState;
-         GuiDrawUtils.flush();
-         ScissorStack.pushIntersection(
-            this.panel
-                  .getX()
-               + this.getHorizontalPadding(),
-            this.panel
-                  .getY()
-               + parentModule.getYOffset(),
-            this.panel
-                  .getWidth()
-               - this.getHorizontalPadding(),
-            parentModule.getHeight()
-         );
-      }
+      try {
+         this.updateTextScroll(FontRenderer.INSTANCE.getWidth(text));
+         float scrollOffset = -this.textScrollAnimation.getValue();
+         boolean scissorRequired = scrollOffset != 0.0F && !(this instanceof EnumSettingComponent<?>);
+         if (scissorRequired) {
+            ModuleComponent parentModule = (ModuleComponent)this.parentCloseState;
+            GuiDrawUtils.flush();
+            ScissorStack.pushIntersection(
+               this.panel.getX() + this.getHorizontalPadding(),
+               this.panel.getY() + parentModule.getYOffset(),
+               this.panel.getWidth() - this.getHorizontalPadding(),
+               parentModule.getHeight()
+            );
+         }
 
-      poseStack.translate(scrollOffset, 0.0F, 0.0F);
-      renderer.run();
-      if (scissorRequired) {
-         GuiDrawUtils.flush();
-         ScissorStack.pop();
+         try {
+            poseStack.translate(scrollOffset, 0.0F, 0.0F);
+            renderer.run();
+         } finally {
+            if (scissorRequired) {
+               try {
+                  GuiDrawUtils.flush();
+               } finally {
+                  ScissorStack.pop();
+               }
+            }
+         }
+      } finally {
+         poseStack.popPose();
       }
-
-      poseStack.popPose();
    }
 
    @Override
