@@ -27,6 +27,7 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraft.world.item.Item;
@@ -71,14 +72,31 @@ public final class InventoryUtils implements ClientAccess {
    }
 
    public static void swapSlotsWithPickup(int firstSlot, int secondSlot) {
-      if (firstSlot != -1 && secondSlot != -1) {
-         clickSlot(firstSlot, 0, ClickType.PICKUP);
-         clickSlot(secondSlot, 0, ClickType.PICKUP);
-         ItemStack carriedStack = ClientAccess.schizoMinecraft.player.containerMenu.getCarried();
-         if (!carriedStack.isEmpty()) {
-            clickSlot(firstSlot, 0, ClickType.PICKUP);
-         }
+      if (firstSlot < 0 || secondSlot < 0) {
+         return;
       }
+
+      LocalPlayer player = ClientAccess.schizoMinecraft.player;
+      AbstractContainerMenu menu = player.containerMenu;
+      if (!menu.getCarried().isEmpty()) {
+         return;
+      }
+      int containerId = menu.containerId;
+
+      InventorySwapGuard.runWithCleanup(
+         () -> {
+            clickSlot(containerId, firstSlot, 0, ClickType.PICKUP);
+            clickSlot(containerId, secondSlot, 0, ClickType.PICKUP);
+         },
+         () -> {
+            if (ClientAccess.schizoMinecraft.player == player
+               && player.containerMenu == menu
+               && menu.containerId == containerId
+               && !menu.getCarried().isEmpty()) {
+               clickSlot(containerId, firstSlot, 0, ClickType.PICKUP);
+            }
+         }
+      );
    }
 
    public static void clickSlot(int slot, int button, ClickType clickType) {
