@@ -12,6 +12,7 @@ package dev.schizo.client.modules.combat;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.ClientLevelRemoveEntityEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.events.PacketEvent;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.utils.combat.BlockRaycastContext;
@@ -85,9 +86,18 @@ public class AntiPearlModule extends PlacementModule {
 
    @Override
    public void onToggle() {
-      this.nearbyPlayerByPearlId.clear();
+      this.clearPearlSessionState();
+   }
 
+   private void clearPearlSessionState() {
+      this.nearbyPlayerByPearlId.clear();
       this.pendingPlacementByPearlId.clear();
+      this.placementExpiryByPosition.clear();
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.clearPearlSessionState();
    }
 
    private void refreshAirbornePearls() {
