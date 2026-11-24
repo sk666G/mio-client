@@ -111,6 +111,20 @@ public final class AutoMaceModule extends Module {
    private boolean maceAvailable;
    private Entity target;
 
+   private void clearSessionState() {
+      this.savedChestplateSlot = -1;
+      this.pendingChestSwapSlot = -1;
+      this.striking = false;
+      this.maceAvailable = false;
+      this.target = null;
+      this.verticalDisplacement = 0.0F;
+      this.strikeTimer.clear();
+      this.recentFlightTimer.clear();
+      this.boostTimer.clear();
+      this.strikePlanner.reset();
+      this.targetRenderer.reset();
+   }
+
    private void restoreChestSwap() {
       if (this.pendingChestSwapSlot != -1) {
          int swapSlot = this.pendingChestSwapSlot;
@@ -432,6 +446,7 @@ public final class AutoMaceModule extends Module {
    @Override
    public void onDisable() {
       if (this.isWorldUnavailable()) {
+         this.clearSessionState();
          return;
       }
       boolean savedSlotInvalid = false;
@@ -450,6 +465,7 @@ public final class AutoMaceModule extends Module {
       } else {
          this.savedChestplateSlot = this.pendingChestSwapSlot = -1;
       }
+      this.clearSessionState();
    }
 
    private void refreshTarget() {
@@ -501,13 +517,7 @@ public final class AutoMaceModule extends Module {
 
    @EventHandler
    public void onMinecraftDisconnectEvent(MinecraftDisconnectEvent event) {
-      this.striking = false;
-      this.target = null;
-
-      this.strikeTimer.clear();
-      this.strikePlanner.reset();
-
-      this.targetRenderer.reset();
+      this.clearSessionState();
    }
 
    @EventHandler
