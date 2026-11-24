@@ -110,6 +110,28 @@ public final class FrameTiming implements ClientAccess {
       return this.lastFrameDurationNanos > STUTTER_THRESHOLD_NANOS;
    }
 
+   /**
+    * Returns a chronological copy of the most recent frame intervals in milliseconds.
+    * The internal rolling history remains private and is not exposed to render consumers.
+    */
+   public float[] getRecentFrameTimesMillis(int maximumSamples) {
+      if (maximumSamples <= 0 || this.frameSampleCount == 0) {
+         return new float[0];
+      }
+
+      int sampleCount = Math.min(maximumSamples, this.frameSampleCount);
+      int firstSampleIndex = Math.floorMod(
+         this.oldestFrameSampleIndex + this.frameSampleCount - sampleCount,
+         FRAME_SAMPLE_CAPACITY
+      );
+      float[] samples = new float[sampleCount];
+      for (int index = 0; index < sampleCount; index++) {
+         int sampleIndex = (firstSampleIndex + index) % FRAME_SAMPLE_CAPACITY;
+         samples[index] = this.frameDurationsNanos[sampleIndex] / 1_000_000.0F;
+      }
+      return samples;
+   }
+
    float getOnePercentLowFramesPerSecondAt(long currentTimeNanos) {
       this.refreshPercentiles(currentTimeNanos);
       return this.cachedOnePercentLowFramesPerSecond;
