@@ -267,14 +267,6 @@ public final class ExplosionRaycastSnapshotBuilder {
          }
       }
 
-      if (System.nanoTime() - captureStartedAt > maximumCaptureNanos) {
-         throw new CaptureBudgetExceededException(
-            capturedBlocks.size(),
-            volume,
-            maximumCaptureNanos
-         );
-      }
-
       long elapsedCaptureNanos = System.nanoTime() - captureStartedAt;
       if (elapsedCaptureNanos > maximumCaptureNanos) {
          throw new CaptureBudgetExceededException(
