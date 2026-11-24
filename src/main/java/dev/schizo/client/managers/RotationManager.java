@@ -39,6 +39,7 @@ import dev.schizo.client.settings.Setting;
 import dev.schizo.client.settings.options.AntiCheatRotationsChoice;
 
 import java.util.concurrent.atomic.AtomicBoolean;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.multiplayer.MultiPlayerGameMode;
 import net.minecraft.client.player.ClientInput;
