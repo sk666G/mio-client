@@ -84,11 +84,11 @@ public class AutoNameTagModule extends Module {
       ItemSwapMode swapMode = this.swapSetting.getValue();
       boolean selectedNameTagSlot = swapMode != ItemSwapMode.NONE && nameTagSlot != -1;
       int taggedCount = 0;
-      if (selectedNameTagSlot) {
-         InventoryUtils.selectHotbarSlotForPlacement(nameTagSlot);
-      }
 
       try {
+         if (selectedNameTagSlot) {
+            InventoryUtils.selectHotbarSlotForPlacement(nameTagSlot);
+         }
          ClientLevel level = ClientAccess.schizoMinecraft.level;
          for (Entity entity : level.entitiesForRendering()) {
             ItemStack heldStack = ClientAccess.schizoMinecraft.player.getMainHandItem();
