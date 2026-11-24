@@ -45,9 +45,10 @@ public abstract class HudWidgetRenderer implements ClientAccess, GuiElement {
    private float relativeY = 0.5F;
    private int horizontalDirection;
    private int verticalDirection;
+   private final float[] hiddenDimensions = new float[2];
    private float[] dimensions = new float[2];
    private boolean selected;
-   private long hoverStartMillis;
+   private final MonotonicHoverDelay hoverDelay = new MonotonicHoverDelay(300_000_000L);
 
    @Override
    public int getHeight() {
@@ -160,11 +161,7 @@ public abstract class HudWidgetRenderer implements ClientAccess, GuiElement {
       float[] size = this.getDimensions();
       if (this.isMouseOver(mouseX, mouseY)
          && !this.selected) {
-         if (this.hoverStartMillis == -1L) {
-            this.hoverStartMillis = System.currentTimeMillis();
-         }
-
-         if (this.hoverStartMillis + 300L <= System.currentTimeMillis()) {
+         if (this.hoverDelay.hasElapsed(System.nanoTime())) {
             float labelX = this.getHorizontalDirection() == 1
                ? this.getX()
                   + size[0]
@@ -184,7 +181,7 @@ public abstract class HudWidgetRenderer implements ClientAccess, GuiElement {
                );
          }
       } else {
-         this.hoverStartMillis = -1L;
+         this.hoverDelay.reset();
       }
 
       if (!renderingHud) {
@@ -265,6 +262,14 @@ public abstract class HudWidgetRenderer implements ClientAccess, GuiElement {
 
    public void setDimensions(float[] dimensions) {
       this.dimensions = dimensions;
+   }
+
+   /** Reuses this widget's private zero-size buffer while it is not visible. */
+   public float[] useHiddenDimensions() {
+      this.hiddenDimensions[0] = 0.0F;
+      this.hiddenDimensions[1] = 0.0F;
+      this.dimensions = this.hiddenDimensions;
+      return this.hiddenDimensions;
    }
 
    @Override
