@@ -33,7 +33,7 @@ class ExplosionDamageSnapshotTest {
 
       assertTrue(result.complete());
       assertEquals(1.0F, result.exposure());
-      assertEquals(0.0F, result.damage(), 0.00001F);
+      assertEquals(32.5F, result.damage(), 0.00001F);
       assertEquals(8, result.exposureSamples());
    }
 
