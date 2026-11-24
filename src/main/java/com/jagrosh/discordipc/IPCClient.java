@@ -33,6 +33,8 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.util.HashMap;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,6 +47,8 @@ public final class IPCClient implements Closeable {
    private final String applicationId;
    private final String optionalSteamId;
    private volatile Pipe pipe;
+   private volatile Pipe connectingPipe;
+   private final AtomicBoolean connectCancelled = new AtomicBoolean();
    private Logger forcedLogger = null;
    private IPCListener listener = null;
    private Thread readThread = null;
@@ -154,7 +158,56 @@ public final class IPCClient implements Closeable {
       this.verboseLogging = verboseLogging;
    }
 
+   /**
+    * Cancels an in-progress connection without attempting a protocol-level CLOSE
+    * frame. Closing the underlying transport is what releases a blocked handshake.
+    */
+   public void cancelConnect() {
+      Pipe activePipe;
+      synchronized (this) {
+         this.connectCancelled.set(true);
+         activePipe = this.connectingPipe != null ? this.connectingPipe : this.pipe;
+         this.connectingPipe = null;
+      }
+
+      if (activePipe != null) {
+         try {
+            activePipe.abort();
+         } catch (IOException failure) {
+            this.getCurrentLogger(LOGGER).debug("Failed to abort Discord IPC connection", failure);
+         }
+      }
+   }
+
+   /** Throws once this one-shot connection attempt has been cancelled or interrupted. */
+   public void checkConnectActive() {
+      if (this.connectCancelled.get() || Thread.currentThread().isInterrupted()) {
+         throw new CancellationException("Discord IPC connection was cancelled");
+      }
+   }
+
+   public synchronized void trackConnectingPipe(Pipe candidate) {
+      this.checkConnectActive();
+      this.connectingPipe = candidate;
+   }
+
+   public synchronized void clearConnectingPipe(Pipe candidate) {
+      if (this.connectingPipe == candidate) {
+         this.connectingPipe = null;
+      }
+   }
+
+   public synchronized void completeConnection(Pipe candidate) {
+      this.checkConnectActive();
+      candidate.setStatus(PipeStatus.CONNECTED);
+      this.pipe = candidate;
+      if (this.connectingPipe == candidate) {
+         this.connectingPipe = null;
+      }
+   }
+
    public void connect(DiscordBuild... preferredBuilds) throws NoDiscordClientException {
+      this.checkConnectActive();
       this.checkConnected(false);
 
       long delay;
@@ -165,20 +218,26 @@ public final class IPCClient implements Closeable {
 
          try {
             Thread.sleep(delay);
-         } catch (InterruptedException ignored) {
+         } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            this.cancelConnect();
+            throw new CancellationException("Interrupted while waiting to connect to Discord");
          }
+         this.checkConnectActive();
       }
 
       this.callbacks.clear();
       this.pipe = null;
 
       try {
-         this.pipe = Pipe.openPipe(this, this.clientId, this.callbacks, preferredBuilds);
+         Pipe.openPipe(this, this.clientId, this.callbacks, preferredBuilds);
+         this.checkConnectActive();
       } catch (Exception failure) {
          this.updateReconnectTime();
          throw failure;
       }
 
+      this.checkConnectActive();
       if (this.isAutoRegister()) {
          try {
             if (this.optionalSteamId != null && !this.optionalSteamId.isEmpty()) {
@@ -195,6 +254,7 @@ public final class IPCClient implements Closeable {
          }
       }
 
+      this.checkConnectActive();
       if (this.debugMode) {
          this.getCurrentLogger(LOGGER).info("[DEBUG] Client is now connected and ready!");
       }
@@ -313,7 +373,8 @@ public final class IPCClient implements Closeable {
       }
    }
 
-   private void startReading() {
+   private synchronized void startReading() {
+      this.checkConnectActive();
       IPCClient client = this;
       this.readThread = new Thread(() -> this.readPipe(client), "IPCClient-Reader");
       this.readThread.setDaemon(true);
