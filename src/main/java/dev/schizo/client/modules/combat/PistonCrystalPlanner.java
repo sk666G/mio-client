@@ -64,8 +64,8 @@ final class PistonCrystalPlanner {
       return candidateDistance < selectedDistance;
    }
 
-   static boolean hasPowerSource(Item item) {
-      return item != null && item != Items.AIR;
+   static boolean hasPowerSource(boolean redstoneBlockAvailable, boolean redstoneTorchAvailable) {
+      return redstoneBlockAvailable || redstoneTorchAvailable;
    }
 
    private PistonCrystalPlan findPlan(Player target, int height) {
