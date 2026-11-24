@@ -6,28 +6,27 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Consumer;
 import org.junit.jupiter.api.Test;
 
 class PlayerStateTrackerSneakStateTest {
    @Test
-   void restoresSneakingAfterSuccessfulTemporarySneak() {
-      assertRestoresState(true, true, false, false);
+   void restoresNonSneakingAfterSuccessfulTemporarySneak() {
+      assertRestoresState(true, false, false);
    }
 
    @Test
-   void restoresNonSneakingAfterSuccessfulTemporaryUnsneak() {
-      assertRestoresState(false, false, true, true);
-   }
-
-   @Test
-   void restoresSneakingWhenTemporaryUnsneakActionThrows() {
-      assertRestoresState(false, true, false, true);
+   void restoresSneakingAfterSuccessfulTemporaryUnsneak() {
+      assertRestoresState(false, true, false);
    }
 
    @Test
    void restoresNonSneakingWhenTemporarySneakActionThrows() {
-      assertRestoresState(true, false, true, false);
+      assertRestoresState(true, false, true);
+   }
+
+   @Test
+   void restoresSneakingWhenTemporaryUnsneakActionThrows() {
+      assertRestoresState(false, true, true);
    }
 
    @Test
@@ -38,9 +37,7 @@ class PlayerStateTrackerSneakStateTest {
       PlayerStateTracker.runWithSneakingState(true, true, requested -> {
          changes.add(requested);
          state.set(requested);
-      }, () -> {
-         assertEquals(true, state.get());
-      });
+      }, () -> assertEquals(true, state.get()));
 
       assertEquals(List.of(), changes);
       assertEquals(true, state.get());
@@ -49,8 +46,7 @@ class PlayerStateTrackerSneakStateTest {
    private static void assertRestoresState(
       boolean requestedSneaking,
       boolean initialSneaking,
-      boolean actionThrows,
-      boolean expectedFinalSneaking
+      boolean actionThrows
    ) {
       AtomicBoolean state = new AtomicBoolean(initialSneaking);
       List<Boolean> changes = new ArrayList<>();
@@ -76,7 +72,6 @@ class PlayerStateTrackerSneakStateTest {
       }
 
       assertEquals(initialSneaking, state.get());
-      assertEquals(expectedFinalSneaking, state.get());
       assertEquals(List.of(requestedSneaking, initialSneaking), changes);
    }
 }
