@@ -21,6 +21,7 @@ import dev.schizo.client.render.MeshDrawContext;
 import dev.schizo.client.render.VertexGeometry;
 import dev.schizo.client.modules.client.UIModule;
 import dev.schizo.client.utils.FrameTiming;
+import dev.schizo.client.utils.MonotonicRefreshGate;
 
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
@@ -43,13 +44,11 @@ import org.lwjgl.glfw.GLFW;
 public final class PerformanceCenterScreen extends ClientScreen {
    private static final int VISIBLE_ROWS = 7;
    private static final int MAX_STORED_ROWS = 64;
-   private static final long REFRESH_INTERVAL_NANOS = 250_000_000L;
    private static final String[] TAB_NAMES = {"MODULES", "CALLBACKS", "HUD WIDGETS"};
 
    private int selectedTab;
    private int rowOffset;
-   private long lastRefreshNanos;
-   private boolean hasRefreshed;
+   private final MonotonicRefreshGate refreshGate = new MonotonicRefreshGate(250_000_000L);
    private List<DisplayRow> rows = List.of();
    private MetricsSnapshot metrics = MetricsSnapshot.EMPTY;
    private float[] frameHistorySamples = new float[0];
@@ -424,11 +423,9 @@ public final class PerformanceCenterScreen extends ClientScreen {
 
    private void refreshData(boolean force) {
       long now = System.nanoTime();
-      if (!force && this.hasRefreshed && now - this.lastRefreshNanos < REFRESH_INTERVAL_NANOS) {
+      if (!this.refreshGate.shouldRefresh(now, force)) {
          return;
       }
-      this.lastRefreshNanos = now;
-      this.hasRefreshed = true;
 
       FrameTiming timing = ClientContext.frameTiming;
       if (timing == null) {
