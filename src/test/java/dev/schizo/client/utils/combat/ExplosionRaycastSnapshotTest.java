@@ -179,6 +179,17 @@ class ExplosionRaycastSnapshotTest {
    }
 
    @Test
+   void queryFactoryIgnoresNullEntriesLikeTheExistingRayClassifier() {
+      ExplosionRaycastSnapshot.Query query = ExplosionRaycastSnapshot.Query.fromPositions(
+         java.util.Arrays.asList(null, BLOCK),
+         null,
+         false
+      );
+
+      assertEquals(Set.of(BLOCK.asLong()), query.ignoredBlockPositions());
+   }
+
+   @Test
    void defensiveCopiesMapAndGeometryLists() {
       List<AABB> boxes = new java.util.ArrayList<>(Shapes.block().toAabbs());
       Map<Long, ExplosionRaycastSnapshot.BlockGeometry> blocks = new HashMap<>();
