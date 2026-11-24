@@ -1807,7 +1807,9 @@ public class AutoCrystalModule extends Module {
       Vec3 explosionPosition = Vec3.upFromBottomCenterOf(base, 1.0D);
       Collection damageIgnoredBlocks;
       if (useIgnoredBlocks) {
-         damageIgnoredBlocks = this.ignoredBlocks;
+         synchronized (this.ignoredBlocks) {
+            damageIgnoredBlocks = new HashSet(this.ignoredBlocks);
+         }
       } else {
          damageIgnoredBlocks = Collections.emptyList();
       }
@@ -1835,6 +1837,16 @@ public class AutoCrystalModule extends Module {
    }
    @EventHandler
    private void onMinecraftDisconnectEvent(MinecraftDisconnectEvent event) {
+      this.completeCalculation();
+      this.calculationFuture = null;
+      this.calculationTask = null;
+      this.placementData.set(null);
+      this.rotationTarget.set(null);
+      this.target = null;
+      this.previousTarget = null;
+      this.lastPlacedBase = null;
+      this.lastAttackedBase = null;
+      this.lastForcedBase = null;
       Setting<Boolean> suicideSettingSnapshot = this.forceSuicideSetting;
       Boolean disabledValue = false;
       suicideSettingSnapshot.setValue(disabledValue);
