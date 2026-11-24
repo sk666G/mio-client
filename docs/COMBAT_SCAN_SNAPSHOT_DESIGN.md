@@ -144,3 +144,12 @@ Do not assume that caching `BlockState` alone is enough: state shape queries can
 ### Damage-reduction boundary
 
 `DamageUtils.applyDamageReduction` reads armor value, armor toughness, resistance effect/amplifier, per-piece enchantment levels, and the AutoCrystal assume-best-armor setting. It then invokes vanilla damage-source and combat-rule APIs and applies protection reduction. `resolveBlockingDamage` additionally reads the active use item component, head yaw, target position/view vector, and explosion direction. Capture all inputs on the client thread and move only the mathematically necessary values into a pure calculator. If a vanilla helper requires a live `LivingEntity` or `DamageSource`, it cannot be called from the worker; reproduce its behavior only with a verified equivalent and fixed fixtures across armor/toughness/effect/enchantment/blocking cases.
+## Second pure-calculation extraction
+
+`ExplosionDamageReductionMath` now owns the post-impact armor, resistance, and protection stages as a primitive-only calculation. `DamageUtils.applyDamageReduction` remains the live-state adapter: it reads armor/toughness, resistance effect state, module configuration, armor stacks, and enchantment levels, then passes the captured numbers to the pure calculator.
+
+The armor step preserves the 1.21.11 client-side `CombatRules` operation order: toughness scaling, effective armor calculation, 0.2 minimum armor ratio, 20-point cap, division by 25, then multiplication by the remaining damage factor. The source's weapon-effectiveness branch is server-level-only and does not run for the client-level damage calculation used here. The extracted method also preserves the existing resistance fallback used by Assume Best Armor (`1.0F` when no effect instance is available), the resistance/protection order, protection upper cap, and final non-negative clamp.
+
+Focused tests cover armor/toughness reduction, resistance ordering, protection ordering and cap, the Assume Best Armor fallback, negative final damage, and the crossed armor-bound clamp edge case. These tests exercise the pure calculator; they do not yet prove the live-state adapter is safe on a worker thread.
+
+**Important remaining limitation:** `DamageUtils.applyDamageReduction` still reads live entity, inventory, effect, module, and registry state while obtaining those primitive inputs. This extraction makes the math reusable with an immutable snapshot but does not itself migrate AutoCrystal or AnchorAura off live world/entity references.
