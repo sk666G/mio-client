@@ -15,6 +15,7 @@ import dev.schizo.client.utils.combat.BoundingBoxUtils;
 import dev.schizo.client.utils.entity.EntityUtils;
 import dev.schizo.client.utils.entity.PlayerStateUtils;
 import dev.schizo.client.utils.math.MathConstants;
+import dev.schizo.client.utils.network.ServerSideDeathState;
 import java.util.List;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.item.Item;
@@ -22,7 +23,9 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
+import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
 
 public record CrystalTargetDamage(
    LivingEntity target,
@@ -30,10 +33,49 @@ public record CrystalTargetDamage(
    CrystalPlacementKind kind,
    CrystalLethality lethality
 ) {
-   static CrystalTargetDamage calculateForBase(AutoCrystalModule module, BlockPos base, boolean hasCrystalBase, List<LivingEntity> targets) {
+   static CrystalTargetDamage calculateForBase(
+      AutoCrystalModule module,
+      BlockPos base,
+      boolean hasCrystalBase,
+      List<LivingEntity> targets
+   ) {
       CrystalTargetDamage bestTargetDamage = null;
+      LocalPlayer localPlayer = ClientAccess.schizoMinecraft.player;
+      boolean forceSuicide = module.forceSuicideSetting.getValue();
+      double targetRange = forceSuicide ? 0.0D : module.targetRangeSetting.getValue().doubleValue();
+
       for (LivingEntity candidate : targets) {
-         if (module.isInvalidTarget(candidate)) {
+         if (candidate == null) {
+            continue;
+         }
+
+         boolean localCandidate = candidate == localPlayer;
+         CrystalTargetSelectionPolicy.TargetState targetState;
+         if (forceSuicide) {
+            // isInvalidTarget deliberately bypasses all ordinary checks in
+            // ForceSuicide mode and permits only the local player.
+            targetState = new CrystalTargetSelectionPolicy.TargetState(
+               localCandidate, false, false, false, true, false, false, false, 0.0D
+            );
+         } else {
+            boolean playerCandidate = candidate instanceof Player;
+            boolean friendPlayer = playerCandidate
+               && ClientContext.socialRegistry.isFriendPlayer((Player)candidate);
+            boolean creative = playerCandidate && ((Player)candidate).isCreative();
+            targetState = new CrystalTargetSelectionPolicy.TargetState(
+               localCandidate,
+               playerCandidate,
+               friendPlayer,
+               creative,
+               candidate.isAlive(),
+               candidate.isDeadOrDying(),
+               ((ServerSideDeathState)candidate).isServerSideDead(),
+               candidate.isSpectator(),
+               candidate.distanceTo(localPlayer)
+            );
+         }
+
+         if (CrystalTargetSelectionPolicy.isInvalidTarget(targetState, forceSuicide, targetRange)) {
             continue;
          }
 
@@ -44,45 +86,66 @@ public record CrystalTargetDamage(
          }
 
          AABB targetBounds = module.getTargetBounds(candidate);
-
          double minimumDamage = CrystalDamagePolicy.PLACE.getMinimumDamage(candidate);
-
          double damage = module.calculateExplosionDamage(base, candidate, targetBounds, true);
          CrystalLethality lethality = CrystalLethality.classifyLethality(candidate, damage);
-         Item crystalItem = Items.END_CRYSTAL;
-         boolean holdingCrystal = candidate.isHolding(crystalItem);
+         boolean holdingCrystal = candidate.isHolding(Items.END_CRYSTAL);
 
-         if (module.ignoreNakedsSetting.getValue() && !PlayerStateUtils.hasArmor(candidate) && !holdingCrystal) {
-            continue;
-         }
+         boolean ignoreNakeds = module.ignoreNakedsSetting.getValue();
+         boolean targetHasArmor = !ignoreNakeds || PlayerStateUtils.hasArmor(candidate);
 
-         Vec3 boundsCenterSnapshot = BoundingBoxUtils.getBottomCenter(targetBounds);
+         Vec3 boundsCenter = BoundingBoxUtils.getBottomCenter(targetBounds);
          Vec3 baseCenter = Vec3.atBottomCenterOf(base);
-         double distance = boundsCenterSnapshot.distanceTo(baseCenter);
+         double distanceToBase = boundsCenter.distanceTo(baseCenter);
 
-         Float crystalRange = module.crystalRangeSetting.getValue();
-         if (distance > crystalRange.floatValue() && !lethality.lethalDamage
-            && !module.obsidianDropNearTarget && !module.quiverThreatActive) {
+         boolean friendEntity = ClientContext.socialRegistry.isFriendEntity(candidate)
+            && !localCandidate;
+         boolean antiFriendKill = friendEntity && module.antiFriendKillSetting.getValue();
+         double targetHealth = antiFriendKill
+            ? EntityUtils.getHealthWithAbsorption(candidate)
+            : Double.POSITIVE_INFINITY;
+
+         CrystalTargetSelectionPolicy.Decision decision =
+            CrystalTargetSelectionPolicy.evaluateCandidate(
+               new CrystalTargetSelectionPolicy.CandidateState(
+                  baseY,
+                  targetY,
+                  hasCrystalBase,
+                  ignoreNakeds,
+                  targetHasArmor,
+                  holdingCrystal,
+                  distanceToBase,
+                  module.crystalRangeSetting.getValue().doubleValue(),
+                  lethality.lethalDamage,
+                  module.obsidianDropNearTarget,
+                  module.quiverThreatActive,
+                  friendEntity,
+                  antiFriendKill,
+                  damage,
+                  targetHealth,
+                  minimumDamage
+               )
+            );
+
+         if (decision == CrystalTargetSelectionPolicy.Decision.ABORT_SCAN) {
+            return null;
+         }
+         if (decision == CrystalTargetSelectionPolicy.Decision.REJECT) {
+            continue;
+         }
+         if (bestTargetDamage != null
+            && !CrystalTargetSelectionPolicy.shouldReplaceBest(damage, bestTargetDamage.damage())) {
             continue;
          }
 
-         if (ClientContext.socialRegistry.isFriendEntity(candidate) && candidate != ClientAccess.schizoMinecraft.player) {
-            if (module.antiFriendKillSetting.getValue() && damage > EntityUtils.getHealthWithAbsorption(candidate)) {
-               return null;
-            }
-            continue;
-         }
-
-         if ((minimumDamage > damage || damage < MathConstants.ONE_HALF) && !lethality.lethalDamage) {
-            continue;
-         }
-         if (bestTargetDamage != null && !(damage > bestTargetDamage.damage())) {
-            continue;
-         }
-
-         bestTargetDamage = new CrystalTargetDamage(candidate, damage, CrystalPlacementKind.NONE, lethality);
+         bestTargetDamage = new CrystalTargetDamage(
+            candidate,
+            damage,
+            CrystalPlacementKind.NONE,
+            lethality
+         );
       }
 
       return bestTargetDamage;
-   }
+   }}
 }
