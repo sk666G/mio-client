@@ -594,8 +594,20 @@ public final class RotationManager implements ClientAccess {
          if (movementPacket.hasRotation()) {
             float packetYaw = movementPacket.getYRot(0.0F);
             float packetPitch = movementPacket.getXRot(0.0F);
-
-            ((LocalPlayerTickAccess)ClientAccess.schizoMinecraft.player).schizo$updateServer(packetYaw, packetPitch);
+            Minecraft minecraft = ClientAccess.schizoMinecraft;
+            LocalPlayer player = minecraft.player;
+            if (player != null) {
+               Runnable updateServerRotations = () -> {
+                  if (minecraft.player == player) {
+                     ((LocalPlayerTickAccess)player).schizo$updateServer(packetYaw, packetPitch);
+                  }
+               };
+               if (minecraft.isSameThread()) {
+                  updateServerRotations.run();
+               } else if (minecraft.isRunning()) {
+                  minecraft.execute(updateServerRotations);
+               }
+            }
          }
 
          this.runDeferredActions();
