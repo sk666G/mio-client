@@ -118,7 +118,7 @@ public final class AutoTemplateModule extends Module {
    }
 
    private boolean fillInput(AbstractContainerMenu menu, int target, int source) {
-      if (source == -1 || !menu.getSlot(target).getItem().isEmpty()) return false;
+      if (!menu.getCarried().isEmpty() || source == -1 || !menu.getSlot(target).getItem().isEmpty()) return false;
       InventoryUtils.swapSlotsWithPickup(source, target);
       this.actionTimer.reset();
       return true;
