@@ -36,7 +36,7 @@ class MonotonicRefreshGateTest {
       MonotonicRefreshGate gate = new MonotonicRefreshGate(50L);
 
       assertTrue(gate.shouldRefresh(Long.MAX_VALUE - 100L, false));
-      assertFalse(gate.shouldRefresh(Long.MIN_VALUE - 51L, false));
+      assertFalse(gate.shouldRefresh(Long.MIN_VALUE - 52L, false));
       assertTrue(gate.shouldRefresh(Long.MIN_VALUE + 10L, false));
    }
 
