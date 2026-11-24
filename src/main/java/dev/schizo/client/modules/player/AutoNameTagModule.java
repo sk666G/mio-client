@@ -91,7 +91,7 @@ public class AutoNameTagModule extends Module {
       try {
          ClientLevel level = ClientAccess.schizoMinecraft.level;
          for (Entity entity : level.entitiesForRendering()) {
-               ItemStack heldStack = ClientAccess.schizoMinecraft.player.getMainHandItem();
+            ItemStack heldStack = ClientAccess.schizoMinecraft.player.getMainHandItem();
             if (!this.isNamedNameTag(heldStack)) {
                break;
             }
