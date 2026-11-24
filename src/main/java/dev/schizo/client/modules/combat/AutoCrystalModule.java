@@ -740,22 +740,22 @@ public class AutoCrystalModule extends Module {
             return;
          }
 
-         this.placeCrystal(base, crystalInOffhand, targetDamage);
-         if (!this.isSilentSwap() && !alternativeSlotSearch) {
-            return;
-         }
-
-         if (originalSlot != -1) {
-            if (alternativeSlotSearch) {
-               InventoryUtils.swapIntoSelectedSlot(crystalSlot);
-            } else {
-               if (this.autoSwapSetting.getValue() == ItemSwapMode.SILENT) {
+         boolean restoreSwapAfterPlacement = this.isSilentSwap() || alternativeSlotSearch;
+         try {
+            this.placeCrystal(base, crystalInOffhand, targetDamage);
+         } finally {
+            if (restoreSwapAfterPlacement && originalSlot != -1) {
+               if (alternativeSlotSearch) {
+                  InventoryUtils.swapIntoSelectedSlot(crystalSlot);
+               } else if (this.autoSwapSetting.getValue() == ItemSwapMode.SILENT) {
                   this.ignoreNextSlotChange();
-                  InventoryUtils.selectHotbarSlotForPlacement(
-                     originalSlot
-                  );
+                  InventoryUtils.selectHotbarSlotForPlacement(originalSlot);
                }
             }
+         }
+
+         if (!restoreSwapAfterPlacement) {
+            return;
          }
 
          if (this.strictTimingSetting.getValue() || miningSwapReset || this.skip) {
@@ -1281,34 +1281,36 @@ public class AutoCrystalModule extends Module {
          if (BlockInteractionUtils.canPlaceAt(
                   base, false
                )) {
-            if (baseSlot != originalSlot) {
-               if (alternativeSwap) {
-                  InventoryUtils.swapIntoSelectedSlot(baseSlot);
-               } else {
-                  speedMine.crystalAttackPending = true;
-                  InventoryUtils.selectHotbarSlotForPlacement(baseSlot);
+            boolean temporaryBaseSwap = originalSlot != -1 && baseSlot != originalSlot;
+            try {
+               if (temporaryBaseSwap) {
+                  if (alternativeSwap) {
+                     InventoryUtils.swapIntoSelectedSlot(baseSlot);
+                  } else {
+                     speedMine.crystalAttackPending = true;
+                     InventoryUtils.selectHotbarSlotForPlacement(baseSlot);
+                  }
                }
-            }
 
-            boolean interactionAirEnabled = this.basePlaceAirSetting.getValue();
-            BlockInteractionUtils.placeBlockIgnoringCrystals(
-               base, hitPoint, direction, interactionAirEnabled, hand
-            );
+               boolean interactionAirEnabled = this.basePlaceAirSetting.getValue();
+               BlockInteractionUtils.placeBlockIgnoringCrystals(
+                  base, hitPoint, direction, interactionAirEnabled, hand
+               );
 
-            this.basePlaceTimer.reset();
+               this.basePlaceTimer.reset();
 
-            if (this.rotatePlaceSetting.getValue()) {
-               if (this.rotateSetting.getValue()) {
+               if (this.rotatePlaceSetting.getValue() && this.rotateSetting.getValue()) {
                   this.setRotationTarget(hitPoint);
                }
-            }
 
-            this.lastForcedBase = base;
-            if (originalSlot != -1 && baseSlot != originalSlot) {
-               if (alternativeSwap) {
-                  InventoryUtils.swapIntoSelectedSlot(baseSlot);
-               } else {
-                  InventoryUtils.selectHotbarSlotForPlacement(originalSlot);
+               this.lastForcedBase = base;
+            } finally {
+               if (temporaryBaseSwap) {
+                  if (alternativeSwap) {
+                     InventoryUtils.swapIntoSelectedSlot(baseSlot);
+                  } else {
+                     InventoryUtils.selectHotbarSlotForPlacement(originalSlot);
+                  }
                }
             }
 
