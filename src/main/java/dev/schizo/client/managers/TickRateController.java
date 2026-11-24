@@ -13,16 +13,14 @@ import dev.schizo.client.ClientAccess;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.LocalPlayerTickEvent;
 import dev.schizo.client.events.ModuleToggleEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.modules.Module;
-import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.util.Mth;
 
 public class TickRateController implements ClientAccess {
-   private final ConcurrentHashMap<Module, Boolean> moduleReleaseStates = new ConcurrentHashMap<>();
-   private float multiplier;
+   private final OwnedFloatRequests<Module> multiplierRequests = new OwnedFloatRequests<>(1.0F);
 
    public TickRateController() {
-      this.multiplier = 1.0F;
       ClientAccess.eventBus.subscribe(this);
    }
 
@@ -36,25 +34,29 @@ public class TickRateController implements ClientAccess {
    }
 
    public void requestMultiplier(Module module, float requestedMultiplier) {
-      this.moduleReleaseStates.compute(module, (keyModule, previousReleased) -> false);
-      this.multiplier = requestedMultiplier;
+      this.multiplierRequests.request(module, requestedMultiplier);
    }
 
    public float getMultiplier() {
-      return this.multiplier;
+      return this.multiplierRequests.get();
    }
 
    public void releaseMultiplier(Module module) {
-      this.moduleReleaseStates.compute(module, (keyModule, previousReleased) -> {
-         if (Boolean.FALSE.equals(previousReleased)) {
-            this.multiplier = 1.0F;
-         }
-         return true;
-      });
+      this.multiplierRequests.release(module);
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.multiplierRequests.clear();
    }
 
    public static class PlayerTicks extends TickRateController {
       private float fractionalTicks;
+
+      @EventHandler
+      private void onMinecraftDisconnectPlayerTicks(MinecraftDisconnectEvent event) {
+         this.fractionalTicks = 0.0F;
+      }
 
       @EventHandler(priority = -200)
       private void onLocalPlayerTickEvent(LocalPlayerTickEvent event) {
