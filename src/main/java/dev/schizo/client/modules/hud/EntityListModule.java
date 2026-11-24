@@ -141,11 +141,9 @@ public class EntityListModule extends HudWidgetModule {
       }
 
       this.entries.clear();
-      this.entries.addAll(
-         this.countsByName.entrySet().stream()
-            .map(EntityCount::fromEntry)
-            .toList()
-      );
+      for (Entry<String, Integer> entry : this.countsByName.entrySet()) {
+         this.entries.add(EntityCount.fromEntry(entry));
+      }
       Setting<SortMode> sortingOption = this.sortingSetting;
       EntityListModule.SortMode sorting = sortingOption.getValue();
       switch (sorting) {
@@ -153,17 +151,12 @@ public class EntityListModule extends HudWidgetModule {
             this.entries.sort(Comparator.comparing(EntityCount::displayName));
             break;
          case COUNT:
-            this.entries.sort(Comparator.comparing((EntityCount entry) -> -entry.count()));
+            this.entries.sort(Comparator.comparingInt((EntityCount entry) -> -entry.count()));
             break;
          case LENGTH:
-            this.entries.sort(Comparator.comparing((EntityCount entry) -> {
-                     FontRenderer textRenderer = FontRenderer.INSTANCE;
-                     boolean coloredCount = false;
-                     float width = textRenderer.getWidth(
-                        entry.formatText(coloredCount)
-                     );
-                     return width;
-                  }));
+            this.entries.sort(Comparator.comparingDouble(
+               entry -> FontRenderer.INSTANCE.getWidth(entry.plainText())
+            ));
       }
    }
 
