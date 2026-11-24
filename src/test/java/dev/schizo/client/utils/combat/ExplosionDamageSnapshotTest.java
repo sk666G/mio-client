@@ -112,7 +112,7 @@ class ExplosionDamageSnapshotTest {
          0.0D, 0.0D, 0.0D, 0.0D, 0.0D, 0.0D,
          0.5D, 0.5D, 0.5D, 0.0D, 6.0D,
          ExplosionDamageMath.Difficulty.NORMAL,
-         false, 20.0F, 8.0F, true, 0.0F, false, 5,
+         false, 20.0F, 20.0F, 8.0F, true, 0.0F, false, 5,
          false, 0.0D, List.of(), ExplosionRaycastSnapshot.Query.normal()
       );
 
@@ -131,7 +131,7 @@ class ExplosionDamageSnapshotTest {
          0.0D, 0.0D, 0.0D, 0.0D, 0.0D, 0.0D,
          0.5D, 0.5D, 0.5D, 0.0D, 6.0D,
          ExplosionDamageMath.Difficulty.NORMAL,
-         false, 0.0F, 0.0F, false, 1.0F, false, 0,
+         false, 20.0F, 0.0F, 0.0F, false, 1.0F, false, 0,
          true, 0.0D,
          List.of(new ExplosionBlockingDamageMath.Reduction(90.0F, true, 1.0F, 0.5F)),
          ExplosionRaycastSnapshot.Query.normal()
