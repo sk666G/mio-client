@@ -28,6 +28,7 @@ import dev.schizo.client.settings.NumberSetting;
 import dev.schizo.client.settings.Setting;
 import dev.schizo.client.utils.ElapsedTimer;
 import dev.schizo.client.utils.entity.PlayerStateUtils;
+import dev.schizo.client.utils.network.ServerSideDeathState;
 import dev.schizo.client.utils.entity.SwingAction;
 import dev.schizo.client.utils.inventory.InventoryUtils;
 import dev.schizo.client.utils.network.PacketSender;
@@ -194,8 +195,15 @@ public final class PistonCrystalModule extends Module {
       Player selected = null;
       double distance = this.targetRangeSetting.getValue();
       for (Player candidate : ClientAccess.schizoMinecraft.level.players()) {
-         if (candidate == ClientAccess.schizoMinecraft.player || candidate.isSpectator() || candidate.getHealth() <= 0.0F
-            || ClientContext.socialRegistry.isFriendPlayer(candidate) || !PlayerStateUtils.hasArmor(candidate)) {
+         if (!CombatTargetPolicy.isEligible(
+            candidate.isAlive(),
+            candidate.isDeadOrDying(),
+            candidate == ClientAccess.schizoMinecraft.player,
+            candidate.isSpectator(),
+            candidate.isCreative(),
+            ClientContext.socialRegistry.isFriendPlayer(candidate),
+            ((ServerSideDeathState)candidate).isServerSideDead()
+         ) || !PlayerStateUtils.hasArmor(candidate)) {
             continue;
          }
          double candidateDistance = ClientAccess.schizoMinecraft.player.getEyePosition().distanceTo(candidate.position());
