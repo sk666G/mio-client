@@ -23,7 +23,6 @@ import java.awt.Color;
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.renderer.SubmitNodeStorage;
 import net.minecraft.client.renderer.entity.EntityRenderDispatcher;
 import net.minecraft.client.renderer.entity.state.EntityRenderState;
@@ -74,38 +73,42 @@ public class PlayerModelModule extends HudWidgetModule {
       RenderUtils.clearDepth(
          PostProcessShaderPass.POST_TARGET
       );
+      Lighting lighting = ClientAccess.schizoMinecraft.gameRenderer.getLighting();
       RenderTargetUtils.overrideRenderTargets(
          PostProcessShaderPass.POST_TARGET
       );
-      poses.pushPose();
-      poses.translate(x, y, 50.0D);
-      float scaleZ = -scale;
-      poses.scale(scale, scale, scaleZ);
+      try {
+         poses.pushPose();
+         try {
+            poses.translate(x, y, 50.0D);
+            float scaleZ = -scale;
+            poses.scale(scale, scale, scaleZ);
 
-      float modelZ = modelTranslation.z;
-      float modelY = modelTranslation.y;
-      float modelX = modelTranslation.x;
-      poses.translate(modelX, modelY, modelZ);
-      poses.mulPose(rotation);
-      Lighting lighting = ClientAccess.schizoMinecraft.gameRenderer.getLighting();
-      Entry entityLightingEntry = Entry.ENTITY_IN_UI;
-      lighting.setupFor(entityLightingEntry);
-      SubmitNodeStorage submitNodes = ClientAccess.schizoMinecraft.gameRenderer.getSubmitNodeStorage();
-      CameraRenderState cameraState = ClientAccess.schizoMinecraft.gameRenderer.getLevelRenderState().cameraRenderState;
-      Minecraft clientForEntityRenderer = Minecraft.getInstance();
-      EntityRenderDispatcher entityRenderer = clientForEntityRenderer.getEntityRenderDispatcher();
-      float partialTick = RenderUtils.getPartialTick();
-      EntityRenderState entityState = entityRenderer.extractEntity(entity, partialTick);
-      entityState.shadowPieces.clear();
-      entityRenderer.submit(entityState, cameraState, 0.0, 0.0, 0.0, poses, submitNodes);
-      RenderUtils.INSTANCE
-         .flushEntities();
-      poses.popPose();
-      GameRenderer rendererForItemLighting = ClientAccess.schizoMinecraft.gameRenderer;
-      lighting = rendererForItemLighting.getLighting();
-      Entry itemLightingEntry = Entry.ITEMS_FLAT;
-      lighting.setupFor(itemLightingEntry);
-      RenderTargetUtils.restoreRenderTargets();
+            float modelZ = modelTranslation.z;
+            float modelY = modelTranslation.y;
+            float modelX = modelTranslation.x;
+            poses.translate(modelX, modelY, modelZ);
+            poses.mulPose(rotation);
+            lighting.setupFor(Entry.ENTITY_IN_UI);
+            try {
+               SubmitNodeStorage submitNodes = ClientAccess.schizoMinecraft.gameRenderer.getSubmitNodeStorage();
+               CameraRenderState cameraState = ClientAccess.schizoMinecraft.gameRenderer.getLevelRenderState().cameraRenderState;
+               Minecraft clientForEntityRenderer = Minecraft.getInstance();
+               EntityRenderDispatcher entityRenderer = clientForEntityRenderer.getEntityRenderDispatcher();
+               float partialTick = RenderUtils.getPartialTick();
+               EntityRenderState entityState = entityRenderer.extractEntity(entity, partialTick);
+               entityState.shadowPieces.clear();
+               entityRenderer.submit(entityState, cameraState, 0.0, 0.0, 0.0, poses, submitNodes);
+               RenderUtils.INSTANCE.flushEntities();
+            } finally {
+               lighting.setupFor(Entry.ITEMS_FLAT);
+            }
+         } finally {
+            poses.popPose();
+         }
+      } finally {
+         RenderTargetUtils.restoreRenderTargets();
+      }
       RenderUtils.clearDepth(
          PostProcessShaderPass.POST_TARGET
       );
