@@ -62,6 +62,19 @@ public class NoFallModule extends Module {
       return (this.modeSetting.getValue()).getName();
    }
 
+   @Override
+   public void onDisable() {
+      this.resetModeState();
+   }
+
+   private void resetModeState() {
+      for (ModeChoice choice : ModeChoice.values()) {
+         choice.reset();
+      }
+      this.previousFallDistance = 0.0;
+      this.predictedTopFaceCollision = false;
+   }
+
    @EventHandler
    private void onConnectionSendPacketEvent(
       PacketEvent.Send event
@@ -129,6 +142,7 @@ public class NoFallModule extends Module {
       for (NoFallModule.ModeChoice choice : NoFallModule.ModeChoice.values()) {
          choice.module = this;
       }
+      this.modeSetting.setChangeCallback(this::resetModeState);
    }
 
    public enum ModeChoice implements NamedEntry {
@@ -180,9 +194,12 @@ public class NoFallModule extends Module {
 
          @Override
          public void afterPlayerTick() {
-            if (PlayerStateUtils.getTrackedFallDistance() > 3.0F) {
-               this.teleportPending = true;
-            }
+            this.teleportPending = PlayerStateUtils.getTrackedFallDistance() > 3.0F;
+         }
+
+         @Override
+         public void reset() {
+            this.teleportPending = false;
          }
 
          @Override
@@ -211,6 +228,11 @@ public class NoFallModule extends Module {
       },
       MLG("MLG") {
          private boolean skipNextMlgTick;
+
+         @Override
+         public void reset() {
+            this.skipNextMlgTick = false;
+         }
 
          @Override
          public void afterPlayerTick() {
@@ -288,6 +310,11 @@ public class NoFallModule extends Module {
          private boolean jumpPending;
 
          @Override
+         public void reset() {
+            this.jumpPending = false;
+         }
+
+         @Override
          public void handleOutgoingPacket(
             PacketEvent.Send event
          ) {
@@ -317,6 +344,9 @@ public class NoFallModule extends Module {
       protected NoFallModule module;
 
       public void afterPlayerTick() {
+      }
+
+      public void reset() {
       }
 
       @Override
