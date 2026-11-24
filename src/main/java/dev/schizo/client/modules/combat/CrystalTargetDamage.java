@@ -14,16 +14,13 @@ import dev.schizo.client.ClientContext;
 import dev.schizo.client.utils.combat.BoundingBoxUtils;
 import dev.schizo.client.utils.entity.EntityUtils;
 import dev.schizo.client.utils.entity.PlayerStateUtils;
-import dev.schizo.client.utils.network.ServerSideDeathState;
 import java.util.List;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
-import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.player.Player;
 
 public record CrystalTargetDamage(
    LivingEntity target,
@@ -38,42 +35,8 @@ public record CrystalTargetDamage(
       List<LivingEntity> targets
    ) {
       CrystalTargetDamage bestTargetDamage = null;
-      LocalPlayer localPlayer = ClientAccess.schizoMinecraft.player;
-      boolean forceSuicide = module.forceSuicideSetting.getValue();
-      double targetRange = forceSuicide ? 0.0D : module.targetRangeSetting.getValue().doubleValue();
-
       for (LivingEntity candidate : targets) {
-         if (candidate == null) {
-            continue;
-         }
-
-         boolean localCandidate = candidate == localPlayer;
-         CrystalTargetSelectionPolicy.TargetState targetState;
-         if (forceSuicide) {
-            // isInvalidTarget deliberately bypasses all ordinary checks in
-            // ForceSuicide mode and permits only the local player.
-            targetState = new CrystalTargetSelectionPolicy.TargetState(
-               localCandidate, false, false, false, true, false, false, false, 0.0D
-            );
-         } else {
-            boolean playerCandidate = candidate instanceof Player;
-            boolean friendPlayer = playerCandidate
-               && ClientContext.socialRegistry.isFriendPlayer((Player)candidate);
-            boolean creative = playerCandidate && ((Player)candidate).isCreative();
-            targetState = new CrystalTargetSelectionPolicy.TargetState(
-               localCandidate,
-               playerCandidate,
-               friendPlayer,
-               creative,
-               candidate.isAlive(),
-               candidate.isDeadOrDying(),
-               ((ServerSideDeathState)candidate).isServerSideDead(),
-               candidate.isSpectator(),
-               candidate.distanceTo(localPlayer)
-            );
-         }
-
-         if (CrystalTargetSelectionPolicy.isInvalidTarget(targetState, forceSuicide, targetRange)) {
+         if (candidate == null || module.isInvalidTarget(candidate)) {
             continue;
          }
 
