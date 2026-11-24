@@ -121,6 +121,28 @@ class ExplosionRaycastSnapshotBuilderTest {
    }
 
    @Test
+   void acceptsCaptureWhenElapsedTimeIsAtTheBudgetBoundary() {
+      ExplosionRaycastSnapshotBuilder.validateCaptureBudget(
+         100L, 150L, 16, 64L, 50L
+      );
+   }
+
+   @Test
+   void rejectsCaptureWhenElapsedTimeExceedsTheBudget() {
+      ExplosionRaycastSnapshotBuilder.CaptureBudgetExceededException failure =
+         assertThrows(
+            ExplosionRaycastSnapshotBuilder.CaptureBudgetExceededException.class,
+            () -> ExplosionRaycastSnapshotBuilder.validateCaptureBudget(
+               100L, 151L, 16, 64L, 50L
+            )
+         );
+
+      assertEquals(16, failure.capturedBlocks());
+      assertEquals(64L, failure.requestedBlocks());
+      assertEquals(50L, failure.budgetNanos());
+   }
+
+   @Test
    void captureBudgetExceptionReportsPartialWorkWithoutPublishingASnapshot() {
       ExplosionRaycastSnapshotBuilder.CaptureBudgetExceededException failure =
          new ExplosionRaycastSnapshotBuilder.CaptureBudgetExceededException(64, 256L, 8_000_000L);
