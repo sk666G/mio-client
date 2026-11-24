@@ -61,6 +61,7 @@ public final class AutoTemplateModule extends Module {
    private void onPlayerTick(LocalPlayerPreTickEvent event) {
       if (this.isWorldUnavailable() || !(ClientAccess.schizoMinecraft.screen instanceof SmithingScreen)) return;
       AbstractContainerMenu menu = ClientAccess.schizoMinecraft.player.containerMenu;
+      if (!menu.getCarried().isEmpty()) return;
       if (!this.actionTimer.hasElapsed((this.delaySetting.getValue()).longValue())) return;
       if (!menu.getSlot(3).getItem().isEmpty()) {
          this.quickMove(menu, 3);
