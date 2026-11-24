@@ -148,6 +148,27 @@ public final class ContextProfileRegistry implements ClientAccess, JsonConfigura
       return this.lastAppliedContext.replace("|", " / ");
    }
 
+   /**
+    * Restores temporary context-specific settings before shutdown persistence.
+    * A failed restore must remain visible to the shutdown hook so it can avoid
+    * overwriting the user's saved configuration with a partially applied profile.
+    */
+   public synchronized boolean restoreBeforeShutdown() {
+      boolean restored = this.restoreActiveProfile();
+      if (restored) {
+         this.baseline.clear();
+         this.modifiedCategories.clear();
+         this.lastAppliedContext = null;
+         this.applyFailure.clear();
+         this.dirty = true;
+      } else {
+         ClientAccess.logger.error(
+            "Could not restore the user's baseline before shutdown; configuration must not be saved"
+         );
+      }
+      return restored;
+   }
+
    @Override
    public String getConfigName() {
       return "context-profiles.json";
