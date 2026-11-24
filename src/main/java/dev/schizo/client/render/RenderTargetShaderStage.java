@@ -103,13 +103,16 @@ public class RenderTargetShaderStage implements ClientAccess, ShaderStage {
          this.outputTarget
       );
 
-      int inputTextureId = ((GlTexture)inputTarget.getColorTexture()).glId();
-      ShaderStageRenderState state = ShaderStageRenderState.INSTANCE;
-      state.configure(this, inputTextureId);
-      RenderStateManager.runWithStates(
-         this::drawFullscreenQuad,
-         ShaderStageRenderState.INSTANCE
-      );
-      RenderTargetUtils.restoreRenderTargets();
+      try {
+         int inputTextureId = ((GlTexture)inputTarget.getColorTexture()).glId();
+         ShaderStageRenderState state = ShaderStageRenderState.INSTANCE;
+         state.configure(this, inputTextureId);
+         RenderStateManager.runWithStates(
+            this::drawFullscreenQuad,
+            ShaderStageRenderState.INSTANCE
+         );
+      } finally {
+         RenderTargetUtils.restoreRenderTargets();
+      }
    }
 }

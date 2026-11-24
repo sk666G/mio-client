@@ -13,6 +13,7 @@ import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.PacketEvent;
 import dev.schizo.client.events.RotationRequestEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.managers.ServerStateManager;
 import dev.schizo.client.utils.entity.PlayerStateTracker;
@@ -45,13 +46,14 @@ import java.awt.Color;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executor;
+import java.util.concurrent.FutureTask;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
-import java.util.function.Supplier;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.player.LocalPlayer;
@@ -81,6 +83,7 @@ public class AnchorAuraModule extends Module {
    private static OffhandModule offhand = (OffhandModule)ClientContext.getModule(OffhandModule.class);
    private static AutoCrystalModule autoCrystal = (AutoCrystalModule)ClientContext.getModule(AutoCrystalModule.class);
    private static SpeedMineModule speedMine = (SpeedMineModule)ClientContext.getModule(SpeedMineModule.class);
+   private static final ThreadPoolExecutor calculationExecutor = createCalculationExecutor();
    private final Setting<Integer> delaySetting;
    private final Setting<Float> rangeSetting;
    private final Setting<Float> wallRangeSetting;
@@ -104,7 +107,8 @@ public class AnchorAuraModule extends Module {
    private final Setting<Boolean> eatingSetting;
    private final Setting<Float> healthSetting;
    private CompletableFuture<AnchorPlacementResult> calculationFuture;
-   private final MutableBlockPos scanPosition;
+   private FutureTask<Void> calculationTask;
+   private ClientLevel calculationWorld;
    private final ElapsedTimer actionTimer;
    public final AtomicReference placementData;
    public AnchorTargetDamage targetDamage;
@@ -142,18 +146,38 @@ public class AnchorAuraModule extends Module {
 
    @Override
    public void onEnable() {
-      this.targetDamage = null;
-      if (this.calculationFuture != null) {
-         try {
-            this.calculationFuture.complete(null);
-         } catch (CancellationException ignored) {
-         }
-      }
+      this.resetCalculationState();
    }
 
    @Override
    public void onToggle() {
+      this.resetCalculationState();
+   }
+
+   private void completeCalculation() {
+      FutureTask<Void> task = this.calculationTask;
+      if (task != null && !task.isDone()) {
+         task.cancel(true);
+      }
+
+      CompletableFuture<AnchorPlacementResult> pending = this.calculationFuture;
+      if (pending != null && !pending.isDone() && !pending.isCancelled()) {
+         pending.complete(null);
+      }
+   }
+
+   private void resetCalculationState() {
+      this.completeCalculation();
+      this.calculationFuture = null;
+      this.calculationTask = null;
+      this.calculationWorld = null;
       this.placementData.set(null);
+      this.targetDamage = null;
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.resetCalculationState();
    }
 
    private boolean shouldPause() {
@@ -261,11 +285,13 @@ public class AnchorAuraModule extends Module {
 
          int glowstoneSlot = InventoryUtils.findHotbarSlot(slotItemSnapshot);
          if (glowstoneSlot != -1) {
-            InventoryUtils.selectHotbarSlotForPlacement(glowstoneSlot);
-            InteractionHand swappedHand = InteractionHand.MAIN_HAND;
-            this.interactWithAnchor(position, direction, hitPoint, swappedHand);
-
-            InventoryUtils.selectHotbarSlotForPlacement(originalSlot);
+            try {
+               InventoryUtils.selectHotbarSlotForPlacement(glowstoneSlot);
+               InteractionHand swappedHand = InteractionHand.MAIN_HAND;
+               this.interactWithAnchor(position, direction, hitPoint, swappedHand);
+            } finally {
+               InventoryUtils.selectHotbarSlotForPlacement(originalSlot);
+            }
          }
       }
 
@@ -448,57 +474,76 @@ public class AnchorAuraModule extends Module {
             ItemStack mainStackSnapshot = ClientAccess.schizoMinecraft.player.getMainHandItem();
             Item anchorBlockItem = Items.RESPAWN_ANCHOR;
             boolean selectedSwap = !mainStackSnapshot.is(anchorBlockItem);
-            if (selectedSwap) {
-               InventoryUtils.selectHotbarSlotForPlacement(anchorSlot);
-            }
-
-            if (offhandSwap) {
-               hand = PlayerStateUtils.oppositeHand(hand);
-
-               PacketSender.sendSwapOffhand();
-            }
-
-            BlockPos relativeHitPosition = position.relative(direction);
-
-            Vec3 hitPoint = this.selectHitPoint(relativeHitPosition);
-
-            boolean airPlacement = this.airPlaceSetting.getValue();
-            if (BlockInteractionUtils.sendPlacement(
-               position, hitPoint, direction, airPlacement, hand
-            )) {
-               if (this.renderSetting.getValue()) {
-                  ClientContext.featureBoxRenderer.addBox(this, position);
+            boolean offhandSwapApplied = false;
+            try {
+               if (selectedSwap) {
+                  InventoryUtils.selectHotbarSlotForPlacement(anchorSlot);
                }
-            }
 
-            if (offhandSwap) {
-               PacketSender.sendSwapOffhand();
-            }
+               if (offhandSwap) {
+                  hand = PlayerStateUtils.oppositeHand(hand);
+                  PacketSender.sendSwapOffhand();
+                  offhandSwapApplied = true;
+               }
 
-            if (selectedSwap) {
-               InventoryUtils.selectHotbarSlotForPlacement(originalSlot);
+               BlockPos relativeHitPosition = position.relative(direction);
+               Vec3 hitPoint = this.selectHitPoint(relativeHitPosition);
+
+               boolean airPlacement = this.airPlaceSetting.getValue();
+               if (BlockInteractionUtils.sendPlacement(
+                  position, hitPoint, direction, airPlacement, hand
+               )) {
+                  if (this.renderSetting.getValue()) {
+                     ClientContext.featureBoxRenderer.addBox(this, position);
+                  }
+               }
+            } finally {
+               try {
+                  if (offhandSwapApplied) {
+                     PacketSender.sendSwapOffhand();
+                  }
+               } finally {
+                  if (selectedSwap) {
+                     InventoryUtils.selectHotbarSlotForPlacement(originalSlot);
+                  }
+               }
             }
          }
       }
    }
 
    private AnchorPlacementResult calculatePlacement() {
+      LocalPlayer playerSnapshot = ClientAccess.schizoMinecraft.player;
+      double originX = playerSnapshot.getX();
+      double originY = playerSnapshot.getEyeY();
+      double originZ = playerSnapshot.getZ();
+      Vec3 eyeSnapshot = playerSnapshot.getEyePosition();
+      MutableBlockPos scanPosition = new MutableBlockPos();
       AnchorPlacementResult bestPlacement = null;
       for (double offsetX = -Math.floor((this.rangeSetting.getValue()).floatValue());
          offsetX < Math.ceil((this.rangeSetting.getValue()).floatValue()); offsetX += 1.0D) {
+         if (Thread.currentThread().isInterrupted()) {
+            return null;
+         }
          for (double offsetY = -Math.floor((this.rangeSetting.getValue()).floatValue());
             offsetY < Math.ceil((this.rangeSetting.getValue()).floatValue()); offsetY += 1.0D) {
+            if (Thread.currentThread().isInterrupted()) {
+               return null;
+            }
             for (double offsetZ = -Math.floor((this.rangeSetting.getValue()).floatValue());
                offsetZ < Math.ceil((this.rangeSetting.getValue()).floatValue()); offsetZ += 1.0D) {
-               MutableBlockPos scanPositionSnapshot = this.scanPosition;
+               if (Thread.currentThread().isInterrupted()) {
+                  return null;
+               }
+               MutableBlockPos scanPositionSnapshot = scanPosition;
 
-               double scanXSnapshot = ClientAccess.schizoMinecraft.player.getX() + offsetX;
+               double scanXSnapshot = originX + offsetX;
 
-               double scanYSnapshot = ClientAccess.schizoMinecraft.player.getEyeY() + offsetY;
+               double scanYSnapshot = originY + offsetY;
 
-               double scanZ = ClientAccess.schizoMinecraft.player.getZ() + offsetZ;
+               double scanZ = originZ + offsetZ;
                scanPositionSnapshot.set(scanXSnapshot, scanYSnapshot, scanZ);
-               scanPositionSnapshot = this.scanPosition;
+               scanPositionSnapshot = scanPosition;
 
                if (BlockInteractionUtils.isOutsidePlacementBounds(scanPositionSnapshot)) {
                   continue;
@@ -506,32 +551,31 @@ public class AnchorAuraModule extends Module {
 
                boolean miningBlockIgnored = false;
                if (this.shouldIgnoreMiningBlock()) {
-                  scanPositionSnapshot = this.scanPosition;
+                  scanPositionSnapshot = scanPosition;
 
                   if (scanPositionSnapshot.equals(speedMine.getMiningPos())) {
                      miningBlockIgnored = true;
                   }
                }
 
-               if (WorldUtils.isPlacementOccupied(this.scanPosition) && !miningBlockIgnored) {
+               if (WorldUtils.isPlacementOccupied(scanPosition) && !miningBlockIgnored) {
                   continue;
                }
 
-               AABB boundsSnapshot = new AABB(this.scanPosition);
+               AABB boundsSnapshot = new AABB(scanPosition);
                if (BlockInteractionUtils.hasBlockingEntity(boundsSnapshot, true, true)) {
-                  MutableBlockPos entityAnchorSnapshot = this.scanPosition;
+                  MutableBlockPos entityAnchorSnapshot = scanPosition;
                   if (!this.isAnchorBlock(entityAnchorSnapshot)) {
                      continue;
                   }
                }
 
-               MutableBlockPos samplePosition = this.scanPosition;
+               MutableBlockPos samplePosition = scanPosition;
                BlockSampleMode samplingMode = BlockSampleMode.X8;
                List samples = samplingMode.sampleBlock(samplePosition);
                boolean visible = WorldUtils.canSeeAny(samples);
 
-               Vec3 eyeSnapshot = ClientAccess.schizoMinecraft.player.getEyePosition();
-               Vec3 center = this.scanPosition.getCenter();
+               Vec3 center = scanPosition.getCenter();
                double distance = eyeSnapshot.distanceTo(center);
                if (!visible) {
                   Float visibilityWallRange = this.wallRangeSetting.getValue();
@@ -545,7 +589,7 @@ public class AnchorAuraModule extends Module {
                   continue;
                }
 
-               scanPositionSnapshot = this.scanPosition;
+               scanPositionSnapshot = scanPosition;
 
                boolean directionModeSnapshot = BlockInteractionUtils.isStrictDirectionEnabled();
 
@@ -553,20 +597,20 @@ public class AnchorAuraModule extends Module {
                Direction direction = BlockInteractionUtils.findSupportDirection(
                   scanPositionSnapshot, directionModeSnapshot, zeroWallRange
                );
-               MutableBlockPos damagePositionSnapshot = this.scanPosition;
+               MutableBlockPos damagePositionSnapshot = scanPosition;
 
                AnchorTargetDamage targetDamage = AnchorTargetDamage.calculateForBase(this, damagePositionSnapshot);
                if (direction == null && this.airPlaceSetting.getValue()) {
                   direction = Direction.DOWN;
                } else {
-                  MutableBlockPos fallbackAnchorSnapshot = this.scanPosition;
+                  MutableBlockPos fallbackAnchorSnapshot = scanPosition;
                   if (this.isAnchorBlock(fallbackAnchorSnapshot)) {
                      direction = Direction.DOWN;
                   }
                }
 
                if (direction == null) {
-                  MutableBlockPos fluidPosition = this.scanPosition;
+                  MutableBlockPos fluidPosition = scanPosition;
 
                   FluidState fluid = ClientAccess.schizoMinecraft.level.getFluidState(fluidPosition);
                   if (!fluid.isEmpty()) {
@@ -579,13 +623,13 @@ public class AnchorAuraModule extends Module {
                if (direction == null || targetDamage == null) {
                   continue;
                }
-               MutableBlockPos damagePosition = this.scanPosition;
+               MutableBlockPos damagePosition = scanPosition;
                if (this.shouldRejectDamage(damagePosition, targetDamage)) {
                   continue;
                }
 
-               AnchorPlacementResult candidatePlacement = new AnchorPlacementResult(this.scanPosition.immutable(), direction, targetDamage);
-               MutableBlockPos anchorSnapshot = this.scanPosition;
+               AnchorPlacementResult candidatePlacement = new AnchorPlacementResult(scanPosition.immutable(), direction, targetDamage);
+               MutableBlockPos anchorSnapshot = scanPosition;
 
                if (this.isAnchorBlock(anchorSnapshot)) {
                   return candidatePlacement;
@@ -598,27 +642,72 @@ public class AnchorAuraModule extends Module {
       return bestPlacement;
    }
 
-   private void updateCalculation() {
-      if (this.placementData.get() != null) {
-         BlockPos positionSnapshot = ((AnchorPlacementResult)this.placementData.get()).base();
+   static ThreadPoolExecutor createCalculationExecutor() {
+      // Timed-out scans can remain inside a live-state helper after interruption.
+      // Keep only one active scan and do not queue replacements behind it.
+      return new ThreadPoolExecutor(
+         0,
+         1,
+         30L,
+         TimeUnit.SECONDS,
+         new SynchronousQueue<>()
+      );
+   }
 
-         if (this.isInvalidPlacement(positionSnapshot)) {
+   private void updateCalculation() {
+      ClientLevel activeLevel = ClientAccess.schizoMinecraft.level;
+      if (this.calculationWorld != activeLevel) {
+         // Cancel and discard any result that belongs to a replaced client world.
+         this.completeCalculation();
+         this.calculationFuture = null;
+         this.calculationTask = null;
+         this.calculationWorld = null;
+         this.placementData.set(null);
+         this.targetDamage = null;
+      }
+
+      if (this.placementData.get() != null) {
+         AnchorPlacementResult existingPlacement = (AnchorPlacementResult)this.placementData.get();
+         Player existingTarget = existingPlacement.targetDamage() == null
+            ? null
+            : existingPlacement.targetDamage().target();
+         double validationRange = this.targetRangeSetting.getValue().doubleValue();
+         if (this.isInvalidPlacement(existingPlacement.base())
+            || existingTarget == null
+            || existingTarget.level() != activeLevel
+            || existingTarget.isRemoved()
+            || AnchorTargetDamage.isInvalidTarget(existingTarget, validationRange)) {
             this.placementData.set(null);
+            this.targetDamage = null;
          }
       }
 
       if (this.calculationFuture != null && this.calculationFuture.isDone() && this.placementData.get() == null) {
          try {
             AnchorPlacementResult completedPlacement = this.calculationFuture.get();
-            if (completedPlacement == null) {
+            AnchorTargetDamage completedDamage = completedPlacement == null
+               ? null
+               : completedPlacement.targetDamage();
+            Player completedTarget = completedDamage == null ? null : completedDamage.target();
+            double validationRange = this.targetRangeSetting.getValue().doubleValue();
+
+            if (this.calculationWorld != activeLevel
+               || completedPlacement == null
+               || completedTarget == null
+               || completedTarget.level() != activeLevel
+               || completedTarget.isRemoved()
+               || AnchorTargetDamage.isInvalidTarget(completedTarget, validationRange)
+               || this.isInvalidPlacement(completedPlacement.base())) {
                this.placementData.set(null);
+               this.targetDamage = null;
             } else {
                this.placementData.set(completedPlacement);
-
-               this.targetDamage = completedPlacement.targetDamage();
+               this.targetDamage = completedDamage;
             }
          } catch (InterruptedException | ExecutionException failure) {
             failure.printStackTrace();
+            this.placementData.set(null);
+            this.targetDamage = null;
          }
       }
 
@@ -630,16 +719,44 @@ public class AnchorAuraModule extends Module {
          Player currentTarget = this.targetDamage.target();
 
          double validationRange = (this.targetRangeSetting.getValue()).floatValue();
-         if (AnchorTargetDamage.isInvalidTarget(currentTarget, validationRange)) {
+         if (currentTarget == null
+            || currentTarget.level() != activeLevel
+            || currentTarget.isRemoved()
+            || AnchorTargetDamage.isInvalidTarget(currentTarget, validationRange)) {
             this.targetDamage = null;
+            this.placementData.set(null);
          }
       }
 
-      Supplier<AnchorPlacementResult> calculation = this::calculatePlacement;
-      Executor calculationExecutor = ClientAccess.executorService;
-      CompletableFuture<AnchorPlacementResult> future = CompletableFuture.supplyAsync(calculation, calculationExecutor);
-      Function<Throwable, AnchorPlacementResult> failureHandler = failure -> null;
-      this.calculationFuture = future.exceptionally(failureHandler);
+      CompletableFuture<AnchorPlacementResult> scheduledCalculation = new CompletableFuture<>();
+      FutureTask<Void> task = new FutureTask<>(() -> {
+         try {
+            scheduledCalculation.complete(this.calculatePlacement());
+         } catch (Throwable failure) {
+            scheduledCalculation.completeExceptionally(failure);
+         }
+         return null;
+      });
+      this.calculationWorld = activeLevel;
+      try {
+         calculationExecutor.execute(task);
+         this.calculationTask = task;
+         this.calculationFuture = scheduledCalculation
+            .completeOnTimeout(null, 750L, TimeUnit.MILLISECONDS)
+            .whenComplete((result, failure) -> {
+               // Stop timed-out scans instead of letting them overlap later calculations.
+               if (failure != null || result == null) {
+                  task.cancel(true);
+               }
+            })
+            .exceptionally(failure -> null);
+      } catch (RejectedExecutionException busyExecutor) {
+         // The previous cancelled scan has not exited yet. Retry on a later tick;
+         // never perform this scan synchronously on the client thread.
+         task.cancel(false);
+         this.calculationTask = null;
+         this.calculationFuture = null;
+      }
    }
 
    @EventHandler
@@ -793,7 +910,6 @@ public class AnchorAuraModule extends Module {
       this.miningSetting = this.add(new BooleanSetting("Mining", false).dependsOn(this.pauseSetting));
       this.eatingSetting = this.add(new BooleanSetting("Eating", false).dependsOn(this.pauseSetting));
       this.healthSetting = this.add(new NumberSetting<>("Health", 4.0F, 0.0F, 36.0F).withUnit("hp").dependsOn(this.pauseSetting));
-      this.scanPosition = new MutableBlockPos();
       this.actionTimer = new ElapsedTimer();
       this.placementData = new AtomicReference();
       FeatureBoxRenderer renderer = ClientContext.featureBoxRenderer;

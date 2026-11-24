@@ -55,6 +55,15 @@ public class ShulkerReturnController extends ChestStealerController {
    private boolean returnedThisTick;
    private boolean leftEnderChest;
 
+   void resetSession() {
+      this.trackedShulkers.clear();
+      this.pendingShulkers.clear();
+      this.reopenRequested = false;
+      this.handlingReturnClick = false;
+      this.returnedThisTick = false;
+      this.leftEnderChest = false;
+   }
+
    private boolean isPlayerInventorySlot(int slotIndex) {
       return slotIndex >= 0
          && slotIndex <= (26);
@@ -142,26 +151,29 @@ public class ShulkerReturnController extends ChestStealerController {
       if (!this.reopenRequested) {
          return;
       }
-      BlockPos position = this.findReopenPosition();
-      if (position != null) {
-         Direction fallbackDirection = Direction.UP;
-         Direction direction = (Direction)BlockInteractionUtils.getStrictDirectionsOrFallback(position, fallbackDirection).getFirst();
+      try {
+         BlockPos position = this.findReopenPosition();
+         if (position != null) {
+            Direction fallbackDirection = Direction.UP;
+            Direction direction = (Direction)BlockInteractionUtils.getStrictDirectionsOrFallback(position, fallbackDirection).getFirst();
 
-         double hitOffset = 0.5D;
-         BlockHitResult hitResult = new BlockHitResult(position.getCenter().relative(direction, hitOffset), direction, position, false);
-         ClientAccess.schizoMinecraft.player.closeContainer();
-         InteractionHand interactionHand = InteractionHand.MAIN_HAND;
-         PacketSender.sendUseItemOn(interactionHand, hitResult);
-         SwingInteractionManager swingManager = ClientContext.swingManager;
-         InteractionHand swingHand = InteractionHand.MAIN_HAND;
-         SwingAction swingType = SwingAction.INTERACT;
-         swingManager.swing(swingHand, swingType);
-         RotationManager rotationManager = ClientContext.rotationManager;
+            double hitOffset = 0.5D;
+            BlockHitResult hitResult = new BlockHitResult(position.getCenter().relative(direction, hitOffset), direction, position, false);
+            ClientAccess.schizoMinecraft.player.closeContainer();
+            InteractionHand interactionHand = InteractionHand.MAIN_HAND;
+            PacketSender.sendUseItemOn(interactionHand, hitResult);
+            SwingInteractionManager swingManager = ClientContext.swingManager;
+            InteractionHand swingHand = InteractionHand.MAIN_HAND;
+            SwingAction swingType = SwingAction.INTERACT;
+            swingManager.swing(swingHand, swingType);
+            RotationManager rotationManager = ClientContext.rotationManager;
 
-         float[] rotations = RotationManager.getRotationsToBlock(position);
-         rotationManager.requestRotation(rotations, 250);
+            float[] rotations = RotationManager.getRotationsToBlock(position);
+            rotationManager.requestRotation(rotations, 250);
+         }
+      } finally {
+         this.reopenRequested = false;
       }
-      this.reopenRequested = false;
    }
 
    private BlockPos findReopenPosition() {
@@ -213,28 +225,32 @@ public class ShulkerReturnController extends ChestStealerController {
             if (menu.getRowCount() == (3)) {
                InventoryStateManager inventoryCoordinator = ClientContext.inventoryStateManager;
 
-               if (!InventoryStateManager.wouldReachClickLimit(inventoryCoordinator, (byte)1)) {
+               if (!InventoryStateManager.wouldReachClickLimit(inventoryCoordinator, (byte)1)
+                  && ClientAccess.schizoMinecraft.player.containerMenu.getCarried().isEmpty()) {
                   this.handlingReturnClick = true;
-                  for (TrackedShulker selectedShulker : this.trackedShulkers) {
-                     int matchingSlot = this.findTrackedShulkerSlot(selectedShulker);
-                     if (matchingSlot != -1) {
-                        if (matchingSlot >= (54)
-                           && matchingSlot <= (62)) {
-                           int originalSlot = selectedShulker.slotIndex();
-                           int hotbarSlot = matchingSlot - (54);
-                           InventoryUtils.swapWithHotbarSlot(originalSlot, hotbarSlot);
-                        } else {
-                           int originalSlot = selectedShulker.slotIndex();
-                           InventoryUtils.swapSlotsWithPickup(matchingSlot, originalSlot);
+                  try {
+                     for (TrackedShulker selectedShulker : this.trackedShulkers) {
+                        int matchingSlot = this.findTrackedShulkerSlot(selectedShulker);
+                        if (matchingSlot != -1) {
+                           if (matchingSlot >= (54)
+                              && matchingSlot <= (62)) {
+                              int originalSlot = selectedShulker.slotIndex();
+                              int hotbarSlot = matchingSlot - (54);
+                              InventoryUtils.swapWithHotbarSlot(originalSlot, hotbarSlot);
+                           } else {
+                              int originalSlot = selectedShulker.slotIndex();
+                              InventoryUtils.swapSlotsWithPickup(matchingSlot, originalSlot);
+                           }
+
+                           this.returnedThisTick = true;
+                           this.leftEnderChest = false;
                         }
-
-                        this.returnedThisTick = true;
-                        this.leftEnderChest = false;
                      }
-                  }
 
-                  this.handlingReturnClick = false;
-                  this.trackedShulkers.clear();
+                     this.trackedShulkers.clear();
+                  } finally {
+                     this.handlingReturnClick = false;
+                  }
                }
             }
          }

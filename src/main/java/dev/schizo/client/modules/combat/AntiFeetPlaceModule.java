@@ -24,6 +24,7 @@ import dev.schizo.client.utils.world.BlockInteractionUtils;
 import dev.schizo.client.utils.entity.PlayerStateUtils;
 import dev.schizo.client.utils.inventory.InventoryUtils;
 import dev.schizo.client.utils.world.WorldUtils;
+import dev.schizo.client.utils.network.ServerSideDeathState;
 import dev.schizo.client.managers.WorldStateManager;
 import dev.schizo.client.managers.ModuleRegistry;
 import dev.schizo.client.modules.Module;
@@ -178,48 +179,43 @@ public class AntiFeetPlaceModule extends Module {
    }
 
    private boolean hasNoEligibleEnemy(BlockPos position) {
-      Iterator players = ClientAccess.schizoMinecraft.level.players().iterator();
+      Iterator<AbstractClientPlayer> players = ClientAccess.schizoMinecraft.level.players().iterator();
 
       while (players.hasNext()) {
-         AbstractClientPlayer target = (AbstractClientPlayer)players.next();
-         if (target != ClientAccess.schizoMinecraft.player) {
-            if (!ClientContext.socialRegistry.isFriendPlayer(target)) {
-               if (!target.isDeadOrDying()) {
-                  if (target.isAlive()) {
-                     double xSnapshot = position.getX();
-                     double ySnapshot = position.getY();
-                     double z = position.getZ();
-                     double distanceSquared = target.distanceToSqr(xSnapshot, ySnapshot, z);
+         AbstractClientPlayer target = players.next();
+         if (!CombatTargetPolicy.isEligible(
+            target.isAlive(),
+            target.isDeadOrDying(),
+            target == ClientAccess.schizoMinecraft.player,
+            target.isSpectator(),
+            target.isCreative(),
+            ClientContext.socialRegistry.isFriendPlayer(target),
+            ((ServerSideDeathState)target).isServerSideDead()
+         )) {
+            continue;
+         }
 
-                     if (!(distanceSquared > 36.0D)) {
-                        if (PlayerStateUtils.hasArmor(target)) {
-                           Set candidatePositions = PlayerStateUtils.getSurroundPositions(
-                              (net.minecraft.world.entity.LivingEntity)(target));
-                           if (candidatePositions.contains(position)) {
-                              boolean hasNoAdjacentAir = true;
-                              Iterator feetPositions = PlayerStateUtils.getOccupiedBlockPositions(target).iterator();
+         double distanceSquared = target.distanceToSqr(position.getX(), position.getY(), position.getZ());
+         if (distanceSquared > 36.0D || !PlayerStateUtils.hasArmor(target)) {
+            continue;
+         }
 
-                              while (feetPositions.hasNext()) {
-                                 BlockPos feetPosition = (BlockPos)feetPositions.next();
+         Set<BlockPos> candidatePositions = PlayerStateUtils.getSurroundPositions(target);
+         if (!candidatePositions.contains(position)) {
+            continue;
+         }
 
-                                 BlockState state = ClientAccess.schizoMinecraft.level.getBlockState(feetPosition);
-                                 if (state.isAir()) {
-                                    if (feetPosition.distManhattan(position) == 1) {
-                                       hasNoAdjacentAir = false;
-                                       break;
-                                    }
-                                 }
-                              }
-
-                              if (!hasNoAdjacentAir) {
-                                 return false;
-                              }
-                           }
-                        }
-                     }
-                  }
-               }
+         boolean hasAdjacentAir = false;
+         for (BlockPos feetPosition : PlayerStateUtils.getOccupiedBlockPositions(target)) {
+            BlockState state = ClientAccess.schizoMinecraft.level.getBlockState(feetPosition);
+            if (state.isAir() && feetPosition.distManhattan(position) == 1) {
+               hasAdjacentAir = true;
+               break;
             }
+         }
+
+         if (hasAdjacentAir) {
+            return false;
          }
       }
 
