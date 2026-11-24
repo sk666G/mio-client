@@ -133,6 +133,9 @@ public final class ExplosionRaycastSnapshotBuilder {
       if (minecraft.level != level) {
          throw new IllegalStateException("Cannot capture a snapshot for an inactive client world");
       }
+      if (collisionEntity.level() != level) {
+         throw new IllegalStateException("Cannot capture collision geometry for an entity from another world");
+      }
 
       long volume;
       try {
