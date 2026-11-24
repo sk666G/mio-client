@@ -112,9 +112,12 @@ public final class PerformanceCenterScreen extends ClientScreen {
          this.panelTop + 12.0F,
          accent
       );
+      String subtitle = this.panelWidth < 590.0F
+         ? "Arrow keys navigate tabs and rows"
+         : "Frame pacing, module callback cost and HUD render cost  •  LEFT/RIGHT tabs  •  UP/DOWN rows  •  HOME/END";
       font.drawWithShadow(
          poseStack,
-         "Frame pacing, module callback cost and HUD render cost",
+         subtitle,
          this.panelLeft + 16.0F,
          this.panelTop + 29.0F,
          muted
