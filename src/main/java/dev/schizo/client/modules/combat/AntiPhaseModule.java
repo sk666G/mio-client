@@ -338,7 +338,6 @@ public class AntiPhaseModule extends Module {
       this.fadeSetting = this.add(new BooleanSetting("Fade", true).dependsOn(this.renderSetting));
       this.fadeTimeSetting = this.add(new NumberSetting<>("FadeTime", 1.0F, 0.1F, 1.0F).withUnit("s").dependsOn(this.renderSetting, this.fadeSetting));
       this.placementTimer = new ElapsedTimer();
-      this.pendingSwap = null;
       FeatureBoxRenderer rendererSnapshot = ClientContext.featureBoxRenderer;
       FeatureBoxRenderer.RenderConfiguration renderConfiguration = new FeatureBoxRenderer.RenderConfiguration(
          this, this.fillSetting, this.outlineSetting, this.lineWidthSetting, this.fadeTimeSetting,
