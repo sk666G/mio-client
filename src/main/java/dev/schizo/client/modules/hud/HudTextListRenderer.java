@@ -25,6 +25,7 @@ public class HudTextListRenderer extends HudWidgetRenderer {
 
    private static final HUDModule hudSettings = ClientContext.getModule(HUDModule.class);
    private final List<? extends HudTextRow> rows;
+   private final float[] dimensionBuffer = new float[2];
 
    public HudTextListRenderer(HudWidgetModule widget, HudTextRow row) {
       this(widget, Collections.singletonList(row));
@@ -64,10 +65,9 @@ public class HudTextListRenderer extends HudWidgetRenderer {
       }
       width *= hudSettings.getTextScale();
       height *= hudSettings.getTextScale();
-      float[] dimensions = new float[2];
-      dimensions[0] = width;
-      dimensions[1] = height;
-      return dimensions;
+      this.dimensionBuffer[0] = width;
+      this.dimensionBuffer[1] = height;
+      return this.dimensionBuffer;
    }
 
    @Override
