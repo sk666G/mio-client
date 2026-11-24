@@ -23,4 +23,17 @@ class ClickGuiSearchTextTest {
       assertNull(ClickGuiSearchText.completionSuffix("ExamplePanel", ""));
       assertNull(ClickGuiSearchText.completionSuffix("ExamplePanel", "ExamplePanels"));
    }
+
+   @Test
+   void handlesSelectionInBothDirections() {
+      assertEquals(new ClickGuiSearchText.Selection(2, 5, 5), ClickGuiSearchText.selection(8, 5, 2));
+      assertEquals(new ClickGuiSearchText.Selection(2, 5, 2), ClickGuiSearchText.selection(8, 2, 5));
+   }
+
+   @Test
+   void clampsSelectionToTheActualText() {
+      assertEquals(new ClickGuiSearchText.Selection(0, 8, 8), ClickGuiSearchText.selection(8, 99, -3));
+      assertEquals(new ClickGuiSearchText.Selection(0, 0, 0), ClickGuiSearchText.selection(0, 10, -1));
+      assertEquals(new ClickGuiSearchText.Selection(3, 3, 3), ClickGuiSearchText.selection(8, 3, 3));
+   }
 }
