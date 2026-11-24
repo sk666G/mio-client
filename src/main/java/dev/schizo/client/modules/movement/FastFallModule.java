@@ -447,7 +447,7 @@ public class FastFallModule extends Module {
       this.safeDisableSetting = this.add(new BooleanSetting("SafeDisable", false));
       this.strictPulseTimer = new ElapsedTimer();
       this.strictTimerPulse = true;
-      this.modeSetting.setChangeCallback(this::releaseStrictTimer);
+      this.modeSetting.setChangeCallback(this::resetTransientState);
    }
    public enum ModeChoice implements NamedEntry {
       PLAIN("Plain"),
