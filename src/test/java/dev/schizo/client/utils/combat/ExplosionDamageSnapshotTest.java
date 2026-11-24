@@ -2,7 +2,7 @@ package dev.schizo.client.utils.combat;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertTrue;\nimport static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
 import java.util.Map;
@@ -45,6 +45,21 @@ class ExplosionDamageSnapshotTest {
       assertTrue(near.complete());
       assertTrue(farther.complete());
       assertTrue(near.damage() > farther.damage());
+   }
+
+   @Test
+   void rejectsInvalidCandidateExplosionInputs() {
+      ExplosionDamageSnapshot profile = profile(false, 100.0F, false);
+      ExplosionRaycastSnapshot rays = raySnapshot(42, 100L, 12L, "minecraft:overworld", airBlocks());
+
+      assertThrows(IllegalArgumentException.class, () ->
+         profile.calculate(0.5D, 0.5D, 0.5D, 0.0D, ExplosionRaycastSnapshot.Query.normal(), rays));
+      assertThrows(IllegalArgumentException.class, () ->
+         profile.calculate(0.5D, 0.5D, 0.5D, -1.0D, ExplosionRaycastSnapshot.Query.normal(), rays));
+      assertThrows(IllegalArgumentException.class, () ->
+         profile.calculate(Double.NaN, 0.5D, 0.5D, 0.5D, ExplosionRaycastSnapshot.Query.normal(), rays));
+      assertThrows(IllegalArgumentException.class, () ->
+         profile.calculate(0.5D, Double.POSITIVE_INFINITY, 0.5D, 0.5D, ExplosionRaycastSnapshot.Query.normal(), rays));
    }
 
    @Test
