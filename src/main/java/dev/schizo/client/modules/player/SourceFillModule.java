@@ -227,8 +227,7 @@ public final class SourceFillModule extends Module {
             }
 
             if (this.placeAt(targetPosition, placementSlot)) {
-               timer = this.placementTimer;
-               timer.reset();
+               this.placementTimer.reset();
                placedCount++;
             }
          }
