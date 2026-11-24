@@ -26,7 +26,6 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.BiConsumer;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.SimpleTexture;
@@ -63,45 +62,51 @@ public final class ReloadCommand extends Command {
    public void exec(LiteralArgumentBuilder commandBuilder) {
       commandBuilder.executes(
          (com.mojang.brigadier.Command<Object>)commandContext -> {
-            CompletableFuture previousReload = this.reloadFuture;
+            CompletableFuture<?> previousReload = this.reloadFuture;
             if (!previousReload.isDone()) {
+               ChatUtils.printChat(
+                  Component.literal("A Schizo resource reload is already in progress.").withStyle(ChatFormatting.YELLOW),
+                  ChatUtils.objectSignature(this)
+               );
                return 0;
             }
 
-            MutableComponent reloadingMessage = Component.literal("Reloading Schizo resources...");
-            ReloadCommand command = this;
             ChatUtils.printChat(
-               reloadingMessage, ChatUtils.objectSignature(command)
+               Component.literal("Reloading Schizo resources..."),
+               ChatUtils.objectSignature(this)
             );
-            this.reloadFuture = CompletableFuture.runAsync(
-               (Runnable)this::reloadResources,
-               ClientAccess.executorService
-            );
-            this.reloadFuture.whenComplete(
 
-               (BiConsumer<Void, Throwable>)(ignoredResult, ignoredFailure) -> {
-
-                  MutableComponent completionMessage = Component.literal("Reload complete!").withStyle((java.util.function.UnaryOperator<Style>)(style -> {
-                     ChatFormatting format = ChatFormatting.GREEN;
-                     return style.applyFormat(format);
-                  }));
-                  ReloadCommand completedCommand = this;
+            CompletableFuture<Void> currentReload = new CompletableFuture<>();
+            this.reloadFuture = currentReload;
+            ClientAccess.schizoMinecraft.execute(() -> {
+               try {
+                  this.reloadResources();
+                  currentReload.complete(null);
                   ChatUtils.printChat(
-                     completionMessage,
-                     ChatUtils.objectSignature(completedCommand)
+                     Component.literal("Reload complete!").withStyle(ChatFormatting.GREEN),
+                     ChatUtils.objectSignature(this)
                   );
+               } catch (Throwable failure) {
+                  currentReload.completeExceptionally(failure);
+                  String detail = failure.getMessage();
+                  if (detail == null || detail.isBlank()) {
+                     detail = failure.getClass().getSimpleName();
+                  }
+                  ChatUtils.printChat(
+                     Component.literal("Reload failed: " + detail).withStyle(ChatFormatting.RED),
+                     ChatUtils.objectSignature(this)
+                  );
+                  ClientAccess.logger.error("Schizo resource reload failed", failure);
                }
-            );
+            });
             return 1;
          }
       );
    }
 
    private void reloadResources() {
-      ClientAccess.schizoMinecraft.execute((Runnable)() -> {
-         ShaderRegistry queuedShaderRegistry = ClientContext.shaderRegistry;
-         queuedShaderRegistry.reloadAll();
-      });
+      ShaderRegistry shaderRegistry = ClientContext.shaderRegistry;
+      shaderRegistry.reloadAll();
       ConfigurationManager directoryManager = ClientContext.configurationManager;
       directoryManager.prepareDirectories();
       SoundManager soundManager = ClientContext.soundManager;
@@ -138,15 +143,11 @@ public final class ReloadCommand extends Command {
             continue;
          }
 
-         ClientAccess.schizoMinecraft.executeIfPossible((Runnable)() -> {
-            Minecraft releaseClient = ClientAccess.schizoMinecraft;
-            TextureManager textureManager = releaseClient.getTextureManager();
-            textureManager.release((mountedTexture));
-            Minecraft registrationClient = ClientAccess.schizoMinecraft;
-            textureManager = registrationClient.getTextureManager();
-            SimpleTexture replacementTexture = new SimpleTexture(mountedTexture);
-            textureManager.registerAndLoad((mountedTexture), replacementTexture);
-         });
+         Minecraft releaseClient = ClientAccess.schizoMinecraft;
+         TextureManager textureManager = releaseClient.getTextureManager();
+         textureManager.release(mountedTexture);
+         SimpleTexture replacementTexture = new SimpleTexture(mountedTexture);
+         textureManager.registerAndLoad(mountedTexture, replacementTexture);
       }
    }
 

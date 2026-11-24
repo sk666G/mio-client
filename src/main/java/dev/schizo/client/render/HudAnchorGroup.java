@@ -14,6 +14,7 @@ import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.modules.client.HUDModule;
 import dev.schizo.client.settings.options.HudAnchor;
+import dev.schizo.client.profiling.EventProfiler;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.util.ArrayList;
@@ -70,64 +71,66 @@ public class HudAnchorGroup implements ClientAccess, GuiElement {
    @Override
    public void render(PoseStack poseStack, double mouseX, double mouseY) {
       poseStack.pushPose();
-      if (this.anchor != HudAnchor.NONE) {
-         this.applyHudTranslation(poseStack);
-      }
-
-      for (int widgetIndex = 0; widgetIndex < this.widgets.size(); widgetIndex++) {
-         HudWidgetRenderer widget = (HudWidgetRenderer)this.widgets
-            .get(widgetIndex);
-         widget.updateEnabledAnimation();
-         float enabledProgress = widget.getEnabledProgress();
-         boolean visible = widget.isEnabled() || enabledProgress > 0.0F;
-         float[] size;
-         if (!visible) {
-            size = new float[2];
-         } else {
-            size = widget.calculateDimensions();
-         }
-
-         widget.setDimensions(size);
+      try {
          if (this.anchor != HudAnchor.NONE) {
-            this.layoutAnchoredWidget(widget, size, widgetIndex);
-         } else {
-            this.layoutFreeWidget(widget, size);
+            this.applyHudTranslation(poseStack);
          }
 
-         this.prepareWidgetRender(enabledProgress);
-         if (visible) {
-            RenderUtils.setRenderColor(
-               1.0F,
-               1.0F,
-               1.0F,
-               enabledProgress
-            );
-            widget.render(poseStack, mouseX, mouseY);
-            this.prepareWidgetRender(enabledProgress);
-            if (!HudWidgetRenderer.renderingHud) {
-               RenderUtils.getEntityBuffers()
-                  .endBatch(ClientRenderTypes.guiTriangles());
+         for (int widgetIndex = 0; widgetIndex < this.widgets.size(); widgetIndex++) {
+            HudWidgetRenderer widget = (HudWidgetRenderer)this.widgets.get(widgetIndex);
+            widget.updateEnabledAnimation();
+            float enabledProgress = widget.getEnabledProgress();
+            boolean visible = widget.isEnabled() || enabledProgress > 0.0F;
+            float[] size;
+            if (!visible) {
+               size = widget.useHiddenDimensions();
+            } else {
+               size = widget.calculateDimensions();
+               widget.setDimensions(size);
+            }
+            if (this.anchor != HudAnchor.NONE) {
+               this.layoutAnchoredWidget(widget, size, widgetIndex);
+            } else {
+               this.layoutFreeWidget(widget, size);
             }
 
-            RenderUtils.setRenderColor(
-               1.0F,
-               1.0F,
-               1.0F,
-               1.0F
-            );
-         }
+            this.prepareWidgetRender(enabledProgress);
+            if (visible) {
+               RenderUtils.setRenderColor(1.0F, 1.0F, 1.0F, enabledProgress);
+               try {
+                  EventProfiler profiler = EventProfiler.GLOBAL;
+                  if (HudWidgetRenderer.renderingHud && profiler.isEnabled()) {
+                     long startedAt = profiler.nanoTime();
+                     try {
+                        widget.render(poseStack, mouseX, mouseY);
+                     } finally {
+                        profiler.recordHudRender(widget.getProfilerHandle(), profiler.nanoTime() - startedAt);
+                     }
+                  } else {
+                     widget.render(poseStack, mouseX, mouseY);
+                  }
+               } finally {
+                  try {
+                     this.prepareWidgetRender(enabledProgress);
+                     if (!HudWidgetRenderer.renderingHud) {
+                        RenderUtils.getEntityBuffers().endBatch(ClientRenderTypes.guiTriangles());
+                     }
+                  } finally {
+                     RenderUtils.setRenderColor(1.0F, 1.0F, 1.0F, 1.0F);
+                  }
+               }
+            }
 
-         if (widgetIndex < this.widgets.size() - 1
-            && this.anchor != HudAnchor.NONE
-            && this.anchor.getVerticalAlignment() != HudVerticalAlignment.BOTTOM) {
-            ((HudWidgetRenderer)this.widgets.get(widgetIndex + 1))
-               .setY(
-                  widget.getY() + size[1], true
-               );
+            if (widgetIndex < this.widgets.size() - 1
+               && this.anchor != HudAnchor.NONE
+               && this.anchor.getVerticalAlignment() != HudVerticalAlignment.BOTTOM) {
+               ((HudWidgetRenderer)this.widgets.get(widgetIndex + 1))
+                  .setY(widget.getY() + size[1], true);
+            }
          }
+      } finally {
+         poseStack.popPose();
       }
-
-      poseStack.popPose();
    }
 
    private void layoutFreeWidget(HudWidgetRenderer widget, float[] size) {

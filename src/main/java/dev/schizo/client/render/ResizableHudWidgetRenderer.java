@@ -10,18 +10,15 @@
 package dev.schizo.client.render;
 
 import dev.schizo.client.utils.FloatAnimation;
-import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.modules.HudWidgetModule;
 import dev.schizo.client.modules.client.HUDModule;
 import dev.schizo.client.settings.NumberSetting;
 import dev.schizo.client.settings.Setting;
-import dev.schizo.client.utils.math.MathUtils;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.resources.Identifier;
-import org.lwjgl.glfw.GLFW;
 
 public class ResizableHudWidgetRenderer extends HudWidgetRenderer {
 
@@ -29,7 +26,6 @@ public class ResizableHudWidgetRenderer extends HudWidgetRenderer {
    static {
       Identifier.fromNamespaceAndPath("schizo", "textures/triangle.png");
    }
-   private static ResizableHudWidgetRenderer activeResizeRenderer;
    private final Setting<Float> sizeSetting = new NumberSetting<>(
       "Size",
       1.0F,
@@ -37,21 +33,32 @@ public class ResizableHudWidgetRenderer extends HudWidgetRenderer {
       2.0F
    );
    private final FloatAnimation handleAnimation = new FloatAnimation();
+   private final float[] sourceDimensions = new float[2];
+   private final float[] scaledDimensions = new float[2];
    private boolean applyHudScale;
    private boolean resizingEnabled;
 
-   public float getScale() {
-      float scaleMultiplier = this.applyHudScale
-         ? hudSettings.getTextScale()
-         : 1.0F;
-      return this.sizeSetting.getValue() * scaleMultiplier;
+   private float getHudScaleMultiplier() {
+      return this.applyHudScale ? hudSettings.getTextScale() : 1.0F;
    }
 
-   private boolean isMouseButtonPressed(int button) {
-      return GLFW.glfwGetMouseButton(
-            ClientAccess.schizoMinecraft.getWindow().handle(), button
-         )
-         == 1;
+   public float getScale() {
+      return this.sizeSetting.getValue() * this.getHudScaleMultiplier();
+   }
+
+   public float getSizeScale() {
+      return this.sizeSetting.getValue();
+   }
+
+   public void setSizeScale(float scale) {
+      this.sizeSetting.setValue(scale);
+   }
+
+   public void resizeTo(double mouseX, double mouseY) {
+      this.setSizeScale(HudWidgetResize.calculateScale(
+         mouseX, mouseY, this.getX(), this.getY(), this.sourceDimensions[0], this.sourceDimensions[1],
+         this.getSizeScale(), this.getHudScaleMultiplier()
+      ));
    }
 
    public ResizableHudWidgetRenderer(HudWidgetModule widget) {
@@ -60,112 +67,89 @@ public class ResizableHudWidgetRenderer extends HudWidgetRenderer {
 
    @Override
    public float[] calculateDimensions() {
-      float[] dimensions = this.widget
-         .calculateDimensions();
-      dimensions[0] *= this.getScale();
-      dimensions[1] *= this.getScale();
-      return dimensions;
+      float[] calculatedDimensions = this.widget.calculateDimensions();
+      this.sourceDimensions[0] = calculatedDimensions[0];
+      this.sourceDimensions[1] = calculatedDimensions[1];
+      float scale = this.getScale();
+      this.scaledDimensions[0] = this.sourceDimensions[0] * scale;
+      this.scaledDimensions[1] = this.sourceDimensions[1] * scale;
+      return this.scaledDimensions;
    }
 
    @Override
    public void render(PoseStack poses, double mouseX, double mouseY) {
       super.render(poses, mouseX, mouseY);
-      float[] sourceDimensions = this.widget
-         .calculateDimensions();
+      float[] sourceDimensions = this.sourceDimensions;
       poses.pushPose();
-      poses.scale(
-         this.getScale(),
-         this.getScale(),
-         1.0F
-      );
-      poses.translate(
-         this.getX()
-            / this.getScale(),
-         this.getY()
-            / this.getScale(),
-         0.0F
-      );
-      this.widget
-         .renderContent(poses);
-      if (!renderingHud
-         && this.resizingEnabled) {
-         boolean handleHovered = this.isResizeHandleHovered(mouseX, mouseY);
-         if (activeResizeRenderer == this) {
-            double contentWidth = sourceDimensions[0];
-            double contentHeight = sourceDimensions[1];
-            double resizeScale = Math.min(
-               (mouseX - this.getX()) / contentWidth,
-               (mouseY - this.getY()) / contentHeight
-            );
-            this.sizeSetting
-               .setValue(
-                  (float)MathUtils.floorToDecimals(
-                     resizeScale,2)
-               );
-         }
-
-         if (handleHovered && this.isMouseButtonPressed(1)) {
-            this.sizeSetting
-               .setValue(
-                  1.0F
-               );
-         }
-
-         if (handleHovered && this.isMouseButtonPressed(0)) {
-            activeResizeRenderer = this;
-         } else if (!this.isMouseButtonPressed(0)) {
-            activeResizeRenderer = null;
-         }
-
-         if (activeResizeRenderer == this) {
-            this.handleAnimation
-               .setTarget(
-                  0.6F,
-                  250L
-               );
-         } else if (handleHovered) {
-            this.handleAnimation
-               .setTarget(
-                  0.4F,
-                  250L
-               );
-         } else {
-            this.handleAnimation
-               .setTarget(
-                  0.2F,
-                  250L
-               );
-         }
-
-         int handleColor = ColorUtils.toArgb(
-            ColorUtils.getThemeColor(),
-            this.handleAnimation
-                  .getValue()
-               * ClientContext.getHudEditor()
-                  .getTransitionOpacity()
+      try {
+         poses.scale(
+            this.getScale(),
+            this.getScale(),
+            1.0F
          );
-         VertexConsumer handleVertices = RenderUtils.getEntityBuffers()
-            .getBuffer(ClientRenderTypes.guiTriangles());
-         handleVertices.addVertex(
-               poses.last(),
-               sourceDimensions[0]
-                  - 5.0F,
-               sourceDimensions[1] + 0.0F,
-               0.0F
-            )
-            .setColor(handleColor);
-         handleVertices.addVertex(poses.last(), sourceDimensions[0] + 0.0F, sourceDimensions[1] + 0.0F, 0.0F).setColor(handleColor);
-         handleVertices.addVertex(
-               poses.last(),
-               sourceDimensions[0] + 0.0F,
-               sourceDimensions[1]
-                  - 5.0F,
-               0.0F
-            )
-            .setColor(handleColor);
-      }
+         poses.translate(
+            this.getX()
+               / this.getScale(),
+            this.getY()
+               / this.getScale(),
+            0.0F
+         );
+         this.widget
+            .renderContent(poses);
+         if (!renderingHud
+            && this.resizingEnabled) {
+            boolean handleHovered = this.isResizeHandleHovered(mouseX, mouseY);
+            if (ClientContext.getHudEditor().isResizing(this)) {
+               this.handleAnimation
+                  .setTarget(
+                     0.6F,
+                     250L
+                  );
+            } else if (handleHovered) {
+               this.handleAnimation
+                  .setTarget(
+                     0.4F,
+                     250L
+                  );
+            } else {
+               this.handleAnimation
+                  .setTarget(
+                     0.2F,
+                     250L
+                  );
+            }
 
-      poses.popPose();
+            int handleColor = ColorUtils.toArgb(
+               ColorUtils.getThemeColor(),
+               this.handleAnimation
+                     .getValue()
+                  * ClientContext.getHudEditor()
+                     .getTransitionOpacity()
+            );
+            VertexConsumer handleVertices = RenderUtils.getEntityBuffers()
+               .getBuffer(ClientRenderTypes.guiTriangles());
+            handleVertices.addVertex(
+                  poses.last(),
+                  sourceDimensions[0]
+                     - 5.0F,
+                  sourceDimensions[1] + 0.0F,
+                  0.0F
+               )
+               .setColor(handleColor);
+            handleVertices.addVertex(poses.last(), sourceDimensions[0] + 0.0F, sourceDimensions[1] + 0.0F, 0.0F).setColor(handleColor);
+            handleVertices.addVertex(
+                  poses.last(),
+                  sourceDimensions[0] + 0.0F,
+                  sourceDimensions[1]
+                     - 5.0F,
+                  0.0F
+               )
+               .setColor(handleColor);
+         }
+
+      } finally {
+         poses.popPose();
+      }
    }
 
    public boolean isResizeHandleHovered(double mouseX, double mouseY) {

@@ -14,6 +14,7 @@ import dev.schizo.client.ClientContext;
 import dev.schizo.client.modules.player.ItemSaverModule;
 
 import dev.schizo.mixin.MultiPlayerGameModeAccessor;
+import java.util.Objects;
 import java.util.function.Predicate;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.multiplayer.MultiPlayerGameMode;
@@ -27,6 +28,7 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraft.world.item.Item;
@@ -71,14 +73,40 @@ public final class InventoryUtils implements ClientAccess {
    }
 
    public static void swapSlotsWithPickup(int firstSlot, int secondSlot) {
-      if (firstSlot != -1 && secondSlot != -1) {
-         clickSlot(firstSlot, 0, ClickType.PICKUP);
-         clickSlot(secondSlot, 0, ClickType.PICKUP);
-         ItemStack carriedStack = ClientAccess.schizoMinecraft.player.containerMenu.getCarried();
-         if (!carriedStack.isEmpty()) {
-            clickSlot(firstSlot, 0, ClickType.PICKUP);
-         }
+      if (firstSlot < 0 || secondSlot < 0) {
+         return;
       }
+
+      LocalPlayer player = ClientAccess.schizoMinecraft.player;
+      AbstractContainerMenu menu = player.containerMenu;
+      runWithCursorCleanup(menu, firstSlot, () -> {
+         clickSlot(menu.containerId, firstSlot, 0, ClickType.PICKUP);
+         clickSlot(menu.containerId, secondSlot, 0, ClickType.PICKUP);
+      });
+   }
+
+   public static void runWithCursorCleanup(
+      AbstractContainerMenu menu, int restoreSlot, Runnable action
+   ) {
+      Objects.requireNonNull(menu, "menu");
+      Objects.requireNonNull(action, "action");
+
+      LocalPlayer player = ClientAccess.schizoMinecraft.player;
+      if (player == null || player.containerMenu != menu
+         || restoreSlot < 0 || restoreSlot >= menu.slots.size()
+         || !menu.getCarried().isEmpty()) {
+         return;
+      }
+      int containerId = menu.containerId;
+
+      InventorySwapGuard.runWithCleanup(action, () -> {
+         if (ClientAccess.schizoMinecraft.player == player
+            && player.containerMenu == menu
+            && menu.containerId == containerId
+            && !menu.getCarried().isEmpty()) {
+            clickSlot(containerId, restoreSlot, 0, ClickType.PICKUP);
+         }
+      });
    }
 
    public static void clickSlot(int slot, int button, ClickType clickType) {
@@ -300,12 +328,11 @@ public final class InventoryUtils implements ClientAccess {
 
    public static void runWithSwap(int previousSlot, InventoryUtils.SwapSlot slot, Runnable action) {
       if (!slot.isFound()) return;
-      swapTo(slot);
-      try {
-         action.run();
-      } finally {
-         swapBack(previousSlot, slot);
-      }
+      InventorySwapGuard.run(
+         () -> swapTo(slot),
+         action,
+         () -> swapBack(previousSlot, slot)
+      );
    }
 
    public static boolean isEnderChestScreen(Screen screen) {

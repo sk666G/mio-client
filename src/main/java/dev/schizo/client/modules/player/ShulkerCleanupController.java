@@ -54,6 +54,10 @@ public class ShulkerCleanupController extends ChestStealerController {
       return nearestPosition;
    }
 
+   void resetSession() {
+      this.wasShulkerScreenOpen = false;
+   }
+
    public void tick() {
       boolean shulkerScreenOpen = ClientAccess.schizoMinecraft.screen instanceof ShulkerBoxScreen;
       if (this.wasShulkerScreenOpen && !shulkerScreenOpen) {

@@ -9,6 +9,7 @@
 
 package dev.schizo.client.config;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import dev.schizo.client.SchizoClient;
@@ -46,7 +47,8 @@ public final class LegacyBranding {
         if (!"Watermark".equals(moduleName) && !"Welcomer".equals(moduleName)
                 && !"AutoSign".equals(moduleName) && !"DiscordNotifs".equals(moduleName)
                 && !"WebhookNotifs".equals(moduleName) && !"FeetPlace".equals(moduleName)
-                && !"AutoFarm".equals(moduleName) && !"EntityControl".equals(moduleName)) {
+                && !"AutoFarm".equals(moduleName) && !"EntityControl".equals(moduleName)
+                && !"UI".equals(moduleName)) {
             return input;
         }
         JsonObject migrated = module.deepCopy();
@@ -99,9 +101,43 @@ public final class LegacyBranding {
                 }
                 settings.remove("IgnoreMio");
             }
+            case "UI" -> {
+                // Migrate only untouched upstream defaults; keep every user-chosen
+                // colour and transparency value intact.
+                replaceDefaultColor(settings, "Color", new int[]{194, 16, 37, 238},
+                    new int[]{199, 148, 244, 130});
+                replaceDefaultColor(settings, "BgColor", new int[]{8, 8, 12, 240},
+                    new int[]{199, 148, 244, 30});
+                replaceDefaultColor(settings, "BgButton", new int[]{34, 17, 23, 236},
+                    new int[]{199, 148, 244, 115});
+                replaceDefaultColor(settings, "BgEnabled", new int[]{122, 10, 29, 238},
+                    new int[]{199, 148, 244, 90});
+                replaceDefaultColor(settings, "Tint", new int[]{42, 3, 12, 118},
+                    new int[]{32, 13, 48, 100});
+                replaceDefaultColor(settings, "GradientColor", new int[]{196, 12, 36, 218},
+                    new int[]{199, 148, 244, 15});
+            }
             default -> throw new AssertionError(moduleName);
         }
         return migrated;
+    }
+
+    private static void replaceDefaultColor(JsonObject settings, String key, int[] previous, int[] current) {
+        JsonElement value = settings.get(key);
+        if (!(value instanceof JsonObject color) || !(color.get("rgba") instanceof JsonArray rgba)
+                || rgba.size() < 4) {
+            return;
+        }
+        for (int index = 0; index < 4; index++) {
+            if (rgba.get(index).getAsInt() != previous[index]) {
+                return;
+            }
+        }
+        JsonArray replacement = new JsonArray();
+        for (int channel : current) {
+            replacement.add(channel);
+        }
+        color.add("rgba", replacement);
     }
 
     private static void replaceDefault(JsonObject settings, String key, String previous, String current) {

@@ -84,11 +84,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.CancellationException;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -131,7 +126,8 @@ import net.minecraft.world.phys.Vec2;
 import net.minecraft.world.phys.Vec3;
 
 public class AutoCrystalModule extends Module {
-   private static final ExecutorService calculationExecutor;
+   private static final long SCAN_BUDGET_NANOS = TimeUnit.MILLISECONDS.toNanos(2L);
+   private static final int MAX_SCAN_CANDIDATES_PER_TICK = 128;
    private static SpeedMineModule speedMine;
    private static AntiCheatModule antiCheat;
    private static AnchorAuraModule anchorAura;
@@ -227,8 +223,8 @@ public class AutoCrystalModule extends Module {
    private final LinkedList<Long> placementTimes;
    private final List<Integer> predictedAttackIds;
    private final Set ignoredBlocks;
-   private final MutableBlockPos scanPosition;
-   private CompletableFuture<CrystalPlacementResult> calculationFuture;
+   private AutoCrystalScanState scanState;
+   private ClientLevel calculationWorld;
    protected volatile BlockPos lastPlacedBase;
    protected volatile BlockPos lastAttackedBase;
    protected volatile BlockPos lastForcedBase;
@@ -248,7 +244,6 @@ public class AutoCrystalModule extends Module {
    public LivingEntity previousTarget;
    private Vec3 eyePosition;
    static {
-      calculationExecutor = Executors.newFixedThreadPool(4);
       speedMine = (SpeedMineModule)ClientContext.getModule(SpeedMineModule.class);
       antiCheat = (AntiCheatModule)ClientContext.getModule(AntiCheatModule.class);
       anchorAura = (AnchorAuraModule)ClientContext.getModule(AnchorAuraModule.class);
@@ -286,12 +281,8 @@ public class AutoCrystalModule extends Module {
       this.lastPlacedBase = null;
 
       this.placementData.set(null);
-      if (this.calculationFuture != null) {
-         try {
-            this.calculationFuture.complete(null);
-         } catch (CancellationException cancellation) {
-         }
-      }
+      this.completeCalculation();
+      this.calculationWorld = null;
 
       this.swapDelayTimer.reset();
 
@@ -301,6 +292,8 @@ public class AutoCrystalModule extends Module {
 
    @Override
    public void onDisable() {
+      this.completeCalculation();
+      this.calculationWorld = null;
       this.restoreSelectedSlot();
    }
 
@@ -311,7 +304,16 @@ public class AutoCrystalModule extends Module {
          this.rotationTarget.set(point);
       }
    }
-   private CrystalPlacementResult calculatePlacement(List<LivingEntity> targets) {
+   private AutoCrystalScanState createPlacementScan(
+      List<LivingEntity> targets,
+      ClientLevel activeLevel
+   ) {
+      Vec3 eyePositionSnapshot = this.eyePosition;
+      if (eyePositionSnapshot == null) {
+         return null;
+      }
+
+      float placeRange = this.placeRangeSetting.getValue();
       float selectedCrystalRange;
       if (this.shouldIgnoreMiningBlock()) {
          selectedCrystalRange = 999.0F;
@@ -321,17 +323,13 @@ public class AutoCrystalModule extends Module {
 
       boolean ignoreMiningBlock = this.shouldIgnoreMiningBlock();
       Setting<SpeedMineRebreakChoice> rebreakSetting = speedMine.rebreakSetting;
-      if (rebreakSetting.getValue() == SpeedMineRebreakChoice.INSTANT) {
-         Setting<Boolean> asyncSetting = speedMine.asyncSetting;
-
-         if (!asyncSetting.getValue()) {
-            ignoreMiningBlock = false;
-         }
+      if (rebreakSetting.getValue() == SpeedMineRebreakChoice.INSTANT
+         && !speedMine.asyncSetting.getValue()) {
+         ignoreMiningBlock = false;
       }
 
       CrystalPlacementResult currentPlacement = (CrystalPlacementResult)this.placementData.get();
       CrystalTargetDamage currentTargetDamage = null;
-      CrystalPlacementResult bestPlacement = null;
       CrystalPlacementValidator configuredValidator = new CrystalPlacementValidator()
          .requireUpperAir(this.requireUpperAirSetting.getValue())
          .lowerHitbox(this.lowerHitBoxSetting.getValue())
@@ -339,200 +337,253 @@ public class AutoCrystalModule extends Module {
          .ignoreBaseBlock(this.basePlaceSetting.getValue() && this.canRetryBasePlacement())
          .ignoreYoungItems(ignoreMiningBlock);
 
-      Boolean extrapolate = this.predictionSetting.getValue();
-      int selectedPredictionTicks;
-      if (extrapolate) {
-         selectedPredictionTicks = this.predictionTicksSetting.getValue();
-      } else {
-         selectedPredictionTicks = 0;
-      }
-
+      int selectedPredictionTicks = this.predictionSetting.getValue()
+         ? this.predictionTicksSetting.getValue()
+         : 0;
       CrystalPlacementValidator placementValidator = configuredValidator
          .predictionTicks(selectedPredictionTicks)
          .ignoredCrystalRange(selectedCrystalRange);
-      // Compare other bases against the previous placement’s rounded damage.
-      if (currentPlacement != null) {
-         BlockPos storedBaseSnapshot = currentPlacement.base();
-         if (placementValidator.canPlace(storedBaseSnapshot)) {
-            BlockPos damageBaseSnapshot = currentPlacement.base();
-            BlockPos checkBaseSnapshot = currentPlacement.base();
-            boolean currentHasBase = WorldUtils.isBedrockOrObsidian(checkBaseSnapshot);
-            currentTargetDamage = CrystalTargetDamage.calculateForBase(this, damageBaseSnapshot, currentHasBase, targets);
-         }
+
+      if (currentPlacement != null && placementValidator.canPlace(currentPlacement.base())) {
+         boolean currentHasBase = WorldUtils.isBedrockOrObsidian(currentPlacement.base());
+         currentTargetDamage = CrystalTargetDamage.calculateForBase(
+            this,
+            currentPlacement.base(),
+            currentHasBase,
+            targets
+         );
       }
 
-      for (double offsetX = -Math.floor((this.placeRangeSetting.getValue()).floatValue());
-         offsetX < Math.ceil((this.placeRangeSetting.getValue()).floatValue()); offsetX += 1.0D) {
-         for (double offsetY = -Math.floor((this.placeRangeSetting.getValue()).floatValue());
-            offsetY < Math.ceil((this.placeRangeSetting.getValue()).floatValue()); offsetY += 1.0D) {
-            for (double offsetZ = -Math.floor((this.placeRangeSetting.getValue()).floatValue());
-               offsetZ < Math.ceil((this.placeRangeSetting.getValue()).floatValue()); offsetZ += 1.0D) {
-               if (this.eyePosition == null) {
-                  continue;
-               }
-               double scanXSnapshot = this.eyePosition.x + offsetX;
-               double scanYSnapshot = this.eyePosition.y + offsetY;
-               double scanZ = this.eyePosition.z + offsetZ;
+      int minimum = -(int)Math.floor(placeRange);
+      int maximumExclusive = (int)Math.ceil(placeRange);
+      return new AutoCrystalScanState(
+         activeLevel,
+         eyePositionSnapshot,
+         placeRange,
+         selectedCrystalRange,
+         List.copyOf(targets),
+         currentPlacement,
+         currentTargetDamage,
+         placementValidator,
+         new IncrementalCubeScanCursor(minimum, maximumExclusive)
+      );
+   }
 
-               this.scanPosition.set(scanXSnapshot, scanYSnapshot, scanZ);
+   private CrystalPlacementResult evaluatePlacementCandidate(
+      AutoCrystalScanState state,
+      IncrementalCubeScanCursor.Offset offset
+   ) {
+      MutableBlockPos scanPosition = state.scanPosition;
+      scanPosition.set(
+         state.eyePosition.x + offset.x(),
+         state.eyePosition.y + offset.y(),
+         state.eyePosition.z + offset.z()
+      );
 
-               boolean hasCrystalBase = WorldUtils.isBedrockOrObsidian(this.scanPosition);
-               if (bestPlacement != null) {
-                  if (bestPlacement.kind()
-                        != CrystalPlacementKind.OBSIDIAN
-                     && !hasCrystalBase) {
-                     continue;
-                  }
-               }
+      boolean hasCrystalBase = WorldUtils.isBedrockOrObsidian(scanPosition);
+      if (state.bestPlacement != null
+         && state.bestPlacement.kind() != CrystalPlacementKind.OBSIDIAN
+         && !hasCrystalBase) {
+         return null;
+      }
 
-               Vec3 distanceEyeSnapshot = this.eyePosition;
+      Vec3 center = scanPosition.getCenter();
+      double distance = state.eyePosition.distanceTo(center);
+      if (distance > state.placeRange || distance > state.selectedCrystalRange) {
+         return null;
+      }
 
-               Vec3 center = this.scanPosition.getCenter();
-               double distance = distanceEyeSnapshot.distanceTo(center);
+      if (!state.placementValidator.canPlace(scanPosition)) {
+         return null;
+      }
 
-               Float distanceLimit = this.placeRangeSetting.getValue();
-               if (distance > distanceLimit.floatValue() || distance > selectedCrystalRange) {
-                  continue;
-               }
+      boolean visible = true;
+      if (!Objects.equals(this.placeWallRangeSetting.getValue(), this.placeRangeSetting.getValue())) {
+         BlockSampleMode samplingMode = this.multipointSetting.getValue()
+            ? BlockSampleMode.X8
+            : BlockSampleMode.FAST;
+         List visibilitySamples = samplingMode.sampleBlock(scanPosition);
+         visible = WorldUtils.canSeeAny(state.eyePosition, visibilitySamples);
+      }
 
-               if (!placementValidator.canPlace(this.scanPosition)) {
-                  continue;
-               }
-               boolean visible = true;
+      if (!visible && distance > this.placeWallRangeSetting.getValue().floatValue()) {
+         return null;
+      }
 
-               Object wallRangeValue = this.placeWallRangeSetting.getValue();
-               Setting<Float> visibleRangeProbeSetting = this.placeRangeSetting;
-               if (!Objects.equals(wallRangeValue, visibleRangeProbeSetting.getValue())) {
-                  BlockSampleMode samplingMode = this.multipointSetting.getValue() ? BlockSampleMode.X8 : BlockSampleMode.FAST;
+      if (this.strictDirectionSetting.getValue()
+         && BlockInteractionUtils.getStrictDirections(scanPosition).isEmpty()) {
+         return null;
+      }
 
-                  List visibilitySamples = samplingMode.sampleBlock(this.scanPosition);
-                  var visibilityEye = this.eyePosition;
-                  visible = WorldUtils.canSeeAny(visibilityEye, visibilitySamples);
-               }
+      Vec3 explosionPosition = Vec3.upFromBottomCenterOf(scanPosition, 1.0D);
+      LocalPlayer selfDamagePlayer = ClientAccess.schizoMinecraft.player;
+      AABB selfBounds = this.getTargetBounds(selfDamagePlayer);
+      double selfDamage = DamageUtils.getExplosionDamage(
+         explosionPosition,
+         selfDamagePlayer,
+         selfBounds,
+         6.0D,
+         true,
+         Collections.emptyList(),
+         scanPosition
+      );
 
-               if (!visible) {
-                  Float wallRangeLimit = this.placeWallRangeSetting.getValue();
-                  if (distance > wallRangeLimit.floatValue()) {
-                     continue;
-                  }
-               }
+      CrystalTargetDamage candidateTargetDamage = CrystalTargetDamage.calculateForBase(
+         this,
+         scanPosition,
+         hasCrystalBase,
+         state.targets
+      );
+      if (candidateTargetDamage == null) {
+         return null;
+      }
 
-               if (this.strictDirectionSetting.getValue()) {
-                  MutableBlockPos wallRangePosition = this.scanPosition;
-                  if (BlockInteractionUtils.getStrictDirections(wallRangePosition).isEmpty()) {
-                     continue;
-                  }
-               }
+      CrystalLethality lethality = CrystalLethality.classifyLethality(
+         candidateTargetDamage.target(),
+         candidateTargetDamage.damage()
+      );
+      if (CrystalDamagePolicy.PLACE.shouldRejectDamage(
+         candidateTargetDamage.target(),
+         selfDamage,
+         candidateTargetDamage.damage(),
+         lethality
+      )) {
+         return null;
+      }
 
-               MutableBlockPos wallRangePosition = this.scanPosition;
-               Vec3 explosionPosition = Vec3.upFromBottomCenterOf(wallRangePosition, 1.0D);
-               LocalPlayer selfDamagePlayer = ClientAccess.schizoMinecraft.player;
-               LocalPlayer selfBoundsPlayerSnapshot = ClientAccess.schizoMinecraft.player;
-               AABB selfBounds = this.getTargetBounds(
-                  selfBoundsPlayerSnapshot
-               );
-               var selfDamageIgnoredPositions = Collections.emptyList();
-               var selfDamageScanPosition = this.scanPosition;
-               double selfDamage = DamageUtils.getExplosionDamage(
-                  explosionPosition,
-                  selfDamagePlayer,
-                  selfBounds,
-                  6.0D,
-                  true,
-                  selfDamageIgnoredPositions,
-                  selfDamageScanPosition
-               );
-               MutableBlockPos targetDamageBase = this.scanPosition;
-               CrystalTargetDamage candidateTargetDamage = CrystalTargetDamage.calculateForBase(this,
-                  targetDamageBase, hasCrystalBase, targets
-               );
-               if (candidateTargetDamage == null) {
-                  continue;
-               }
-               CrystalDamagePolicy placeDamagePolicy = CrystalDamagePolicy.PLACE;
-               LivingEntity policyTargetSnapshot = candidateTargetDamage.target();
-               double policyDamageSnapshot = candidateTargetDamage.damage();
-               LivingEntity lethalityTargetSnapshot = candidateTargetDamage.target();
-               double lethalityDamage = candidateTargetDamage.damage();
-               CrystalLethality lethality = CrystalLethality.classifyLethality(
-                  lethalityTargetSnapshot, lethalityDamage
-               );
-               if (placeDamagePolicy.shouldRejectDamage(
-                  policyTargetSnapshot, selfDamage, policyDamageSnapshot, lethality
-               )) {
-                  continue;
-               }
-               CrystalPlacementKind placementKind = CrystalPlacementKind.NONE;
-               if (currentTargetDamage != null) {
-                  if (!currentPlacement.base()
-                     .equals(this.scanPosition)) {
-                     double previousDamage = currentTargetDamage.damage();
-                     double roundedPreviousDamage = Math.round(previousDamage);
-                     if (roundedPreviousDamage
-                        >= candidateTargetDamage.damage()) {
-                        continue;
-                     }
-                  }
-               }
+      CrystalPlacementKind placementKind = CrystalPlacementKind.NONE;
+      if (state.currentTargetDamage != null
+         && !state.currentPlacement.base().equals(scanPosition)
+         && Math.round(state.currentTargetDamage.damage()) >= candidateTargetDamage.damage()) {
+         return null;
+      }
 
-               if (!visible) {
-                  Float candidateWallRange = this.placeWallRangeSetting.getValue();
-                  if (distance > candidateWallRange.floatValue()) {
-                     placementKind = CrystalPlacementKind.RAYTRACE;
-                  }
-               }
+      if (!visible && distance > this.placeWallRangeSetting.getValue().floatValue()) {
+         placementKind = CrystalPlacementKind.RAYTRACE;
+      }
 
-               if (this.basePlaceSetting.getValue() && !hasCrystalBase) {
-                  LivingEntity predictedTargetSnapshot = candidateTargetDamage.target();
-                  AABB predictedBounds = this.getTargetBounds(
-                     predictedTargetSnapshot
-                  );
-                  LivingEntity currentBoundsTarget = candidateTargetDamage.target();
+      if (this.basePlaceSetting.getValue() && !hasCrystalBase) {
+         LivingEntity predictedTarget = candidateTargetDamage.target();
+         AABB predictedBounds = this.getTargetBounds(predictedTarget);
+         AABB targetBoundsUnion = predictedBounds.minmax(predictedTarget.getBoundingBox());
+         AABB baseBounds = new AABB(scanPosition);
+         if (targetBoundsUnion.intersects(baseBounds)) {
+            return null;
+         }
 
-                  AABB targetBoundsUnion = predictedBounds.minmax(currentBoundsTarget.getBoundingBox());
-                  AABB baseBounds = new AABB(
-                     this.scanPosition
-                  );
-                  if (targetBoundsUnion.intersects(baseBounds)) {
-                     continue;
-                  }
+         if (!BlockInteractionUtils.canPlaceAt(scanPosition, false)) {
+            return null;
+         }
 
-                  wallRangePosition = this.scanPosition;
-                  if (!BlockInteractionUtils.canPlaceAt(
-                     wallRangePosition, false
-                  )) {
-                     continue;
-                  }
-
-                  if (!this.basePlaceAirSetting.getValue()) {
-                     wallRangePosition = this.scanPosition;
-                     boolean supportDirectionMode = BlockInteractionUtils.isStrictDirectionEnabled();
-                     if (BlockInteractionUtils.findSupportDirection(
-                           wallRangePosition, supportDirectionMode
-                        )
-                        == null) {
-                        continue;
-                     }
-                  }
-
-                  placementKind = CrystalPlacementKind.OBSIDIAN;
-               }
-
-               if (!(this.target instanceof Player)) {
-                  placementKind = CrystalPlacementKind.NON_PLAYER;
-               }
-
-               CrystalPlacementResult newPlacement = new CrystalPlacementResult(
-                  this.scanPosition.immutable(), candidateTargetDamage.target(), candidateTargetDamage.damage(), placementKind
-               );
-
-               bestPlacement = newPlacement.selectBetterPlacement(bestPlacement);
+         if (!this.basePlaceAirSetting.getValue()) {
+            boolean supportDirectionMode = BlockInteractionUtils.isStrictDirectionEnabled();
+            if (BlockInteractionUtils.findSupportDirection(scanPosition, supportDirectionMode) == null) {
+               return null;
             }
          }
+
+         placementKind = CrystalPlacementKind.OBSIDIAN;
       }
 
-      return bestPlacement;
+      if (!(candidateTargetDamage.target() instanceof Player)) {
+         placementKind = CrystalPlacementKind.NON_PLAYER;
+      }
+
+      return new CrystalPlacementResult(
+         scanPosition.immutable(),
+         candidateTargetDamage.target(),
+         candidateTargetDamage.damage(),
+         placementKind
+      );
    }
+
+   private void advancePlacementScan(AutoCrystalScanState state) {
+      long startedNanos = System.nanoTime();
+      int processed = 0;
+      while (!state.cursor.isComplete() && processed < MAX_SCAN_CANDIDATES_PER_TICK) {
+         if (processed > 0 && System.nanoTime() - startedNanos >= SCAN_BUDGET_NANOS) {
+            break;
+         }
+
+         IncrementalCubeScanCursor.Offset offset = state.cursor.next();
+         if (offset == null) {
+            break;
+         }
+         processed++;
+
+         CrystalPlacementResult candidate = this.evaluatePlacementCandidate(state, offset);
+         if (candidate != null) {
+            state.bestPlacement = candidate.selectBetterPlacement(state.bestPlacement);
+         }
+      }
+
+      if (state.cursor.isComplete()) {
+         state.finished = true;
+      }
+   }
+
+   private void publishPlacementScan(CrystalPlacementResult calculatedPlacement, ClientLevel activeLevel) {
+      LivingEntity calculatedTarget = calculatedPlacement == null
+         ? null
+         : calculatedPlacement.target();
+      if (this.calculationWorld != activeLevel
+         || calculatedPlacement != null
+            && (calculatedTarget == null
+               || calculatedTarget.level() != activeLevel
+               || calculatedTarget.isRemoved()
+               || this.isInvalidTarget(calculatedTarget))) {
+         this.placementData.set(null);
+         this.selectedDamage = 0.0F;
+         this.target = null;
+      } else if (calculatedPlacement == null) {
+         this.placementData.set(null);
+         this.selectedDamage = 0.0F;
+         this.target = null;
+      } else {
+         this.placementData.set(calculatedPlacement);
+         this.selectedDamage = (float)calculatedPlacement.damage();
+         this.target = calculatedTarget;
+      }
+   }
+
+   private static final class AutoCrystalScanState {
+      final ClientLevel world;
+      final Vec3 eyePosition;
+      final float placeRange;
+      final float selectedCrystalRange;
+      final List<LivingEntity> targets;
+      final CrystalPlacementResult currentPlacement;
+      final CrystalTargetDamage currentTargetDamage;
+      final CrystalPlacementValidator placementValidator;
+      final IncrementalCubeScanCursor cursor;
+      final MutableBlockPos scanPosition = new MutableBlockPos();
+      CrystalPlacementResult bestPlacement;
+      boolean finished;
+
+      AutoCrystalScanState(
+         ClientLevel world,
+         Vec3 eyePosition,
+         float placeRange,
+         float selectedCrystalRange,
+         List<LivingEntity> targets,
+         CrystalPlacementResult currentPlacement,
+         CrystalTargetDamage currentTargetDamage,
+         CrystalPlacementValidator placementValidator,
+         IncrementalCubeScanCursor cursor
+      ) {
+         this.world = world;
+         this.eyePosition = eyePosition;
+         this.placeRange = placeRange;
+         this.selectedCrystalRange = selectedCrystalRange;
+         this.targets = targets;
+         this.currentPlacement = currentPlacement;
+         this.currentTargetDamage = currentTargetDamage;
+         this.placementValidator = placementValidator;
+         this.cursor = cursor;
+         this.finished = cursor.isComplete();
+      }
+   }
+
    private boolean isPlacementFaceVisible(
       BlockPos base, Direction direction
    ) {
@@ -728,22 +779,22 @@ public class AutoCrystalModule extends Module {
             return;
          }
 
-         this.placeCrystal(base, crystalInOffhand, targetDamage);
-         if (!this.isSilentSwap() && !alternativeSlotSearch) {
-            return;
-         }
-
-         if (originalSlot != -1) {
-            if (alternativeSlotSearch) {
-               InventoryUtils.swapIntoSelectedSlot(crystalSlot);
-            } else {
-               if (this.autoSwapSetting.getValue() == ItemSwapMode.SILENT) {
+         boolean restoreSwapAfterPlacement = this.isSilentSwap() || alternativeSlotSearch;
+         try {
+            this.placeCrystal(base, crystalInOffhand, targetDamage);
+         } finally {
+            if (restoreSwapAfterPlacement && originalSlot != -1) {
+               if (alternativeSlotSearch) {
+                  InventoryUtils.swapIntoSelectedSlot(crystalSlot);
+               } else if (this.autoSwapSetting.getValue() == ItemSwapMode.SILENT) {
                   this.ignoreNextSlotChange();
-                  InventoryUtils.selectHotbarSlotForPlacement(
-                     originalSlot
-                  );
+                  InventoryUtils.selectHotbarSlotForPlacement(originalSlot);
                }
             }
+         }
+
+         if (!restoreSwapAfterPlacement) {
+            return;
          }
 
          if (this.strictTimingSetting.getValue() || miningSwapReset || this.skip) {
@@ -1269,34 +1320,36 @@ public class AutoCrystalModule extends Module {
          if (BlockInteractionUtils.canPlaceAt(
                   base, false
                )) {
-            if (baseSlot != originalSlot) {
-               if (alternativeSwap) {
-                  InventoryUtils.swapIntoSelectedSlot(baseSlot);
-               } else {
-                  speedMine.crystalAttackPending = true;
-                  InventoryUtils.selectHotbarSlotForPlacement(baseSlot);
+            boolean temporaryBaseSwap = originalSlot != -1 && baseSlot != originalSlot;
+            try {
+               if (temporaryBaseSwap) {
+                  if (alternativeSwap) {
+                     InventoryUtils.swapIntoSelectedSlot(baseSlot);
+                  } else {
+                     speedMine.crystalAttackPending = true;
+                     InventoryUtils.selectHotbarSlotForPlacement(baseSlot);
+                  }
                }
-            }
 
-            boolean interactionAirEnabled = this.basePlaceAirSetting.getValue();
-            BlockInteractionUtils.placeBlockIgnoringCrystals(
-               base, hitPoint, direction, interactionAirEnabled, hand
-            );
+               boolean interactionAirEnabled = this.basePlaceAirSetting.getValue();
+               BlockInteractionUtils.placeBlockIgnoringCrystals(
+                  base, hitPoint, direction, interactionAirEnabled, hand
+               );
 
-            this.basePlaceTimer.reset();
+               this.basePlaceTimer.reset();
 
-            if (this.rotatePlaceSetting.getValue()) {
-               if (this.rotateSetting.getValue()) {
+               if (this.rotatePlaceSetting.getValue() && this.rotateSetting.getValue()) {
                   this.setRotationTarget(hitPoint);
                }
-            }
 
-            this.lastForcedBase = base;
-            if (originalSlot != -1 && baseSlot != originalSlot) {
-               if (alternativeSwap) {
-                  InventoryUtils.swapIntoSelectedSlot(baseSlot);
-               } else {
-                  InventoryUtils.selectHotbarSlotForPlacement(originalSlot);
+               this.lastForcedBase = base;
+            } finally {
+               if (temporaryBaseSwap) {
+                  if (alternativeSwap) {
+                     InventoryUtils.swapIntoSelectedSlot(baseSlot);
+                  } else {
+                     InventoryUtils.selectHotbarSlotForPlacement(originalSlot);
+                  }
                }
             }
 
@@ -1468,10 +1521,8 @@ public class AutoCrystalModule extends Module {
          this.crystalHoldingTimer.reset();
       }
 
-      if (this.calculationFuture != null) {
-         if (!this.calculationFuture.isDone()) {
-            this.completeCalculation();
-         }
+      if (this.scanState != null) {
+         this.completeCalculation();
       }
 
       return true;
@@ -1493,6 +1544,10 @@ public class AutoCrystalModule extends Module {
 
    private boolean isSilentSwap() {
       return this.autoSwapSetting.getValue() == ItemSwapMode.SILENT;
+   }
+
+   static boolean isSamePreviousPlacement(BlockPos previousPlacement, BlockPos crystalPosition) {
+      return previousPlacement != null && previousPlacement.equals(crystalPosition);
    }
 
    private void onCrystalSpawn(ClientboundAddEntityPacket packet) {
@@ -1588,7 +1643,7 @@ public class AutoCrystalModule extends Module {
       BlockPos crystalPosition = BlockPos.containing(spawnPosition);
 
       if (this.instantSetting.getValue() == AutoCrystalInstantChoice.STRICT
-         && this.previousPlacement.equals(crystalPosition)) {
+         && isSamePreviousPlacement(this.previousPlacement, crystalPosition)) {
          return;
       }
 
@@ -1600,14 +1655,15 @@ public class AutoCrystalModule extends Module {
 
       CrystalInteractionManager attackManagerSnapshot = ClientContext.crystalInteractionManager;
       int packetEntityId = packet.getId();
-      if (attackManagerSnapshot.attackEntity(packetEntityId, true)) {
-         this.lastAttackedBase = crystalPosition;
-         this.previousPlacement = crystalPosition;
-         this.lastAttackedCrystalId = packet.getId();
-         this.attackRetries = 0;
-
-         this.basePlaceTimer.reset();
+      if (!attackManagerSnapshot.attackEntity(packetEntityId, true)) {
+         return;
       }
+
+      this.lastAttackedBase = crystalPosition;
+      this.previousPlacement = crystalPosition;
+      this.lastAttackedCrystalId = packet.getId();
+      this.attackRetries = 0;
+      this.basePlaceTimer.reset();
 
       Item crystalItem = Items.END_CRYSTAL;
 
@@ -1790,7 +1846,9 @@ public class AutoCrystalModule extends Module {
       Vec3 explosionPosition = Vec3.upFromBottomCenterOf(base, 1.0D);
       Collection damageIgnoredBlocks;
       if (useIgnoredBlocks) {
-         damageIgnoredBlocks = this.ignoredBlocks;
+         synchronized (this.ignoredBlocks) {
+            damageIgnoredBlocks = new HashSet(this.ignoredBlocks);
+         }
       } else {
          damageIgnoredBlocks = Collections.emptyList();
       }
@@ -1818,6 +1876,34 @@ public class AutoCrystalModule extends Module {
    }
    @EventHandler
    private void onMinecraftDisconnectEvent(MinecraftDisconnectEvent event) {
+      this.completeCalculation();
+      this.calculationWorld = null;
+      this.placementData.set(null);
+      this.rotationTarget.set(null);
+      this.target = null;
+      this.previousTarget = null;
+      this.lastPlacedBase = null;
+      this.lastAttackedBase = null;
+      this.lastForcedBase = null;
+      this.previousPlacement = null;
+      this.lastAttackedCrystalId = -1;
+      this.attackRetries = 0;
+      this.restoreSlot = -1;
+      this.ignoredSlotChanges = 0;
+      this.selectedDamage = 0.0F;
+      this.spawnFollowupQueued = false;
+      this.breakRotationRequested = false;
+      this.obsidianDropNearTarget = false;
+      this.quiverThreatActive = false;
+      this.rotationTarget.set(null);
+      this.placementGate.set(false);
+      this.placementTimes.clear();
+      synchronized (this.predictedAttackIds) {
+         this.predictedAttackIds.clear();
+      }
+      synchronized (this.ignoredBlocks) {
+         this.ignoredBlocks.clear();
+      }
       Setting<Boolean> suicideSettingSnapshot = this.forceSuicideSetting;
       Boolean disabledValue = false;
       suicideSettingSnapshot.setValue(disabledValue);
@@ -1828,39 +1914,44 @@ public class AutoCrystalModule extends Module {
          return true;
       }
 
-      if (this.forceSuicideSetting.getValue()) {
-         return candidate != ClientAccess.schizoMinecraft.player;
+      LocalPlayer localPlayer = ClientAccess.schizoMinecraft.player;
+      boolean forceSuicide = this.forceSuicideSetting.getValue();
+      if (forceSuicide) {
+         CrystalTargetSelectionPolicy.TargetState forcedTarget =
+            new CrystalTargetSelectionPolicy.TargetState(
+               candidate == localPlayer,
+               false,
+               false,
+               false,
+               true,
+               false,
+               false,
+               false,
+               0.0D
+            );
+         return CrystalTargetSelectionPolicy.isInvalidTarget(forcedTarget, true, 0.0D);
       }
 
-      if (candidate instanceof Player friendCandidate) {
-         SocialRegistry friends = ClientContext.socialRegistry;
-         if (friends.isFriendPlayer(friendCandidate)) {
-            return true;
-         }
-      }
-      if (candidate instanceof Player player) {
-         SocialRegistry friends = ClientContext.socialRegistry;
-         if (friends.isFriendPlayer(player) || player.isCreative()) {
-            return true;
-         }
-      }
+      boolean playerTarget = candidate instanceof Player;
+      boolean friendPlayer = playerTarget
+         && ClientContext.socialRegistry.isFriendPlayer((Player)candidate);
+      boolean creative = playerTarget && ((Player)candidate).isCreative();
+      double distance = candidate.distanceTo(localPlayer);
+      double targetRange = this.targetRangeSetting.getValue().floatValue();
 
-      if (!candidate.isAlive()) {
-         return true;
-      }
-      if (candidate.isDeadOrDying()) {
-         return true;
-      }
-
-      float distance = candidate.distanceTo(ClientAccess.schizoMinecraft.player);
-
-      Float targetRange = this.targetRangeSetting.getValue();
-      if (!(distance <= targetRange)
-         || ((ServerSideDeathState)candidate).isServerSideDead()
-         || ClientAccess.schizoMinecraft.player == candidate) {
-         return true;
-      }
-      return candidate.isSpectator();
+      CrystalTargetSelectionPolicy.TargetState targetState =
+         new CrystalTargetSelectionPolicy.TargetState(
+            candidate == localPlayer,
+            playerTarget,
+            friendPlayer,
+            creative,
+            candidate.isAlive(),
+            candidate.isDeadOrDying(),
+            ((ServerSideDeathState)candidate).isServerSideDead(),
+            candidate.isSpectator(),
+            distance
+         );
+      return CrystalTargetSelectionPolicy.isInvalidTarget(targetState, false, targetRange);
    }
 
    public boolean canAttackCrystal(EndCrystal crystal) {
@@ -1940,36 +2031,31 @@ public class AutoCrystalModule extends Module {
    @EventHandler
    private void onMinecraftRunTickEvent(MinecraftRunTickEvent event) {
       if (!this.isWorldUnavailable()) {
-         if (!this.prepareCalculation()) {
-            // Publish a completed scan before scheduling another one with a fresh target snapshot.
-            if (this.calculationFuture != null) {
-               if (this.calculationFuture.isDone()) {
-                  try {
-                     CrystalPlacementResult calculatedPlacement = this.calculationFuture.get();
-                     if (calculatedPlacement == null) {
-                        this.placementData.set(null);
-                        this.selectedDamage = 0.0F;
-                     } else {
-                        this.placementData.set(calculatedPlacement);
-                        this.selectedDamage = (float)calculatedPlacement.damage();
-                        this.target = calculatedPlacement.target();
-                     }
-                  } catch (InterruptedException | ExecutionException failure) {
-                     failure.printStackTrace();
-                  }
-               }
-            }
+         ClientLevel activeLevel = ClientAccess.schizoMinecraft.level;
+         if (this.calculationWorld != null && this.calculationWorld != activeLevel) {
+            this.completeCalculation();
+            this.calculationWorld = null;
+            this.placementData.set(null);
+            this.selectedDamage = 0.0F;
+            this.target = null;
+         }
 
-            if (this.calculationFuture == null || this.calculationFuture.isDone() || this.calculationFuture.isCancelled()) {
+         if (!this.prepareCalculation()) {
+            if (this.scanState == null || this.scanState.world != activeLevel) {
                this.clearInvalidTarget();
                List<LivingEntity> targets = this.targeting.snapshot();
-               CompletableFuture<CrystalPlacementResult> scheduledCalculation = CompletableFuture.supplyAsync(
-                  () -> this.calculatePlacement(targets),
-                  calculationExecutor
-               );
-               TimeUnit timeoutUnit = TimeUnit.MILLISECONDS;
-               CrystalPlacementResult timeoutResult = null;
-               this.calculationFuture = scheduledCalculation.completeOnTimeout(timeoutResult, 750L, timeoutUnit).exceptionally((Function<Throwable, CrystalPlacementResult>)failure -> null);
+               this.scanState = this.createPlacementScan(targets, activeLevel);
+               this.calculationWorld = activeLevel;
+            }
+
+            AutoCrystalScanState activeScan = this.scanState;
+            if (activeScan != null) {
+               this.advancePlacementScan(activeScan);
+               if (activeScan.finished) {
+                  CrystalPlacementResult calculatedPlacement = activeScan.bestPlacement;
+                  this.scanState = null;
+                  this.publishPlacementScan(calculatedPlacement, activeLevel);
+               }
             }
 
             synchronized (this.predictedAttackIds) {
@@ -2169,11 +2255,9 @@ public class AutoCrystalModule extends Module {
       }
    }
    public void completeCalculation() {
-      CompletableFuture<CrystalPlacementResult> pending = this.calculationFuture;
-      if (pending != null && !pending.isDone() && !pending.isCancelled()) {
-         pending.complete(null);
-      }
+      this.scanState = null;
    }
+
    public static void bindReferencedModules(ModuleRegistry modules) {
       speedMine = (SpeedMineModule)modules.getModule(
          SpeedMineModule.class
@@ -2284,7 +2368,6 @@ public class AutoCrystalModule extends Module {
       this.placementTimes = new LinkedList<>();
       this.predictedAttackIds = Collections.synchronizedList(new ArrayList<>());
       this.ignoredBlocks = new HashSet();
-      this.scanPosition = new MutableBlockPos();
       this.lastAttackedCrystalId = -1;
       FeatureBoxRenderer boxManagerSnapshot = ClientContext.featureBoxRenderer;
       FeatureBoxRenderer.RenderConfiguration boxSettings = new FeatureBoxRenderer.RenderConfiguration(

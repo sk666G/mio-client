@@ -45,26 +45,28 @@ public abstract class AbstractItemListComponent<T> extends AbstractComponent {
    public void render(PoseStack stack, double mouseX, double mouseY) {
       super.render(stack, mouseX, mouseY);
       stack.pushPose();
-      stack.translate(this.panel.getX() + 1, this.panel.getY() + this.yOffset, 0.0F);
-      this.clampScrollOffset();
-      GuiDrawUtils.flush();
+      try {
+         stack.translate(this.panel.getX() + 1, this.panel.getY() + this.yOffset, 0.0F);
+         this.clampScrollOffset();
+         GuiDrawUtils.flush();
 
-      for (int row = 0; row < 8 && this.scrollOffset + row < this.entries.size(); row++) {
-         T entry = this.entries.get(this.scrollOffset + row);
-         Color textColor = Color.white;
-         String label = this.getEntryLabel(entry);
-         int hoverTextOffset = this.isRowHovered(mouseX, mouseY, row) ? 0 : 1;
-         GuiDrawUtils.drawItem(stack, this.getEntryIcon(entry), 1.0F, 16 * row, 0.0F);
-         FontRenderer.INSTANCE.drawWithShadow(
-            stack,
-            this.truncateLabel(label),
-            20.0F,
-            (16 - FontRenderer.INSTANCE.getHeight()) / 2.0F + hoverTextOffset + 16 * row,
-            textColor
-         );
+         for (int row = 0; row < 8 && this.scrollOffset + row < this.entries.size(); row++) {
+            T entry = this.entries.get(this.scrollOffset + row);
+            Color textColor = Color.white;
+            String label = this.getEntryLabel(entry);
+            int hoverTextOffset = this.isRowHovered(mouseX, mouseY, row) ? 0 : 1;
+            GuiDrawUtils.drawItem(stack, this.getEntryIcon(entry), 1.0F, 16 * row, 0.0F);
+            FontRenderer.INSTANCE.drawWithShadow(
+               stack,
+               this.truncateLabel(label),
+               20.0F,
+               (16 - FontRenderer.INSTANCE.getHeight()) / 2.0F + hoverTextOffset + 16 * row,
+               textColor
+            );
+         }
+      } finally {
+         stack.popPose();
       }
-
-      stack.popPose();
    }
 
    @Override

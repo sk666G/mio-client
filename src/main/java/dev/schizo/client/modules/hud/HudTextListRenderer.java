@@ -25,6 +25,7 @@ public class HudTextListRenderer extends HudWidgetRenderer {
 
    private static final HUDModule hudSettings = ClientContext.getModule(HUDModule.class);
    private final List<? extends HudTextRow> rows;
+   private final float[] dimensionBuffer = new float[2];
 
    public HudTextListRenderer(HudWidgetModule widget, HudTextRow row) {
       this(widget, Collections.singletonList(row));
@@ -47,11 +48,7 @@ public class HudTextListRenderer extends HudWidgetRenderer {
             easedVisibility = (float)Mth.clamp(
                1.0D - Math.pow(1.0F - easedVisibility, 4.0D), 0.0, 1.0D
             );
-            float textWidth = FontRenderer.INSTANCE
-               .getWidth(
-                  row.getText()
-                     .getString()
-               );
+            float textWidth = row.measureTextWidth(FontRenderer.INSTANCE);
             height += this.getHeight() * easedVisibility + 1;
             if (textWidth > width) {
                width = textWidth;
@@ -64,10 +61,9 @@ public class HudTextListRenderer extends HudWidgetRenderer {
       }
       width *= hudSettings.getTextScale();
       height *= hudSettings.getTextScale();
-      float[] dimensions = new float[2];
-      dimensions[0] = width;
-      dimensions[1] = height;
-      return dimensions;
+      this.dimensionBuffer[0] = width;
+      this.dimensionBuffer[1] = height;
+      return this.dimensionBuffer;
    }
 
    @Override
@@ -81,28 +77,29 @@ public class HudTextListRenderer extends HudWidgetRenderer {
          float easedVisibility = row.getVisibility();
          if (easedVisibility != 0.0F) {
             poses.pushPose();
-            easedVisibility = (float)Mth.clamp(
-               1.0D - Math.pow(1.0F - easedVisibility, 4.0D), 0.0, 1.0D
-            );
-            Color rowColor = this.getRowColor(rowY, row);
-            float animatedWidth = row.widthAnimation
-                  .updateAndGet()
-               * scale;
-            float hiddenWidth = animatedWidth * (1.0F - easedVisibility);
-            poses.translate(
-               this.getContentX(animatedWidth)
-                  - hiddenWidth * this.getHorizontalDirection(),
-               rowY,
-               0.0F
-            );
-            poses.scale(scale, scale, 1.0F);
-            row.renderRow(poses, 0.0F, 0.0F, rowColor, hudSettings.shouldDrawTextShadow());
-            if (easedVisibility != 0.0F) {
+            try {
+               easedVisibility = (float)Mth.clamp(
+                  1.0D - Math.pow(1.0F - easedVisibility, 4.0D), 0.0, 1.0D
+               );
+               Color rowColor = this.getRowColor(rowY, row);
+               float animatedWidth = row.widthAnimation
+                     .updateAndGet()
+                  * scale;
+               float hiddenWidth = animatedWidth * (1.0F - easedVisibility);
+               poses.translate(
+                  this.getContentX(animatedWidth)
+                     - hiddenWidth * this.getHorizontalDirection(),
+                  rowY,
+                  0.0F
+               );
+               poses.scale(scale, scale, 1.0F);
+               row.renderRow(poses, 0.0F, 0.0F, rowColor, hudSettings.shouldDrawTextShadow());
                rowY += (this.getHeight() * easedVisibility + 1)
                   * this.getVerticalDirection()
                   * scale;
+            } finally {
+               poses.popPose();
             }
-            poses.popPose();
          }
       }
    }

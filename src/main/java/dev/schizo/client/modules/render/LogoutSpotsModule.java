@@ -254,7 +254,18 @@ public class LogoutSpotsModule extends Module {
 
    @EventHandler
    private void onClientLevelRemoveEntityEvent(ClientLevelRemoveEntityEvent event) {
+      // Entity-removal hooks can also run while Minecraft is detaching an old world.
+      // Logout spots are only meaningful for multiplayer, and the current level may
+      // already be null by the time that teardown reaches this listener.
+      if (!event.isEntityPresent() || ClientAccess.schizoMinecraft.isLocalServer()) {
+         return;
+      }
+
       ClientLevel capturedLevel = ClientAccess.schizoMinecraft.level;
+      if (capturedLevel == null) {
+         return;
+      }
+
       int entityId = event.getId();
       if (capturedLevel.getEntity(entityId) instanceof Player removedPlayer) {
          if (removedPlayer instanceof FakeplayerCommand.SimulatedPlayer) {

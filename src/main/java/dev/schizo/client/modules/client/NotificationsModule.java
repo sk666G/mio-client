@@ -365,8 +365,8 @@ public class NotificationsModule extends Module {
 
    public NotificationsModule() {
       super("Notifications", "Lets you know about what's going on in the chat.", ModuleCategory.CLIENT, new String[0]);
-      this.watermarkSetting = this.add(new ColorSetting(("Watermark"), new Color(-4351489, true)));
-      this.bracketsSetting = this.add(new ColorSetting("Brackets", new Color(-4351489, true)));
+      this.watermarkSetting = this.add(new ColorSetting(("Watermark"), new Color(190, 255, 64)));
+      this.bracketsSetting = this.add(new ColorSetting("Brackets", new Color(190, 255, 64)));
       this.commandsSetting = this.add(new BooleanSetting(("Commands"), true));
       BooleanSetting modulesOption = new BooleanSetting("Modules", true);
       modulesOption.markVisibilityDependency();

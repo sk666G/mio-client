@@ -11,6 +11,7 @@ package dev.schizo.client.managers;
 
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.settings.JsonConfigurable;
+import dev.schizo.client.integrations.MultiplayerCompatibilityPolicy;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -19,8 +20,10 @@ public final class ConfigurableRegistry implements Iterable<JsonConfigurable> {
    private final List<JsonConfigurable> configurables = new ArrayList<>();
 
    ConfigurableRegistry() {
+      this.register(MultiplayerCompatibilityPolicy.GLOBAL);
       this.register(ClientContext.webhookManager);
       this.register(ClientContext.moduleRegistry);
+      this.register(ClientContext.modulePreferencesRegistry);
       this.register(ClientContext.socialRegistry);
       this.register(ClientContext.waypointRegistry);
       this.register(ClientContext.macroRegistry);
@@ -28,6 +31,7 @@ public final class ConfigurableRegistry implements Iterable<JsonConfigurable> {
       this.register(ClientContext.hudModuleRegistry);
       this.register(ClientContext.kitRegistry);
       this.register(ClientContext.autoPresetRegistry);
+      this.register(ClientContext.contextProfileRegistry);
       this.register(ClientContext.aliasRegistry);
       this.register(ClientContext.chatFilterRegistry);
       this.register(ClientContext.glintRegistry);

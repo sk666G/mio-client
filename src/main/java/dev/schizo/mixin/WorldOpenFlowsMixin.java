@@ -24,7 +24,8 @@ public class WorldOpenFlowsMixin {
    public void clearServerDataForWorldOpen(
       String worldName, Runnable onCancel, CallbackInfo callback
    ) {
-      ClientContext.serverStateManager
-         .setServerData((ServerData)null);
+      if (ClientContext.serverStateManager != null) {
+         ClientContext.serverStateManager.setServerData((ServerData)null);
+      }
    }
 }

@@ -1,7 +1,24 @@
+/*
+ * Copyright 2017 John Grosh (john.a.grosh@gmail.com).
+ *
+ * Downstream changes from the Open Zio and Schizo source snapshots are included.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package com.jagrosh.discordipc.entities.pipe;
 
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
 import com.jagrosh.discordipc.IPCClient;
 import com.jagrosh.discordipc.IPCListener;
@@ -13,7 +30,9 @@ import com.jagrosh.discordipc.exceptions.NoDiscordClientException;
 import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.UUID;
+import java.util.concurrent.CancellationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -43,6 +62,12 @@ public abstract class Pipe {
       Pipe[] candidates = new Pipe[DiscordBuild.values().length];
 
       for (int index = 0; index < 10; index++) {
+         try {
+            client.checkConnectActive();
+         } catch (CancellationException cancelled) {
+            abortCandidates(candidates, client);
+            throw cancelled;
+         }
          String location = getPipeLocation(index);
          if (client.isDebugMode()) {
             client.getCurrentLogger(LOGGER).info(String.format("[DEBUG] Searching for IPC Pipe: \"%s\"", location));
@@ -56,11 +81,13 @@ public abstract class Pipe {
                }
 
                pipe = createPipe(client, callbacks, file);
+               client.trackConnectingPipe(pipe);
                JsonObject handshake = new JsonObject();
                handshake.addProperty("v", 1);
                handshake.addProperty("client_id", Long.toString(clientId));
                pipe.send(Packet.OpCode.HANDSHAKE, handshake);
                Packet response = pipe.read();
+               client.checkConnectActive();
                JsonObject json = response.getJson();
                JsonObject data = json.getAsJsonObject("data");
                JsonObject userData = data.getAsJsonObject("user");
@@ -85,14 +112,45 @@ public abstract class Pipe {
                   break;
                }
 
+               Pipe previousForBuild = candidates[pipe.build.ordinal()];
+               Pipe previousAny = candidates[DiscordBuild.ANY.ordinal()];
                candidates[pipe.build.ordinal()] = pipe;
                candidates[DiscordBuild.ANY.ordinal()] = pipe;
+               if (previousForBuild != null && previousForBuild != pipe) {
+                  closeIfUnreferenced(candidates, previousForBuild, client);
+               }
+               if (previousAny != null && previousAny != pipe && previousAny != previousForBuild) {
+                  closeIfUnreferenced(candidates, previousAny, client);
+               }
                pipe.build = null;
+               client.clearConnectingPipe(pipe);
                pipe = null;
             } else if (client.isDebugMode()) {
                client.getCurrentLogger(LOGGER).info(String.format("[DEBUG] Unable to locate IPC Pipe: \"%s\"", location));
             }
-         } catch (IOException | JsonParseException ignored) {
+         } catch (IOException | RuntimeException handshakeFailure) {
+            try {
+               client.checkConnectActive();
+            } catch (CancellationException cancelled) {
+               abortPipe(pipe, client);
+               abortCandidates(candidates, client);
+               throw cancelled;
+            }
+            if (pipe == null) {
+               closeCandidates(candidates, null, client);
+               if (handshakeFailure instanceof IOException ioFailure) {
+                  throw new RuntimeException("Failed to connect to a Discord IPC endpoint", ioFailure);
+               }
+               throw (RuntimeException)handshakeFailure;
+            }
+            try {
+               pipe.close();
+            } catch (IOException | RuntimeException closeFailure) {
+               if (client.isDebugMode()) {
+                  client.getCurrentLogger(LOGGER).warn("Failed to close an IPC pipe after handshake failure", closeFailure);
+               }
+            }
+            client.clearConnectingPipe(pipe);
             pipe = null;
          }
       }
@@ -126,24 +184,74 @@ public abstract class Pipe {
          }
 
          if (pipe == null) {
+            closeCandidates(candidates, null, client);
             throw new NoDiscordClientException();
          }
       }
 
-      for (int candidateIndex = 0; candidateIndex < candidates.length; candidateIndex++) {
-         if (candidateIndex != DiscordBuild.ANY.ordinal() && candidates[candidateIndex] != null) {
-            try {
-               candidates[candidateIndex].close();
-            } catch (IOException failure) {
-               if (client.isDebugMode()) {
-                  client.getCurrentLogger(LOGGER).info(String.format("[DEBUG] Failed to close an open IPC pipe: %s", failure));
-               }
+      closeCandidates(candidates, pipe, client);
+      try {
+         client.trackConnectingPipe(pipe);
+         client.completeConnection(pipe);
+      } catch (CancellationException cancelled) {
+         abortPipe(pipe, client);
+         throw cancelled;
+      }
+      return pipe;
+   }
+
+   private static void abortPipe(Pipe pipe, IPCClient client) {
+      if (pipe == null) return;
+      try {
+         pipe.abort();
+      } catch (IOException | RuntimeException abortFailure) {
+         if (client.isDebugMode()) {
+            client.getCurrentLogger(LOGGER).warn("Failed to abort an IPC pipe after cancellation", abortFailure);
+         }
+      }
+   }
+
+   private static void abortCandidates(Pipe[] candidates, IPCClient client) {
+      IdentityHashMap<Pipe, Boolean> aborted = new IdentityHashMap<>();
+      for (int index = 0; index < candidates.length; index++) {
+         Pipe candidate = candidates[index];
+         candidates[index] = null;
+         if (candidate == null || aborted.put(candidate, Boolean.TRUE) != null) continue;
+         abortPipe(candidate, client);
+      }
+   }
+
+   private static void closeCandidates(Pipe[] candidates, Pipe keep, IPCClient client) {
+      IdentityHashMap<Pipe, Boolean> closed = new IdentityHashMap<>();
+      for (int index = 0; index < candidates.length; index++) {
+         Pipe candidate = candidates[index];
+         candidates[index] = null;
+         if (candidate == null || candidate == keep || closed.put(candidate, Boolean.TRUE) != null) {
+            continue;
+         }
+         try {
+            candidate.close();
+         } catch (IOException | RuntimeException closeFailure) {
+            if (client.isDebugMode()) {
+               client.getCurrentLogger(LOGGER).warn("Failed to close an unselected IPC candidate", closeFailure);
             }
          }
       }
+   }
 
-      pipe.status = PipeStatus.CONNECTED;
-      return pipe;
+   private static void closeIfUnreferenced(Pipe[] candidates, Pipe previous, IPCClient client) {
+      for (Pipe candidate : candidates) {
+         if (candidate == previous) {
+            return;
+         }
+      }
+      try {
+         previous.close();
+      } catch (IOException | RuntimeException closeFailure) {
+         if (client.isDebugMode()) {
+            client.getCurrentLogger(LOGGER).warn("Failed to close a superseded IPC candidate", closeFailure);
+         }
+      }
    }
 
    private static Pipe createPipe(IPCClient client, HashMap callbacks, File endpoint) {
@@ -259,6 +367,9 @@ public abstract class Pipe {
    }
 
    public abstract void close() throws IOException;
+
+   /** Closes the transport immediately without sending an IPC protocol frame. */
+   public abstract void abort() throws IOException;
 
    public DiscordBuild getDiscordBuild() {
       return this.build;

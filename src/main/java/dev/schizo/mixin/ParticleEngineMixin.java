@@ -34,9 +34,11 @@ public abstract class ParticleEngineMixin {
 
    @Inject(method = "add", at = @At("HEAD"), cancellable = true)
    private void postParticleAddEvent(Particle particle, CallbackInfo callback) {
+      if (!ClientAccess.eventBus.hasListeners(ParticleEngineAddEvent.class)) {
+         return;
+      }
       ParticleEngineAddEvent event = new ParticleEngineAddEvent(particle);
-      ClientAccess.eventBus
-         .post(event);
+      ClientAccess.eventBus.post(event);
       if (event.isCancelled()) {
          callback.cancel();
       }

@@ -28,6 +28,7 @@ import dev.schizo.client.modules.player.SpeedMineModule;
 import dev.schizo.client.settings.BooleanSetting;
 import dev.schizo.client.settings.NumberSetting;
 import dev.schizo.client.settings.Setting;
+import dev.schizo.client.utils.network.ServerSideDeathState;
 
 import com.mojang.authlib.GameProfile;
 import java.util.ArrayList;
@@ -158,27 +159,20 @@ public class WebAuraModule extends PlacementModule {
                      return false;
                   }
                }
-               if (candidate == ClientAccess.schizoMinecraft.player) {
-                  return false;
-               }
-
                String candidateName = candidate.getName().getString();
-
                GameProfile profile = ClientAccess.schizoMinecraft.player.getGameProfile();
-               if (Objects.equals(candidateName, profile.name())) {
-                  return false;
-               }
-
                SocialRegistry friendManagerSnapshot = ClientContext.socialRegistry;
                String friendNameSnapshot = candidate.getName().getString();
-
-               if (friendManagerSnapshot.isFriendName(friendNameSnapshot)) {
-                  return false;
-               }
-               if (!candidate.isAlive()) {
-                  return false;
-               }
-               if (candidate.isDeadOrDying()) {
+               boolean friend = friendManagerSnapshot.isFriendName(friendNameSnapshot);
+               if (!CombatTargetPolicy.isEligible(
+                  candidate.isAlive(),
+                  candidate.isDeadOrDying(),
+                  candidate == ClientAccess.schizoMinecraft.player || Objects.equals(candidateName, profile.name()),
+                  candidate.isSpectator(),
+                  candidate.isCreative(),
+                  friend,
+                  ((ServerSideDeathState)candidate).isServerSideDead()
+               )) {
                   return false;
                }
 

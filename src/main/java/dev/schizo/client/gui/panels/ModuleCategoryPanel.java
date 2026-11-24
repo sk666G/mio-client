@@ -21,7 +21,6 @@ import dev.schizo.client.modules.ModuleCategory;
 
 import java.util.Comparator;
 import java.util.List;
-import net.minecraft.client.gui.components.EditBox;
 
 public class ModuleCategoryPanel extends Panel implements ClientAccess {
    public ModuleCategory category;
@@ -51,16 +50,11 @@ public class ModuleCategoryPanel extends Panel implements ClientAccess {
 
    @Override
    protected boolean isChildVisible(GuiElement child) {
-      EditBox searchBox = ClientContext.getClickGui()
-         .getSearchBox();
-      if (searchBox == null) {
-         return true;
-      }
-
-      if (child instanceof ModuleComponent moduleComponent && !searchBox.getValue().isEmpty()) {
+      String query = ClientContext.getClickGui().getNormalizedSearchQuery();
+      if (child instanceof ModuleComponent moduleComponent && !query.isEmpty()) {
          for (String alias : moduleComponent.getModule()
             .getAliases()) {
-            if (TextUtils.containsIgnoreCase(alias, TextUtils.normalizeKeyboardLayout(searchBox.getValue()))) {
+            if (TextUtils.containsIgnoreCase(alias, query)) {
                return true;
             }
          }

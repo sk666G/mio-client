@@ -45,6 +45,13 @@ public class MetricsModule extends HudWidgetModule {
    private final Setting<Boolean> tpsSetting;
    private final Setting<Boolean> pingSetting;
    private final Setting<Boolean> fpsSetting;
+   private final Setting<Boolean> averageFpsSetting;
+   private final Setting<Boolean> frameTimeSetting;
+   private final Setting<Boolean> averageFrameTimeSetting;
+   private final Setting<Boolean> onePercentLowSetting;
+   private final Setting<Boolean> oneTenthPercentLowSetting;
+   private final Setting<Boolean> frameVarianceSetting;
+   private final Setting<Boolean> hitchesSetting;
    private final Setting<Boolean> serverBrandSetting;
    private final Setting<Boolean> durabilitySetting;
    private final Setting<Boolean> shulkersSetting;
@@ -131,6 +138,48 @@ public class MetricsModule extends HudWidgetModule {
          String text = format.formatted(formatArguments);
          return Component.literal(text);
       }, this.fpsSetting::getValue);
+      HudTextRow averageFpsRow = new HudTextRow(() -> {
+         FrameTiming frameTiming = ClientContext.frameTiming;
+         return Component.literal("AvgFPS %s%.1f".formatted(
+            ChatFormatting.WHITE, frameTiming.getAverageFramesPerSecond()
+         ));
+      }, this.averageFpsSetting::getValue);
+      HudTextRow frameTimeRow = new HudTextRow(() -> {
+         FrameTiming frameTiming = ClientContext.frameTiming;
+         return Component.literal("Frame %s%.2fms".formatted(
+            ChatFormatting.WHITE, frameTiming.getFrameTimeMillis()
+         ));
+      }, this.frameTimeSetting::getValue);
+      HudTextRow averageFrameTimeRow = new HudTextRow(() -> {
+         FrameTiming frameTiming = ClientContext.frameTiming;
+         return Component.literal("AvgFrame %s%.2fms".formatted(
+            ChatFormatting.WHITE, frameTiming.getAverageFrameTimeMillis()
+         ));
+      }, this.averageFrameTimeSetting::getValue);
+      HudTextRow onePercentLowRow = new HudTextRow(() -> {
+         FrameTiming frameTiming = ClientContext.frameTiming;
+         return Component.literal("1%% Low %s%.0f".formatted(
+            ChatFormatting.WHITE, frameTiming.getOnePercentLowFramesPerSecond()
+         ));
+      }, this.onePercentLowSetting::getValue);
+      HudTextRow oneTenthPercentLowRow = new HudTextRow(() -> {
+         FrameTiming frameTiming = ClientContext.frameTiming;
+         return Component.literal("0.1%% Low %s%.0f".formatted(
+            ChatFormatting.WHITE, frameTiming.getOneTenthPercentLowFramesPerSecond()
+         ));
+      }, this.oneTenthPercentLowSetting::getValue);
+      HudTextRow frameVarianceRow = new HudTextRow(() -> {
+         FrameTiming frameTiming = ClientContext.frameTiming;
+         return Component.literal("FrameVariance %s%.2fms²".formatted(
+            ChatFormatting.WHITE, frameTiming.getFrameTimeVarianceMillisSquared()
+         ));
+      }, this.frameVarianceSetting::getValue);
+      HudTextRow hitchesRow = new HudTextRow(() -> {
+         FrameTiming frameTiming = ClientContext.frameTiming;
+         return Component.literal("Hitches %s%d/s".formatted(
+            ChatFormatting.WHITE, frameTiming.getStuttersPerSecond()
+         ));
+      }, this.hitchesSetting::getValue);
       HudTextRow serverBrandRow = new HudTextRow(() -> {
 
          Object[] formatArguments = new Object[2];
@@ -175,7 +224,11 @@ public class MetricsModule extends HudWidgetModule {
          return Component.literal(text);
       }, this.shulkersSetting::getValue);
 
-      rowsForRegistration.addAll(List.of(speedRow, tpsRow, pingRow, fpsRow, serverBrandRow, durabilityRow, chestRow, shulkerRow));
+      rowsForRegistration.addAll(List.of(
+         speedRow, tpsRow, pingRow, fpsRow, averageFpsRow, frameTimeRow, averageFrameTimeRow,
+         onePercentLowRow, oneTenthPercentLowRow, frameVarianceRow, hitchesRow, serverBrandRow,
+         durabilityRow, chestRow, shulkerRow
+      ));
    }
 
    @EventHandler
@@ -190,8 +243,12 @@ public class MetricsModule extends HudWidgetModule {
 
       rowsToSort.sort(metricComparator);
       this.shulkerCount = this.chestAndBarrelCount = 0;
-      WorldStateManager worldTracker = ClientContext.worldStateManager;
-      countContainers(this, worldTracker);
+      boolean countChests = this.chestSetting.getValue();
+      boolean countShulkers = this.shulkersSetting.getValue();
+      if (countChests || countShulkers) {
+         WorldStateManager worldTracker = ClientContext.worldStateManager;
+         countContainers(this, worldTracker, countChests, countShulkers);
+      }
    }
 
    private static Component formatSpeedMetric(MetricsModule owner, boolean useBpsSuffix) {
@@ -231,24 +288,22 @@ public class MetricsModule extends HudWidgetModule {
       return -textRenderer.getWidth(rowText.getString());
    }
 
-   private static void countContainers(MetricsModule owner, WorldStateManager worldTracker) {
+   private static void countContainers(
+      MetricsModule owner, WorldStateManager worldTracker, boolean countChests, boolean countShulkers
+   ) {
       for (BlockEntity blockEntity : worldTracker.getBlockEntities()) {
-         if (blockEntity instanceof ChestBlockEntity || blockEntity instanceof BarrelBlockEntity) {
+         if (countChests && (blockEntity instanceof ChestBlockEntity || blockEntity instanceof BarrelBlockEntity)) {
             owner.chestAndBarrelCount++;
          }
 
-         if (blockEntity instanceof ShulkerBoxBlockEntity) {
+         if (countShulkers && blockEntity instanceof ShulkerBoxBlockEntity) {
             owner.shulkerCount++;
          }
       }
 
-      Setting<Boolean> doubleChestOption = owner.doubleChestSetting;
-      Boolean combineChestPairs = doubleChestOption.getValue();
-      if (combineChestPairs) {
+      if (countChests && owner.doubleChestSetting.getValue()) {
          int combinedContainerCount = owner.chestAndBarrelCount;
-
-         owner.chestAndBarrelCount = combinedContainerCount
-            / 2;
+         owner.chestAndBarrelCount = combinedContainerCount / 2;
       }
    }
 
@@ -267,6 +322,13 @@ public class MetricsModule extends HudWidgetModule {
       this.tpsSetting = this.add(new BooleanSetting("TPS", true));
       this.pingSetting = this.add(new BooleanSetting("Ping", true));
       this.fpsSetting = this.add(new BooleanSetting("FPS", true));
+      this.averageFpsSetting = this.add(new BooleanSetting("AverageFPS", false));
+      this.frameTimeSetting = this.add(new BooleanSetting("FrameTime", false));
+      this.averageFrameTimeSetting = this.add(new BooleanSetting("AverageFrameTime", false));
+      this.onePercentLowSetting = this.add(new BooleanSetting("OnePercentLow", false));
+      this.oneTenthPercentLowSetting = this.add(new BooleanSetting("OneTenthPercentLow", false));
+      this.frameVarianceSetting = this.add(new BooleanSetting("FrameVariance", false));
+      this.hitchesSetting = this.add(new BooleanSetting("Hitches", false));
       this.serverBrandSetting = this.add(new BooleanSetting("ServerBrand", true));
       this.durabilitySetting = this.add(new BooleanSetting("Durability", false));
       this.shulkersSetting = this.add(new BooleanSetting("Shulkers", false));

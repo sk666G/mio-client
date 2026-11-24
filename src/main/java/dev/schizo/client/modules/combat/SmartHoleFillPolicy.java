@@ -18,6 +18,7 @@ import dev.schizo.client.managers.HoleManager;
 import dev.schizo.client.utils.world.HoleInfo;
 import dev.schizo.client.utils.entity.PlayerStateUtils;
 import dev.schizo.client.settings.Setting;
+import dev.schizo.client.utils.network.ServerSideDeathState;
 
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.player.AbstractClientPlayer;
@@ -51,11 +52,15 @@ public class SmartHoleFillPolicy extends PlainHoleFillPolicy {
             }
          }
 
-         if (player.isDeadOrDying() || ClientAccess.schizoMinecraft.player == player) {
-            continue;
-         }
-
-         if (ClientContext.socialRegistry.isFriendPlayer(player)) {
+         if (!HoleFillTargetPolicy.isRelevant(
+            player.isAlive(),
+            player.isDeadOrDying(),
+            ClientAccess.schizoMinecraft.player == player,
+            player.isSpectator(),
+            player.isCreative(),
+            ClientContext.socialRegistry.isFriendPlayer(player),
+            ((ServerSideDeathState)player).isServerSideDead()
+         )) {
             continue;
          }
          HoleManager holeManagerSnapshot = ClientContext.holeManager;

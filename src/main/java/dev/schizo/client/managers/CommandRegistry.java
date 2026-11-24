@@ -15,12 +15,21 @@ import dev.schizo.client.NamedFeature;
 import dev.schizo.client.commands.BaritoneCommand;
 import dev.schizo.client.commands.ModuleCommand;
 import dev.schizo.client.commands.Command;
+import dev.schizo.client.commands.ContextProfileCommand;
+import dev.schizo.client.commands.CompatibilityCommand;
+import dev.schizo.client.commands.ConfigBackupCommand;
 import dev.schizo.client.commands.EnemyFriendCommand;
+import dev.schizo.client.commands.FavoriteCommand;
+import dev.schizo.client.commands.HudLayoutCommand;
+import dev.schizo.client.commands.IntegrationCommand;
+import dev.schizo.client.commands.ProfilerCommand;
+import dev.schizo.client.commands.SafeModeCommand;
 import dev.schizo.client.events.CommandExecuteEvent;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.KeyboardHandlerCharTypedEvent;
 import dev.schizo.client.events.bus.EventBus;
 import dev.schizo.client.utils.KeyUtils;
+import dev.schizo.client.utils.chat.ChatUtils;
 import dev.schizo.client.modules.Module;
 import dev.schizo.client.modules.client.SettingsModule;
 import dev.schizo.client.settings.JsonConfigurable;
@@ -42,10 +51,12 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.multiplayer.ClientSuggestionProvider;
 import net.minecraft.commands.SharedSuggestionProvider;
+import net.minecraft.network.chat.Component;
 
 public final class CommandRegistry extends Registry<Command> implements ClientAccess, JsonConfigurable {
 
@@ -78,6 +89,8 @@ public final class CommandRegistry extends Registry<Command> implements ClientAc
       this.registerCommand(new dev.schizo.client.commands.AngleCommand());
       this.registerCommand(new dev.schizo.client.commands.AutopotCommand());
       this.registerCommand(new dev.schizo.client.commands.AutopresetCommand());
+      this.registerCommand(new ContextProfileCommand());
+      this.registerCommand(new ConfigBackupCommand());
       this.registerCommand(new dev.schizo.client.commands.BindCommand());
       this.registerCommand(new dev.schizo.client.commands.ChatfilterCommand());
       this.registerCommand(new dev.schizo.client.commands.CheststealerCommand());
@@ -88,11 +101,14 @@ public final class CommandRegistry extends Registry<Command> implements ClientAc
       this.registerCommand(new dev.schizo.client.commands.DisconnectCommand());
       this.registerCommand(new dev.schizo.client.commands.DrawnCommand());
       this.registerCommand(new dev.schizo.client.commands.FakeplayerCommand());
+      this.registerCommand(new FavoriteCommand());
       this.registerCommand(new dev.schizo.client.commands.FireworksCommand());
       this.registerCommand(new dev.schizo.client.commands.FolderCommand());
       this.registerCommand(new dev.schizo.client.commands.GlintCommand());
       this.registerCommand(new dev.schizo.client.commands.GlobalCommand());
       this.registerCommand(new dev.schizo.client.commands.HelpCommand());
+      this.registerCommand(new HudLayoutCommand());
+      this.registerCommand(new IntegrationCommand());
       this.registerCommand(new dev.schizo.client.commands.HighlightCommand());
       this.registerCommand(new dev.schizo.client.commands.KitCommand());
       this.registerCommand(new dev.schizo.client.commands.MacroCommand());
@@ -103,6 +119,9 @@ public final class CommandRegistry extends Registry<Command> implements ClientAc
       this.registerCommand(new dev.schizo.client.commands.PlaytimeCommand());
       this.registerCommand(new dev.schizo.client.commands.PluginsCommand());
       this.registerCommand(new dev.schizo.client.commands.PrefixCommand());
+      this.registerCommand(new ProfilerCommand());
+      this.registerCommand(new SafeModeCommand());
+      this.registerCommand(new CompatibilityCommand());
       this.registerCommand(new dev.schizo.client.commands.PresetCommand());
       this.registerCommand(new dev.schizo.client.commands.PrintCommand());
       this.registerCommand(new dev.schizo.client.commands.QueueCommand());
@@ -141,7 +160,11 @@ public final class CommandRegistry extends Registry<Command> implements ClientAc
          SharedSuggestionProvider source = suggestionSource;
          ParseResults parsed = commandDispatcher.parse(input, source);
          executionDispatcher.execute(parsed);
-      } catch (CommandSyntaxException ignoredFailure) {
+      } catch (CommandSyntaxException failure) {
+         ChatUtils.printChat(
+            Component.literal(failure.getMessage()).withStyle(ChatFormatting.RED),
+            ChatUtils.DEFAULT_SIGNATURE
+         );
       }
    }
 

@@ -43,7 +43,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(LoadingOverlay.class)
 public abstract class LoadingOverlayMixin extends Overlay {
-   private static final SettingsModule settingsModule = ClientContext.getModule(SettingsModule.class);
    @Shadow
    private long fadeOutStart;
    @Shadow
@@ -64,24 +63,8 @@ public abstract class LoadingOverlayMixin extends Overlay {
    private void initializeLoadingTheme(
       Minecraft client, ReloadInstance reload, Consumer onFinish, boolean fadeIn, CallbackInfo callback
    ) {
+      // Keep the Schizo terminal splash consistent on every world transition.
       this.loadingTheme = LoadingOverlayTheme.DEFAULT;
-
-      Calendar calendar = Calendar.getInstance();
-      calendar.setTime(new Date());
-      int firstCalendarValue = calendar.get(2);
-      int secondCalendarValue = calendar.get(5);
-      if (firstCalendarValue == 1
-            && secondCalendarValue
-               == 23
-         || firstCalendarValue
-               == 4
-            && secondCalendarValue
-               == 9) {
-         this.loadingTheme = LoadingOverlayTheme.GOOD_DAY;
-      }
-      if (firstCalendarValue == Calendar.OCTOBER && secondCalendarValue >= 26) {
-         this.loadingTheme = LoadingOverlayTheme.HALLOWEEN;
-      }
    }
 
    @Shadow
@@ -102,15 +85,21 @@ public abstract class LoadingOverlayMixin extends Overlay {
             }
          }
 
-         NamedIdentifier startupSound = settingsModule.getStartupSound();
-         Calendar calendar = Calendar.getInstance();
-         calendar.setTime(new Date());
-         if (calendar.get(Calendar.MONTH) == Calendar.OCTOBER
-            && calendar.get(Calendar.DAY_OF_MONTH) >= 26) {
-            startupSound = BuiltinSound.HORROR.getIdentifier();
+         // Mixins may be initialized before Schizo's module registry and sound
+         // manager. Resolve these lazily so world loads/disconnects cannot NPE.
+         SettingsModule settingsModule = ClientContext.getModule(SettingsModule.class);
+         if (settingsModule != null && ClientContext.soundManager != null) {
+            NamedIdentifier startupSound = settingsModule.getStartupSound();
+            Calendar calendar = Calendar.getInstance();
+            calendar.setTime(new Date());
+            if (calendar.get(Calendar.MONTH) == Calendar.OCTOBER
+               && calendar.get(Calendar.DAY_OF_MONTH) >= 26) {
+               startupSound = BuiltinSound.HORROR.getIdentifier();
+            }
+            if (startupSound != null) {
+               ClientContext.soundManager.getSound(startupSound).play(0.5F);
+            }
          }
-
-         ClientContext.soundManager.getSound(startupSound).play(0.5F);
          startupSoundPlayed = true;
       }
 

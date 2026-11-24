@@ -6,7 +6,7 @@
 - The supplied archive contains 1,199 Java files; 1,179 carry the upstream MIT-license header. The supplied archive has no separate root LICENSE file. Original headers are retained.
 - Rebrand: dev.zio becomes dev.schizo; mod ID, resource namespace, artifact and Gradle root name become schizo; ZioClient becomes SchizoClient.
 - The previous hand-built Schizo scaffold is replaced by the upstream application architecture.
-- Modules whose sole purpose is to interfere with server validation (GrimDisablerModule and RaytraceBypassModule) are excluded from generated source and registration.
-- The upstream project URL remains intact in retained source headers.
+- GrimDisablerModule and RaytraceBypassModule are excluded from the active source tree because they exist to interfere with server-side validation.
+- The upstream project URL remains intact in retained source headers and attribution.
 
 This file supplements rather than replaces upstream notices.
