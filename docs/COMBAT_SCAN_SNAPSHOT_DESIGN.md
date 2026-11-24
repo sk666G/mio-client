@@ -216,6 +216,6 @@ Important boundary: the current `TargetState` and `CandidateState` are still con
 
 ## Async world identity fence
 
-`AutoCrystalModule` now records the `ClientLevel` identity for each scheduled calculation. Before publishing a completed result or scheduling more work, the tick handler compares that identity with the active client world. A mismatch cancels the old task, clears the old placement/target result, and prevents a previous-world entity reference from being published into the new world. Enable, disable and disconnect reset the identity.
+`AutoCrystalModule` now records the `ClientLevel` identity for each scheduled calculation. Before publishing a completed result or scheduling more work, the tick handler compares that identity with the active client world. A mismatch cancels the old task and clears the old placement/target result. Even when the world identity matches, a completed target is revalidated on the client thread: it must still belong to that level, must not be removed, and must still pass the current target-validity checks. Enable, disable and disconnect reset the identity.
 
 This is deliberately only a stale-result fence. The calculation still receives a shallow list of live `LivingEntity` references and its placement validator, damage utilities, settings, registries and prediction manager still read live state on the worker. World identity checking does not make those accesses thread-safe; the immutable scan capture and client-thread revalidation remain required.
