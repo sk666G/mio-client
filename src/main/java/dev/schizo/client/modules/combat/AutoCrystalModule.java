@@ -311,7 +311,7 @@ public class AutoCrystalModule extends Module {
       }
    }
    private CrystalPlacementResult calculatePlacement(List<LivingEntity> targets) {
-      Vec3 eyePositionSnapshot = eyePositionSnapshot;
+      Vec3 eyePositionSnapshot = this.eyePosition;
       if (eyePositionSnapshot == null) {
          return null;
       }
@@ -372,9 +372,6 @@ public class AutoCrystalModule extends Module {
             offsetY < Math.ceil((this.placeRangeSetting.getValue()).floatValue()); offsetY += 1.0D) {
             for (double offsetZ = -Math.floor((this.placeRangeSetting.getValue()).floatValue());
                offsetZ < Math.ceil((this.placeRangeSetting.getValue()).floatValue()); offsetZ += 1.0D) {
-               if (eyePositionSnapshot == null) {
-                  continue;
-               }
                double scanXSnapshot = eyePositionSnapshot.x + offsetX;
                double scanYSnapshot = eyePositionSnapshot.y + offsetY;
                double scanZ = eyePositionSnapshot.z + offsetZ;
