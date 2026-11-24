@@ -21,3 +21,5 @@ Minecraft client hooks generally dispatch on the client/render thread, but packe
 Statistics storage is fixed: 4096 callbacks, 512 module aggregates and 256 HUD widgets. Registrations beyond a cap are not shown. Event listeners that do not expose method metadata through the built-in annotated-listener path are dispatched normally but are not included.
 
 The Performance Center refreshes its displayed snapshot four times per second rather than rebuilding sorted profiler lists on every render frame. Its bounded frame-history graph shows up to the latest 512 intervals retained by the rolling one-second frame timer, with a 60 FPS (16.67 ms) guide and a 50 ms vertical scale. Frame-time values remain whole-frame measurements; callback and module values are inclusive and overlap.
+
+Dashboard navigation: LEFT/RIGHT changes tabs; UP/DOWN moves one row; PAGE UP/PAGE DOWN moves one visible page; HOME/END jumps to the first/last row. The mouse wheel changes the row offset only while the pointer is over the results table.
