@@ -34,10 +34,7 @@ public class TotemsModule extends HudWidgetModule {
 
    @Override
    public float[] calculateDimensions() {
-      float[] dimensions = new float[2];
-      dimensions[0] = 16.0F;
-      dimensions[1] = 16.0F;
-      return dimensions;
+      return this.dimensions(16.0F, 16.0F);
    }
 
    @EventHandler

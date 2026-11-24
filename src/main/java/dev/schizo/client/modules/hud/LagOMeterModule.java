@@ -59,19 +59,12 @@ public class LagOMeterModule extends HudWidgetModule {
       if (warningText != null) {
          WelcomerModule welcomer = this.getWelcomerModule();
          if (!welcomer.shouldHideWidget(this)) {
-            float[] dimensions = new float[2];
-            dimensions[0] = FontRenderer.INSTANCE
-               .getWidth(warningText);
-            dimensions[1] = FontRenderer.INSTANCE
-                  .getHeight()
-               + 1;
-            return dimensions;
+            float width = FontRenderer.INSTANCE.getWidth(warningText);
+            float height = FontRenderer.INSTANCE.getHeight() + 1;
+            return this.dimensions(width, height);
          }
       }
-      float[] hiddenDimensions = new float[2];
-      hiddenDimensions[0] = 0.0F;
-      hiddenDimensions[1] = 0.0F;
-      return hiddenDimensions;
+      return this.dimensions(0.0F, 0.0F);
    }
 
    @Override

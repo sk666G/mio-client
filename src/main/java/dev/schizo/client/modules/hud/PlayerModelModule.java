@@ -43,10 +43,7 @@ public class PlayerModelModule extends HudWidgetModule {
 
    @Override
    public float[] calculateDimensions() {
-      float[] dimensions = new float[2];
-      dimensions[0] = 50.0F;
-      dimensions[1] = 80.0F;
-      return dimensions;
+      return this.dimensions(50.0F, 80.0F);
    }
 
    @Override

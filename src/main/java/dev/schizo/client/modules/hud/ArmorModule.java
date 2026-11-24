@@ -112,10 +112,7 @@ public class ArmorModule extends HudWidgetModule {
 
    @Override
    public float[] calculateDimensions() {
-      float[] dimensions = new float[2];
-      dimensions[0] = 0.0F;
-      dimensions[1] = 0.0F;
-      return dimensions;
+      return this.dimensions(0.0F, 0.0F);
    }
 
    @EventHandler(priority = 1)
