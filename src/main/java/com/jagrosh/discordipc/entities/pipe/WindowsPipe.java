@@ -69,8 +69,13 @@ public class WindowsPipe extends Pipe {
          return new Packet(Packet.OpCode.CLOSE, null, this.ipcClient.getEncoding());
       }
 
-      Packet.OpCode opcode = Packet.OpCode.values()[Integer.reverseBytes(this.file.readInt())];
-      int length = Integer.reverseBytes(this.file.readInt());
+      int opcodeId = Integer.reverseBytes(this.file.readInt());
+      Packet.OpCode[] opcodes = Packet.OpCode.values();
+      if (opcodeId < 0 || opcodeId >= opcodes.length) {
+         throw new IOException("Discord IPC opcode is outside the supported range");
+      }
+      int length = DiscordIpcFrameCodec.validatePayloadLength(Integer.reverseBytes(this.file.readInt()));
+      Packet.OpCode opcode = opcodes[opcodeId];
       byte[] payload = new byte[length];
       this.file.readFully(payload);
       return this.receive(opcode, payload);
