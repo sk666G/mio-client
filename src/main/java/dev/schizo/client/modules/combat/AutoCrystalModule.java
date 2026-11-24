@@ -250,20 +250,24 @@ public class AutoCrystalModule extends Module {
    public LivingEntity previousTarget;
    private Vec3 eyePosition;
    static {
-      // One scan at a time. A timed-out scan may still be unwinding a live-state
-      // helper after interruption; do not queue or run overlapping replacements.
-      calculationExecutor = new ThreadPoolExecutor(
+      calculationExecutor = createCalculationExecutor();
+      speedMine = (SpeedMineModule)ClientContext.getModule(SpeedMineModule.class);
+      antiCheat = (AntiCheatModule)ClientContext.getModule(AntiCheatModule.class);
+      anchorAura = (AnchorAuraModule)ClientContext.getModule(AnchorAuraModule.class);
+      aura = (AuraModule)ClientContext.getModule(AuraModule.class);
+      autoExp = (AutoExpModule)ClientContext.getModule(AutoExpModule.class);
+   }
+
+   static ThreadPoolExecutor createCalculationExecutor() {
+      // A timed-out scan may still be unwinding a live-state helper after
+      // interruption; never queue or run overlapping replacements.
+      return new ThreadPoolExecutor(
          0,
          1,
          30L,
          TimeUnit.SECONDS,
          new SynchronousQueue<>()
       );
-      speedMine = (SpeedMineModule)ClientContext.getModule(SpeedMineModule.class);
-      antiCheat = (AntiCheatModule)ClientContext.getModule(AntiCheatModule.class);
-      anchorAura = (AnchorAuraModule)ClientContext.getModule(AnchorAuraModule.class);
-      aura = (AuraModule)ClientContext.getModule(AuraModule.class);
-      autoExp = (AutoExpModule)ClientContext.getModule(AutoExpModule.class);
    }
 
    @Override
