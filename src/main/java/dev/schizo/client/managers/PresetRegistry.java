@@ -16,8 +16,6 @@ import dev.schizo.client.config.PresetNameValidator;
 import dev.schizo.client.settings.options.PresetCategory;
 import dev.schizo.client.utils.FileUtils;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import java.io.IOException;
@@ -34,7 +32,6 @@ import org.slf4j.LoggerFactory;
 
 public final class PresetRegistry extends Registry<PresetData> {
    private static final Logger LOGGER = LoggerFactory.getLogger(PresetRegistry.class);
-   private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
    private final PresetCategory category;
    private final Path directory;
    private static final int MAX_PRESET_BYTES = PresetData.MAX_PRESET_BYTES;
