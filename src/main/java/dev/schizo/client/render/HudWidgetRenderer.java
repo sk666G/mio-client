@@ -45,6 +45,7 @@ public abstract class HudWidgetRenderer implements ClientAccess, GuiElement {
    private float relativeY = 0.5F;
    private int horizontalDirection;
    private int verticalDirection;
+   private final float[] hiddenDimensions = new float[2];
    private float[] dimensions = new float[2];
    private boolean selected;
    private long hoverStartMillis;
@@ -265,6 +266,14 @@ public abstract class HudWidgetRenderer implements ClientAccess, GuiElement {
 
    public void setDimensions(float[] dimensions) {
       this.dimensions = dimensions;
+   }
+
+   /** Reuses this widget's private zero-size buffer while it is not visible. */
+   public float[] useHiddenDimensions() {
+      this.hiddenDimensions[0] = 0.0F;
+      this.hiddenDimensions[1] = 0.0F;
+      this.dimensions = this.hiddenDimensions;
+      return this.hiddenDimensions;
    }
 
    @Override
