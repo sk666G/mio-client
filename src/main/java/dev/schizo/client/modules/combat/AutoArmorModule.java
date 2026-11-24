@@ -544,10 +544,13 @@ public class AutoArmorModule extends Module {
                      }
                   }
 
-                  ClientContext.taskScheduler.scheduleRotationTask(() -> {
+                  Runnable restoreCursorStack = () -> {
                      InventoryUtils.clickSlot(0, 0, ClickType.PICKUP);
                      InventoryUtils.clickSlot(0, 0, ClickType.PICKUP);
-                  }, 0);
+                  };
+                  if (!ClientContext.taskScheduler.scheduleRotationTask(restoreCursorStack, 0)) {
+                     restoreCursorStack.run();
+                  }
                }
             }
          }
