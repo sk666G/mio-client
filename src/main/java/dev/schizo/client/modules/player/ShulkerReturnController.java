@@ -225,7 +225,8 @@ public class ShulkerReturnController extends ChestStealerController {
             if (menu.getRowCount() == (3)) {
                InventoryStateManager inventoryCoordinator = ClientContext.inventoryStateManager;
 
-               if (!InventoryStateManager.wouldReachClickLimit(inventoryCoordinator, (byte)1)) {
+               if (!InventoryStateManager.wouldReachClickLimit(inventoryCoordinator, (byte)1)
+                  && ClientAccess.schizoMinecraft.player.containerMenu.getCarried().isEmpty()) {
                   this.handlingReturnClick = true;
                   try {
                      for (TrackedShulker selectedShulker : this.trackedShulkers) {
