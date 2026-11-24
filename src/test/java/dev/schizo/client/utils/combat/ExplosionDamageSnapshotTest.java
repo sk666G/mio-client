@@ -14,97 +14,82 @@ class ExplosionDamageSnapshotTest {
    private static final UUID TARGET_UUID = UUID.fromString("d5d7a90b-2541-45a4-9bc0-c7c8ca20e1f0");
 
    @Test
-   void calculatesDamageFromOnlyCapturedValuesAndMatchingRaySnapshot() {
-      ExplosionDamageSnapshot damage = snapshot(false, 0.5D);
-      ExplosionRaycastSnapshot rays = raySnapshot(
-         42,
-         100L,
-         12L,
-         "minecraft:overworld",
-         airBlocks()
-      );
-
-      ExplosionDamageSnapshot.DamageResult result = damage.calculate(rays);
-
-      assertTrue(result.complete());
-      assertEquals(1.0F, result.exposure());
-      assertEquals(32.5F, result.damage(), 0.00001F);
-      assertEquals(8, result.exposureSamples());
-      assertTrue(result.lethal());
-      assertFalse(result.targetHoldsTotem());
-   }
-
-   @Test
-   void preservesTotemProtectionForLethalDamageClassification() {
-      ExplosionDamageSnapshot damage = snapshot(false, 0.5D, true);
-      ExplosionDamageSnapshot.DamageResult result = damage.calculate(
+   void calculatesDamageFromCapturedTargetProfileAndMatchingRaySnapshot() {
+      ExplosionDamageSnapshot profile = profile(false, 100.0F, false);
+      ExplosionDamageSnapshot.DamageResult result = calculate(
+         profile,
+         0.5D,
          raySnapshot(42, 100L, 12L, "minecraft:overworld", airBlocks())
       );
 
       assertTrue(result.complete());
-      assertTrue(result.lethal());
-      assertTrue(result.targetHoldsTotem());
+      assertEquals(1.0F, result.exposure());
+      assertEquals(3.625F, result.damage(), 0.00001F);
+      assertEquals(8, result.exposureSamples());
+      assertFalse(result.lethal());
+      assertFalse(result.targetHoldsTotem());
+   }
+
+   @Test
+   void reusesOneTargetProfileAcrossDifferentExplosionPositions() {
+      ExplosionDamageSnapshot profile = profile(false, 100.0F, false);
+      ExplosionRaycastSnapshot rays = raySnapshot(42, 100L, 12L, "minecraft:overworld", rayCells());
+
+      ExplosionDamageSnapshot.DamageResult near = profile.calculate(
+         0.5D, 0.5D, 0.5D, 0.5D, ExplosionRaycastSnapshot.Query.normal(), rays
+      );
+      ExplosionDamageSnapshot.DamageResult farther = profile.calculate(
+         0.5D, 0.5D, 0.5D, 0.25D, ExplosionRaycastSnapshot.Query.normal(), rays
+      );
+
+      assertTrue(near.complete());
+      assertTrue(farther.complete());
+      assertTrue(near.damage() > farther.damage());
    }
 
    @Test
    void rejectsRaySnapshotsFromAnotherWorldGeneration() {
-      ExplosionDamageSnapshot damage = snapshot(false, 0.5D);
-      ExplosionRaycastSnapshot rays = raySnapshot(
-         42,
-         101L,
-         12L,
-         "minecraft:overworld",
-         airBlocks()
-      );
-
-      assertFalse(damage.calculate(rays).complete());
+      ExplosionDamageSnapshot profile = profile(false, 100.0F, false);
+      assertFalse(calculate(
+         profile,
+         0.5D,
+         raySnapshot(42, 101L, 12L, "minecraft:overworld", airBlocks())
+      ).complete());
    }
 
    @Test
    void rejectsRaySnapshotsFromAnotherCaptureTick() {
-      ExplosionDamageSnapshot damage = snapshot(false, 0.5D);
-      ExplosionRaycastSnapshot rays = raySnapshot(
-         42,
-         100L,
-         13L,
-         "minecraft:overworld",
-         airBlocks()
-      );
-
-      assertFalse(damage.calculate(rays).complete());
+      ExplosionDamageSnapshot profile = profile(false, 100.0F, false);
+      assertFalse(calculate(
+         profile,
+         0.5D,
+         raySnapshot(42, 100L, 13L, "minecraft:overworld", airBlocks())
+      ).complete());
    }
 
    @Test
    void rejectsRaySnapshotsFromAnotherDimension() {
-      ExplosionDamageSnapshot damage = snapshot(false, 0.5D);
-      ExplosionRaycastSnapshot rays = raySnapshot(
-         42,
-         100L,
-         12L,
-         "minecraft:the_nether",
-         airBlocks()
-      );
-
-      assertFalse(damage.calculate(rays).complete());
+      ExplosionDamageSnapshot profile = profile(false, 100.0F, false);
+      assertFalse(calculate(
+         profile,
+         0.5D,
+         raySnapshot(42, 100L, 12L, "minecraft:the_nether", airBlocks())
+      ).complete());
    }
 
    @Test
    void rejectsRaySnapshotsCapturedForAnotherEntityCollisionProfile() {
-      ExplosionDamageSnapshot damage = snapshot(false, 0.5D);
-      ExplosionRaycastSnapshot rays = raySnapshot(
-         43,
-         100L,
-         12L,
-         "minecraft:overworld",
-         airBlocks()
-      );
-
-      assertFalse(damage.calculate(rays).complete());
+      ExplosionDamageSnapshot profile = profile(false, 100.0F, false);
+      assertFalse(calculate(
+         profile,
+         0.5D,
+         raySnapshot(43, 100L, 12L, "minecraft:overworld", airBlocks())
+      ).complete());
    }
 
    @Test
    void rejectsAReusedEntityIdWithDifferentUuid() {
-      ExplosionDamageSnapshot damage = snapshot(false, 0.5D);
+      ExplosionDamageSnapshot profile = profile(false, 100.0F, false);
       ExplosionRaycastSnapshot rays = new ExplosionRaycastSnapshot(
          100L,
          12L,
@@ -114,63 +99,56 @@ class ExplosionDamageSnapshotTest {
          airBlocks()
       );
 
-      assertFalse(damage.calculate(rays).complete());
+      assertFalse(calculate(profile, 0.5D, rays).complete());
    }
 
    @Test
    void appliesCapturedArmorResistanceAndProtectionInOrder() {
-      ExplosionDamageSnapshot damage = new ExplosionDamageSnapshot(
-         42, TARGET_UUID, 100L, 12L, "minecraft:overworld",
-         0.0D, 0.0D, 0.0D, 0.0D, 0.0D, 0.0D,
-         0.5D, 0.5D, 0.5D, 0.0D, 6.0D,
-         ExplosionDamageMath.Difficulty.NORMAL,
-         false, 20.0F, false, 20.0F, 8.0F, true, 0.0F, false, 5,
-         false, 0.0D, List.of(), ExplosionRaycastSnapshot.Query.normal()
+      ExplosionDamageSnapshot profile = profile(
+         false, 100.0F, false,
+         20.0F, 8.0F, true, 0.0F, 5
       );
 
-      ExplosionDamageSnapshot.DamageResult result = damage.calculate(
+      ExplosionDamageSnapshot.DamageResult result = calculate(
+         profile, 0.5D,
          raySnapshot(42, 100L, 12L, "minecraft:overworld", airBlocks())
       );
 
       assertTrue(result.complete());
-      assertEquals(45.696F, result.damage(), 0.0001F);
+      assertEquals(0.5481F, result.damage(), 0.0001F);
    }
 
    @Test
    void appliesCapturedBlockingRulesAfterOtherDamageReduction() {
-      ExplosionDamageSnapshot damage = new ExplosionDamageSnapshot(
-         42, TARGET_UUID, 100L, 12L, "minecraft:overworld",
-         0.0D, 0.0D, 0.0D, 0.0D, 0.0D, 0.0D,
-         0.5D, 0.5D, 0.5D, 0.0D, 6.0D,
-         ExplosionDamageMath.Difficulty.NORMAL,
-         false, 20.0F, false, 0.0F, 0.0F, false, 1.0F, false, 0,
-         true, 0.0D,
+      ExplosionDamageSnapshot profile = profile(
+         false, 100.0F, false,
+         0.0F, 0.0F, false, 1.0F, 0,
+         true,
          List.of(new ExplosionBlockingDamageMath.Reduction(90.0F, true, 1.0F, 0.5F)),
-         ExplosionRaycastSnapshot.Query.normal()
+         0.0D, 0.0D, 0.0D, 1.0D
       );
 
-      ExplosionDamageSnapshot.DamageResult result = damage.calculate(
+      ExplosionDamageSnapshot.DamageResult result = calculate(
+         profile, 0.5D,
          raySnapshot(42, 100L, 12L, "minecraft:overworld", airBlocks())
       );
 
       assertTrue(result.complete());
-      assertEquals(43.5F, result.damage(), 0.0001F);
+      assertEquals(2.8125F, result.damage(), 0.0001F);
    }
 
    @Test
    void mismatchedCapturedBlockingDamageTypeCanReduceDamageToZero() {
-      ExplosionDamageSnapshot damage = new ExplosionDamageSnapshot(
-         42, TARGET_UUID, 100L, 12L, "minecraft:overworld",
-         0.0D, 0.0D, 0.0D, 0.0D, 0.0D, 0.0D,
-         0.5D, 0.5D, 0.5D, 0.0D, 6.0D,
-         ExplosionDamageMath.Difficulty.NORMAL,
-         false, 20.0F, false, 0.0F, 0.0F, false, 1.0F, false, 0,
-         true, 0.0D,
+      ExplosionDamageSnapshot profile = profile(
+         false, 100.0F, false,
+         0.0F, 0.0F, false, 1.0F, 0,
+         true,
          List.of(new ExplosionBlockingDamageMath.Reduction(180.0F, false, 0.0F, 1.0F)),
-         ExplosionRaycastSnapshot.Query.normal()
+         0.0D, 0.0D, 0.0D, 1.0D
       );
 
-      ExplosionDamageSnapshot.DamageResult result = damage.calculate(
+      ExplosionDamageSnapshot.DamageResult result = calculate(
+         profile, 0.5D,
          raySnapshot(42, 100L, 12L, "minecraft:overworld", airBlocks())
       );
 
@@ -179,38 +157,44 @@ class ExplosionDamageSnapshotTest {
    }
 
    @Test
-   void returnsZeroForImmuneAndOutOfRangeTargetsWithoutRayCoverage() {
-      ExplosionDamageSnapshot immune = snapshot(true, 0.5D);
-      ExplosionDamageSnapshot outOfRange = snapshot(false, 2.0D);
-      ExplosionRaycastSnapshot emptyRays = raySnapshot(
-         42,
-         100L,
-         12L,
-         "minecraft:overworld",
-         Map.of()
+   void capturesLethalAndTotemFlagsForLaterTargetPolicy() {
+      ExplosionDamageSnapshot profile = profile(true, 1.0F, true);
+      ExplosionDamageSnapshot.DamageResult result = calculate(
+         profile, 0.5D,
+         raySnapshot(42, 100L, 12L, "minecraft:overworld", airBlocks())
       );
 
-      assertEquals(0.0F, immune.calculate(emptyRays).damage());
-      assertTrue(immune.calculate(emptyRays).complete());
-      assertEquals(0.0F, outOfRange.calculate(emptyRays).damage());
-      assertTrue(outOfRange.calculate(emptyRays).complete());
+      assertTrue(result.complete());
+      assertTrue(result.lethal());
+      assertTrue(result.targetHoldsTotem());
+   }
+
+   @Test
+   void returnsZeroForImmuneAndOutOfRangeTargetsWithoutRayCoverage() {
+      ExplosionDamageSnapshot immune = profile(true, 20.0F, false);
+      ExplosionDamageSnapshot regular = profile(false, 20.0F, false);
+      ExplosionRaycastSnapshot emptyRays = raySnapshot(
+         42, 100L, 12L, "minecraft:overworld", Map.of()
+      );
+
+      assertEquals(0.0F, calculate(immune, 0.5D, emptyRays).damage());
+      assertTrue(calculate(immune, 0.5D, emptyRays).complete());
+      assertEquals(0.0F, calculate(regular, 0.2D, emptyRays).damage());
+      assertTrue(calculate(regular, 0.2D, emptyRays).complete());
    }
 
    @Test
    void propagatesIncompleteRayCoverageInsteadOfGuessingDamage() {
-      ExplosionDamageSnapshot damage = snapshot(false, 0.5D);
-      ExplosionRaycastSnapshot incompleteRays = raySnapshot(
-         42,
-         100L,
-         12L,
-         "minecraft:overworld",
-         Map.of()
+      ExplosionDamageSnapshot profile = profile(false, 20.0F, false);
+      ExplosionDamageSnapshot.DamageResult result = calculate(
+         profile,
+         0.5D,
+         raySnapshot(42, 100L, 12L, "minecraft:overworld", Map.of())
       );
-
-      ExplosionDamageSnapshot.DamageResult result = damage.calculate(incompleteRays);
 
       assertFalse(result.complete());
       assertEquals(0.0F, result.damage());
+      assertFalse(result.lethal());
    }
 
    @Test
@@ -220,32 +204,84 @@ class ExplosionDamageSnapshotTest {
       ExplosionDamageSnapshot value = new ExplosionDamageSnapshot(
          42, TARGET_UUID, 100L, 12L, "minecraft:overworld",
          0.0D, 0.0D, 0.0D, 0.0D, 0.0D, 0.0D,
-         0.5D, 0.5D, 0.5D, 0.5D, 6.0D,
+         0.0D, 0.0D, 0.0D, 1.0D,
          ExplosionDamageMath.Difficulty.NORMAL,
-         false, 20.0F, false, 0.0F, 0.0F, false, 1.0F, false, 0,
-         true, 0.0D, reductions, ExplosionRaycastSnapshot.Query.normal()
+         false, 20.0F, false,
+         0.0F, 0.0F, false, 1.0F, false, 0,
+         true, reductions
       );
       reductions.clear();
 
       assertEquals(1, value.blockingReductions().size());
    }
 
-   private static ExplosionDamageSnapshot snapshot(boolean immune, double normalizedDistance) {
-      return snapshot(immune, normalizedDistance, false);
+   private static ExplosionDamageSnapshot profile(
+      boolean immune,
+      float health,
+      boolean holdingTotem
+   ) {
+      return profile(
+         immune, health, holdingTotem,
+         0.0F, 0.0F, false, 1.0F, 0
+      );
    }
 
-   private static ExplosionDamageSnapshot snapshot(
+   private static ExplosionDamageSnapshot profile(
       boolean immune,
-      double normalizedDistance,
-      boolean targetHoldsTotem
+      float health,
+      boolean holdingTotem,
+      float armor,
+      float toughness,
+      boolean hasResistance,
+      float resistanceAmplifier,
+      int protectionScore
+   ) {
+      return profile(
+         immune, health, holdingTotem,
+         armor, toughness, hasResistance, resistanceAmplifier, protectionScore,
+         false, List.of(), 0.0D, 0.0D, 0.0D, 1.0D
+      );
+   }
+
+   private static ExplosionDamageSnapshot profile(
+      boolean immune,
+      float health,
+      boolean holdingTotem,
+      float armor,
+      float toughness,
+      boolean hasResistance,
+      float resistanceAmplifier,
+      int protectionScore,
+      boolean hasBlocking,
+      List<ExplosionBlockingDamageMath.Reduction> blockingReductions,
+      double targetX,
+      double targetZ,
+      double viewX,
+      double viewZ
    ) {
       return new ExplosionDamageSnapshot(
          42, TARGET_UUID, 100L, 12L, "minecraft:overworld",
          0.0D, 0.0D, 0.0D, 0.0D, 0.0D, 0.0D,
-         0.5D, 0.5D, 0.5D, normalizedDistance, 6.0D,
+         targetX, targetZ, viewX, viewZ,
          ExplosionDamageMath.Difficulty.NORMAL,
-         immune, 20.0F, targetHoldsTotem, 0.0F, 0.0F, false, 1.0F, false, 0,
-         false, 0.0D, List.of(), ExplosionRaycastSnapshot.Query.normal()
+         immune, health, holdingTotem,
+         armor, toughness, hasResistance, resistanceAmplifier, false, protectionScore,
+         hasBlocking, blockingReductions
+      );
+   }
+
+   private static ExplosionDamageSnapshot.DamageResult calculate(
+      ExplosionDamageSnapshot profile,
+      double power,
+      ExplosionRaycastSnapshot rays
+   ) {
+      return profile.calculate(
+         0.5D,
+         0.5D,
+         0.5D,
+         power,
+         ExplosionRaycastSnapshot.Query.normal(),
+         rays
       );
    }
 
@@ -262,6 +298,10 @@ class ExplosionDamageSnapshotTest {
    }
 
    private static Map<Long, ExplosionRaycastSnapshot.BlockGeometry> airBlocks() {
+      return rayCells();
+   }
+
+   private static Map<Long, ExplosionRaycastSnapshot.BlockGeometry> rayCells() {
       return Map.of(
          new BlockPos(-1, -1, -1).asLong(), air(),
          new BlockPos(-1, -1, 0).asLong(), air(),
