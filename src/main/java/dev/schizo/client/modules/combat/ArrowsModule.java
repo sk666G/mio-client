@@ -373,8 +373,11 @@ public class ArrowsModule extends Module {
                autoShotInProgress.set(true);
                TaskScheduler scheduler = ClientContext.taskScheduler;
                Runnable releaseShot = () -> {
-                  ClientAccess.schizoMinecraft.gameMode.releaseUsingItem(ClientAccess.schizoMinecraft.player);
+                  if (!autoShotInProgress.get() || this.isWorldUnavailable()) {
+                     return;
+                  }
 
+                  ClientAccess.schizoMinecraft.gameMode.releaseUsingItem(ClientAccess.schizoMinecraft.player);
                   InventoryUtils.selectHotbarSlot(previousHotbarSlot);
                   TaskScheduler finishScheduler = ClientContext.taskScheduler;
                   Runnable finishShot = this::finishAutoShot;
