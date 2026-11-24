@@ -52,8 +52,9 @@ public class UnixPipe extends Pipe {
          dev.schizo.client.integrations.discord.DiscordIpcFrameCodec.Frame frame =
             dev.schizo.client.integrations.discord.DiscordIpcFrameCodec.read(this.socket);
          Packet.OpCode[] codes = Packet.OpCode.values();
-         if (frame.opcode() < 0 || frame.opcode() >= codes.length) throw new IOException("Unknown IPC opcode: " + frame.opcode());
-         return this.receive(codes[frame.opcode()], frame.body());
+         int opcodeId = dev.schizo.client.integrations.discord.DiscordIpcFrameCodec
+            .validateOpcode(frame.opcode(), codes.length);
+         return this.receive(codes[opcodeId], frame.body());
       } catch (IOException failure) {
          if (this.status == PipeStatus.CLOSED) return new Packet(Packet.OpCode.CLOSE, null, this.ipcClient.getEncoding());
          throw failure;
