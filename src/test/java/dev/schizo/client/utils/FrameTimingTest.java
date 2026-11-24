@@ -139,6 +139,36 @@ class FrameTimingTest {
    }
 
    @Test
+   void returnsRecentFrameTimesInChronologicalOrderAndLimitsToNewestSamples() {
+      FrameTiming timing = new FrameTiming();
+      timing.recordFrameAt(1_000_000_000L);
+      timing.recordFrameAt(1_010_000_000L);
+      timing.recordFrameAt(1_030_000_000L);
+      timing.recordFrameAt(1_060_000_000L);
+      timing.recordFrameAt(1_100_000_000L);
+
+      assertArrayEquals(new float[]{10.0F, 20.0F, 30.0F, 40.0F},
+         timing.getRecentFrameTimesMillis(10), 0.01F);
+      assertArrayEquals(new float[]{30.0F, 40.0F},
+         timing.getRecentFrameTimesMillis(2), 0.01F);
+
+      float[] snapshot = timing.getRecentFrameTimesMillis(4);
+      snapshot[0] = -1.0F;
+      assertEquals(10.0F, timing.getRecentFrameTimesMillis(4)[0], 0.01F);
+   }
+
+   @Test
+   void recentFrameHistoryReturnsAnEmptyArrayForEmptyOrNonPositiveRequests() {
+      FrameTiming timing = new FrameTiming();
+      assertArrayEquals(new float[0], timing.getRecentFrameTimesMillis(8));
+      assertArrayEquals(new float[0], timing.getRecentFrameTimesMillis(0));
+
+      timing.recordFrameAt(1_000_000_000L);
+      timing.recordFrameAt(1_010_000_000L);
+      assertArrayEquals(new float[0], timing.getRecentFrameTimesMillis(-1));
+   }
+
+   @Test
    void countsHitchesAndExpiresThemFromTheRollingWindow() {
       FrameTiming timing = new FrameTiming();
       timing.recordFrameAt(1_000_000_000L);
