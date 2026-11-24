@@ -10,6 +10,7 @@
 package dev.schizo.client.utils.combat;
 
 import java.util.Objects;
+import net.minecraft.world.phys.Vec3;
 
 /**
  * Pure explosion-exposure sample generation.
@@ -21,9 +22,35 @@ public final class ExplosionExposureMath {
    private ExplosionExposureMath() {
    }
 
+   public enum Visibility {
+      VISIBLE,
+      OCCLUDED,
+      INCOMPLETE
+   }
+
+   public record ExposureResult(
+      float exposure,
+      int visibleSamples,
+      int totalSamples,
+      boolean complete
+   ) {
+   }
+
    @FunctionalInterface
    public interface VisibilityTester {
       boolean isVisible(
+         double sampleX,
+         double sampleY,
+         double sampleZ,
+         double explosionX,
+         double explosionY,
+         double explosionZ
+      );
+   }
+
+   @FunctionalInterface
+   public interface DetailedVisibilityTester {
+      Visibility test(
          double sampleX,
          double sampleY,
          double sampleZ,
@@ -46,6 +73,69 @@ public final class ExplosionExposureMath {
       VisibilityTester visibilityTester
    ) {
       Objects.requireNonNull(visibilityTester, "visibilityTester");
+      return calculateDetailed(
+         minX, minY, minZ,
+         maxX, maxY, maxZ,
+         explosionX, explosionY, explosionZ,
+         (sampleX, sampleY, sampleZ, endX, endY, endZ) ->
+            visibilityTester.isVisible(sampleX, sampleY, sampleZ, endX, endY, endZ)
+               ? Visibility.VISIBLE
+               : Visibility.OCCLUDED
+      ).exposure();
+   }
+
+   /**
+    * Snapshot-only exposure calculation. An uncaptured ray cell marks the
+    * result incomplete; callers must discard it rather than treating unknown
+    * geometry as air or as an occluder.
+    */
+   public static ExposureResult calculateFromSnapshot(
+      double minX,
+      double minY,
+      double minZ,
+      double maxX,
+      double maxY,
+      double maxZ,
+      double explosionX,
+      double explosionY,
+      double explosionZ,
+      ExplosionRaycastSnapshot snapshot,
+      ExplosionRaycastSnapshot.Query query
+   ) {
+      Objects.requireNonNull(snapshot, "snapshot");
+      Objects.requireNonNull(query, "query");
+      return calculateDetailed(
+         minX, minY, minZ,
+         maxX, maxY, maxZ,
+         explosionX, explosionY, explosionZ,
+         (sampleX, sampleY, sampleZ, endX, endY, endZ) -> {
+            ExplosionRaycastSnapshot.Result result = snapshot.raycast(
+               new Vec3(sampleX, sampleY, sampleZ),
+               new Vec3(endX, endY, endZ),
+               query
+            );
+            return switch (result) {
+               case HIT -> Visibility.OCCLUDED;
+               case MISS -> Visibility.VISIBLE;
+               case INCOMPLETE -> Visibility.INCOMPLETE;
+            };
+         }
+      );
+   }
+
+   public static ExposureResult calculateDetailed(
+      double minX,
+      double minY,
+      double minZ,
+      double maxX,
+      double maxY,
+      double maxZ,
+      double explosionX,
+      double explosionY,
+      double explosionZ,
+      DetailedVisibilityTester visibilityTester
+   ) {
+      Objects.requireNonNull(visibilityTester, "visibilityTester");
 
       double stepX = 1.0D / ((maxX - minX) * 2.0D + 1.0D);
       double stepY = 1.0D / ((maxY - minY) * 2.0D + 1.0D);
@@ -53,7 +143,7 @@ public final class ExplosionExposureMath {
       double offsetX = (1.0D - Math.floor(1.0D / stepX) * stepX) / 2.0D;
       double offsetZ = (1.0D - Math.floor(1.0D / stepZ) * stepZ) / 2.0D;
       if (stepX < 0.0D || stepY < 0.0D || stepZ < 0.0D) {
-         return 0.0F;
+         return new ExposureResult(0.0F, 0, 0, true);
       }
 
       int visibleSamples = 0;
@@ -67,22 +157,34 @@ public final class ExplosionExposureMath {
                double offsetSampleX = sampleX + offsetX;
                double shiftedZ = sampleZ + offsetZ;
 
-               if (visibilityTester.isVisible(
-                  offsetSampleX,
-                  sampleY,
-                  shiftedZ,
-                  explosionX,
-                  explosionY,
-                  explosionZ
-               )) {
+               Visibility visibility = Objects.requireNonNull(
+                  visibilityTester.test(
+                     offsetSampleX,
+                     sampleY,
+                     shiftedZ,
+                     explosionX,
+                     explosionY,
+                     explosionZ
+                  ),
+                  "visibility result"
+               );
+               totalSamples++;
+               if (visibility == Visibility.INCOMPLETE) {
+                  return new ExposureResult(0.0F, visibleSamples, totalSamples, false);
+               }
+               if (visibility == Visibility.VISIBLE) {
                   visibleSamples++;
                }
-               totalSamples++;
             }
          }
       }
 
-      return (float)visibleSamples / totalSamples;
+      return new ExposureResult(
+         (float)visibleSamples / totalSamples,
+         visibleSamples,
+         totalSamples,
+         true
+      );
    }
 
    private static double lerp(double fraction, double start, double end) {
