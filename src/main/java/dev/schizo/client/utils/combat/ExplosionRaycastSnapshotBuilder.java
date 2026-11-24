@@ -233,6 +233,8 @@ public final class ExplosionRaycastSnapshotBuilder {
          worldGeneration,
          captureTick,
          dimensionId,
+         collisionEntity.getId(),
+         collisionEntity.getUUID(),
          capturedBlocks
       );
    }
