@@ -120,13 +120,18 @@ public abstract class SettingComponent<T> extends AbstractComponent {
          float scrollOffset = -this.textScrollAnimation.getValue();
          boolean scissorRequired = scrollOffset != 0.0F && !(this instanceof EnumSettingComponent<?>);
          if (scissorRequired) {
-            ModuleComponent parentModule = (ModuleComponent)this.parentCloseState;
+            int clipY = this.panel.getY() + this.yOffset;
+            int clipHeight = this.getHeight();
+            if (this.parentCloseState instanceof ModuleComponent parentModule) {
+               clipY = this.panel.getY() + parentModule.getYOffset();
+               clipHeight = parentModule.getHeight();
+            }
             GuiDrawUtils.flush();
             ScissorStack.pushIntersection(
                this.panel.getX() + this.getHorizontalPadding(),
-               this.panel.getY() + parentModule.getYOffset(),
+               clipY,
                this.panel.getWidth() - this.getHorizontalPadding(),
-               parentModule.getHeight()
+               clipHeight
             );
          }
 
