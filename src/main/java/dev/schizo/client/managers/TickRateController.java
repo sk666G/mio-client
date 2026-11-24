@@ -61,6 +61,9 @@ public class TickRateController implements ClientAccess {
       private float multiplier = 1.0F;
 
       synchronized void request(Object owner, float requestedMultiplier) {
+         if (!Float.isFinite(requestedMultiplier)) {
+            throw new IllegalArgumentException("Requested tick-rate multiplier must be finite");
+         }
          this.activeRequests.remove(owner);
          this.activeRequests.put(owner, requestedMultiplier);
          this.multiplier = requestedMultiplier;
