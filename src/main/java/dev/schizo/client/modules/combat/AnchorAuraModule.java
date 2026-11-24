@@ -13,6 +13,7 @@ import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.PacketEvent;
 import dev.schizo.client.events.RotationRequestEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.managers.ServerStateManager;
 import dev.schizo.client.utils.entity.PlayerStateTracker;
@@ -45,13 +46,12 @@ import java.awt.Color;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.FutureTask;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
-import java.util.function.Supplier;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.player.LocalPlayer;
@@ -104,6 +104,7 @@ public class AnchorAuraModule extends Module {
    private final Setting<Boolean> eatingSetting;
    private final Setting<Float> healthSetting;
    private CompletableFuture<AnchorPlacementResult> calculationFuture;
+   private FutureTask<Void> calculationTask;
    private final MutableBlockPos scanPosition;
    private final ElapsedTimer actionTimer;
    public final AtomicReference placementData;
@@ -142,18 +143,37 @@ public class AnchorAuraModule extends Module {
 
    @Override
    public void onEnable() {
-      this.targetDamage = null;
-      if (this.calculationFuture != null) {
-         try {
-            this.calculationFuture.complete(null);
-         } catch (CancellationException ignored) {
-         }
-      }
+      this.resetCalculationState();
    }
 
    @Override
    public void onToggle() {
+      this.resetCalculationState();
+   }
+
+   private void completeCalculation() {
+      FutureTask<Void> task = this.calculationTask;
+      if (task != null && !task.isDone()) {
+         task.cancel(true);
+      }
+
+      CompletableFuture<AnchorPlacementResult> pending = this.calculationFuture;
+      if (pending != null && !pending.isDone() && !pending.isCancelled()) {
+         pending.complete(null);
+      }
+   }
+
+   private void resetCalculationState() {
+      this.completeCalculation();
+      this.calculationFuture = null;
+      this.calculationTask = null;
       this.placementData.set(null);
+      this.targetDamage = null;
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.resetCalculationState();
    }
 
    private boolean shouldPause() {
@@ -483,22 +503,37 @@ public class AnchorAuraModule extends Module {
    }
 
    private AnchorPlacementResult calculatePlacement() {
+      LocalPlayer playerSnapshot = ClientAccess.schizoMinecraft.player;
+      double originX = playerSnapshot.getX();
+      double originY = playerSnapshot.getEyeY();
+      double originZ = playerSnapshot.getZ();
+      Vec3 eyeSnapshot = playerSnapshot.getEyePosition();
+      MutableBlockPos scanPosition = new MutableBlockPos();
       AnchorPlacementResult bestPlacement = null;
       for (double offsetX = -Math.floor((this.rangeSetting.getValue()).floatValue());
          offsetX < Math.ceil((this.rangeSetting.getValue()).floatValue()); offsetX += 1.0D) {
          for (double offsetY = -Math.floor((this.rangeSetting.getValue()).floatValue());
             offsetY < Math.ceil((this.rangeSetting.getValue()).floatValue()); offsetY += 1.0D) {
+            if (Thread.currentThread().isInterrupted()) {
+               return null;
+            }
             for (double offsetZ = -Math.floor((this.rangeSetting.getValue()).floatValue());
                offsetZ < Math.ceil((this.rangeSetting.getValue()).floatValue()); offsetZ += 1.0D) {
-               MutableBlockPos scanPositionSnapshot = this.scanPosition;
+               if (Thread.currentThread().isInterrupted()) {
+                  return null;
+               }
+               if (Thread.currentThread().isInterrupted()) {
+                  return null;
+               }
+               MutableBlockPos scanPositionSnapshot = scanPosition;
 
-               double scanXSnapshot = ClientAccess.schizoMinecraft.player.getX() + offsetX;
+               double scanXSnapshot = originX + offsetX;
 
-               double scanYSnapshot = ClientAccess.schizoMinecraft.player.getEyeY() + offsetY;
+               double scanYSnapshot = originY + offsetY;
 
-               double scanZ = ClientAccess.schizoMinecraft.player.getZ() + offsetZ;
+               double scanZ = originZ + offsetZ;
                scanPositionSnapshot.set(scanXSnapshot, scanYSnapshot, scanZ);
-               scanPositionSnapshot = this.scanPosition;
+               scanPositionSnapshot = scanPosition;
 
                if (BlockInteractionUtils.isOutsidePlacementBounds(scanPositionSnapshot)) {
                   continue;
@@ -506,32 +541,31 @@ public class AnchorAuraModule extends Module {
 
                boolean miningBlockIgnored = false;
                if (this.shouldIgnoreMiningBlock()) {
-                  scanPositionSnapshot = this.scanPosition;
+                  scanPositionSnapshot = scanPosition;
 
                   if (scanPositionSnapshot.equals(speedMine.getMiningPos())) {
                      miningBlockIgnored = true;
                   }
                }
 
-               if (WorldUtils.isPlacementOccupied(this.scanPosition) && !miningBlockIgnored) {
+               if (WorldUtils.isPlacementOccupied(scanPosition) && !miningBlockIgnored) {
                   continue;
                }
 
-               AABB boundsSnapshot = new AABB(this.scanPosition);
+               AABB boundsSnapshot = new AABB(scanPosition);
                if (BlockInteractionUtils.hasBlockingEntity(boundsSnapshot, true, true)) {
-                  MutableBlockPos entityAnchorSnapshot = this.scanPosition;
+                  MutableBlockPos entityAnchorSnapshot = scanPosition;
                   if (!this.isAnchorBlock(entityAnchorSnapshot)) {
                      continue;
                   }
                }
 
-               MutableBlockPos samplePosition = this.scanPosition;
+               MutableBlockPos samplePosition = scanPosition;
                BlockSampleMode samplingMode = BlockSampleMode.X8;
                List samples = samplingMode.sampleBlock(samplePosition);
                boolean visible = WorldUtils.canSeeAny(samples);
 
-               Vec3 eyeSnapshot = ClientAccess.schizoMinecraft.player.getEyePosition();
-               Vec3 center = this.scanPosition.getCenter();
+               Vec3 center = scanPosition.getCenter();
                double distance = eyeSnapshot.distanceTo(center);
                if (!visible) {
                   Float visibilityWallRange = this.wallRangeSetting.getValue();
@@ -545,7 +579,7 @@ public class AnchorAuraModule extends Module {
                   continue;
                }
 
-               scanPositionSnapshot = this.scanPosition;
+               scanPositionSnapshot = scanPosition;
 
                boolean directionModeSnapshot = BlockInteractionUtils.isStrictDirectionEnabled();
 
@@ -553,20 +587,20 @@ public class AnchorAuraModule extends Module {
                Direction direction = BlockInteractionUtils.findSupportDirection(
                   scanPositionSnapshot, directionModeSnapshot, zeroWallRange
                );
-               MutableBlockPos damagePositionSnapshot = this.scanPosition;
+               MutableBlockPos damagePositionSnapshot = scanPosition;
 
                AnchorTargetDamage targetDamage = AnchorTargetDamage.calculateForBase(this, damagePositionSnapshot);
                if (direction == null && this.airPlaceSetting.getValue()) {
                   direction = Direction.DOWN;
                } else {
-                  MutableBlockPos fallbackAnchorSnapshot = this.scanPosition;
+                  MutableBlockPos fallbackAnchorSnapshot = scanPosition;
                   if (this.isAnchorBlock(fallbackAnchorSnapshot)) {
                      direction = Direction.DOWN;
                   }
                }
 
                if (direction == null) {
-                  MutableBlockPos fluidPosition = this.scanPosition;
+                  MutableBlockPos fluidPosition = scanPosition;
 
                   FluidState fluid = ClientAccess.schizoMinecraft.level.getFluidState(fluidPosition);
                   if (!fluid.isEmpty()) {
@@ -579,13 +613,13 @@ public class AnchorAuraModule extends Module {
                if (direction == null || targetDamage == null) {
                   continue;
                }
-               MutableBlockPos damagePosition = this.scanPosition;
+               MutableBlockPos damagePosition = scanPosition;
                if (this.shouldRejectDamage(damagePosition, targetDamage)) {
                   continue;
                }
 
-               AnchorPlacementResult candidatePlacement = new AnchorPlacementResult(this.scanPosition.immutable(), direction, targetDamage);
-               MutableBlockPos anchorSnapshot = this.scanPosition;
+               AnchorPlacementResult candidatePlacement = new AnchorPlacementResult(scanPosition.immutable(), direction, targetDamage);
+               MutableBlockPos anchorSnapshot = scanPosition;
 
                if (this.isAnchorBlock(anchorSnapshot)) {
                   return candidatePlacement;
@@ -635,11 +669,27 @@ public class AnchorAuraModule extends Module {
          }
       }
 
-      Supplier<AnchorPlacementResult> calculation = this::calculatePlacement;
+      CompletableFuture<AnchorPlacementResult> scheduledCalculation = new CompletableFuture<>();
+      FutureTask<Void> task = new FutureTask<>(() -> {
+         try {
+            scheduledCalculation.complete(this.calculatePlacement());
+         } catch (Throwable failure) {
+            scheduledCalculation.completeExceptionally(failure);
+         }
+         return null;
+      });
+      this.calculationTask = task;
       Executor calculationExecutor = ClientAccess.executorService;
-      CompletableFuture<AnchorPlacementResult> future = CompletableFuture.supplyAsync(calculation, calculationExecutor);
-      Function<Throwable, AnchorPlacementResult> failureHandler = failure -> null;
-      this.calculationFuture = future.exceptionally(failureHandler);
+      calculationExecutor.execute(task);
+      this.calculationFuture = scheduledCalculation
+         .completeOnTimeout(null, 750L, TimeUnit.MILLISECONDS)
+         .whenComplete((result, failure) -> {
+            // Stop timed-out scans instead of letting them overlap later calculations.
+            if (failure != null || result == null) {
+               task.cancel(true);
+            }
+         })
+         .exceptionally(failure -> null);
    }
 
    @EventHandler
