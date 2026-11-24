@@ -70,12 +70,15 @@ public class SnowflakeParticle implements ClientAccess {
       if (snowEnabled && this.relativeY >= 0.0F) {
          int opacity = Mth.ceil(Math.max(255.0F * (1.0F - this.relativeY), 4.0F));
          poseStack.pushPose();
-         float scaleX = this.scale;
-         float scaleY = this.scale;
-         poseStack.scale(scaleX, scaleY, 1.0F);
-         poseStack.translate(screenX / this.scale, screenY / this.scale, 0.0F);
-         GuiDrawUtils.drawText(poseStack, "❆", 0, 0, ARGB.color(opacity, -1), true);
-         poseStack.popPose();
+         try {
+            float scaleX = this.scale;
+            float scaleY = this.scale;
+            poseStack.scale(scaleX, scaleY, 1.0F);
+            poseStack.translate(screenX / this.scale, screenY / this.scale, 0.0F);
+            GuiDrawUtils.drawText(poseStack, "❆", 0, 0, ARGB.color(opacity, -1), true);
+         } finally {
+            poseStack.popPose();
+         }
       }
    }
 }
