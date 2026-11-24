@@ -120,7 +120,10 @@ public abstract class Pipe {
             }
          } catch (IOException | RuntimeException handshakeFailure) {
             if (pipe == null) {
-               throw handshakeFailure;
+               if (handshakeFailure instanceof IOException ioFailure) {
+                  throw new RuntimeException("Failed to connect to a Discord IPC endpoint", ioFailure);
+               }
+               throw (RuntimeException)handshakeFailure;
             }
             try {
                pipe.close();
