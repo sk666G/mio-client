@@ -32,6 +32,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.BlocksAttacks;
 import net.minecraft.world.item.enchantment.Enchantments;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Explosion;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
@@ -64,6 +65,7 @@ public record ExplosionDamageSnapshot(
    ExplosionDamageMath.Difficulty difficulty,
    boolean immune,
    float healthWithAbsorption,
+   boolean targetHoldsTotem,
    float armor,
    float toughness,
    boolean hasResistance,
@@ -218,6 +220,8 @@ public record ExplosionDamageSnapshot(
          difficulty,
          immune,
          target.getHealth() + target.getAbsorptionAmount(),
+         target.getMainHandItem().is(Items.TOTEM_OF_UNDYING)
+            || target.getOffhandItem().is(Items.TOTEM_OF_UNDYING),
          armor,
          toughness,
          hasResistance,
@@ -250,7 +254,14 @@ public record ExplosionDamageSnapshot(
       }
 
       if (this.immune || this.normalizedDistance > 1.0D) {
-         return new DamageResult(0.0F, 0.0F, 0, true);
+         return new DamageResult(
+            0.0F,
+            0.0F,
+            0,
+            true,
+            0.0F >= this.healthWithAbsorption,
+            this.targetHoldsTotem
+         );
       }
 
       ExplosionExposureMath.ExposureResult exposure = ExplosionExposureMath.calculateFromSnapshot(
@@ -293,11 +304,14 @@ public record ExplosionDamageSnapshot(
          );
       }
 
+      float finalDamage = Math.max(damage, 0.0F);
       return new DamageResult(
-         Math.max(damage, 0.0F),
+         finalDamage,
          exposure.exposure(),
          exposure.totalSamples(),
-         true
+         true,
+         finalDamage >= this.healthWithAbsorption,
+         this.targetHoldsTotem
       );
    }
 
@@ -305,10 +319,12 @@ public record ExplosionDamageSnapshot(
       float damage,
       float exposure,
       int exposureSamples,
-      boolean complete
+      boolean complete,
+      boolean lethal,
+      boolean targetHoldsTotem
    ) {
       public static DamageResult incomplete() {
-         return new DamageResult(0.0F, 0.0F, 0, false);
+         return new DamageResult(0.0F, 0.0F, 0, false, false, false);
       }
    }
 }
