@@ -26,6 +26,23 @@ class ExplosionRaycastSnapshotBuilderTest {
    }
 
    @Test
+   void enclosesManyCandidateExplosionEndpointsInOneCaptureRegion() {
+      ExplosionRaycastSnapshotBuilder.Region region =
+         ExplosionRaycastSnapshotBuilder.Region.enclosingRays(
+            new AABB(2.2D, 4.0D, -1.0D, 3.8D, 5.8D, 0.5D),
+            new AABB(8.1D, 1.2D, -4.0D, 12.0D, 2.0D, 7.0D),
+            1
+         );
+
+      assertEquals(1, region.minX());
+      assertEquals(0, region.minY());
+      assertEquals(-5, region.minZ());
+      assertEquals(13, region.maxX());
+      assertEquals(6, region.maxY());
+      assertEquals(8, region.maxZ());
+   }
+
+   @Test
    void supportsCustomPaddingAndZeroPadding() {
       ExplosionRaycastSnapshotBuilder.Region region =
          ExplosionRaycastSnapshotBuilder.Region.enclosingRays(
