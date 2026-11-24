@@ -62,4 +62,38 @@ class InterpolatedFloatLowFpsTest {
       this.nowNanos += elapsedNanos;
       this.timing.recordFrameAt(this.nowNanos);
    }
+
+   @Test
+   void exactTargetAtVeryLowFpsStillSynchronizesPreviousState() {
+      this.timing = new FrameTiming();
+      ClientContext.frameTiming = this.timing;
+      this.nowNanos = 2_000_000_000L;
+      this.timing.recordFrameAt(this.nowNanos);
+      this.advanceFrame(1_000_000_000L);
+
+      InterpolatedFloat value = new InterpolatedFloat(1.0F, false);
+      value.setTarget(10.0F);
+
+      // At 1 FPS the pre-snap interpolation factor is already 1.0, so currentValue
+      // reaches the target before the low-FPS snap repairs the full state.
+      assertEquals(10.0F, value.updateAndGet(), 0.000001F);
+
+      this.raiseFpsAboveSnapThreshold();
+      assertTrue(this.timing.getFramesPerSecond() > 15);
+      assertEquals(10.0F, value.updateAndGet(), 0.000001F);
+   }
+
+   @Test
+   void setValueSynchronizesStateEvenWhenCurrentAlreadyMatches() {
+      InterpolatedFloat value = new InterpolatedFloat(1.0F, false);
+      value.previousValue = 0.0F;
+      value.currentValue = 5.0F;
+      value.targetValue = 5.0F;
+
+      value.setValue(5.0F);
+
+      assertEquals(5.0F, value.previousValue, 0.000001F);
+      assertEquals(5.0F, value.currentValue, 0.000001F);
+      assertEquals(5.0F, value.targetValue, 0.000001F);
+   }
 }
