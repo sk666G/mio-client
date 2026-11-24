@@ -174,12 +174,8 @@ public final class ExplosionRaycastSnapshot {
 
    private static Result visitBlock(RayRequest request, BlockPos position) {
       long packedPosition = position.asLong();
-      BlockGeometry geometry = request.snapshot().blocks.get(packedPosition);
-      if (geometry == null) {
-         return Result.INCOMPLETE;
-      }
-
       Query query = request.query();
+
       if (query.ignoredBlockPositions().contains(packedPosition)) {
          return null;
       }
@@ -189,6 +185,11 @@ public final class ExplosionRaycastSnapshot {
          return intersects(FULL_BLOCK, request.start(), request.end(), position)
             ? Result.HIT
             : null;
+      }
+
+      BlockGeometry geometry = request.snapshot().blocks.get(packedPosition);
+      if (geometry == null) {
+         return Result.INCOMPLETE;
       }
 
       if (query.ignoreLowResistance() && geometry.explosionResistance() < 600.0F) {
