@@ -12,6 +12,7 @@ package dev.schizo.client.modules.combat;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.RotationRequestEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.utils.movement.MovementPhysics;
 import dev.schizo.client.utils.entity.PlayerStateTracker;
@@ -24,6 +25,7 @@ import dev.schizo.client.render.FeatureBoxRenderer;
 import dev.schizo.client.utils.entity.PlayerStateUtils;
 import dev.schizo.client.utils.inventory.InventoryUtils;
 import dev.schizo.client.utils.world.WorldUtils;
+import dev.schizo.client.utils.network.ServerSideDeathState;
 import dev.schizo.client.managers.ModuleRegistry;
 import dev.schizo.client.modules.Module;
 import dev.schizo.client.modules.ModuleCategory;
@@ -107,61 +109,54 @@ public class AntiPhaseModule extends Module {
    }
 
    protected boolean isValidTarget(Player target) {
-      if (target.isAlive() && ClientAccess.schizoMinecraft.player != target) {
-         if (!target.isSwimming()) {
-            if (ClientContext.socialRegistry.isFriendPlayer(target)) {
-               return false;
-            }
+      boolean eligible = AntiPhaseTargetPolicy.isEligible(
+         target.isAlive(),
+         ClientAccess.schizoMinecraft.player == target,
+         target.isSwimming(),
+         target.isSpectator(),
+         target.isCreative(),
+         ClientContext.socialRegistry.isFriendPlayer(target),
+         ((ServerSideDeathState)target).isServerSideDead()
+      );
+      if (!eligible) {
+         return false;
+      }
 
-            Set<BlockPos> occupiedPositions = PlayerStateUtils.getOccupiedBlockPositions(target);
-            if (occupiedPositions.size() != 1) {
-               return false;
-            }
+      Set<BlockPos> occupiedPositions = PlayerStateUtils.getOccupiedBlockPositions(target);
+      if (occupiedPositions.size() != 1) {
+         return false;
+      }
 
-            BlockPos roundedPosition = PlayerStateUtils.getRoundedBlockPosition(
-               (net.minecraft.world.entity.LivingEntity)(target));
+      BlockPos roundedPosition = PlayerStateUtils.getRoundedBlockPosition(
+         (net.minecraft.world.entity.LivingEntity)(target));
 
-            if (this.hasItemFrame(roundedPosition)) {
-               return false;
-            }
+      if (this.hasItemFrame(roundedPosition)) {
+         return false;
+      }
 
-            if (!PlayerStateUtils.hasArmor(target)) {
-               return false;
-            }
+      if (!PlayerStateUtils.hasArmor(target)) {
+         return false;
+      }
 
-            if (this.noCrawlSetting.getValue()) {
-               double targetHeight = target.getBoundingBox().getYsize();
+      if (this.noCrawlSetting.getValue() && target.getBoundingBox().getYsize() <= 1.0D) {
+         return false;
+      }
 
-               if (targetHeight <= 1.0D) {
-                  return false;
-               }
-            }
+      if (this.smartSetting.getValue()) {
+         double targetSpeed = MovementPhysics.getHorizontalSpeedKmh(target);
+         if (targetSpeed > 18.0D) {
+            return false;
+         }
 
-            if (this.smartSetting.getValue()) {
-               double targetSpeed = MovementPhysics.getHorizontalSpeedKmh(target);
-
-               if (targetSpeed > 18.0D) {
-                  return false;
-               }
-
-               AABB expandedBounds = target.getBoundingBox().inflate(0.08D, 0.0, 0.08D);
-
-               if (ClientAccess.schizoMinecraft.level.noBlockCollision(target, expandedBounds)) {
-                  return false;
-               }
-
-               if (!EntityUtils.hasCollisionBelow(target)) {
-                  return false;
-               }
-            }
-
-            float distance = target.distanceTo(ClientAccess.schizoMinecraft.player);
-            Float range = this.rangeSetting.getValue();
-            return distance <= range;
+         AABB expandedBounds = target.getBoundingBox().inflate(0.08D, 0.0, 0.08D);
+         if (ClientAccess.schizoMinecraft.level.noBlockCollision(target, expandedBounds)
+            || !EntityUtils.hasCollisionBelow(target)) {
+            return false;
          }
       }
 
-      return false;
+      float distance = target.distanceTo(ClientAccess.schizoMinecraft.player);
+      return distance <= this.rangeSetting.getValue();
    }
 
    private boolean placeMaterial(AntiPhasePlacement placement) {
@@ -192,14 +187,14 @@ public class AntiPhaseModule extends Module {
 
       if (hotbarSlot != -1) {
          InventoryUtils.selectHotbarSlot(hotbarSlot);
-         this.pendingSwap = new AntiPhaseModule.PendingSwap(
-            previousSlot, false
-         );
+         if (AntiPhaseSwapPolicy.shouldCaptureOriginal(this.pendingSwap != null)) {
+            this.pendingSwap = new AntiPhaseModule.PendingSwap(previousSlot, false);
+         }
       } else {
          InventoryUtils.swapIntoSelectedSlot(inventorySlot);
-         this.pendingSwap = new AntiPhaseModule.PendingSwap(
-            inventorySlot, true
-         );
+         if (AntiPhaseSwapPolicy.shouldCaptureOriginal(this.pendingSwap != null)) {
+            this.pendingSwap = new AntiPhaseModule.PendingSwap(inventorySlot, true);
+         }
       }
 
       BlockHitResult hit = new BlockHitResult(
@@ -241,62 +236,73 @@ public class AntiPhaseModule extends Module {
    @EventHandler
    private void onPlayerUpdate(RotationRequestEvent event) {
       ElapsedTimer placementTimerSnapshot = this.placementTimer;
-
-      long delayMillisSnapshot = (this.delaySetting.getValue()).intValue();
+      long delayMillisSnapshot = this.delaySetting.getValue().intValue();
 
       if (placementTimerSnapshot.hasElapsedAndReset(delayMillisSnapshot)) {
-         if (!multiTask.shouldPauseModule(this)) {
-            int placedCount = 0;
+         try {
+            if (!multiTask.shouldPauseModule(this)) {
+               int placedCount = 0;
+               List<AbstractClientPlayer> levelPlayers = ClientAccess.schizoMinecraft.level.players();
+               for (AbstractClientPlayer target : levelPlayers) {
+                  this.useBanner = this.shouldUseBanner(target);
+                  if (!this.isValidTarget(target)) {
+                     continue;
+                  }
 
-            List<AbstractClientPlayer> levelPlayers = ClientAccess.schizoMinecraft.level.players();
-            for (AbstractClientPlayer target : levelPlayers) {
-               this.useBanner = this.shouldUseBanner(
-                  target
-               );
-
-               if (this.isValidTarget(target)) {
                   AntiPhasePlacement placement = this.selectPlacementPlanner().findPlacement(target);
-                  if (placement != null) {
-                     if (this.placeMaterial(placement)) {
-                        if (this.rotateSetting.getValue()) {
-                           float[] rotations = RotationManager.getRotationsToPosition(
-                              placement.getHitPosition()
-                           );
+                  if (placement == null) {
+                     continue;
+                  }
 
-                           ClientContext.rotationManager.requestRotation(rotations, 25);
-                        }
-
-                        if (this.renderSetting.getValue()) {
-                           FeatureBoxRenderer rendererSnapshot = ClientContext.featureBoxRenderer;
-
-                           AABB renderBounds = placement.bounds();
-                           rendererSnapshot.addBox(this, renderBounds);
-                        }
-
-                        placedCount++;
+                  if (this.placeMaterial(placement)) {
+                     if (this.rotateSetting.getValue()) {
+                        float[] rotations = RotationManager.getRotationsToPosition(placement.getHitPosition());
+                        ClientContext.rotationManager.requestRotation(rotations, 25);
                      }
 
-                     Integer placementLimit = this.blocksPerTickSetting.getValue();
-                     if (placedCount >= placementLimit) {
-                        break;
+                     if (this.renderSetting.getValue()) {
+                        FeatureBoxRenderer rendererSnapshot = ClientContext.featureBoxRenderer;
+                        rendererSnapshot.addBox(this, placement.bounds());
                      }
+
+                     placedCount++;
+                  }
+
+                  if (placedCount >= this.blocksPerTickSetting.getValue()) {
+                     break;
                   }
                }
             }
-
-            if (this.pendingSwap != null) {
-               if (this.pendingSwap.inventorySwap) {
-                  InventoryUtils.swapIntoSelectedSlot(this.pendingSwap.slot);
-               } else {
-                  InventoryUtils.selectHotbarSlotForPlacement(this.pendingSwap.slot);
-               }
-
-               this.pendingSwap = null;
-            }
-
-            return;
+         } finally {
+            this.restorePendingSwap();
          }
       }
+   }
+
+   private void restorePendingSwap() {
+      AntiPhaseModule.PendingSwap pending = this.pendingSwap;
+      if (pending == null) {
+         return;
+      }
+      this.pendingSwap = null;
+      if (this.isWorldUnavailable()) {
+         return;
+      }
+      if (pending.inventorySwap) {
+         InventoryUtils.swapIntoSelectedSlot(pending.slot);
+      } else {
+         InventoryUtils.selectHotbarSlotForPlacement(pending.slot);
+      }
+   }
+
+   @Override
+   public void onDisable() {
+      this.restorePendingSwap();
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.pendingSwap = null;
    }
 
    public static void bindMultiTaskModule(ModuleRegistry registry) {
