@@ -196,7 +196,7 @@ Current limit: this is only the geometry/exposure foundation. No combat module c
 
 The value object preserves the priority order: obsidian-drop/quiver threat gives `0.1`; face-place or Nether Portal gives `0.6`; otherwise the Place/Hit settings apply, with the Place boundary label substituting target health and mining-ignore policy lowering Place to `0.6` or `5.0` and setting Hit to `3.0`; the final selected threshold is capped at target health.
 
-Focused tests cover override priority, separate Place/Hit values, boundary-label behavior, both mining-ignore modes and target-health capping. This extraction does not yet migrate `CrystalTargetDamage` to snapshot-only target eligibility or remove its live entity/module dependencies.
+Focused tests cover override priority, separate Place/Hit values, boundary-label behavior, both mining-ignore modes and target-health capping. `CrystalDamagePolicy.getMinimumDamage` now adapts live inputs into this value object; `CrystalTargetDamage` still reads those inputs while its worker runs, so the threshold extraction is not a safe snapshot by itself.
 ## AutoCrystal self-damage decision extraction
 
 `CrystalDamageSafetyInputs` now contains the pure self-damage acceptance/rejection rules. `CrystalDamagePolicy.shouldRejectDamage` captures the current player's health/totem state, target health, lethal/intersection classification, suicide settings, target damage threshold, maximum self damage and Place damage ratio, then passes primitives to the helper.
@@ -204,3 +204,10 @@ Focused tests cover override priority, separate Place/Hit values, boundary-label
 The rule order is preserved: self-invulnerability zeros calculated self damage; Force Suicide bypasses rejection; Anti Suicide handles lethal self damage and the player's totem; HIT intersection and target KILL are early accepts; Place-only target/self ratio is checked before the target-health bypass; non-lethal candidates must meet both target minimum damage and maximum self damage. The pure test suite also locks down conservative behavior for NaN target damage.
 
 This completes extraction of the threshold arithmetic and the self-damage decision, but the adapter still obtains live values. The future scan snapshot must capture these values once on the client thread and pass only the resulting `CrystalDamageThresholds` and `CrystalDamageSafetyInputs` to the worker.
+## Pure AutoCrystal target-selection policy
+
+`CrystalTargetSelectionPolicy` now contains the ordinary target-validity checks, per-base candidate filters, friend-kill abort behavior, and strict-best-damage comparison as value-only methods. `AutoCrystalModule.isInvalidTarget` adapts a live target into `TargetState`, while `CrystalTargetDamage` uses that adapter and supplies a `CandidateState` for the pure candidate decision.
+
+The policy preserves ForceSuicide's self-only behavior; friend/creative/dead/dying/server-dead/spectator/range rejection; vertical clearance; IgnoreNakeds rules; lethal/obsidian/quiver range overrides; friend-kill abort; minimum-damage and half-point floor; and strict `>` replacement (equal damage keeps the earlier target). Tests exercise each decision branch.
+
+Important boundary: the current `TargetState` and `CandidateState` are still constructed inside `CrystalTargetDamage`'s existing asynchronous loop from live `LivingEntity` and module data. The policy is now testable and centralized, but the worker is not yet isolated from Minecraft state. The next migration must construct these same records during client-thread snapshot capture and replace `CrystalTargetDamage`'s live entity result with id/UUID data.
