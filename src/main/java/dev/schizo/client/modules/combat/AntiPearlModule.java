@@ -24,6 +24,7 @@ import dev.schizo.client.settings.BooleanSetting;
 import dev.schizo.client.settings.NumberSetting;
 import dev.schizo.client.settings.Setting;
 import dev.schizo.client.utils.math.MathUtils;
+import dev.schizo.client.utils.network.ServerSideDeathState;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -139,24 +140,30 @@ public class AntiPearlModule extends PlacementModule {
 
       while (players.hasNext()) {
          AbstractClientPlayer player = (AbstractClientPlayer)players.next();
+         if (!CombatTargetPolicy.isEligible(
+            player.isAlive(),
+            player.isDeadOrDying(),
+            player == ClientAccess.schizoMinecraft.player,
+            player.isSpectator(),
+            player.isCreative(),
+            ClientContext.socialRegistry.isFriendPlayer(player),
+            ((ServerSideDeathState)player).isServerSideDead()
+         )) {
+            continue;
+         }
 
          Vec3 eyePositionSnapshot = player.getEyePosition();
          double distance = eyePositionSnapshot.distanceTo(pearlPosition);
 
-         if (!(distance > 3.0D) && distance < nearestDistance) {
+         if (distance <= 3.0D && distance < nearestDistance) {
             nearestDistance = distance;
             nearestPlayer = player;
          }
       }
 
       if (nearestPlayer != null) {
-         if (nearestPlayer != ClientAccess.schizoMinecraft.player) {
-            if (!ClientContext.socialRegistry.isFriendPlayer(nearestPlayer)) {
-               Map<Integer, AbstractClientPlayer> playerMap = this.nearbyPlayerByPearlId;
-               Integer playerPearlId = pearlId;
-               playerMap.put(playerPearlId, nearestPlayer);
-            }
-         }
+         Map<Integer, AbstractClientPlayer> playerMap = this.nearbyPlayerByPearlId;
+         playerMap.put(pearlId, nearestPlayer);
       }
    }
 
