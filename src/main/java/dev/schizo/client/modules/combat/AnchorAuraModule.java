@@ -105,6 +105,7 @@ public class AnchorAuraModule extends Module {
    private final Setting<Float> healthSetting;
    private CompletableFuture<AnchorPlacementResult> calculationFuture;
    private FutureTask<Void> calculationTask;
+   private ClientLevel calculationWorld;
    private final ElapsedTimer actionTimer;
    public final AtomicReference placementData;
    public AnchorTargetDamage targetDamage;
@@ -166,6 +167,7 @@ public class AnchorAuraModule extends Module {
       this.completeCalculation();
       this.calculationFuture = null;
       this.calculationTask = null;
+      this.calculationWorld = null;
       this.placementData.set(null);
       this.targetDamage = null;
    }
@@ -638,26 +640,59 @@ public class AnchorAuraModule extends Module {
    }
 
    private void updateCalculation() {
-      if (this.placementData.get() != null) {
-         BlockPos positionSnapshot = ((AnchorPlacementResult)this.placementData.get()).base();
+      ClientLevel activeLevel = ClientAccess.schizoMinecraft.level;
+      if (this.calculationWorld != activeLevel) {
+         // Cancel and discard any result that belongs to a replaced client world.
+         this.completeCalculation();
+         this.calculationFuture = null;
+         this.calculationTask = null;
+         this.calculationWorld = null;
+         this.placementData.set(null);
+         this.targetDamage = null;
+      }
 
-         if (this.isInvalidPlacement(positionSnapshot)) {
+      if (this.placementData.get() != null) {
+         AnchorPlacementResult existingPlacement = (AnchorPlacementResult)this.placementData.get();
+         Player existingTarget = existingPlacement.targetDamage() == null
+            ? null
+            : existingPlacement.targetDamage().target();
+         double validationRange = this.targetRangeSetting.getValue().doubleValue();
+         if (this.isInvalidPlacement(existingPlacement.base())
+            || existingTarget == null
+            || existingTarget.level() != activeLevel
+            || existingTarget.isRemoved()
+            || AnchorTargetDamage.isInvalidTarget(existingTarget, validationRange)) {
             this.placementData.set(null);
+            this.targetDamage = null;
          }
       }
 
       if (this.calculationFuture != null && this.calculationFuture.isDone() && this.placementData.get() == null) {
          try {
             AnchorPlacementResult completedPlacement = this.calculationFuture.get();
-            if (completedPlacement == null) {
+            AnchorTargetDamage completedDamage = completedPlacement == null
+               ? null
+               : completedPlacement.targetDamage();
+            Player completedTarget = completedDamage == null ? null : completedDamage.target();
+            double validationRange = this.targetRangeSetting.getValue().doubleValue();
+
+            if (this.calculationWorld != activeLevel
+               || completedPlacement == null
+               || completedTarget == null
+               || completedTarget.level() != activeLevel
+               || completedTarget.isRemoved()
+               || AnchorTargetDamage.isInvalidTarget(completedTarget, validationRange)
+               || this.isInvalidPlacement(completedPlacement.base())) {
                this.placementData.set(null);
+               this.targetDamage = null;
             } else {
                this.placementData.set(completedPlacement);
-
-               this.targetDamage = completedPlacement.targetDamage();
+               this.targetDamage = completedDamage;
             }
          } catch (InterruptedException | ExecutionException failure) {
             failure.printStackTrace();
+            this.placementData.set(null);
+            this.targetDamage = null;
          }
       }
 
@@ -669,8 +704,12 @@ public class AnchorAuraModule extends Module {
          Player currentTarget = this.targetDamage.target();
 
          double validationRange = (this.targetRangeSetting.getValue()).floatValue();
-         if (AnchorTargetDamage.isInvalidTarget(currentTarget, validationRange)) {
+         if (currentTarget == null
+            || currentTarget.level() != activeLevel
+            || currentTarget.isRemoved()
+            || AnchorTargetDamage.isInvalidTarget(currentTarget, validationRange)) {
             this.targetDamage = null;
+            this.placementData.set(null);
          }
       }
 
@@ -683,6 +722,7 @@ public class AnchorAuraModule extends Module {
          }
          return null;
       });
+      this.calculationWorld = activeLevel;
       this.calculationTask = task;
       Executor calculationExecutor = ClientAccess.executorService;
       calculationExecutor.execute(task);
