@@ -178,24 +178,12 @@ public class Panel implements RegistryContainer, GuiElement, NamedEntry {
    }
 
    public void setDragging(boolean requestedDragging) {
-      if (requestedDragging
-         && !ClientContext.getClickGui()
-            .isPanelDragging()) {
-         ClientContext.getClickGui()
-            .setPanelDragging(
-               true
-            );
-         this.dragging = true;
-      } else {
-         if (ClientContext.getClickGui()
-            .isPanelDragging()) {
-            ClientContext.getClickGui()
-               .setPanelDragging(
-                  false
-               );
-         }
-
-         this.dragging = false;
+      if (this.dragging == requestedDragging) {
+         return;
+      }
+      if (!requestedDragging || !ClientContext.getClickGui().isPanelDragging()) {
+         this.dragging = requestedDragging;
+         ClientContext.getClickGui().setPanelDragging(requestedDragging);
       }
    }
 
@@ -210,25 +198,15 @@ public class Panel implements RegistryContainer, GuiElement, NamedEntry {
    public void updateDragPosition(int mouseX, int mouseY) {
       if (this.dragging) {
          double guiScale = getDragScale();
-         this.setX(
-            (int)Math.clamp(
-               mouseX - this.dragOffsetX,
-               0.0,
-               ClientAccess.schizoMinecraft.getWindow().getGuiScaledWidth()
-                     / guiScale
-                  - this.getWidth()
-            )
-         );
-         this.setY(
-            (int)Math.clamp(
-               mouseY - this.dragOffsetY,
-               0.0,
-               ClientAccess.schizoMinecraft.getWindow().getGuiScaledHeight()
-                     / guiScale
-                  - this.getHeight()
-            )
-         );
+         this.placeWithinViewport(mouseX - this.dragOffsetX, mouseY - this.dragOffsetY,
+            ClientAccess.schizoMinecraft.getWindow().getGuiScaledWidth() / guiScale,
+            ClientAccess.schizoMinecraft.getWindow().getGuiScaledHeight() / guiScale);
       }
+   }
+
+   public void placeWithinViewport(int x, int y, double width, double height) {
+      this.setX(PanelBounds.clampPosition(x, width, this.getWidth()));
+      this.setY(PanelBounds.clampPosition(y, height, this.getHeight()));
    }
 
    public float getExpansionValue() {

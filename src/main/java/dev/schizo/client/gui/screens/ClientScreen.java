@@ -209,7 +209,9 @@ public class ClientScreen extends Screen implements ClientAccess {
       for (int panelIndex = this.panels.size() - 1; panelIndex >= 0; panelIndex--) {
          Panel panel = this.panels
             .get(panelIndex);
-         panel.setDragging(false);
+         if (event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+            panel.setDragging(false);
+         }
          panel.mouseReleased(
             event.x(), event.y(), event.button()
          );
@@ -253,9 +255,12 @@ public class ClientScreen extends Screen implements ClientAccess {
       for (int panelIndex = this.panels.size() - 1; panelIndex >= 0; panelIndex--) {
          Panel panel = this.panels
             .get(panelIndex);
+         if (!panel.isMouseOverHeader(event.x(), event.y()) && !panel.isMouseOver(event.x(), event.y())) {
+            continue;
+         }
          if (panel.isMouseOverHeader(event.x(), event.y())
             && event.button() == 0
-            && draggedPanel == null) {
+            && !panel.isDragging()) {
             draggedPanel = panel;
             panel.setDragging(true);
             panel.dragOffsetX = (int)(
@@ -271,6 +276,7 @@ public class ClientScreen extends Screen implements ClientAccess {
          panel.mouseClicked(
             event.x(), event.y(), event.button()
          );
+         break;
       }
 
       if (draggedPanel != null) {
@@ -291,9 +297,13 @@ public class ClientScreen extends Screen implements ClientAccess {
       mouseX /= scale;
       mouseY /= scale;
       if (verticalAmount != 0.0) {
-         for (Panel panel : this.panels) {
-            if (!panel.isDragging()) {
-               panel.mouseScrolled(mouseX, mouseY, verticalAmount);
+         for (int index = this.panels.size() - 1; index >= 0; index--) {
+            Panel panel = this.panels.get(index);
+            if (panel.isMouseOver(mouseX, mouseY)) {
+               if (!panel.isDragging()) {
+                  panel.mouseScrolled(mouseX, mouseY, verticalAmount);
+               }
+               return true;
             }
          }
       }
@@ -348,8 +358,10 @@ public class ClientScreen extends Screen implements ClientAccess {
          .getValue();
       this.closing = false;
 
+      double scale = GuiScaleUtils.calculateScaleMultiplier(this.guiScale);
       for (Panel panel : this.panels) {
          panel.init();
+         panel.placeWithinViewport(panel.getX(), panel.getY(), screenWidth / scale, screenHeight / scale);
       }
 
       if (this.skipOpeningTransition) {
