@@ -103,8 +103,16 @@ public abstract class Pipe {
                   break;
                }
 
+               Pipe previousForBuild = candidates[pipe.build.ordinal()];
+               Pipe previousAny = candidates[DiscordBuild.ANY.ordinal()];
                candidates[pipe.build.ordinal()] = pipe;
                candidates[DiscordBuild.ANY.ordinal()] = pipe;
+               if (previousForBuild != null && previousForBuild != pipe) {
+                  closeIfUnreferenced(candidates, previousForBuild, client);
+               }
+               if (previousAny != null && previousAny != pipe && previousAny != previousForBuild) {
+                  closeIfUnreferenced(candidates, previousAny, client);
+               }
                pipe.build = null;
                pipe = null;
             } else if (client.isDebugMode()) {
@@ -171,6 +179,21 @@ public abstract class Pipe {
 
       pipe.status = PipeStatus.CONNECTED;
       return pipe;
+   }
+
+   private static void closeIfUnreferenced(Pipe[] candidates, Pipe previous, IPCClient client) {
+      for (Pipe candidate : candidates) {
+         if (candidate == previous) {
+            return;
+         }
+      }
+      try {
+         previous.close();
+      } catch (IOException closeFailure) {
+         if (client.isDebugMode()) {
+            client.getCurrentLogger(LOGGER).warn("Failed to close a superseded IPC candidate", closeFailure);
+         }
+      }
    }
 
    private static Pipe createPipe(IPCClient client, HashMap callbacks, File endpoint) {
