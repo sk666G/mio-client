@@ -48,7 +48,7 @@ public final class MediaSessionBridge {
     }
 
     static String getDisplayText(MediaSnapshot snapshot) {
-        return snapshot.artist() + " - " + snapshot.title();
+        return MediaDisplayText.format(snapshot);
     }
 
     public static void stopMediaUpdates() {
