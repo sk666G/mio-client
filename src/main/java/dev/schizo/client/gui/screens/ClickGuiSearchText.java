@@ -16,4 +16,14 @@ final class ClickGuiSearchText {
       }
       return name.substring(normalizedQuery.length());
    }
+
+   /** Normalize native selection endpoints before taking substrings. */
+   static Selection selection(int textLength, int caret, int anchor) {
+      int length = Math.max(0, textLength);
+      int boundedCaret = Math.max(0, Math.min(length, caret));
+      int boundedAnchor = Math.max(0, Math.min(length, anchor));
+      return new Selection(Math.min(boundedCaret, boundedAnchor), Math.max(boundedCaret, boundedAnchor), boundedCaret);
+   }
+
+   record Selection(int start, int end, int caret) { }
 }
