@@ -196,6 +196,7 @@ public final class ExplosionRaycastSnapshotBuilder {
       if (collisionEntity.level() != level) {
          throw new IllegalStateException("Cannot capture collision geometry for an entity from another world");
       }
+      validateCaptureTick(captureTick, level.getGameTime());
 
       long volume;
       try {
@@ -276,6 +277,15 @@ public final class ExplosionRaycastSnapshotBuilder {
          collisionEntity.getUUID(),
          capturedBlocks
       );
+   }
+
+   static void validateCaptureTick(long requestedCaptureTick, long activeWorldTick) {
+      if (requestedCaptureTick != activeWorldTick) {
+         throw new IllegalArgumentException(
+            "Snapshot capture tick " + requestedCaptureTick
+               + " does not match active world tick " + activeWorldTick
+         );
+      }
    }
 
    static void validateCaptureLimits(int maximumCapturedBlocks, long maximumCaptureNanos) {
