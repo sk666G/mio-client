@@ -39,8 +39,14 @@ class IncrementalCubeScanCursorTest {
    }
 
    @Test
-   void rejectsEmptyRanges() {
-      assertThrows(IllegalArgumentException.class, () -> new IncrementalCubeScanCursor(1, 1));
+   void emptyRangeStartsComplete() {
+      IncrementalCubeScanCursor cursor = new IncrementalCubeScanCursor(1, 1);
+      assertTrue(cursor.isComplete());
+      assertNull(cursor.next());
+   }
+
+   @Test
+   void rejectsReversedRanges() {
       assertThrows(IllegalArgumentException.class, () -> new IncrementalCubeScanCursor(2, 1));
    }
 }
