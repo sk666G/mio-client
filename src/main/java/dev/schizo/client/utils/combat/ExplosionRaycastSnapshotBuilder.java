@@ -185,6 +185,7 @@ public final class ExplosionRaycastSnapshotBuilder {
       Objects.requireNonNull(collisionEntity, "collisionEntity");
       Objects.requireNonNull(region, "region");
       validateCaptureLimits(maximumCapturedBlocks, maximumCaptureNanos);
+      long captureStartedAt = System.nanoTime();
 
       Minecraft minecraft = Minecraft.getInstance();
       if (!minecraft.isSameThread()) {
@@ -209,6 +210,9 @@ public final class ExplosionRaycastSnapshotBuilder {
             "Snapshot region requires " + volume + " blocks; limit is " + maximumCapturedBlocks
          );
       }
+      validateCaptureBudget(
+         captureStartedAt, System.nanoTime(), 0, volume, maximumCaptureNanos
+      );
 
       long maximumYExclusive = (long)level.getMinY() + level.getHeight();
       if (region.minY() < level.getMinY() || region.maxY() >= maximumYExclusive) {
@@ -223,13 +227,18 @@ public final class ExplosionRaycastSnapshotBuilder {
             if (!level.hasChunk(chunkX, chunkZ)) {
                throw new IllegalStateException("Snapshot region includes an unloaded chunk");
             }
+            validateCaptureBudget(
+               captureStartedAt, System.nanoTime(), 0, volume, maximumCaptureNanos
+            );
          }
       }
 
       CollisionContext collisionContext = CollisionContext.of(collisionEntity);
       Map<Long, ExplosionRaycastSnapshot.BlockGeometry> capturedBlocks = new HashMap<>((int)volume);
       BlockPos.MutableBlockPos position = new BlockPos.MutableBlockPos();
-      long captureStartedAt = System.nanoTime();
+      validateCaptureBudget(
+         captureStartedAt, System.nanoTime(), 0, volume, maximumCaptureNanos
+      );
 
       for (long x = region.minX(); x <= (long)region.maxX(); x++) {
          for (long y = region.minY(); y <= (long)region.maxY(); y++) {
@@ -247,9 +256,10 @@ public final class ExplosionRaycastSnapshotBuilder {
                   )
                );
 
-               if ((capturedBlocks.size() & 15) == 0
-                  && System.nanoTime() - captureStartedAt > maximumCaptureNanos) {
-                  throw new CaptureBudgetExceededException(
+               if ((capturedBlocks.size() & 15) == 0) {
+                  validateCaptureBudget(
+                     captureStartedAt,
+                     System.nanoTime(),
                      capturedBlocks.size(),
                      volume,
                      maximumCaptureNanos
@@ -259,17 +269,8 @@ public final class ExplosionRaycastSnapshotBuilder {
          }
       }
 
-      long elapsedCaptureNanos = System.nanoTime() - captureStartedAt;
-      if (elapsedCaptureNanos > maximumCaptureNanos) {
-         throw new CaptureBudgetExceededException(
-            capturedBlocks.size(),
-            volume,
-            maximumCaptureNanos
-         );
-      }
-
       String dimensionId = level.dimension().identifier().toString();
-      return new ExplosionRaycastSnapshot(
+      ExplosionRaycastSnapshot snapshot = new ExplosionRaycastSnapshot(
          worldGeneration,
          captureTick,
          dimensionId,
@@ -277,6 +278,14 @@ public final class ExplosionRaycastSnapshotBuilder {
          collisionEntity.getUUID(),
          capturedBlocks
       );
+      validateCaptureBudget(
+         captureStartedAt,
+         System.nanoTime(),
+         capturedBlocks.size(),
+         volume,
+         maximumCaptureNanos
+      );
+      return snapshot;
    }
 
    static void validateCaptureTick(long requestedCaptureTick, long activeWorldTick) {
@@ -284,6 +293,22 @@ public final class ExplosionRaycastSnapshotBuilder {
          throw new IllegalArgumentException(
             "Snapshot capture tick " + requestedCaptureTick
                + " does not match active world tick " + activeWorldTick
+         );
+      }
+   }
+
+   static void validateCaptureBudget(
+      long captureStartedAtNanos,
+      long currentNanos,
+      int capturedBlocks,
+      long requestedBlocks,
+      long maximumCaptureNanos
+   ) {
+      if (currentNanos - captureStartedAtNanos > maximumCaptureNanos) {
+         throw new CaptureBudgetExceededException(
+            capturedBlocks,
+            requestedBlocks,
+            maximumCaptureNanos
          );
       }
    }
