@@ -174,14 +174,16 @@ public final class PerformanceCenterScreen extends ClientScreen implements Clien
       );
 
       float tabsTop = this.panelTop + 170.0F;
+      float tabGap = 6.0F;
+      float tabWidth = (this.panelWidth - 32.0F - tabGap * 2.0F) / 3.0F;
       for (int tab = 0; tab < TAB_NAMES.length; tab++) {
-         float tabLeft = this.panelLeft + 16.0F + tab * 112.0F;
+         float tabLeft = this.panelLeft + 16.0F + tab * (tabWidth + tabGap);
          boolean active = this.selectedTab == tab;
          GuiDrawUtils.fillRect(
             poseStack,
             tabLeft,
             tabsTop,
-            tabLeft + 104.0F,
+            tabLeft + tabWidth,
             tabsTop + 21.0F,
             active ? ColorUtils.withAlpha(accent, 54) : ColorUtils.withAlpha(surface, 150)
          );
@@ -189,7 +191,7 @@ public final class PerformanceCenterScreen extends ClientScreen implements Clien
             poseStack,
             tabLeft,
             tabsTop,
-            tabLeft + 104.0F,
+            tabLeft + tabWidth,
             tabsTop + 21.0F,
             ColorUtils.withAlpha(active ? accent : muted, active ? 180 : 60)
          );
@@ -213,11 +215,17 @@ public final class PerformanceCenterScreen extends ClientScreen implements Clien
          tableTop + 18.0F,
          ColorUtils.withAlpha(accent, 28)
       );
+      float tableWidth = tableRight - tableLeft;
+      float callsRight = tableLeft + tableWidth * 0.66F;
+      float averageRight = tableLeft + tableWidth * 0.78F;
+      float maximumRight = tableLeft + tableWidth * 0.88F;
+      float totalRight = tableRight - 7.0F;
+      int nameLimit = Math.max(10, (int)(tableWidth * 0.075F));
       font.drawWithShadow(poseStack, "NAME", tableLeft + 7.0F, tableTop + 5.0F, muted);
-      this.drawRightAligned(font, poseStack, "CALLS", tableRight - 214.0F, tableTop + 5.0F, muted);
-      this.drawRightAligned(font, poseStack, "AVG", tableRight - 151.0F, tableTop + 5.0F, muted);
-      this.drawRightAligned(font, poseStack, "MAX", tableRight - 91.0F, tableTop + 5.0F, muted);
-      this.drawRightAligned(font, poseStack, "TOTAL", tableRight - 7.0F, tableTop + 5.0F, muted);
+      this.drawRightAligned(font, poseStack, "CALLS", callsRight, tableTop + 5.0F, muted);
+      this.drawRightAligned(font, poseStack, "AVG", averageRight, tableTop + 5.0F, muted);
+      this.drawRightAligned(font, poseStack, "MAX", maximumRight, tableTop + 5.0F, muted);
+      this.drawRightAligned(font, poseStack, "TOTAL", totalRight, tableTop + 5.0F, muted);
 
       if (this.rows.isEmpty()) {
          String hint = EventProfiler.GLOBAL.isEnabled()
@@ -241,21 +249,25 @@ public final class PerformanceCenterScreen extends ClientScreen implements Clien
             }
             font.drawWithShadow(
                poseStack,
-               abbreviate(row.name(), 37),
+               abbreviate(row.name(), nameLimit),
                tableLeft + 7.0F,
                rowTop + 3.0F,
                Color.WHITE
             );
-            this.drawRightAligned(font, poseStack, Long.toString(row.calls()), tableRight - 214.0F, rowTop + 3.0F, muted);
-            this.drawRightAligned(font, poseStack, milliseconds(row.averageNanos()), tableRight - 151.0F, rowTop + 3.0F, muted);
-            this.drawRightAligned(font, poseStack, milliseconds(row.maximumNanos()), tableRight - 91.0F, rowTop + 3.0F, muted);
-            this.drawRightAligned(font, poseStack, milliseconds(row.totalNanos()), tableRight - 7.0F, rowTop + 3.0F, accent);
+            this.drawRightAligned(font, poseStack, Long.toString(row.calls()), callsRight, rowTop + 3.0F, muted);
+            this.drawRightAligned(font, poseStack, milliseconds(row.averageNanos()), averageRight, rowTop + 3.0F, muted);
+            this.drawRightAligned(font, poseStack, milliseconds(row.maximumNanos()), maximumRight, rowTop + 3.0F, muted);
+            this.drawRightAligned(font, poseStack, milliseconds(row.totalNanos()), totalRight, rowTop + 3.0F, accent);
          }
       }
 
-      String footer = this.selectedTab == 2
-         ? "HUD timings cover direct widget renders. Use frame metrics for total frame duration."
-         : "Callback / module timings are inclusive and overlap; do not add them to frame time.";
+      String footer = this.panelWidth < 590.0F
+         ? (this.selectedTab == 2
+            ? "HUD timings are separate from total frame time."
+            : "Callback / module timings overlap; they are not additive.")
+         : (this.selectedTab == 2
+            ? "HUD timings cover direct widget renders. Use frame metrics for total frame duration."
+            : "Callback / module timings are inclusive and overlap; do not add them to frame time.");
       font.drawWithShadow(
          poseStack,
          footer,
@@ -263,7 +275,7 @@ public final class PerformanceCenterScreen extends ClientScreen implements Clien
          this.panelTop + this.panelHeight - 23.0F,
          muted
       );
-      if (this.rows.size() > VISIBLE_ROWS) {
+      if (this.rows.size() > VISIBLE_ROWS && this.panelWidth >= 590.0F) {
          String page = (this.rowOffset + 1) + "-" + Math.min(this.rows.size(), this.rowOffset + VISIBLE_ROWS)
             + " / " + this.rows.size() + "  ·  scroll to browse";
          this.drawRightAligned(
@@ -297,9 +309,11 @@ public final class PerformanceCenterScreen extends ClientScreen implements Clien
       }
 
       float tabsTop = this.panelTop + 170.0F;
+      float tabGap = 6.0F;
+      float tabWidth = (this.panelWidth - 32.0F - tabGap * 2.0F) / 3.0F;
       for (int tab = 0; tab < TAB_NAMES.length; tab++) {
-         float tabLeft = this.panelLeft + 16.0F + tab * 112.0F;
-         if (this.contains(mouseX, mouseY, tabLeft, tabsTop, 104.0F, 21.0F)) {
+         float tabLeft = this.panelLeft + 16.0F + tab * (tabWidth + tabGap);
+         if (this.contains(mouseX, mouseY, tabLeft, tabsTop, tabWidth, 21.0F)) {
             this.selectedTab = tab;
             this.rowOffset = 0;
             this.refreshData(true);
@@ -357,7 +371,7 @@ public final class PerformanceCenterScreen extends ClientScreen implements Clien
    private void updateLayout() {
       int screenWidth = GuiScaleUtils.getScaledWidth();
       int screenHeight = GuiScaleUtils.getScaledHeight();
-      this.panelWidth = Math.min(740.0F, Math.max(320.0F, screenWidth - 24.0F));
+      this.panelWidth = Math.min(740.0F, Math.max(280.0F, screenWidth - 20.0F));
       this.panelHeight = Math.min(420.0F, Math.max(320.0F, screenHeight - 20.0F));
       this.panelLeft = (screenWidth - this.panelWidth) / 2.0F;
       this.panelTop = (screenHeight - this.panelHeight) / 2.0F;
