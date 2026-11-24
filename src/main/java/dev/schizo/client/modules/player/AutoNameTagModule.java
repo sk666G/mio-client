@@ -91,58 +91,58 @@ public class AutoNameTagModule extends Module {
       try {
          ClientLevel level = ClientAccess.schizoMinecraft.level;
          for (Entity entity : level.entitiesForRendering()) {
-         ItemStack heldStack = ClientAccess.schizoMinecraft.player.getMainHandItem();
-         if (!this.isNamedNameTag(heldStack)) {
-            break;
-         }
+               ItemStack heldStack = ClientAccess.schizoMinecraft.player.getMainHandItem();
+            if (!this.isNamedNameTag(heldStack)) {
+               break;
+            }
 
-         ListFilterMode selectedMode = this.modeSetting.getValue();
+            ListFilterMode selectedMode = this.modeSetting.getValue();
 
-         EntityType selectedEntityType = entity.getType();
-         Setting<Set<EntityType<?>>> entitiesSettingSnapshot = this.entitiesSetting;
+            EntityType selectedEntityType = entity.getType();
+            Setting<Set<EntityType<?>>> entitiesSettingSnapshot = this.entitiesSetting;
 
-         if (!ListFilterMode.matches(selectedMode, selectedEntityType, entitiesSettingSnapshot)
-            || entity instanceof Player) {
-            continue;
-         }
-         String heldNameText = ClientAccess.schizoMinecraft.player.getMainHandItem().getHoverName().getString();
+            if (!ListFilterMode.matches(selectedMode, selectedEntityType, entitiesSettingSnapshot)
+               || entity instanceof Player) {
+               continue;
+            }
+            String heldNameText = ClientAccess.schizoMinecraft.player.getMainHandItem().getHoverName().getString();
 
-         String selectedEntityText;
-         if (entity.hasCustomName()) {
-            selectedEntityText = entity.getCustomName().getString();
-         } else {
-            selectedEntityText = "";
-         }
+            String selectedEntityText;
+            if (entity.hasCustomName()) {
+               selectedEntityText = entity.getCustomName().getString();
+            } else {
+               selectedEntityText = "";
+            }
 
-         if (heldNameText.equalsIgnoreCase(selectedEntityText)) {
-            continue;
-         }
-         Vec3 playerEyePosition = ClientAccess.schizoMinecraft.player.getEyePosition();
+            if (heldNameText.equalsIgnoreCase(selectedEntityText)) {
+               continue;
+            }
+            Vec3 playerEyePosition = ClientAccess.schizoMinecraft.player.getEyePosition();
 
-         Vec3 entityPosition = entity.position();
+            Vec3 entityPosition = entity.position();
 
-         double distance = playerEyePosition.distanceTo(entityPosition);
-         Float range = this.rangeSetting.getValue();
-         if (distance > range.floatValue()) {
-            continue;
-         }
-         InteractionHand interactionHand = InteractionHand.MAIN_HAND;
+            double distance = playerEyePosition.distanceTo(entityPosition);
+            Float range = this.rangeSetting.getValue();
+            if (distance > range.floatValue()) {
+               continue;
+            }
+            InteractionHand interactionHand = InteractionHand.MAIN_HAND;
 
-         BlockInteractionUtils.interactWithEntity(entity, interactionHand);
-         taggedCount++;
-         if (this.rotateSetting.getValue()) {
-            Vec3 targetPosition = entity.position();
+            BlockInteractionUtils.interactWithEntity(entity, interactionHand);
+            taggedCount++;
+            if (this.rotateSetting.getValue()) {
+               Vec3 targetPosition = entity.position();
 
-            float[] rotations = RotationManager.getRotationsToPosition(
-               targetPosition);
+               float[] rotations = RotationManager.getRotationsToPosition(
+                  targetPosition);
 
-            event.setRotation(rotations);
-         }
+               event.setRotation(rotations);
+            }
 
-         Integer frequency = this.frequencySetting.getValue();
-         if (taggedCount >= frequency) {
-            break;
-         }
+            Integer frequency = this.frequencySetting.getValue();
+            if (taggedCount >= frequency) {
+               break;
+            }
 
          }
       } finally {
