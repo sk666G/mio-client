@@ -42,6 +42,12 @@ class ExplosionDamageMathTest {
    }
 
    @Test
+   void matchesTheCapturedNormalDifficultyReferenceFixture() {
+      assertEquals(19.046875F, ExplosionDamageMath.calculate(0.5D, 0.75F, 5.0D,
+         ExplosionDamageMath.Difficulty.NORMAL));
+   }
+
+   @Test
    void preservesTheBoundaryAtNormalizedDistanceOne() {
       assertEquals(1.0F, ExplosionDamageMath.calculate(1.0D, 1.0F, 6.0D,
          ExplosionDamageMath.Difficulty.NORMAL));
