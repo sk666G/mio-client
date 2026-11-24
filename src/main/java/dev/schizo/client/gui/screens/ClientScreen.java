@@ -414,15 +414,15 @@ public class ClientScreen extends Screen implements ClientAccess {
          }
       }
 
-      RenderUtils.setRenderColor(
-         1.0F,
-         1.0F,
-         1.0F,
-         transitionOpacity
-      );
-      float scale = (float)GuiScaleUtils.calculateScaleMultiplier(this.guiScale);
-      GuiScaleUtils.applyGuiScale(this.guiScale);
       try {
+         RenderUtils.setRenderColor(
+            1.0F,
+            1.0F,
+            1.0F,
+            transitionOpacity
+         );
+         float scale = (float)GuiScaleUtils.calculateScaleMultiplier(this.guiScale);
+         GuiScaleUtils.applyGuiScale(this.guiScale);
          poseStack.scale(
          scale,
          scale,
