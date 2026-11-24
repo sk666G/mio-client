@@ -165,10 +165,11 @@ public final class PlayerStateTracker implements ClientAccess {
       EventBus eventBus = ClientAccess.eventBus;
       SneakStateChangeEvent event = new SneakStateChangeEvent(requestedSneaking);
       SneakStateChangeEvent postedEvent = (SneakStateChangeEvent)eventBus.post(event);
-      if (!postedEvent.isCancelled()) {
+      boolean eventCancelled = postedEvent.isCancelled();
+      if (!eventCancelled) {
          boolean legacyTarget = ProtocolCompatibility.getTargetVersion().olderEq_1_21_5();
          ProtocolCompatibility.setSneaking(requestedSneaking);
-         if (shouldUpdateTrackedSneakingImmediately(legacyTarget, false)) {
+         if (shouldUpdateTrackedSneakingImmediately(legacyTarget, eventCancelled)) {
             this.sneaking = requestedSneaking;
          }
       }
