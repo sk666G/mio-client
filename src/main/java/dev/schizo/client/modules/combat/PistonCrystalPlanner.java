@@ -28,6 +28,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.AirBlock;
 import net.minecraft.world.level.block.Block;
@@ -61,6 +62,10 @@ final class PistonCrystalPlanner {
 
    static boolean isCloserCandidate(double candidateDistance, double selectedDistance) {
       return candidateDistance < selectedDistance;
+   }
+
+   static boolean hasPowerSource(Item item) {
+      return item != null && item != Items.AIR;
    }
 
    private PistonCrystalPlan findPlan(Player target, int height) {
