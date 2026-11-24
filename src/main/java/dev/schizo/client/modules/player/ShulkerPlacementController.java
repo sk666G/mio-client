@@ -50,18 +50,25 @@ public class ShulkerPlacementController extends ChestStealerController {
             }
          }
 
+         BlockHitResult placementHit = event.getHitResult();
+         BlockPos clickedBlockPosition = placementHit.getBlockPos();
+         Direction placementDirection = placementHit.getDirection();
+         InteractionHand openHand = event.getHand();
+         ClientLevel originLevel = level;
          TaskScheduler scheduler = ClientContext.taskScheduler;
          Runnable openPlacedShulker = () -> {
-            BlockHitResult placedHit = event.getHitResult();
-            BlockPos clickedBlockPosition = placedHit.getBlockPos();
-            Direction placementDirection = placedHit.getDirection();
+            if (!this.module.isToggled()
+               || ClientAccess.schizoMinecraft.level != originLevel
+               || ClientAccess.schizoMinecraft.player == null) {
+               return;
+            }
+
             BlockPos shulkerPosition = clickedBlockPosition.relative(placementDirection);
             Direction fallbackDirection = Direction.UP;
             Direction openDirection = (Direction)BlockInteractionUtils.getStrictDirectionsOrFallback(shulkerPosition, fallbackDirection).getFirst();
 
             Vec3 hitPosition = shulkerPosition.getCenter().relative(openDirection, 0.5D);
             BlockHitResult openHit = new BlockHitResult(hitPosition, openDirection, shulkerPosition, false);
-            InteractionHand openHand = event.getHand();
             PacketSender.sendUseItemOn(openHand, openHit);
             RotationManager rotationManager = ClientContext.rotationManager;
 
