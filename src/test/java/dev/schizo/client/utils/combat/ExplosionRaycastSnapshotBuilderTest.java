@@ -81,6 +81,19 @@ class ExplosionRaycastSnapshotBuilderTest {
    }
 
    @Test
+   void acceptsOnlyTheActiveWorldCaptureTick() {
+      ExplosionRaycastSnapshotBuilder.validateCaptureTick(42L, 42L);
+   }
+
+   @Test
+   void rejectsStaleOrFutureCaptureTicks() {
+      assertThrows(IllegalArgumentException.class, () ->
+         ExplosionRaycastSnapshotBuilder.validateCaptureTick(41L, 42L));
+      assertThrows(IllegalArgumentException.class, () ->
+         ExplosionRaycastSnapshotBuilder.validateCaptureTick(43L, 42L));
+   }
+
+   @Test
    void acceptsCaptureLimitsAtOrBelowTheDefaults() {
       ExplosionRaycastSnapshotBuilder.validateCaptureLimits(1, 1L);
       ExplosionRaycastSnapshotBuilder.validateCaptureLimits(
