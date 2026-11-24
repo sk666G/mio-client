@@ -187,7 +187,7 @@ public final class PerformanceCenterScreen extends ClientScreen {
          muted
       );
 
-      float tabsTop = this.panelTop + 232.0F;
+      float tabsTop = this.panelTop + 224.0F;
       float tabGap = 6.0F;
       float tabWidth = (this.panelWidth - 32.0F - tabGap * 2.0F) / 3.0F;
       for (int tab = 0; tab < TAB_NAMES.length; tab++) {
@@ -218,7 +218,7 @@ public final class PerformanceCenterScreen extends ClientScreen {
          );
       }
 
-      float tableTop = this.panelTop + 262.0F;
+      float tableTop = this.panelTop + 254.0F;
       float tableLeft = this.panelLeft + 16.0F;
       float tableRight = this.panelLeft + this.panelWidth - 16.0F;
       GuiDrawUtils.fillRect(
@@ -322,7 +322,7 @@ public final class PerformanceCenterScreen extends ClientScreen {
          return;
       }
 
-      float tabsTop = this.panelTop + 232.0F;
+      float tabsTop = this.panelTop + 224.0F;
       float tabGap = 6.0F;
       float tabWidth = (this.panelWidth - 32.0F - tabGap * 2.0F) / 3.0F;
       for (int tab = 0; tab < TAB_NAMES.length; tab++) {
@@ -404,7 +404,7 @@ public final class PerformanceCenterScreen extends ClientScreen {
       float left = this.panelLeft + 16.0F;
       float top = this.panelTop + 168.0F;
       float width = this.panelWidth - 32.0F;
-      float height = 54.0F;
+      float height = 48.0F;
       GuiDrawUtils.fillRect(
          poseStack,
          left,
@@ -487,10 +487,10 @@ public final class PerformanceCenterScreen extends ClientScreen {
    }
 
    private int visibleRowCount() {
-      float tableTop = this.panelTop + 262.0F;
+      float tableTop = this.panelTop + 254.0F;
       float footerTop = this.panelTop + this.panelHeight - 23.0F;
-      float availableHeight = footerTop - 8.0F - (tableTop + 20.0F);
-      return Math.max(1, Math.min(VISIBLE_ROWS, (int)(availableHeight / 20.0F)));
+      int availableRows = (int)Math.floor((footerTop - tableTop - 23.0F) / 20.0F);
+      return Math.max(1, Math.min(VISIBLE_ROWS, availableRows));
    }
 
    private void drawMetricCard(
