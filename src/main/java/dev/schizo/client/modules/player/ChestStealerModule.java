@@ -113,6 +113,7 @@ public class ChestStealerModule extends Module {
    private final ElapsedTimer screenOpenTimer;
    private final ElapsedTimer idleCloseTimer;
    private BlockPos lastInteractedBlock;
+   private ClientLevel observedSessionLevel;
    private ChestStealerModeChoice requestedMode;
    private boolean trackingQuickMove;
    private boolean hasTransferred;
@@ -280,6 +281,12 @@ public class ChestStealerModule extends Module {
 
    @EventHandler(priority = 200)
    private void onPlayerTick(LocalPlayerPreTickEvent event) {
+      ClientLevel currentLevel = ClientAccess.schizoMinecraft.level;
+      if (currentLevel != this.observedSessionLevel) {
+         this.observedSessionLevel = currentLevel;
+         this.resetSessionState();
+      }
+
       if (this.fullSetting.getValue()) {
          this.cleanupController.tick();
       }
@@ -729,11 +736,13 @@ public class ChestStealerModule extends Module {
 
    @EventHandler
    private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.observedSessionLevel = null;
       this.resetSessionState();
    }
 
    @Override
    public void onDisable() {
+      this.observedSessionLevel = null;
       this.resetSessionState();
    }
 
