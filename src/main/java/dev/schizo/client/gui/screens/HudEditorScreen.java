@@ -370,7 +370,7 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
    public boolean mouseReleased(MouseButtonEvent event) {
       this.marginController.mouseReleased(event.button());
       boolean released = super.mouseReleased(event);
-      if (this.draggingWidget) {
+      if (this.draggingWidget && event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
          this.draggingWidget = false;
          HudAnchorGroup freeGroup = this.getAnchorGroup(HudAnchor.NONE);
          if (freeGroup.getWidgets().isEmpty()) {
