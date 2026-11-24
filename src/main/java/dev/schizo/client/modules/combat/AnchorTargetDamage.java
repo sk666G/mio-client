@@ -34,6 +34,9 @@ public record AnchorTargetDamage(
       Iterator players = playerList.iterator();
 
       while (players.hasNext()) {
+         if (Thread.currentThread().isInterrupted()) {
+            return null;
+         }
          Player candidate = (Player)players.next();
 
          double validationRange = (module.targetRangeSetting.getValue()).floatValue();
