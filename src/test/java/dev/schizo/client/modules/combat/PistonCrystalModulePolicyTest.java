@@ -10,8 +10,8 @@ class PistonCrystalModulePolicyTest {
    @Test
    void requiresARealPowerItemBeforeStartingTheBuildCycle() {
       assertTrue(PistonCrystalPlanner.hasPowerSource(Items.REDSTONE_BLOCK));
-      assertTrue(PistonCrystalModule.hasPowerSource(Items.REDSTONE_TORCH));
-      assertFalse(PistonCrystalModule.hasPowerSource(Items.AIR));
-      assertFalse(PistonCrystalModule.hasPowerSource(null));
+      assertTrue(PistonCrystalPlanner.hasPowerSource(Items.REDSTONE_TORCH));
+      assertFalse(PistonCrystalPlanner.hasPowerSource(Items.AIR));
+      assertFalse(PistonCrystalPlanner.hasPowerSource(null));
    }
 }
