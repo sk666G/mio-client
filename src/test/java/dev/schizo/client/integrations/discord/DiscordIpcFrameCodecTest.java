@@ -101,4 +101,23 @@ class DiscordIpcFrameCodecTest {
          .putInt(payloadLength)
          .array();
    }
+
+   @Test
+   void validatesIncomingPayloadLengthAtBothBoundaries() throws IOException {
+      assertEquals(0, DiscordIpcFrameCodec.validatePayloadLength(0));
+      assertEquals(
+         DiscordIpcFrameCodec.MAX_PAYLOAD_BYTES,
+         DiscordIpcFrameCodec.validatePayloadLength(DiscordIpcFrameCodec.MAX_PAYLOAD_BYTES)
+      );
+   }
+
+   @Test
+   void rejectsNegativeAndOversizedIncomingPayloadLengths() {
+      assertThrows(IOException.class, () -> DiscordIpcFrameCodec.validatePayloadLength(-1));
+      assertThrows(
+         IOException.class,
+         () -> DiscordIpcFrameCodec.validatePayloadLength(DiscordIpcFrameCodec.MAX_PAYLOAD_BYTES + 1)
+      );
+   }
+
 }
