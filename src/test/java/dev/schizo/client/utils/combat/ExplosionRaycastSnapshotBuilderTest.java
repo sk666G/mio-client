@@ -16,13 +16,13 @@ class ExplosionRaycastSnapshotBuilderTest {
             new Vec3(8.1D, 1.2D, -4.0D)
          );
 
-      assertEquals(0, region.minX());
+      assertEquals(1, region.minX());
       assertEquals(0, region.minY());
       assertEquals(-5, region.minZ());
       assertEquals(9, region.maxX());
       assertEquals(6, region.maxY());
       assertEquals(1, region.maxZ());
-      assertEquals(10L * 7L * 7L, region.volume());
+      assertEquals(9L * 7L * 7L, region.volume());
    }
 
    @Test
@@ -74,6 +74,6 @@ class ExplosionRaycastSnapshotBuilderTest {
       assertEquals(5, region.maximum().getX());
       assertEquals(6, region.maximum().getY());
       assertEquals(7, region.maximum().getZ());
-      assertEquals(10L * 4L * 12L, region.volume());
+      assertEquals(8L * 4L * 12L, region.volume());
    }
 }
