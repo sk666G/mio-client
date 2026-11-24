@@ -32,6 +32,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.UUID;
+import java.util.concurrent.CancellationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -61,6 +62,12 @@ public abstract class Pipe {
       Pipe[] candidates = new Pipe[DiscordBuild.values().length];
 
       for (int index = 0; index < 10; index++) {
+         try {
+            client.checkConnectActive();
+         } catch (CancellationException cancelled) {
+            abortCandidates(candidates, client);
+            throw cancelled;
+         }
          String location = getPipeLocation(index);
          if (client.isDebugMode()) {
             client.getCurrentLogger(LOGGER).info(String.format("[DEBUG] Searching for IPC Pipe: \"%s\"", location));
@@ -74,11 +81,13 @@ public abstract class Pipe {
                }
 
                pipe = createPipe(client, callbacks, file);
+               client.trackConnectingPipe(pipe);
                JsonObject handshake = new JsonObject();
                handshake.addProperty("v", 1);
                handshake.addProperty("client_id", Long.toString(clientId));
                pipe.send(Packet.OpCode.HANDSHAKE, handshake);
                Packet response = pipe.read();
+               client.checkConnectActive();
                JsonObject json = response.getJson();
                JsonObject data = json.getAsJsonObject("data");
                JsonObject userData = data.getAsJsonObject("user");
@@ -114,11 +123,19 @@ public abstract class Pipe {
                   closeIfUnreferenced(candidates, previousAny, client);
                }
                pipe.build = null;
+               client.clearConnectingPipe(pipe);
                pipe = null;
             } else if (client.isDebugMode()) {
                client.getCurrentLogger(LOGGER).info(String.format("[DEBUG] Unable to locate IPC Pipe: \"%s\"", location));
             }
          } catch (IOException | RuntimeException handshakeFailure) {
+            try {
+               client.checkConnectActive();
+            } catch (CancellationException cancelled) {
+               abortPipe(pipe, client);
+               abortCandidates(candidates, client);
+               throw cancelled;
+            }
             if (pipe == null) {
                if (handshakeFailure instanceof IOException ioFailure) {
                   throw new RuntimeException("Failed to connect to a Discord IPC endpoint", ioFailure);
@@ -171,8 +188,35 @@ public abstract class Pipe {
       }
 
       closeCandidates(candidates, pipe, client);
-      pipe.status = PipeStatus.CONNECTED;
+      try {
+         client.trackConnectingPipe(pipe);
+         client.completeConnection(pipe);
+      } catch (CancellationException cancelled) {
+         abortPipe(pipe, client);
+         throw cancelled;
+      }
       return pipe;
+   }
+
+   private static void abortPipe(Pipe pipe, IPCClient client) {
+      if (pipe == null) return;
+      try {
+         pipe.abort();
+      } catch (IOException | RuntimeException abortFailure) {
+         if (client.isDebugMode()) {
+            client.getCurrentLogger(LOGGER).warn("Failed to abort an IPC pipe after cancellation", abortFailure);
+         }
+      }
+   }
+
+   private static void abortCandidates(Pipe[] candidates, IPCClient client) {
+      IdentityHashMap<Pipe, Boolean> aborted = new IdentityHashMap<>();
+      for (int index = 0; index < candidates.length; index++) {
+         Pipe candidate = candidates[index];
+         candidates[index] = null;
+         if (candidate == null || aborted.put(candidate, Boolean.TRUE) != null) continue;
+         abortPipe(candidate, client);
+      }
    }
 
    private static void closeCandidates(Pipe[] candidates, Pipe keep, IPCClient client) {
@@ -321,6 +365,9 @@ public abstract class Pipe {
    }
 
    public abstract void close() throws IOException;
+
+   /** Closes the transport immediately without sending an IPC protocol frame. */
+   public abstract void abort() throws IOException;
 
    public DiscordBuild getDiscordBuild() {
       return this.build;
