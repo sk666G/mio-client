@@ -411,6 +411,9 @@ public class AutoCraftModule extends Module {
          }
       }
 
+      if (!ClientAccess.schizoMinecraft.player.containerMenu.getCarried().isEmpty()) {
+         return;
+      }
       if (recipe == null) {
          return;
       }
