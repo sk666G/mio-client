@@ -65,13 +65,16 @@ class PresetRegistryTest {
    }
 
    @Test
-   void isolatedPresetContentsPreventApplyingFiltersFromMutatingStoredData() {
+   void presetContentsAreDefensivelyCopiedOnConstructionAndAccess() {
       JsonObject nested = new JsonObject();
       nested.addProperty("setting", "original");
       JsonObject contents = new JsonObject();
       contents.add("nested", nested);
       PresetData stored = new PresetData("isolated", contents);
 
+      nested.addProperty("setting", "changed-after-construction");
+      JsonObject exposed = stored.contents();
+      exposed.getAsJsonObject("nested").addProperty("setting", "changed-after-read");
       JsonObject applied = stored.copyContents();
       applied.getAsJsonObject("nested").addProperty("setting", "filtered");
 
