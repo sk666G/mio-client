@@ -4,6 +4,12 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
@@ -157,6 +163,55 @@ class BoundedCountdownTaskQueueTest {
       assertEquals(0, queue.runPass(failure -> fail(failure)));
       assertEquals(2, queue.runPass(failure -> fail(failure)));
       assertEquals(List.of(1, 2), executed);
+   }
+
+   @Test
+   void concurrentProducersCannotExceedReservationCapacityOrLoseAcceptedTasks() throws Exception {
+      int producerCount = 8;
+      int tasksPerProducer = 1_000;
+      int capacity = 1_024;
+      BoundedCountdownTaskQueue queue = new BoundedCountdownTaskQueue(capacity, 64);
+      CountDownLatch start = new CountDownLatch(1);
+      AtomicInteger nextId = new AtomicInteger();
+      Set<Integer> accepted = ConcurrentHashMap.newKeySet();
+      Set<Integer> executed = ConcurrentHashMap.newKeySet();
+      ExecutorService producers = Executors.newFixedThreadPool(producerCount);
+      List<Future<?>> submissions = new ArrayList<>();
+
+      try {
+         for (int producer = 0; producer < producerCount; producer++) {
+            submissions.add(producers.submit(() -> {
+               start.await();
+               for (int index = 0; index < tasksPerProducer; index++) {
+                  int id = nextId.getAndIncrement();
+                  BoundedCountdownTaskQueue.Reservation reservation =
+                     queue.reserve(() -> executed.add(id), 0);
+                  if (reservation != null && queue.enqueue(reservation)) {
+                     accepted.add(id);
+                  }
+               }
+               return null;
+            }));
+         }
+
+         start.countDown();
+         for (Future<?> submission : submissions) {
+            submission.get();
+         }
+
+         assertEquals(capacity, accepted.size());
+         assertEquals(capacity, queue.outstandingCount());
+         assertEquals(capacity, queue.queuedCount());
+
+         while (queue.outstandingCount() > 0) {
+            queue.runPass(failure -> fail(failure));
+         }
+
+         assertEquals(accepted, executed);
+         assertEquals(0, queue.outstandingCount());
+      } finally {
+         producers.shutdownNow();
+      }
    }
 
    @Test
