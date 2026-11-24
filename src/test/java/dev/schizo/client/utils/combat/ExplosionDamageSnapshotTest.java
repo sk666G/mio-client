@@ -23,10 +23,7 @@ class ExplosionDamageSnapshotTest {
          100L,
          12L,
          "minecraft:overworld",
-         Map.of(
-            new BlockPos(-1, -1, -1).asLong(), air(),
-            BlockPos.ZERO.asLong(), air()
-         )
+         airBlocks()
       );
 
       ExplosionDamageSnapshot.DamageResult result = damage.calculate(rays);
