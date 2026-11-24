@@ -2017,17 +2017,26 @@ public class AutoCrystalModule extends Module {
                if (this.calculationFuture.isDone()) {
                   try {
                      CrystalPlacementResult calculatedPlacement = this.calculationFuture.get();
-                     if (this.calculationWorld != activeLevel) {
+                     LivingEntity calculatedTarget = calculatedPlacement == null
+                        ? null
+                        : calculatedPlacement.target();
+                     if (this.calculationWorld != activeLevel
+                        || calculatedPlacement != null
+                           && (calculatedTarget == null
+                              || calculatedTarget.level() != activeLevel
+                              || calculatedTarget.isRemoved()
+                              || this.isInvalidTarget(calculatedTarget))) {
                         this.placementData.set(null);
                         this.selectedDamage = 0.0F;
                         this.target = null;
                      } else if (calculatedPlacement == null) {
                         this.placementData.set(null);
                         this.selectedDamage = 0.0F;
+                        this.target = null;
                      } else {
                         this.placementData.set(calculatedPlacement);
                         this.selectedDamage = (float)calculatedPlacement.damage();
-                        this.target = calculatedPlacement.target();
+                        this.target = calculatedTarget;
                      }
                   } catch (InterruptedException | ExecutionException failure) {
                      failure.printStackTrace();
