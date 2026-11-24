@@ -108,6 +108,11 @@ public class ShulkerRefillController extends ChestStealerController {
       return 54;
    }
 
+   void resetSession() {
+      this.savedSelectedSlot = -1;
+      this.pendingClose = false;
+   }
+
    private void restoreSelectedSlot() {
       if (this.savedSelectedSlot != -1) {
          int selectedSlot = this.savedSelectedSlot;
