@@ -37,6 +37,11 @@ public record PresetData(String name, JsonObject contents) implements NamedEntry
       return this.name;
    }
 
+   /** Returns an isolated JSON snapshot for filters and loaders that mutate their input. */
+   public JsonObject copyContents() {
+      return this.contents.deepCopy();
+   }
+
    public void saveToDirectory(Path directory) throws IOException {
       Path root = directory.toAbsolutePath().normalize();
       Path parent = root.getParent();
