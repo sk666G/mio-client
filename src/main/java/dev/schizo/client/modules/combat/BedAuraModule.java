@@ -14,6 +14,7 @@ import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.RotationRequestEvent;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.utils.entity.PlayerStateTracker;
+import dev.schizo.client.utils.network.ServerSideDeathState;
 import dev.schizo.client.managers.RotationManager;
 import dev.schizo.client.utils.ElapsedTimer;
 import dev.schizo.client.utils.network.PacketSender;
@@ -197,6 +198,12 @@ public final class BedAuraModule extends Module {
       return false;
    }
 
+   static boolean isEligibleTarget(
+      boolean localPlayer, boolean alive, boolean spectator, boolean creative, boolean friend, boolean serverSideDead
+   ) {
+      return !localPlayer && alive && !spectator && !creative && !friend && !serverSideDead;
+   }
+
    private Player selectTarget() {
       Player closestTarget = null;
       float closestDistance = 99999.0F;
@@ -205,16 +212,21 @@ public final class BedAuraModule extends Module {
 
       while (players.hasNext()) {
          Player candidate = players.next();
-         if (candidate != ClientAccess.schizoMinecraft.player) {
-            if (!ClientContext.socialRegistry.isFriendPlayer(candidate)) {
-               double distanceLimit = closestDistance;
-               Vec3 comparisonEyeSnapshot = ClientAccess.schizoMinecraft.player.getEyePosition();
-               Vec3 comparisonPosition = candidate.position();
-               if (distanceLimit > comparisonEyeSnapshot.distanceTo(comparisonPosition)) {
-                  closestTarget = candidate;
-
-                  closestDistance = (float)ClientAccess.schizoMinecraft.player.getEyePosition().distanceTo(candidate.position());
-               }
+         boolean eligible = isEligibleTarget(
+            candidate == ClientAccess.schizoMinecraft.player,
+            candidate.isAlive(),
+            candidate.isSpectator(),
+            candidate.isCreative(),
+            ClientContext.socialRegistry.isFriendPlayer(candidate),
+            ((ServerSideDeathState)candidate).isServerSideDead()
+         );
+         if (eligible) {
+            double distanceLimit = closestDistance;
+            Vec3 comparisonEyeSnapshot = ClientAccess.schizoMinecraft.player.getEyePosition();
+            Vec3 comparisonPosition = candidate.position();
+            if (distanceLimit > comparisonEyeSnapshot.distanceTo(comparisonPosition)) {
+               closestTarget = candidate;
+               closestDistance = (float)comparisonEyeSnapshot.distanceTo(comparisonPosition);
             }
          }
       }
