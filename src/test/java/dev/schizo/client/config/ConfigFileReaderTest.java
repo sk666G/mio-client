@@ -27,6 +27,18 @@ class ConfigFileReaderTest {
    }
 
    @Test
+   void rejectsMalformedUtf8InsideAnOtherwiseValidString() throws IOException {
+      Path file = Files.write(temporary.resolve("invalid.json"), new byte[]{'"', (byte)0xc3, '"'});
+      assertThrows(IOException.class, () -> ConfigFileReader.readUtf8(file, 3));
+   }
+
+   @Test
+   void acceptsAnEncodedReplacementCharacter() throws IOException {
+      Path file = Files.writeString(temporary.resolve("valid.json"), "\uFFFD");
+      assertEquals("\uFFFD", ConfigFileReader.readUtf8(file, 3));
+   }
+
+   @Test
    void rejectsAFileLargerThanTheLimit() throws IOException {
       Path file = Files.writeString(temporary.resolve("large.json"), "12345");
       assertThrows(IOException.class, () -> ConfigFileReader.readUtf8(file, 4));

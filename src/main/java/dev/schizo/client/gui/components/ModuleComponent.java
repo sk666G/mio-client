@@ -506,31 +506,37 @@ public class ModuleComponent extends AbstractComponent implements CloseState {
       }
 
       poseStack.pushPose();
-      if (this.animatedHeight > baseHeight
-         || this.requestedOpen) {
-         GuiDrawUtils.flush();
-         ScissorStack.pushIntersection(
-            this.panel
-               .getX(),
-            this.panel
-                  .getY()
-               + this.yOffset
-               + baseHeight,
-            this.panel
-                  .getWidth()
-               - 1,
-            (int)this.animatedHeight - baseHeight
-         );
-
-         for (GuiElement child : this.children) {
-            child.render(poseStack, mouseX, mouseY);
+      try {
+         if (this.animatedHeight > baseHeight
+            || this.requestedOpen) {
+            GuiDrawUtils.flush();
+            ScissorStack.pushIntersection(
+               this.panel
+                  .getX(),
+               this.panel
+                     .getY()
+                  + this.yOffset
+                  + baseHeight,
+               this.panel
+                     .getWidth()
+                  - 1,
+               (int)this.animatedHeight - baseHeight
+            );
+            try {
+               for (GuiElement child : this.children) {
+                  child.render(poseStack, mouseX, mouseY);
+               }
+            } finally {
+               try {
+                  GuiDrawUtils.flush();
+               } finally {
+                  ScissorStack.pop();
+               }
+            }
          }
-
-         GuiDrawUtils.flush();
-         ScissorStack.pop();
+      } finally {
+         poseStack.popPose();
       }
-
-      poseStack.popPose();
       if (this.isFavoriteHandleHovered(mouseX, mouseY)) {
          boolean favorite = preferences != null && preferences.isFavorite(this.module);
          ClientContext.getClickGui().setTooltipText(
