@@ -91,6 +91,82 @@ class ExplosionDamageSnapshotTest {
    }
 
    @Test
+   void rejectsAReusedEntityIdWithDifferentUuid() {
+      ExplosionDamageSnapshot damage = snapshot(false, 0.5D);
+      ExplosionRaycastSnapshot rays = new ExplosionRaycastSnapshot(
+         100L,
+         12L,
+         "minecraft:overworld",
+         42,
+         UUID.fromString("b8caa20e-1d88-4d42-a608-b7b63df26149"),
+         airBlocks()
+      );
+
+      assertFalse(damage.calculate(rays).complete());
+   }
+
+   @Test
+   void appliesCapturedArmorResistanceAndProtectionInOrder() {
+      ExplosionDamageSnapshot damage = new ExplosionDamageSnapshot(
+         42, TARGET_UUID, 100L, 12L, "minecraft:overworld",
+         0.0D, 0.0D, 0.0D, 0.0D, 0.0D, 0.0D,
+         0.5D, 0.5D, 0.5D, 0.0D, 6.0D,
+         ExplosionDamageMath.Difficulty.NORMAL,
+         false, 20.0F, 8.0F, true, 0.0F, false, 5,
+         false, 0.0D, List.of(), ExplosionRaycastSnapshot.Query.normal()
+      );
+
+      ExplosionDamageSnapshot.DamageResult result = damage.calculate(
+         raySnapshot(42, 100L, 12L, "minecraft:overworld", airBlocks())
+      );
+
+      assertTrue(result.complete());
+      assertEquals(45.696F, result.damage(), 0.0001F);
+   }
+
+   @Test
+   void appliesCapturedBlockingRulesAfterOtherDamageReduction() {
+      ExplosionDamageSnapshot damage = new ExplosionDamageSnapshot(
+         42, TARGET_UUID, 100L, 12L, "minecraft:overworld",
+         0.0D, 0.0D, 0.0D, 0.0D, 0.0D, 0.0D,
+         0.5D, 0.5D, 0.5D, 0.0D, 6.0D,
+         ExplosionDamageMath.Difficulty.NORMAL,
+         false, 0.0F, 0.0F, false, 1.0F, false, 0,
+         true, 0.0D,
+         List.of(new ExplosionBlockingDamageMath.Reduction(90.0F, true, 1.0F, 0.5F)),
+         ExplosionRaycastSnapshot.Query.normal()
+      );
+
+      ExplosionDamageSnapshot.DamageResult result = damage.calculate(
+         raySnapshot(42, 100L, 12L, "minecraft:overworld", airBlocks())
+      );
+
+      assertTrue(result.complete());
+      assertEquals(43.5F, result.damage(), 0.0001F);
+   }
+
+   @Test
+   void mismatchedCapturedBlockingDamageTypeCanReduceDamageToZero() {
+      ExplosionDamageSnapshot damage = new ExplosionDamageSnapshot(
+         42, TARGET_UUID, 100L, 12L, "minecraft:overworld",
+         0.0D, 0.0D, 0.0D, 0.0D, 0.0D, 0.0D,
+         0.5D, 0.5D, 0.5D, 0.0D, 6.0D,
+         ExplosionDamageMath.Difficulty.NORMAL,
+         false, 0.0F, 0.0F, false, 1.0F, false, 0,
+         true, 0.0D,
+         List.of(new ExplosionBlockingDamageMath.Reduction(180.0F, false, 0.0F, 1.0F)),
+         ExplosionRaycastSnapshot.Query.normal()
+      );
+
+      ExplosionDamageSnapshot.DamageResult result = damage.calculate(
+         raySnapshot(42, 100L, 12L, "minecraft:overworld", airBlocks())
+      );
+
+      assertTrue(result.complete());
+      assertEquals(0.0F, result.damage());
+   }
+
+   @Test
    void returnsZeroForImmuneAndOutOfRangeTargetsWithoutRayCoverage() {
       ExplosionDamageSnapshot immune = snapshot(true, 0.5D);
       ExplosionDamageSnapshot outOfRange = snapshot(false, 2.0D);
