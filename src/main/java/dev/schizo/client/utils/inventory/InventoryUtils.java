@@ -14,6 +14,7 @@ import dev.schizo.client.ClientContext;
 import dev.schizo.client.modules.player.ItemSaverModule;
 
 import dev.schizo.mixin.MultiPlayerGameModeAccessor;
+import java.util.Objects;
 import java.util.function.Predicate;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.multiplayer.MultiPlayerGameMode;
@@ -78,25 +79,34 @@ public final class InventoryUtils implements ClientAccess {
 
       LocalPlayer player = ClientAccess.schizoMinecraft.player;
       AbstractContainerMenu menu = player.containerMenu;
-      if (!menu.getCarried().isEmpty()) {
+      runWithCursorCleanup(menu, firstSlot, () -> {
+         clickSlot(menu.containerId, firstSlot, 0, ClickType.PICKUP);
+         clickSlot(menu.containerId, secondSlot, 0, ClickType.PICKUP);
+      });
+   }
+
+   public static void runWithCursorCleanup(
+      AbstractContainerMenu menu, int restoreSlot, Runnable action
+   ) {
+      Objects.requireNonNull(menu, "menu");
+      Objects.requireNonNull(action, "action");
+
+      LocalPlayer player = ClientAccess.schizoMinecraft.player;
+      if (player == null || player.containerMenu != menu
+         || restoreSlot < 0 || restoreSlot >= menu.slots.size()
+         || !menu.getCarried().isEmpty()) {
          return;
       }
       int containerId = menu.containerId;
 
-      InventorySwapGuard.runWithCleanup(
-         () -> {
-            clickSlot(containerId, firstSlot, 0, ClickType.PICKUP);
-            clickSlot(containerId, secondSlot, 0, ClickType.PICKUP);
-         },
-         () -> {
-            if (ClientAccess.schizoMinecraft.player == player
-               && player.containerMenu == menu
-               && menu.containerId == containerId
-               && !menu.getCarried().isEmpty()) {
-               clickSlot(containerId, firstSlot, 0, ClickType.PICKUP);
-            }
+      InventorySwapGuard.runWithCleanup(action, () -> {
+         if (ClientAccess.schizoMinecraft.player == player
+            && player.containerMenu == menu
+            && menu.containerId == containerId
+            && !menu.getCarried().isEmpty()) {
+            clickSlot(containerId, restoreSlot, 0, ClickType.PICKUP);
          }
-      );
+      });
    }
 
    public static void clickSlot(int slot, int button, ClickType clickType) {
