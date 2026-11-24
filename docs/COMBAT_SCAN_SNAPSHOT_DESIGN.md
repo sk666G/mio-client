@@ -128,3 +128,10 @@ The current implementation was traced from both scheduling sites through their d
 6. Before applying any result, the client thread must resolve target identity and rerun action-critical checks. The worker result is advisory, not permission to act.
 
 This audit changes no gameplay behavior. It records why the existing worker code is still unsafe and the concrete class boundary that the implementation must replace.
+## First pure-calculation extraction
+
+`ExplosionDamageMath` now owns the primitive-only explosion impact and difficulty calculation used by `DamageUtils`. Its inputs are normalized distance, captured exposure, explosion power, and an explicit difficulty enum; it does not read Minecraft state, modules, entities, or world objects. The existing `DamageUtils` path captures difficulty and exposure, delegates the mathematical portion, then continues through the existing armor/effect/enchantment and blocking reductions.
+
+Focused unit coverage checks the explosion boundary, full exposure at the center, zero exposure, and all difficulty branches. This is deliberately only the first extraction: exposure raycasting and post-impact damage reduction still depend on live Minecraft objects and must be converted separately before either combat scanner can safely use the complete damage path off-thread.
+
+Parity requirement: preserve the exact floating-point operation order and current difficulty behavior when further stages are extracted. Do not replace the current raycast or armor pipeline with approximate formulas without fixtures against the existing implementation.
