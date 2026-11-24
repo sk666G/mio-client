@@ -12,6 +12,7 @@ package dev.schizo.client.modules.combat;
 import dev.schizo.client.utils.math.MathConstants;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
+import dev.schizo.client.utils.network.ServerSideDeathState;
 import dev.schizo.client.events.CancellableEvent;
 import dev.schizo.client.events.RotationRequestEvent;
 import dev.schizo.client.events.EventHandler;
