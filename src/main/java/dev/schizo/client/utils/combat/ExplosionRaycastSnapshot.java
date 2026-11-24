@@ -21,7 +21,8 @@ import net.minecraft.world.phys.Vec3;
 
 /**
  * Immutable block-geometry snapshot for worker-side explosion exposure and
- * visibility rays. The snapshot contains no BlockState, Level, Entity,
+ * hit/miss-only ray queries. It does not return a hit face or hit position.
+ * The snapshot contains no BlockState, Level, Entity,
  * CollisionContext, or mutable world manager references.
  *
  * <p>All coordinates in BlockGeometry.collisionBoxes are block-local, just
