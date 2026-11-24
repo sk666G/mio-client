@@ -180,10 +180,12 @@ public final class BedAuraModule extends Module {
 
       int originalSlot = ClientAccess.schizoMinecraft.player.getInventory().getSelectedSlot();
       if (bedSlot != -1) {
-         InventoryUtils.selectHotbarSlot(bedSlot);
-         this.placeBed(placement);
-
-         InventoryUtils.selectHotbarSlot(originalSlot);
+         try {
+            InventoryUtils.selectHotbarSlot(bedSlot);
+            this.placeBed(placement);
+         } finally {
+            InventoryUtils.selectHotbarSlot(originalSlot);
+         }
       }
    }
 
