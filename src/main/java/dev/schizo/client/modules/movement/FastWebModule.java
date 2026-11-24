@@ -61,6 +61,7 @@ public class FastWebModule extends Module {
       Predicate<Object> showUpwards = ignored -> this.modeSetting.getValue() == FastWebModule.ModeChoice.PLAIN;
       this.upwardsSetting = this.add(new BooleanSetting("Upwards", false, showUpwards).dependsOn(this.verticalSetting));
       this.usingStrictTimer = false;
+      this.modeSetting.setChangeCallback(this::reset);
       this.setDrawn(false);
    }
 
@@ -69,8 +70,17 @@ public class FastWebModule extends Module {
       this.usingStrictTimer = false;
    }
 
+   @Override
+   public void onDisable() {
+      this.reset();
+   }
+
    public boolean isUsingStrictTimer() {
-      return this.usingStrictTimer;
+      return shouldReportStrictTimer(this.isToggled(), this.usingStrictTimer);
+   }
+
+   static boolean shouldReportStrictTimer(boolean toggled, boolean usingStrictTimer) {
+      return toggled && usingStrictTimer;
    }
 
    private boolean isStrictMode() {
