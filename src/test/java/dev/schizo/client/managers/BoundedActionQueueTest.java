@@ -124,6 +124,63 @@ class BoundedActionQueueTest {
    }
 
    @Test
+   void concurrentProducersAndDrainerDoNotLoseAcceptedActions() throws Exception {
+      int producerCount = 6;
+      int actionsPerProducer = 3_000;
+      BoundedActionQueue queue = new BoundedActionQueue(128);
+      java.util.concurrent.CountDownLatch start = new java.util.concurrent.CountDownLatch(1);
+      java.util.concurrent.atomic.AtomicInteger remainingProducers =
+         new java.util.concurrent.atomic.AtomicInteger(producerCount);
+      java.util.concurrent.atomic.AtomicInteger nextId = new java.util.concurrent.atomic.AtomicInteger();
+      java.util.Set<Integer> accepted = java.util.concurrent.ConcurrentHashMap.newKeySet();
+      java.util.Set<Integer> executed = java.util.concurrent.ConcurrentHashMap.newKeySet();
+      java.util.concurrent.ExecutorService workers =
+         java.util.concurrent.Executors.newFixedThreadPool(producerCount + 1);
+      List<java.util.concurrent.Future<?>> submissions = new ArrayList<>();
+
+      try {
+         for (int producer = 0; producer < producerCount; producer++) {
+            submissions.add(workers.submit(() -> {
+               try {
+                  start.await();
+                  for (int index = 0; index < actionsPerProducer; index++) {
+                     int id = nextId.getAndIncrement();
+                     if (queue.offer(() -> executed.add(id))) {
+                        accepted.add(id);
+                     }
+                  }
+               } finally {
+                  remainingProducers.decrementAndGet();
+               }
+               return null;
+            }));
+         }
+
+         java.util.concurrent.Future<?> drainer = workers.submit(() -> {
+            start.await();
+            while (remainingProducers.get() > 0 || !queue.isEmpty()) {
+               if (queue.drain(17, Runnable::run) == 0) {
+                  Thread.yield();
+               }
+            }
+            return null;
+         });
+
+         start.countDown();
+         for (java.util.concurrent.Future<?> submission : submissions) {
+            submission.get();
+         }
+         drainer.get();
+
+         assertFalse(accepted.isEmpty());
+         assertEquals(accepted, executed);
+         assertTrue(queue.isEmpty());
+      } finally {
+         workers.shutdownNow();
+      }
+   }
+
+   @Test
    void rejectsInvalidCapacityAndNullActions() {
       assertThrows(IllegalArgumentException.class, () -> new BoundedActionQueue(0));
       BoundedActionQueue queue = new BoundedActionQueue(1);
