@@ -13,6 +13,7 @@ import dev.schizo.client.utils.math.MathConstants;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.events.WorldRenderEvent;
 import dev.schizo.client.events.EventHandler;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.render.RenderTargetUtils;
 import dev.schizo.client.render.LineMeshRenderer;
 import dev.schizo.client.render.MaskShaderRenderer;
@@ -32,7 +33,6 @@ import java.awt.Color;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map.Entry;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 import net.minecraft.client.multiplayer.ClientLevel;
@@ -63,6 +63,10 @@ public class TrailsModule extends Module {
    final Setting<Color> colorSetting;
    private final Setting<Double> thresholdSetting;
    private final ElapsedTimer sampleTimer;
+   private ClientLevel trailLevel;
+   private LocalPlayer trailPlayer;
+   private int lastPruneTick;
+   private boolean prunedThisSession;
 
    private long getFadeDelayMillis() {
       float delayValue = (this.fadeDelaySetting.getValue());
@@ -72,11 +76,32 @@ public class TrailsModule extends Module {
 
    @Override
    public void onToggle() {
+      this.clearTrails();
+   }
+
+   @EventHandler
+   private void onDisconnect(MinecraftDisconnectEvent event) {
+      this.clearTrails();
+   }
+
+   private void clearTrails() {
       this.trailsByEntityId.clear();
+      this.trailLevel = null;
+      this.trailPlayer = null;
+      this.prunedThisSession = false;
+   }
+
+   private void syncTrailOwner() {
+      if (this.trailLevel != ClientAccess.schizoMinecraft.level || this.trailPlayer != ClientAccess.schizoMinecraft.player) {
+         this.clearTrails();
+         this.trailLevel = ClientAccess.schizoMinecraft.level;
+         this.trailPlayer = ClientAccess.schizoMinecraft.player;
+      }
    }
 
    @EventHandler(priority = -100)
    private void onBeforeBufferSource(WorldRenderEvent.BeforeBufferSource event) {
+      this.syncTrailOwner();
       if (!this.isWorldUnavailable()) {
          LocalPlayer player = ClientAccess.schizoMinecraft.player;
          if (player.isDeadOrDying()) {
@@ -95,37 +120,15 @@ public class TrailsModule extends Module {
             this.sampleTimer.reset();
             int playerTick = ClientAccess.schizoMinecraft.player.tickCount;
 
-            if (playerTick % 4 == 0) {
-               int emptyEntityId = 0;
-               for (Integer entityId : this.trailsByEntityId.keySet()) {
-                  List<TrailPoint> points = this.trailsByEntityId.get(entityId);
-                  points.removeIf(
-                     expiringPoint -> {
-                        Boolean fadeEnabled = this.fadeSetting.getValue();
-                        if (fadeEnabled) {
-                           long pointAgeMillis = System.currentTimeMillis()
-                              - expiringPoint.createdAtMillis;
-
-                           long fadeDelayMillis = this.getFadeDelayMillis();
-
-                           if (pointAgeMillis
-                              > fadeDelayMillis + this.getFadeDurationMillis()) {
-                              return true;
-                           }
-                        }
-
-                        return false;
-                     }
-                  );
-                  if (points.isEmpty()) {
-                     emptyEntityId = entityId;
-                     break;
-                  }
-               }
-
-               if (emptyEntityId != 0) {
-                  this.trailsByEntityId.remove(emptyEntityId);
-               }
+            if (this.fadeSetting.getValue() && (!this.prunedThisSession || playerTick - this.lastPruneTick >= 4)) {
+               this.prunedThisSession = true;
+               this.lastPruneTick = playerTick;
+               long now = System.nanoTime();
+               long lifetime = TimeUnit.MILLISECONDS.toNanos(this.getFadeDelayMillis() + this.getFadeDurationMillis());
+               this.trailsByEntityId.values().removeIf(points -> {
+                  points.removeIf(point -> now - point.createdAtNanos > lifetime);
+                  return points.isEmpty();
+               });
             }
 
             ClientLevel level = ClientAccess.schizoMinecraft.level;
@@ -145,23 +148,29 @@ public class TrailsModule extends Module {
 
    private void renderTrail(PoseStack poseStack, List<TrailPoint> points, float lineWidth) {
       LineMeshRenderer.begin(poseStack, lineWidth);
-      int redValue = (this.colorSetting.getValue()).getRed();
-      int greenValue = (this.colorSetting.getValue()).getGreen();
-      int blueValue = (this.colorSetting.getValue()).getBlue();
+      Color base = this.colorSetting.getValue();
+      int redValue = base.getRed();
+      int greenValue = base.getGreen();
+      int blueValue = base.getBlue();
       float[] baseHsb = Color.RGBtoHSB(redValue, greenValue, blueValue, null);
+      long now = System.nanoTime();
+      TrailPoint previous = points.getFirst();
+      int previousColor = this.getPointColor(baseHsb, previous, now).hashCode();
       for (int pointIndex = 1; pointIndex < points.size(); pointIndex++) {
-         TrailPoint previous = points.get(pointIndex - 1);
          TrailPoint point = points.get(pointIndex);
+         int pointColor = this.getPointColor(baseHsb, point, now).hashCode();
          LineMeshRenderer.addVertex(previous.position.x, previous.position.y, previous.position.z,
-            this.getPointColor(baseHsb, previous).hashCode(), true, false);
+            previousColor, true, false);
          LineMeshRenderer.addVertex(point.position.x, point.position.y, point.position.z,
-            this.getPointColor(baseHsb, point).hashCode(), true, false);
+            pointColor, true, false);
+         previous = point;
+         previousColor = pointColor;
       }
       LineMeshRenderer.draw();
    }
 
    private Color getPointColor(
-      float[] baseHsb, TrailsModule.TrailPoint point
+      float[] baseHsb, TrailsModule.TrailPoint point, long now
    ) {
       double pointCreatedAtMillis = point.createdAtMillis;
       double thresholdFactor = (this.thresholdSetting.getValue());
@@ -172,12 +181,12 @@ public class TrailsModule extends Module {
             % MathConstants.FULL_TURN_DEGREES
             / MathConstants.FULL_TURN_DEGREES
       );
-      long nowMillis = System.currentTimeMillis();
-      long pointAgeMillis = nowMillis - point.createdAtMillis;
+      long pointAgeMillis = TimeUnit.NANOSECONDS.toMillis(now - point.createdAtNanos);
 
       float ageAfterFadeDelay = (float)(pointAgeMillis - this.getFadeDelayMillis());
 
-      float fadeFraction = 1.0F - ageAfterFadeDelay / (float)this.getFadeDurationMillis();
+      long fadeDuration = this.getFadeDurationMillis();
+      float fadeFraction = fadeDuration == 0L ? 0.0F : 1.0F - ageAfterFadeDelay / fadeDuration;
       Color alphaColor = this.colorSetting.getValue();
       float rawAlpha = fadeFraction * alphaColor.getAlpha();
 
@@ -199,20 +208,17 @@ public class TrailsModule extends Module {
       Color color = selectedColor;
       Boolean fadeEnabled = this.fadeSetting.getValue();
       if (fadeEnabled) {
-         long nowForFadeStart = System.currentTimeMillis();
-         long pointAgeAtFadeStart = nowForFadeStart - point.createdAtMillis;
-
-         if (pointAgeAtFadeStart >= this.getFadeDelayMillis()) {
+         if (pointAgeMillis >= this.getFadeDelayMillis()) {
             return ColorUtils.multiplyAlpha(color, alphaMultiplier);
          }
       }
 
-      alphaMultiplier = 1.0F;
       return ColorUtils.multiplyAlpha(color, 1.0F);
    }
 
    @EventHandler
    private void onWorldRender(WorldRenderEvent.Main event) {
+      this.syncTrailOwner();
       if (!this.isWorldUnavailable()) {
          Boolean renderEnabled = this.renderSetting.getValue();
          if (renderEnabled) {
@@ -228,18 +234,16 @@ public class TrailsModule extends Module {
             RenderTargetUtils.setMainRenderTarget(
                MaskShaderRenderer.MASK_TARGET
             );
-            for (Entry<Integer, List<TrailPoint>> entry : this.trailsByEntityId.entrySet()) {
-               int pointCount = entry.getValue().size();
-
-               if (pointCount > 2) {
-                  PoseStack poseStack = event.getPoseStack();
-                  List<TrailPoint> points = entry.getValue();
-                  Float width = this.lineWidthSetting.getValue();
-                  this.renderTrail(poseStack, points, width);
+            try {
+               float width = this.lineWidthSetting.getValue();
+               for (List<TrailPoint> points : this.trailsByEntityId.values()) {
+                  if (points.size() > 2) {
+                     this.renderTrail(event.getPoseStack(), points, width);
+                  }
                }
+            } finally {
+               RenderTargetUtils.setMainRenderTarget(mainTarget);
             }
-
-            RenderTargetUtils.setMainRenderTarget(mainTarget);
             RenderUtils.blitToMain(
                MaskShaderRenderer.MASK_TARGET
             );
@@ -337,10 +341,12 @@ public class TrailsModule extends Module {
 
    private static class TrailPoint {
       private final long createdAtMillis;
+      private final long createdAtNanos;
       private final Vec3 position;
 
       private TrailPoint(Vec3 position) {
          this.createdAtMillis = System.currentTimeMillis();
+         this.createdAtNanos = System.nanoTime();
          this.position = position;
       }
 
