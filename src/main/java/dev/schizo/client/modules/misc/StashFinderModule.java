@@ -242,21 +242,7 @@ public class StashFinderModule extends Module {
 
    protected boolean registerStash(StashEntry stash, String description) {
       Optional existingStash = ClientContext.stashRegistry.findFirst(
-         (Predicate<StashEntry>)candidate -> {
-
-            double candidateCoordinate = candidate.getX();
-
-            if (candidateCoordinate == stash.getX()) {
-
-               candidateCoordinate = candidate.getZ();
-
-               if (candidateCoordinate == stash.getZ()) {
-                  return true;
-               }
-            }
-
-            return false;
-         }
+         (Predicate<StashEntry>)candidate -> candidate.hasSameLocation(stash)
       );
       if (existingStash.isEmpty()
          && ClientContext.stashRegistry.registerEntry(stash)) {

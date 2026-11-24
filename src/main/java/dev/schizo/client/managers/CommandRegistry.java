@@ -29,6 +29,7 @@ import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.KeyboardHandlerCharTypedEvent;
 import dev.schizo.client.events.bus.EventBus;
 import dev.schizo.client.utils.KeyUtils;
+import dev.schizo.client.utils.chat.ChatUtils;
 import dev.schizo.client.modules.Module;
 import dev.schizo.client.modules.client.SettingsModule;
 import dev.schizo.client.settings.JsonConfigurable;
@@ -50,10 +51,12 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.multiplayer.ClientSuggestionProvider;
 import net.minecraft.commands.SharedSuggestionProvider;
+import net.minecraft.network.chat.Component;
 
 public final class CommandRegistry extends Registry<Command> implements ClientAccess, JsonConfigurable {
 
@@ -157,7 +160,11 @@ public final class CommandRegistry extends Registry<Command> implements ClientAc
          SharedSuggestionProvider source = suggestionSource;
          ParseResults parsed = commandDispatcher.parse(input, source);
          executionDispatcher.execute(parsed);
-      } catch (CommandSyntaxException ignoredFailure) {
+      } catch (CommandSyntaxException failure) {
+         ChatUtils.printChat(
+            Component.literal(failure.getMessage()).withStyle(ChatFormatting.RED),
+            ChatUtils.DEFAULT_SIGNATURE
+         );
       }
    }
 

@@ -28,7 +28,13 @@ public interface BaritoneBridge {
 
    void pathTo(BlockPos position);
 
+   void pathTo(NamedFeature owner, BlockPos position);
+
+   boolean ownsPath(NamedFeature owner);
+
    void cancelPathing();
+
+   boolean cancelPathing(NamedFeature owner);
 
    boolean isAvailable();
 

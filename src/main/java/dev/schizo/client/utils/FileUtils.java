@@ -67,6 +67,28 @@ public final class FileUtils {
       writeBytes(path, text.getBytes(StandardCharsets.UTF_8));
    }
 
+   public static void writeBytesAtomically(Path path, byte[] bytes) throws IOException {
+      Path target = path.toAbsolutePath().normalize();
+      Path parent = target.getParent();
+      if (parent == null) {
+         throw new IOException("Cannot write a file without a parent directory: " + target);
+      }
+      Files.createDirectories(parent);
+      Path temporary = Files.createTempFile(parent, "." + target.getFileName() + ".", ".tmp");
+      try {
+         Files.write(temporary, bytes, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING);
+         try {
+            Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+         } catch (AtomicMoveNotSupportedException unsupported) {
+            Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING);
+         }
+      } catch (IOException failure) {
+         throw new IOException("Unable to atomically write " + target, failure);
+      } finally {
+         Files.deleteIfExists(temporary);
+      }
+   }
+
    public static void writeUtf8Atomically(Path path, String text) throws IOException {
       Path target = path.toAbsolutePath().normalize();
       Path parent = target.getParent();
