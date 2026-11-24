@@ -130,30 +130,60 @@ public enum CrystalDamagePolicy implements ClientAccess, NamedEntry {
       LivingEntity target, double selfDamage, double targetDamage, CrystalLethality lethality
    ) {
       boolean selfHoldingTotem = ClientAccess.schizoMinecraft.player.isHolding(Items.TOTEM_OF_UNDYING);
-      boolean selfInvulnerable = autoCrystal.isSelfInvulnerable();
-      boolean forceSuicide = autoCrystal.forceSuicideSetting.getValue();
+      if (autoCrystal.isSelfInvulnerable()) {
+         selfDamage = 0.0D;
+      }
+
+      // Preserve the original early return: Force Suicide must not read the
+      // anti-suicide, health, minimum-damage or ratio settings below.
+      if (autoCrystal.forceSuicideSetting.getValue()) {
+         return false;
+      }
+
       boolean antiSuicide = autoCrystal.antiSuicideSetting.getValue();
       double selfHealth = EntityUtils.getPlayerHealthWithAbsorption();
-      double targetHealth = EntityUtils.getHealthWithAbsorption(target);
-      double minimumTargetDamage = this.getMinimumDamage(target);
-      double maximumSelfDamage = this.getMaximumSelfDamage();
-      double minimumRatio = autoCrystal.placeDamageRatioSetting.getValue().floatValue();
-
-      CrystalDamageSafetyInputs inputs = new CrystalDamageSafetyInputs(
-         this == HIT,
-         selfInvulnerable,
-         forceSuicide,
-         antiSuicide,
-         selfHoldingTotem,
-         lethality.isKill(),
-         lethality.isIntersection(),
+      boolean targetKill = lethality.isKill();
+      if (CrystalDamageSafetyInputs.shouldRejectAntiSuicide(
+         selfDamage,
          selfHealth,
-         targetHealth,
-         minimumTargetDamage,
-         maximumSelfDamage,
-         minimumRatio
-      );
-      return inputs.shouldReject(selfDamage, targetDamage);
+         antiSuicide,
+         targetKill,
+         selfHoldingTotem
+      )) {
+         return true;
+      }
+
+      boolean targetIntersection = lethality.isIntersection();
+      if (CrystalDamageSafetyInputs.shouldAcceptHitIntersection(this == HIT, targetIntersection)
+         || targetKill) {
+         return false;
+      }
+
+      // The ratio applies only to PLACE and only with positive self damage.
+      if (this == PLACE && selfDamage > 0.0D) {
+         double minimumRatio = autoCrystal.placeDamageRatioSetting.getValue().floatValue();
+         if (CrystalDamageSafetyInputs.shouldRejectPlaceRatio(
+            false,
+            selfDamage,
+            targetDamage,
+            minimumRatio
+         )) {
+            return true;
+         }
+      }
+
+      double targetHealth = EntityUtils.getHealthWithAbsorption(target);
+      if (targetDamage >= targetHealth) {
+         return false;
+      }
+
+      double minimumTargetDamage = this.getMinimumDamage(target);
+      if (!(targetDamage >= minimumTargetDamage)) {
+         return true;
+      }
+
+      double maximumSelfDamage = this.getMaximumSelfDamage();
+      return !(selfDamage <= maximumSelfDamage);
    }
 
    @Override
