@@ -68,12 +68,12 @@ public final class ExplosionRaycastSnapshotBuilder {
          }
 
          return new Region(
-            floorToBlock(Math.min(targetBounds.minX, explosionPosition.x), padding),
-            floorToBlock(Math.min(targetBounds.minY, explosionPosition.y), padding),
-            floorToBlock(Math.min(targetBounds.minZ, explosionPosition.z), padding),
-            floorToBlock(Math.max(targetBounds.maxX, explosionPosition.x), -padding),
-            floorToBlock(Math.max(targetBounds.maxY, explosionPosition.y), -padding),
-            floorToBlock(Math.max(targetBounds.maxZ, explosionPosition.z), -padding)
+            floorToBlock(Math.min(targetBounds.minX, explosionPosition.x), -padding),
+            floorToBlock(Math.min(targetBounds.minY, explosionPosition.y), -padding),
+            floorToBlock(Math.min(targetBounds.minZ, explosionPosition.z), -padding),
+            floorToBlock(Math.max(targetBounds.maxX, explosionPosition.x), padding),
+            floorToBlock(Math.max(targetBounds.maxY, explosionPosition.y), padding),
+            floorToBlock(Math.max(targetBounds.maxZ, explosionPosition.z), padding)
          );
       }
 
