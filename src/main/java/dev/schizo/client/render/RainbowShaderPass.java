@@ -20,11 +20,14 @@ import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL13;
 
 public class RainbowShaderPass extends PreprocessedShaderPass {
-   private static final ShaderModule shaderModule;
 
    @Override
    public void updateUniforms() {
       super.updateUniforms();
+      ShaderModule shaderModule = ClientContext.getModule(ShaderModule.class);
+      if (shaderModule == null) {
+         throw new IllegalStateException("Shader module is not initialized");
+      }
 
       GL13.glActiveTexture(GL13.GL_TEXTURE7);
 
@@ -145,8 +148,5 @@ public class RainbowShaderPass extends PreprocessedShaderPass {
       this.initializeProgram();
    }
 
-   static {
-      shaderModule = (ShaderModule)ClientContext.getModule(ShaderModule.class);
-   }
 
 }
