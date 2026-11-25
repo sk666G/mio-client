@@ -19,6 +19,27 @@ import dev.schizo.client.modules.exploit.PhaseModule;
 import dev.schizo.client.modules.exploit.PingSpoofModule;
 import dev.schizo.client.modules.exploit.PortalGodModeModule;
 import dev.schizo.client.modules.exploit.ReachModule;
+import dev.schizo.client.modules.hud.ArmorModule;
+import dev.schizo.client.modules.hud.ChatModule;
+import dev.schizo.client.modules.hud.CryptoModule;
+import dev.schizo.client.modules.hud.DirectionModule;
+import dev.schizo.client.modules.hud.EffectsModule;
+import dev.schizo.client.modules.hud.EntityListModule;
+import dev.schizo.client.modules.hud.FrameTimeGraphModule;
+import dev.schizo.client.modules.hud.GraphModule;
+import dev.schizo.client.modules.hud.IndicatorModule;
+import dev.schizo.client.modules.hud.InventoryModule;
+import dev.schizo.client.modules.hud.LagOMeterModule;
+import dev.schizo.client.modules.hud.MapModule;
+import dev.schizo.client.modules.hud.MetricsModule;
+import dev.schizo.client.modules.hud.ModuleListModule;
+import dev.schizo.client.modules.hud.MusicModule;
+import dev.schizo.client.modules.hud.PlayerModelModule;
+import dev.schizo.client.modules.hud.PositionModule;
+import dev.schizo.client.modules.hud.TextRadarModule;
+import dev.schizo.client.modules.hud.TotemsModule;
+import dev.schizo.client.modules.hud.WatermarkModule;
+import dev.schizo.client.modules.hud.WelcomerModule;
 import dev.schizo.client.modules.movement.ElytraFlyModule;
 import dev.schizo.client.modules.movement.FakeLagModule;
 import dev.schizo.client.modules.movement.FastClimbModule;
@@ -124,6 +145,37 @@ class ModuleCompatibilityTest {
       assertClassification(FakeLagModule.class, ModuleCompatibility.Classification.PACKET_AFFECTING);
       assertClassification(PortalGodModeModule.class, ModuleCompatibility.Classification.PACKET_AFFECTING);
       assertClassification(WarpModule.class, ModuleCompatibility.Classification.PACKET_AFFECTING);
+   }
+
+   @Test
+   void classifiesEveryHudWidgetAsSourceReviewedVisualOnly() {
+      Class<?>[] hudModules = {
+         ArmorModule.class,
+         ChatModule.class,
+         CryptoModule.class,
+         DirectionModule.class,
+         EffectsModule.class,
+         EntityListModule.class,
+         FrameTimeGraphModule.class,
+         GraphModule.class,
+         IndicatorModule.class,
+         InventoryModule.class,
+         LagOMeterModule.class,
+         MapModule.class,
+         MetricsModule.class,
+         ModuleListModule.class,
+         MusicModule.class,
+         PlayerModelModule.class,
+         PositionModule.class,
+         TextRadarModule.class,
+         TotemsModule.class,
+         WatermarkModule.class,
+         WelcomerModule.class
+      };
+
+      for (Class<?> moduleType : hudModules) {
+         assertClassification(moduleType, ModuleCompatibility.Classification.VISUAL_ONLY);
+      }
    }
 
    @Test
