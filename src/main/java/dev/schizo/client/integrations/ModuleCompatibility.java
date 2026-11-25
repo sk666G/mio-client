@@ -1612,6 +1612,106 @@ public final class ModuleCompatibility {
       Map.entry(setting(SpeedMineModule.class, "Abort"), settingAssessed(
          Classification.CLIENT_ONLY,
          "Acts as a hidden local reset action that clears the module's current mining session state."
+      )),
+      Map.entry(setting(CriticalsModule.class, "Mode"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Selects the reviewed critical-hit packet/movement sequencing path."
+      )),
+      Map.entry(setting(CriticalsModule.class, "PauseOnMove"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Changes when the reviewed critical-hit packet sequence is eligible to run while the player is moving."
+      )),
+      Map.entry(setting(CriticalsModule.class, "OnlyFull"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Restricts when the reviewed critical-hit packet sequence is eligible based on local collision state."
+      )),
+      Map.entry(setting(CriticalsModule.class, "OnlyWeapon"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Restricts the reviewed critical-hit packet sequence to selected weapon/tool categories."
+      )),
+      Map.entry(setting(FastPlaceModule.class, "Delay"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls the local right-click/use-item cadence used by FastPlace."
+      )),
+      Map.entry(setting(FastPlaceModule.class, "AutoPlace"), settingAssessed(
+         Classification.WORLD_INTERACTION,
+         "Enables automatic placement/use-item interaction while an eligible target is present."
+      )),
+      Map.entry(setting(FastPlaceModule.class, "RandomBlock"), settingAssessed(
+         Classification.WORLD_INTERACTION,
+         "Changes which eligible block is selected for automatic placement."
+      )),
+      Map.entry(setting(FastPlaceModule.class, "Items"), settingAssessed(
+         Classification.CLIENT_ONLY,
+         "Acts only as the local settings group for FastPlace item filters."
+      )),
+      Map.entry(setting(FastPlaceModule.class, "All"), settingAssessed(
+         Classification.WORLD_INTERACTION,
+         "Applies the reviewed fast-use interaction behavior to all supported item categories."
+      )),
+      Map.entry(setting(FastPlaceModule.class, "Exp"), settingAssessed(
+         Classification.WORLD_INTERACTION,
+         "Controls fast-use interaction behavior for experience bottles."
+      )),
+      Map.entry(setting(FastPlaceModule.class, "Rockets"), settingAssessed(
+         Classification.WORLD_INTERACTION,
+         "Controls fast-use interaction behavior for firework rockets."
+      )),
+      Map.entry(setting(FastPlaceModule.class, "Blocks"), settingAssessed(
+         Classification.WORLD_INTERACTION,
+         "Controls fast placement behavior for ordinary block items."
+      )),
+      Map.entry(setting(FastPlaceModule.class, "Food"), settingAssessed(
+         Classification.WORLD_INTERACTION,
+         "Controls fast-use interaction behavior for food items."
+      )),
+      Map.entry(setting(FastPlaceModule.class, "Tools"), settingAssessed(
+         Classification.WORLD_INTERACTION,
+         "Controls fast-use interaction behavior for supported right-click tools."
+      )),
+      Map.entry(setting(FastPlaceModule.class, "EnderChests"), settingAssessed(
+         Classification.WORLD_INTERACTION,
+         "Controls reviewed ender-chest placement/use behavior."
+      )),
+      Map.entry(setting(FastPlaceModule.class, "AutoReplace"), settingAssessed(
+         Classification.WORLD_INTERACTION,
+         "Enables automatic replacement placement around the reviewed mined-block state."
+      )),
+      Map.entry(setting(AutoToolModule.class, "BlockDamage"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls the block-progress threshold at which AutoTool's reviewed explicit mining-action sequence can run."
+      )),
+      Map.entry(setting(AutoToolModule.class, "Inventory"), settingAssessed(
+         Classification.WORLD_INTERACTION,
+         "Allows automatic tool selection to use inventory slots outside the hotbar."
+      )),
+      Map.entry(setting(AutoToolModule.class, "SwapBack"), settingAssessed(
+         Classification.WORLD_INTERACTION,
+         "Controls whether the previous tool/inventory selection is restored after automatic tool use."
+      )),
+      Map.entry(setting(AutoToolModule.class, "NoBreakDelay"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Changes local mining delay/cadence while AutoTool is active."
+      )),
+      Map.entry(setting(ArrowsModule.class, "AutoShoot"), settingAssessed(
+         Classification.WORLD_INTERACTION,
+         "Enables automatic target selection, rotation and bow/crossbow release actions."
+      )),
+      Map.entry(setting(ArrowsModule.class, "Speed"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls the scheduled cadence of reviewed automatic release actions."
+      )),
+      Map.entry(setting(ArrowsModule.class, "BeforePull"), settingAssessed(
+         Classification.WORLD_INTERACTION,
+         "Changes when automatic inventory arrow preparation occurs relative to the release action."
+      )),
+      Map.entry(setting(ArrowsModule.class, "Fov"), settingAssessed(
+         Classification.WORLD_INTERACTION,
+         "Controls the target-selection angle used by reviewed automatic arrow actions."
+      )),
+      Map.entry(setting(ArrowsModule.class, "AssumeDuration"), settingAssessed(
+         Classification.WORLD_INTERACTION,
+         "Controls local effect-duration assumptions used when choosing which effect arrow to prepare."
       ))
    );
 
