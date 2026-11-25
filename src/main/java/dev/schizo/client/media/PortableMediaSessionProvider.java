@@ -87,16 +87,24 @@ public final class PortableMediaSessionProvider implements AutoCloseable {
 
         }
     }
-    private synchronized void publish(MediaSnapshot state) {
-        if (closed) return;
-        latest = Objects.requireNonNull(state); availability = Availability.AVAILABLE;
-        update.accept(state);
+    private void publish(MediaSnapshot state) {
+        MediaSnapshot published = Objects.requireNonNull(state);
+        synchronized (this) {
+            if (closed) return;
+            latest = published;
+            availability = Availability.AVAILABLE;
+        }
+        update.accept(published);
     }
-    private synchronized void publishFailure(Throwable failure) {
-        if (closed) return;
-        lastFailure = failure.getClass().getSimpleName() + ": " + failure.getMessage();
-        latest = MediaSnapshot.empty(); availability = Availability.UNAVAILABLE;
-        update.accept(latest);
+    private void publishFailure(Throwable failure) {
+        MediaSnapshot empty = MediaSnapshot.empty();
+        synchronized (this) {
+            if (closed) return;
+            lastFailure = failure.getClass().getSimpleName() + ": " + failure.getMessage();
+            latest = empty;
+            availability = Availability.UNAVAILABLE;
+        }
+        update.accept(empty);
     }
     private void poll() {
         while (!closed && !Thread.currentThread().isInterrupted()) {
