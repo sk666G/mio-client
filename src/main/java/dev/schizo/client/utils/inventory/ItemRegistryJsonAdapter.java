@@ -37,10 +37,15 @@ public abstract class ItemRegistryJsonAdapter implements JsonDeserializer<Object
       Identifier identifier = Identifier.parse(serializedIdentifier);
       Item item = items.getValue(identifier);
       Optional<ResourceKey<Item>> resourceKey = items.getResourceKey(item);
-      if (resourceKey.isEmpty() || !resourceKey.get().identifier().equals(identifier)) {
+      Identifier resolvedIdentifier = resourceKey.map(ResourceKey::identifier).orElse(null);
+      if (!identifiersMatch(identifier, resolvedIdentifier)) {
          throw new IllegalArgumentException("Unknown item identifier: " + serializedIdentifier);
       }
       return item;
+   }
+
+   static boolean identifiersMatch(Identifier requested, Identifier resolved) {
+      return requested != null && requested.equals(resolved);
    }
 
    @Override
