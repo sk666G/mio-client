@@ -30,11 +30,24 @@ public final class TaskScheduler implements ClientAccess {
    }
 
    public boolean scheduleRotationTask(Runnable task, int delay) {
-      return this.rotationTasks.enqueue(task, delay);
+      return this.scheduleRotationTask(null, task, delay);
+   }
+
+   public boolean scheduleRotationTask(Object owner, Runnable task, int delay) {
+      return this.rotationTasks.enqueue(owner, task, delay);
    }
 
    public boolean scheduleRunTickTask(Runnable task) {
-      return this.runTickTasks.enqueue(task, 1);
+      return this.scheduleRunTickTask(null, task);
+   }
+
+   public boolean scheduleRunTickTask(Object owner, Runnable task) {
+      return this.runTickTasks.enqueue(owner, task, 1);
+   }
+
+   public int cancelTasks(Object owner) {
+      java.util.Objects.requireNonNull(owner, "owner");
+      return this.rotationTasks.cancelOwned(owner) + this.runTickTasks.cancelOwned(owner);
    }
 
    @EventHandler(priority = -100)
@@ -75,8 +88,8 @@ public final class TaskScheduler implements ClientAccess {
          this.name = name;
       }
 
-      private boolean enqueue(Runnable task, int delay) {
-         BoundedCountdownTaskQueue.Reservation reservation = this.tasks.reserve(task, delay);
+      private boolean enqueue(Object owner, Runnable task, int delay) {
+         BoundedCountdownTaskQueue.Reservation reservation = this.tasks.reserve(owner, task, delay);
          if (reservation == null) {
             this.warnCapacity();
             return false;
@@ -107,6 +120,10 @@ public final class TaskScheduler implements ClientAccess {
             ClientAccess.logger.warn("Could not dispatch {} task to the Minecraft client thread", this.name, dispatchFailure);
             return false;
          }
+      }
+
+      private int cancelOwned(Object owner) {
+         return this.tasks.cancelOwned(owner);
       }
 
       private void run() {
