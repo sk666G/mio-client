@@ -49,6 +49,12 @@ public final class ExtraBreakTracker implements ClientAccess {
       }
    }
 
+   public synchronized void clear() {
+      this.trackedBreaks.clear();
+      this.expiredPositions.clear();
+      this.lastBlock = null;
+   }
+
    public synchronized void trackBreak(BlockPos position) {
       Map<BlockPos, Long> breaksSnapshot = this.trackedBreaks;
       long trackedAt = System.nanoTime();
