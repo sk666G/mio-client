@@ -17,6 +17,7 @@ import dev.schizo.client.integrations.MultiplayerCompatibilityPolicy;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.NamedFeature;
 import dev.schizo.client.events.bus.EventBus;
+import dev.schizo.client.profiling.RuntimeDiagnostics;
 import dev.schizo.client.utils.Toggleable;
 import dev.schizo.client.render.text.LanguageTable;
 import dev.schizo.client.managers.AliasRegistry;
@@ -104,6 +105,11 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
          this.onEnable();
       } catch (RuntimeException | Error enableFailure) {
          this.rollbackFailedEnable(enableFailure);
+         RuntimeDiagnostics.GLOBAL.record(
+            RuntimeDiagnostics.Area.MODULE_LIFECYCLE,
+            this.getName() + " enable",
+            enableFailure
+         );
          ClientAccess.logger.error("Module {} failed while enabling; state was rolled back", this.getName(), enableFailure);
          throw enableFailure;
       }
@@ -305,6 +311,11 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
       }
 
       if (failure != null) {
+         RuntimeDiagnostics.GLOBAL.record(
+            RuntimeDiagnostics.Area.MODULE_LIFECYCLE,
+            this.getName() + " disable",
+            failure
+         );
          ClientAccess.logger.error("Module {} failed while disabling; disabled state was preserved", this.getName(), failure);
          rethrowUnchecked(failure);
       }
