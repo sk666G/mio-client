@@ -11,6 +11,7 @@ package dev.schizo.client.gui.screens;
 
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.profiling.EventProfiler;
+import dev.schizo.client.events.bus.EventFailureTracker;
 import dev.schizo.client.render.ColorUtils;
 import dev.schizo.client.render.ClientRenderTypes;
 import dev.schizo.client.render.FontRenderer;
@@ -155,7 +156,8 @@ public final class PerformanceCenterScreen extends ClientScreen {
          muted,
          false
       );
-      String profilerStatus = EventProfiler.GLOBAL.isEnabled() ? "SAMPLING ON" : "PROFILER IDLE";
+      String profilerStatus = (EventProfiler.GLOBAL.isEnabled() ? "SAMPLING ON" : "PROFILER IDLE")
+         + "  •  EVENT ERRORS " + EventFailureTracker.GLOBAL.totalFailures();
       font.drawWithShadow(
          poseStack,
          profilerStatus,
@@ -334,6 +336,7 @@ public final class PerformanceCenterScreen extends ClientScreen {
 
       if (this.contains(mouseX, mouseY, this.panelLeft + 105.0F, this.panelTop + 47.0F, 70.0F, 20.0F)) {
          EventProfiler.GLOBAL.reset();
+         EventFailureTracker.GLOBAL.reset();
          this.rowOffset = 0;
          this.refreshData(true);
          return;
