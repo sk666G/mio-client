@@ -118,16 +118,9 @@ public class WaypointsModule extends Module {
 
    public static Vec3 getPositionInCurrentDimension(Waypoint waypoint) {
       Vec3 position = waypoint.getPosition();
-      String currentDimension = WorldUtils.getDimension().getDisplayName().toLowerCase(Locale.ROOT);
-      String waypointDimension = waypoint.getDimension();
-
-      if (waypointDimension.equals("overworld") && currentDimension.equals("nether")) {
-         return position.multiply(0.125D, 1.0D, 0.125D);
-      }
-      if (waypointDimension.equals("nether") && currentDimension.equals("overworld")) {
-         return position.multiply(8.0D, 1.0D, 8.0D);
-      }
-      return waypointDimension.equals(currentDimension) ? position : null;
+      double scale = dev.schizo.client.utils.world.DimensionCoordinates.scale(
+         waypoint.getDimension(), WorldUtils.getDimension().getName());
+      return Double.isNaN(scale) ? null : position.multiply(scale, 1.0D, scale);
    }
 
    private Vec3 getRenderPosition(Vec3 cameraPosition, Vec3 waypointPosition) {
