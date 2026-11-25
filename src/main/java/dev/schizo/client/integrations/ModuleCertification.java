@@ -88,7 +88,7 @@ public final class ModuleCertification {
    }
 
    public static Assessment assessClass(Class<?> moduleType) {
-      return assessClass(moduleType, 0, 0);
+      return assessClass(moduleType, -1, 0);
    }
 
    private static Assessment assessClass(Class<?> moduleType, int settingCount, int reviewedSettings) {
@@ -142,7 +142,7 @@ public final class ModuleCertification {
       LiveEvidence multiplayerEvidence
    ) {
       public boolean allSettingsReviewed() {
-         return this.settingCount == this.reviewedSettings;
+         return this.settingCount >= 0 && this.settingCount == this.reviewedSettings;
       }
 
       public boolean automatedEvidencePresent() {
