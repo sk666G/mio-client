@@ -19,6 +19,7 @@ import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.PacketEvent;
 import dev.schizo.client.events.BlockCollisionShapeEvent;
+import dev.schizo.client.events.ConnectScreenConnectEvent;
 import dev.schizo.client.events.SelectedSlotChangeEvent;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.LocalPlayerTickEvent;
@@ -334,7 +335,16 @@ public final class WorldStateManager implements ClientAccess {
    }
 
    @EventHandler
+   private void onConnectScreenConnectEvent(ConnectScreenConnectEvent event) {
+      this.resetSessionState();
+   }
+
+   @EventHandler
    private void onMinecraftDisconnectEvent(MinecraftDisconnectEvent event) {
+      this.resetSessionState();
+   }
+
+   void resetSessionState() {
       this.packetGeneration++;
       this.pendingPlacements.clear();
       this.confirmedPlacements.clear();
@@ -344,6 +354,12 @@ public final class WorldStateManager implements ClientAccess {
       this.glassUpdateWindows.clear();
       this.unconfirmedBreak = null;
       this.extraBreak = null;
+      this.unconfirmedBreakTimer.clear();
+      this.extraBreakTimer.clear();
+      this.dimension = DimensionType.OVERWORLD;
+      this.mainHandSnapshot = null;
+      this.offHandSnapshot = null;
+      this.chunkRadius = 0;
    }
 
    @EventHandler(priority = 200)
