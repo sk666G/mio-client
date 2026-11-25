@@ -339,7 +339,6 @@ public class AutoCraftModule extends Module {
          RecipeBookType recipeBookType = RecipeBookType.CRAFTING;
 
          capturedRecipeBook.setOpen(recipeBookType, open);
-         TaskScheduler scheduler = ClientContext.taskScheduler;
          ClientLevel expectedLevel = ClientAccess.schizoMinecraft.level;
          LocalPlayer expectedPlayer = ClientAccess.schizoMinecraft.player;
          long expectedGeneration = this.lifecycleGeneration;
@@ -356,7 +355,7 @@ public class AutoCraftModule extends Module {
             }
          };
 
-         scheduler.scheduleRotationTask(cacheCallback, 2);
+         this.scheduleRotationTask(cacheCallback, 2);
          if ((this.fastCloseSetting.getValue()) && event.getNewScreen() instanceof CraftingScreen) {
             CraftingScreen capturedScreen = (CraftingScreen)event.getNewScreen();
             AbstractContainerMenu expectedMenu = capturedScreen.getMenu();
@@ -366,7 +365,6 @@ public class AutoCraftModule extends Module {
             capturedScreen.init(width, height);
 
             event.cancel();
-            TaskScheduler closeScheduler = ClientContext.taskScheduler;
             Runnable closeCallback = () -> {
                if (!this.isToggled()
                   || this.lifecycleGeneration != expectedGeneration
@@ -381,7 +379,7 @@ public class AutoCraftModule extends Module {
                PacketSender.send(closePacket);
                expectedPlayer.containerMenu = expectedPlayer.inventoryMenu;
             };
-            closeScheduler.scheduleRotationTask(closeCallback, 0);
+            this.scheduleRotationTask(closeCallback, 0);
          }
       }
    }
