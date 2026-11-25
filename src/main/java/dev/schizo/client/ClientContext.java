@@ -110,6 +110,14 @@ public final class ClientContext {
       return registry == null ? null : moduleType.cast(registry.getModule(moduleType));
    }
 
+   public static <T extends Module> T requireModule(Class<T> moduleType) {
+      T module = getModule(moduleType);
+      return Objects.requireNonNull(
+         module,
+         "Required module is not registered: " + moduleType.getSimpleName()
+      );
+   }
+
    public static ClickGuiScreen getClickGui() {
       if (clickGui == null) {
          clickGui = new ClickGuiScreen();
