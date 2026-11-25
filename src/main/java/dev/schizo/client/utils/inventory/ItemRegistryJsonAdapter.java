@@ -24,13 +24,28 @@ import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 
 public abstract class ItemRegistryJsonAdapter implements JsonDeserializer<Object>, JsonSerializer<Object> {
    protected Object resolveItem(String serializedIdentifier) {
+      if (serializedIdentifier == null || serializedIdentifier.isBlank()) {
+         throw new IllegalArgumentException("Item identifier must not be blank");
+      }
+
       DefaultedRegistry<Item> items = BuiltInRegistries.ITEM;
       Identifier identifier = Identifier.parse(serializedIdentifier);
-      return items.getValue(identifier);
+      Item item = items.getValue(identifier);
+      Optional<ResourceKey<Item>> resourceKey = items.getResourceKey(item);
+      Identifier resolvedIdentifier = resourceKey.map(ResourceKey::identifier).orElse(null);
+      if (!identifiersMatch(identifier, resolvedIdentifier)) {
+         throw new IllegalArgumentException("Unknown item identifier: " + serializedIdentifier);
+      }
+      return item;
+   }
+
+   static boolean identifiersMatch(Identifier requested, Identifier resolved) {
+      return requested != null && requested.equals(resolved);
    }
 
    @Override
@@ -63,5 +78,13 @@ public abstract class ItemRegistryJsonAdapter implements JsonDeserializer<Object
    }
 
    public static final class BlockItemAdapter extends ItemRegistryJsonAdapter {
+      @Override
+      protected Object resolveItem(String serializedIdentifier) {
+         Object resolved = super.resolveItem(serializedIdentifier);
+         if (!(resolved instanceof BlockItem)) {
+            throw new IllegalArgumentException("Item is not a block item: " + serializedIdentifier);
+         }
+         return resolved;
+      }
    }
 }
