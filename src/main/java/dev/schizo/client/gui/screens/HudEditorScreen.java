@@ -62,7 +62,6 @@ import org.lwjgl.glfw.GLFW;
 
 public class HudEditorScreen extends ClientScreen implements ClientAccess {
 
-   private static HUDModule hud = (HUDModule)ClientContext.getModule(HUDModule.class);
    private static final List<HudAnchorGroup> anchorGroups = Collections.synchronizedList(
       new ArrayList<>()
    );
@@ -380,8 +379,8 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
    }
 
    private void applyDragSnapping(HudWidgetRenderer widget, float[] size, float screenWidth, float screenHeight) {
-      float snappedX = HudWidgetSnap.snap(widget.getX(), size[0], screenWidth, hud.getSafeX(), 5.0F);
-      float snappedY = HudWidgetSnap.snap(widget.getY(), size[1], screenHeight, hud.getSafeY(), 5.0F);
+      float snappedX = HudWidgetSnap.snap(widget.getX(), size[0], screenWidth, schizo$hud().getSafeX(), 5.0F);
+      float snappedY = HudWidgetSnap.snap(widget.getY(), size[1], screenHeight, schizo$hud().getSafeY(), 5.0F);
       widget.setX(snappedX, true);
       widget.setY(snappedY, true);
    }
@@ -560,7 +559,7 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
          widget,
          size[0],
          screenWidth,
-         hud.getSafeX(),
+         schizo$hud().getSafeX(),
          true
       );
       this.snapWidgetAxis(
@@ -568,7 +567,7 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
          widget,
          size[1],
          screenHeight,
-         hud.getSafeY(),
+         schizo$hud().getSafeY(),
          false
       );
    }
@@ -656,14 +655,14 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
    public void renderWidgets(
       PoseStack poseStack, double mouseX, double mouseY
    ) {
-      if (!hud.bloomSetting.getValue()) {
+      if (!schizo$hud().bloomSetting.getValue()) {
          this.renderWidgetContents(poseStack, mouseX, mouseY);
          return;
       }
 
       GuiDrawUtils.flush();
       MaskShaderRenderer.setParameters(
-         hud.bloomRadiusSetting.getValue(), hud.bloomStrengthSetting.getValue(), 1.0F, 1.0F
+         schizo$hud().bloomRadiusSetting.getValue(), schizo$hud().bloomStrengthSetting.getValue(), 1.0F, 1.0F
       );
       RenderTarget mainTarget = ClientAccess.schizoMinecraft.getMainRenderTarget();
       try {
@@ -940,4 +939,8 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
       return anchorGroups;
    }
 
+
+   private static HUDModule schizo$hud() {
+      return ClientContext.requireModule(HUDModule.class);
+   }
 }
