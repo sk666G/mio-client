@@ -662,7 +662,7 @@ public class NameTagsModule extends Module {
          }
 
          lightingSnapshot.setupFor(com.mojang.blaze3d.platform.Lighting.Entry.ITEMS_FLAT);
-            ShaderModule shaderSnapshot = shader;
+         ShaderModule shaderSnapshot = shader;
          if (shaderSnapshot != null && shaderSnapshot.includesNameTags()) {
             RenderTargetUtils.overrideRenderTargets(renderTarget);
             try {
@@ -771,71 +771,71 @@ public class NameTagsModule extends Module {
       );
       poses.pushPose();
       try {
-      float scaleAboveOrigin = tagScale - 1.0F;
-      float scaleHeightOffset = scaleAboveOrigin * 0.25F;
-      float tagAnchorY = anchorHeight + scaleHeightOffset;
-      poses.translate(0.0F, tagAnchorY, 0.0F);
-      Camera dispatcherCamera = ClientAccess.schizoMinecraft.getEntityRenderDispatcher().camera;
-      poses.mulPose(dispatcherCamera.rotation());
-      float poseScaleX = tagScale * 0.025F;
-      float negativeScaleY = -tagScale;
-      float poseScaleY = negativeScaleY * 0.025F;
-      float negativeScaleZ = -tagScale;
-      float poseScaleZ = negativeScaleZ * 0.025F;
-      poses.scale(poseScaleX, poseScaleY, poseScaleZ);
-      Component label = this.buildTagText(entity);
-      String plainLabel = label.getString();
-      float textX = -FontRenderer.INSTANCE.getWidth(plainLabel);
-      textX *= 0.5F;
+         float scaleAboveOrigin = tagScale - 1.0F;
+         float scaleHeightOffset = scaleAboveOrigin * 0.25F;
+         float tagAnchorY = anchorHeight + scaleHeightOffset;
+         poses.translate(0.0F, tagAnchorY, 0.0F);
+         Camera dispatcherCamera = ClientAccess.schizoMinecraft.getEntityRenderDispatcher().camera;
+         poses.mulPose(dispatcherCamera.rotation());
+         float poseScaleX = tagScale * 0.025F;
+         float negativeScaleY = -tagScale;
+         float poseScaleY = negativeScaleY * 0.025F;
+         float negativeScaleZ = -tagScale;
+         float poseScaleZ = negativeScaleZ * 0.025F;
+         poses.scale(poseScaleX, poseScaleY, poseScaleZ);
+         Component label = this.buildTagText(entity);
+         String plainLabel = label.getString();
+         float textX = -FontRenderer.INSTANCE.getWidth(plainLabel);
+         textX *= 0.5F;
 
-      Color outline = this.outlineSetting.getValue();
-      float fillLeft = textX - 1.0F;
-      float textFillWidth = textX * -1.0F;
-      float fillWidth = textFillWidth + 1.0F;
-      float fillFontHeight = (float)FontRenderer.INSTANCE.getHeight();
-      float fillHeight = fillFontHeight + 1.0F;
-      Setting<Color> fillOption = this.fillSetting;
-      GuiDrawUtils.fillRect(
-         poses, fillLeft, -1.0F, fillWidth, fillHeight, fillOption.getValue()
-      );
-      float outlineLeft = textX - 2.5F + 1.5F;
-      float textOutlineWidth = textX * -1.0F;
-      float outlineWidth = textOutlineWidth + 1.0F;
-      float outlineFontHeight = (float)FontRenderer.INSTANCE.getHeight();
-      GuiDrawUtils.drawLineRect(
-         poses, outlineLeft, -1.0F, outlineWidth, outlineFontHeight + 1.0F, outline
-      );
+         Color outline = this.outlineSetting.getValue();
+         float fillLeft = textX - 1.0F;
+         float textFillWidth = textX * -1.0F;
+         float fillWidth = textFillWidth + 1.0F;
+         float fillFontHeight = (float)FontRenderer.INSTANCE.getHeight();
+         float fillHeight = fillFontHeight + 1.0F;
+         Setting<Color> fillOption = this.fillSetting;
+         GuiDrawUtils.fillRect(
+            poses, fillLeft, -1.0F, fillWidth, fillHeight, fillOption.getValue()
+         );
+         float outlineLeft = textX - 2.5F + 1.5F;
+         float textOutlineWidth = textX * -1.0F;
+         float outlineWidth = textOutlineWidth + 1.0F;
+         float outlineFontHeight = (float)FontRenderer.INSTANCE.getHeight();
+         GuiDrawUtils.drawLineRect(
+            poses, outlineLeft, -1.0F, outlineWidth, outlineFontHeight + 1.0F, outline
+         );
 
-      Color textColor = this.textSetting.getValue();
-      if (entity.isShiftKeyDown()) {
-         textColor = this.sneakSetting.getValue();
-      }
-      if (entity.isInvisible()) {
-         textColor = this.invisiblesSetting.getValue();
-      }
-      SocialRegistry friendCheckManager = ClientContext.socialRegistry;
-      if (friendCheckManager.isFriendEntity(entity)) {
-         Setting<Boolean> friendOption = this.friendSetting;
-         if (friendOption.getValue()) {
-            SocialRegistry friendColorManager = ClientContext.socialRegistry;
-            textColor = friendColorManager.getFriendColor();
+         Color textColor = this.textSetting.getValue();
+         if (entity.isShiftKeyDown()) {
+            textColor = this.sneakSetting.getValue();
          }
-      }
-      SocialRegistry enemyCheckManager = ClientContext.socialRegistry;
-      if (enemyCheckManager.isEnemyEntity(entity)) {
-         Setting<Boolean> enemyOption = this.enemySetting;
-         if (enemyOption.getValue()) {
-            SocialRegistry enemyColorManager = ClientContext.socialRegistry;
-            textColor = enemyColorManager.getEnemyColor();
+         if (entity.isInvisible()) {
+            textColor = this.invisiblesSetting.getValue();
          }
-      }
+         SocialRegistry friendCheckManager = ClientContext.socialRegistry;
+         if (friendCheckManager.isFriendEntity(entity)) {
+            Setting<Boolean> friendOption = this.friendSetting;
+            if (friendOption.getValue()) {
+               SocialRegistry friendColorManager = ClientContext.socialRegistry;
+               textColor = friendColorManager.getFriendColor();
+            }
+         }
+         SocialRegistry enemyCheckManager = ClientContext.socialRegistry;
+         if (enemyCheckManager.isEnemyEntity(entity)) {
+            Setting<Boolean> enemyOption = this.enemySetting;
+            if (enemyOption.getValue()) {
+               SocialRegistry enemyColorManager = ClientContext.socialRegistry;
+               textColor = enemyColorManager.getEnemyColor();
+            }
+         }
 
-      FontRenderer.INSTANCE
-         .drawWithShadow(poses, label, textX, 1.0F, textColor, Font.DisplayMode.SEE_THROUGH);
-      if (entity instanceof Player equipmentPlayer) {
-         this.collectEquipment(equipmentPlayer);
-         this.renderEquipment(poses, equipmentPlayer);
-      }
+         FontRenderer.INSTANCE
+            .drawWithShadow(poses, label, textX, 1.0F, textColor, Font.DisplayMode.SEE_THROUGH);
+         if (entity instanceof Player equipmentPlayer) {
+            this.collectEquipment(equipmentPlayer);
+            this.renderEquipment(poses, equipmentPlayer);
+         }
       } finally {
          poses.popPose();
       }
