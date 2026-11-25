@@ -64,7 +64,7 @@ public class TunnelsModule extends Module {
    private final Setting<Color> outlineSetting;
    private static final MutableBlockPos scanPosition;
    private final ElapsedTimer mergeTimer;
-   private final Queue<Tunnel> pendingTunnels;
+   private volatile Queue<Tunnel> pendingTunnels;
    private volatile List<Tunnel> tunnels;
    private final AtomicBoolean mergeInProgress;
    private static final int CHUNK_SCAN_BUDGET_PER_TICK = 2048;
@@ -73,6 +73,7 @@ public class TunnelsModule extends Module {
    private final Set<Long> queuedChunkScans;
    private ChunkScanCursor activeChunkScan;
    private ClientLevel scanLevel;
+   private long runtimeGeneration;
 
    private boolean isNonSolid(BlockPos position) {
       ClientLevel level = ClientAccess.schizoMinecraft.level;
@@ -215,8 +216,17 @@ public class TunnelsModule extends Module {
                ClientLevel expectedLevel = ClientAccess.schizoMinecraft.level;
                LocalPlayer expectedPlayer = ClientAccess.schizoMinecraft.player;
                Vec3 eyePosition = expectedPlayer.getEyePosition();
+               long expectedGeneration = this.runtimeGeneration;
+               Queue<Tunnel> pendingSnapshot = this.pendingTunnels;
                ClientAccess.executorService.submit(
-                  (Runnable)() -> this.mergePendingTunnels(snapshot, eyePosition, expectedLevel, expectedPlayer)
+                  (Runnable)() -> this.mergePendingTunnels(
+                     snapshot,
+                     pendingSnapshot,
+                     eyePosition,
+                     expectedLevel,
+                     expectedPlayer,
+                     expectedGeneration
+                  )
                );
             }
          }
@@ -342,10 +352,11 @@ public class TunnelsModule extends Module {
    }
 
    private void resetChunkScanState(boolean clearTunnels) {
+      this.runtimeGeneration++;
       this.pendingChunkScans.clear();
       this.queuedChunkScans.clear();
       this.activeChunkScan = null;
-      this.pendingTunnels.clear();
+      this.pendingTunnels = new ConcurrentLinkedQueue<>();
       this.mergeInProgress.set(false);
       if (clearTunnels) {
          this.tunnels = Collections.emptyList();
@@ -376,15 +387,17 @@ public class TunnelsModule extends Module {
 
    private void mergePendingTunnels(
       List<Tunnel> snapshot,
+      Queue<Tunnel> pendingSnapshot,
       Vec3 eyePosition,
       ClientLevel expectedLevel,
-      LocalPlayer expectedPlayer
+      LocalPlayer expectedPlayer,
+      long expectedGeneration
    ) {
       try {
          boolean changed = false;
 
          TunnelsModule.Tunnel pending;
-         while ((pending = this.pendingTunnels.poll()) != null) {
+         while ((pending = pendingSnapshot.poll()) != null) {
             boolean mergedPending = false;
             Iterator<Tunnel> iterator = snapshot.iterator();
 
@@ -418,6 +431,7 @@ public class TunnelsModule extends Module {
          BlockableEventLoop<?> client = ClientAccess.schizoMinecraft;
          client.executeIfPossible(() -> {
             if (this.isToggled()
+               && this.runtimeGeneration == expectedGeneration
                && ClientAccess.schizoMinecraft.level == expectedLevel
                && ClientAccess.schizoMinecraft.player == expectedPlayer) {
                this.tunnels = snapshot;
