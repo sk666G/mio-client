@@ -46,7 +46,7 @@ public class AutoClickerModule extends Module {
    private final List<Long> recentClickTimes;
 
    static {
-      multiTaskModule = (MultiTaskModule)ClientContext.getModule(MultiTaskModule.class);
+
    }
 
    @Override
