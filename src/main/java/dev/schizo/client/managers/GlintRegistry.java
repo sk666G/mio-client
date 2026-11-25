@@ -38,18 +38,17 @@ public class GlintRegistry implements JsonConfigurable {
 
    @Override
    public void fromJson(JsonElement element) {
-      if (element instanceof JsonObject object) {
-         if (object.has("never")) {
-            RegistrySetSetting<Item> neverSetting = this.neverItems;
-            JsonElement neverValue = object.get("never");
-            neverSetting.fromJson(neverValue);
-         }
-         if (object.has("always")) {
-            RegistrySetSetting<Item> alwaysSetting = this.alwaysItems;
-            JsonElement alwaysValue = object.get("always");
-            alwaysSetting.fromJson(alwaysValue);
-         }
+      if (!(element instanceof JsonObject object)
+         || object.get("never") == null
+         || object.get("always") == null) {
+         throw new IllegalArgumentException("Glint configuration must contain never and always sets");
       }
+
+      Set<Item> loadedNever = this.neverItems.parseJsonEntries(object.get("never"));
+      Set<Item> loadedAlways = this.alwaysItems.parseJsonEntries(object.get("always"));
+
+      this.neverItems.replaceEntries(loadedNever);
+      this.alwaysItems.replaceEntries(loadedAlways);
    }
 
    @Override
