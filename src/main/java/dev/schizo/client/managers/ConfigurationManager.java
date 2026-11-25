@@ -15,6 +15,7 @@ import dev.schizo.client.config.ConfigFileReader;
 import dev.schizo.client.config.SafeModeManager;
 import dev.schizo.client.config.ConfigurationBackupManager;
 import dev.schizo.client.config.ModulePresetCodec;
+import dev.schizo.client.config.JsonStateTransaction;
 import dev.schizo.client.config.PresetUndoState;
 import dev.schizo.client.render.BundledResourceInstaller;
 import dev.schizo.client.utils.FileUtils;
@@ -116,7 +117,11 @@ public final class ConfigurationManager implements ClientAccess {
                }
                String configText = ConfigFileReader.readUtf8(configPath, (int)ConfigurationBackupManager.MAX_CONFIG_BYTES);
                JsonElement configJson = JsonParser.parseString(configText);
-               configurable.fromJson(configJson.getAsJsonObject());
+               JsonStateTransaction.apply(
+                  configurable::toJson,
+                  configurable::fromJson,
+                  configJson.getAsJsonObject()
+               );
             }
          } catch (Exception loadFailure) {
             ClientAccess.logger.error("Could not load configuration {}", configurable.getConfigName(), loadFailure);
