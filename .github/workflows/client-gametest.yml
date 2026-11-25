@@ -41,6 +41,7 @@ jobs:
       - name: Run client gametests
         env:
           ORG_GRADLE_JAVA_INSTALLATIONS_PATHS: ${{ env.JAVA_HOME_21_X64 }}
+          JAVA_TOOL_OPTIONS: -Dfabric.client.gametest.disableNetworkSynchronizer=true
         run: ./gradlew --no-daemon runClientGameTest
 
       - name: List client gametest evidence
