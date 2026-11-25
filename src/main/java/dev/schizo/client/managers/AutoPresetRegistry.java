@@ -227,9 +227,13 @@ public final class AutoPresetRegistry implements ClientAccess, JsonConfigurable 
    }
 
    private void pruneEmptyServer(String serverKey, AutoPresetServerEntry settings) {
-      if (settings != null && settings.getPresets().isEmpty() && !settings.hasKit()) {
+      if (isEmptyServer(settings)) {
          this.serverSettings.remove(serverKey);
       }
+   }
+
+   static boolean isEmptyServer(AutoPresetServerEntry settings) {
+      return settings != null && settings.getPresets().isEmpty() && !settings.hasKit();
    }
 
    public void setPreset(
