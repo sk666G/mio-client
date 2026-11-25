@@ -8,6 +8,8 @@ import java.io.IOException;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -118,6 +120,87 @@ class PresetRegistryTest {
 
       assertThrows(IOException.class, () -> registry.restorePreset(preset("existing")));
       assertEquals(dev.schizo.client.config.PresetData.MAX_PRESET_BYTES + 1L, Files.size(existing));
+   }
+
+   @Test
+   void transactionalApplyPublishesSuccessfulState() {
+      JsonObject before = json("value", "before");
+      JsonObject desired = json("value", "after");
+      AtomicReference<JsonObject> state = new AtomicReference<>(before.deepCopy());
+
+      PresetRegistry.applyWithRollback(
+         () -> state.get().deepCopy(),
+         value -> state.set(value.getAsJsonObject().deepCopy()),
+         desired
+      );
+
+      assertEquals("after", state.get().get("value").getAsString());
+   }
+
+   @Test
+   void transactionalApplyRestoresSnapshotAfterPartialMutationFailure() {
+      JsonObject before = json("value", "before");
+      JsonObject desired = json("value", "after");
+      AtomicReference<JsonObject> state = new AtomicReference<>(before.deepCopy());
+      AtomicInteger calls = new AtomicInteger();
+
+      RuntimeException failure = assertThrows(RuntimeException.class, () ->
+         PresetRegistry.applyWithRollback(
+            () -> state.get().deepCopy(),
+            value -> {
+               state.set(value.getAsJsonObject().deepCopy());
+               if (calls.getAndIncrement() == 0) {
+                  throw new IllegalStateException("apply failed after mutation");
+               }
+            },
+            desired
+         )
+      );
+
+      assertEquals("apply failed after mutation", failure.getMessage());
+      assertEquals("before", state.get().get("value").getAsString());
+      assertEquals(2, calls.get());
+   }
+
+   @Test
+   void transactionalApplyPreservesRollbackFailureAsSuppressedContext() {
+      AtomicInteger calls = new AtomicInteger();
+
+      RuntimeException failure = assertThrows(RuntimeException.class, () ->
+         PresetRegistry.applyWithRollback(
+            () -> json("value", "before"),
+            value -> {
+               if (calls.getAndIncrement() == 0) {
+                  throw new IllegalStateException("apply failed");
+               }
+               throw new IllegalArgumentException("rollback failed");
+            },
+            json("value", "after")
+         )
+      );
+
+      assertEquals("apply failed", failure.getMessage());
+      assertEquals(1, failure.getSuppressed().length);
+      assertEquals("rollback failed", failure.getSuppressed()[0].getMessage());
+   }
+
+   @Test
+   void transactionalApplyDoesNotExposeStoredDesiredPayloadToMutation() {
+      JsonObject desired = json("value", "after");
+
+      PresetRegistry.applyWithRollback(
+         () -> json("value", "before"),
+         value -> value.getAsJsonObject().addProperty("value", "mutated by category"),
+         desired
+      );
+
+      assertEquals("after", desired.get("value").getAsString());
+   }
+
+   private static JsonObject json(String key, String value) {
+      JsonObject object = new JsonObject();
+      object.addProperty(key, value);
+      return object;
    }
 
    private static PresetData preset(String name) {

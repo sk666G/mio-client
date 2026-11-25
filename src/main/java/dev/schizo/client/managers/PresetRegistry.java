@@ -12,10 +12,12 @@ package dev.schizo.client.managers;
 import dev.schizo.client.config.ConfigFileReader;
 import dev.schizo.client.config.PresetData;
 import dev.schizo.client.config.PresetNameValidator;
+import dev.schizo.client.config.JsonStateTransaction;
 
 import dev.schizo.client.settings.options.PresetCategory;
 import dev.schizo.client.utils.FileUtils;
 
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import java.io.IOException;
@@ -58,10 +60,32 @@ public final class PresetRegistry extends Registry<PresetData> {
       }
       synchronized (this.getRegistry()) {
          PresetData preset = this.findPreset(normalized);
-         if (preset == null) return false;
-         this.category.fromJson(preset.copyContents());
-         return true;
+         if (preset == null || this.category == null) return false;
+         try {
+            applyWithRollback(
+               this.category::toJson,
+               this.category::fromJson,
+               preset.copyContents()
+            );
+            return true;
+         } catch (RuntimeException failure) {
+            LOGGER.error(
+               "Could not apply {} preset {}; restored the previous category state when possible",
+               this.category.getName(),
+               preset.getName(),
+               failure
+            );
+            return false;
+         }
       }
+   }
+
+   static void applyWithRollback(
+      java.util.function.Supplier<JsonElement> snapshotSupplier,
+      Consumer<JsonElement> applier,
+      JsonElement desiredState
+   ) {
+      JsonStateTransaction.apply(snapshotSupplier, applier, desiredState);
    }
 
    public PresetData getPreset(String name) {
