@@ -47,7 +47,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 
 public class AutoDropModule extends PlacementModule {
-   private static SpeedMineModule speedMineModule = (SpeedMineModule)ClientContext.getModule(SpeedMineModule.class);
+
    private static final MutableBlockPos supportProbePosition = new MutableBlockPos();
    protected final Setting<Float> targetRangeSetting;
    protected final Setting<Boolean> ignoreNakedsSetting;
@@ -252,16 +252,16 @@ public class AutoDropModule extends PlacementModule {
    }
 
    private boolean isInstantRebreakPosition(BlockPos position) {
-      float miningDamage = speedMineModule.getMiningProgress();
-      Setting<Float> damageSettingRef = speedMineModule.damageSetting;
+      float miningDamage = schizo$speedMineModule().getMiningProgress();
+      Setting<Float> damageSettingRef = schizo$speedMineModule().damageSetting;
       Float damageSettingValue = damageSettingRef.getValue();
       float damageFraction = miningDamage / damageSettingValue;
 
-      if (speedMineModule.isToggled()) {
+      if (schizo$speedMineModule().isToggled()) {
          if (damageFraction >= 1.0F) {
-            Setting<SpeedMineRebreakChoice> rebreakSettingRef = speedMineModule.rebreakSetting;
+            Setting<SpeedMineRebreakChoice> rebreakSettingRef = schizo$speedMineModule().rebreakSetting;
             if (rebreakSettingRef.getValue() == SpeedMineRebreakChoice.INSTANT) {
-               if (position.equals(speedMineModule.getMiningPos())) {
+               if (position.equals(schizo$speedMineModule().getMiningPos())) {
                   return true;
                }
             }
@@ -318,8 +318,12 @@ public class AutoDropModule extends PlacementModule {
    }
 
    public static void bindModules(ModuleRegistry modules) {
-      speedMineModule = (SpeedMineModule)modules.getModule(
+      schizo$speedMineModule() = (SpeedMineModule)modules.getModule(
          SpeedMineModule.class
       );
+   }
+
+   private static SpeedMineModule schizo$speedMineModule() {
+      return ClientContext.requireModule(SpeedMineModule.class);
    }
 }
