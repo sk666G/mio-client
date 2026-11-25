@@ -3,14 +3,13 @@ package dev.schizo.client.modules.render;
 import static org.junit.jupiter.api.Assertions.*;
 
 import net.minecraft.core.BlockPos;
-import net.minecraft.world.level.ChunkPos;
 import org.junit.jupiter.api.Test;
 
 final class TunnelsChunkScanCursorTest {
    @Test
    void visitsEveryCellExactlyOnce() {
       TunnelsChunkScanCursor cursor =
-         new TunnelsChunkScanCursor(new ChunkPos(2, -3), 10, 13);
+         new TunnelsChunkScanCursor(32, -48, 10, 13);
       BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
 
       int count = 0;
@@ -33,7 +32,7 @@ final class TunnelsChunkScanCursorTest {
    @Test
    void emptyVerticalRangeCompletesImmediately() {
       TunnelsChunkScanCursor cursor =
-         new TunnelsChunkScanCursor(new ChunkPos(0, 0), 20, 20);
+         new TunnelsChunkScanCursor(0, 0, 20, 20);
 
       assertFalse(cursor.next(new BlockPos.MutableBlockPos()));
    }
