@@ -431,8 +431,29 @@ class ModuleCompatibilityTest {
    }
 
    @Test
+   void reviewedPacketSelectorsAndVisualControlsStayDistinct() {
+      ModuleCompatibility.SettingAssessment movement =
+         ModuleCompatibility.assessSetting(FakeLagModule.class, "Movement");
+      ModuleCompatibility.SettingAssessment render =
+         ModuleCompatibility.assessSetting(FakeLagModule.class, "Render");
+      ModuleCompatibility.SettingAssessment reach =
+         ModuleCompatibility.assessSetting(ReachModule.class, "Modifier");
+      ModuleCompatibility.SettingAssessment chunkPackets =
+         ModuleCompatibility.assessSetting(NoRenderModule.class, "Chunks");
+
+      assertEquals(ModuleCompatibility.Classification.PACKET_AFFECTING, movement.classification());
+      assertTrue(movement.requiresWarning());
+      assertEquals(ModuleCompatibility.Classification.VISUAL_ONLY, render.classification());
+      assertFalse(render.requiresWarning());
+      assertEquals(ModuleCompatibility.Classification.SERVER_SENSITIVE, reach.classification());
+      assertTrue(reach.requiresWarning());
+      assertEquals(ModuleCompatibility.Classification.PACKET_AFFECTING, chunkPackets.classification());
+      assertTrue(chunkPackets.requiresWarning());
+   }
+
+   @Test
    void settingReviewCountIncludesExplicitReviewsOnly() {
-      assertTrue(ModuleCompatibility.reviewedSettingCount() >= 20);
+      assertTrue(ModuleCompatibility.reviewedSettingCount() >= 57);
    }
 
    @Test
