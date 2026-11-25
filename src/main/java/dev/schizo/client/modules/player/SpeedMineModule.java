@@ -1286,17 +1286,31 @@ public class SpeedMineModule extends Module {
                   miningTracker.rememberPosition(trackedExtraPosition);
                   this.extraBreakTarget = null;
                   TaskScheduler extraSwapScheduler = ClientContext.taskScheduler;
+                  ClientLevel expectedSwapLevel = ClientAccess.schizoMinecraft.level;
+                  LocalPlayer expectedSwapPlayer = ClientAccess.schizoMinecraft.player;
+                  long expectedSwapGeneration = this.lifecycleGeneration;
 
                   // Restore the same swap mechanism after the extra break has been sent.
                   Runnable restoreExtraSlot = () -> {
+                     boolean ownsCleanup = this.lifecycleGeneration == expectedSwapGeneration
+                        || !this.isToggled();
                      try {
+                        boolean safeToRestore = ClientAccess.schizoMinecraft.level == expectedSwapLevel
+                           && ClientAccess.schizoMinecraft.player == expectedSwapPlayer
+                           && expectedSwapPlayer != null
+                           && ownsCleanup;
+                        if (!safeToRestore) {
+                           return;
+                        }
                         if (useExtraInventorySwap) {
                            InventoryUtils.swapIntoSelectedSlot(extraToolSlot);
                         } else {
                            InventoryUtils.selectHotbarSlot(extraPreviousSlot);
                         }
                      } finally {
-                        swapPending.set(false);
+                        if (ownsCleanup) {
+                           swapPending.set(false);
+                        }
                      }
                   };
 
@@ -1561,16 +1575,35 @@ public class SpeedMineModule extends Module {
                      boolean needsExtraTick = this.silentSwapProgress < 0.425F;
 
                      int slotToRestore = selectedSlot;
+                     ClientLevel expectedBreakLevel = ClientAccess.schizoMinecraft.level;
+                     LocalPlayer expectedBreakPlayer = ClientAccess.schizoMinecraft.player;
+                     long expectedBreakGeneration = this.lifecycleGeneration;
+                     boolean restoreWithInventorySwap = alternativeAllowed
+                        && this.autoSwapModeSetting.getValue() == SpeedMineAutoSwapChoice.SILENT;
+                     boolean forceHotbarRestore = slotToRestore != toolSlot
+                        || this.value121Setting.getValue() == SpeedMineValue121Choice.TICK;
 
                      Runnable restoreSlotTask = () -> {
+                        boolean ownsCurrentGeneration =
+                           this.lifecycleGeneration == expectedBreakGeneration;
+                        boolean cleanupAllowed = ownsCurrentGeneration || !this.isToggled();
                         try {
-                           if (alternativeAllowed && this.autoSwapModeSetting.getValue() == SpeedMineAutoSwapChoice.SILENT) {
-                              InventoryUtils.swapIntoSelectedSlot(toolSlot);
-                           } else if (slotToRestore != toolSlot || this.value121Setting.getValue() == SpeedMineValue121Choice.TICK) {
-                              InventoryUtils.selectHotbarSlotForPlacement(slotToRestore);
+                           boolean safeToRestore = cleanupAllowed
+                              && ClientAccess.schizoMinecraft.level == expectedBreakLevel
+                              && ClientAccess.schizoMinecraft.player == expectedBreakPlayer
+                              && expectedBreakPlayer != null;
+                           if (safeToRestore) {
+                              if (restoreWithInventorySwap) {
+                                 InventoryUtils.swapIntoSelectedSlot(toolSlot);
+                              } else if (forceHotbarRestore) {
+                                 InventoryUtils.selectHotbarSlotForPlacement(slotToRestore);
+                              }
                            }
                         } finally {
-                           autoCrystalModule.placementGate.set(false);
+                           if (cleanupAllowed) {
+                              swapPending.set(false);
+                              autoCrystalModule.placementGate.set(false);
+                           }
                         }
                      };
                      if (needsExtraTick && this.value121Setting.getValue() == SpeedMineValue121Choice.TICK
@@ -1579,11 +1612,17 @@ public class SpeedMineModule extends Module {
                         TaskScheduler scheduler = ClientContext.taskScheduler;
                         Runnable delayedBreak = () -> {
                            try {
-                              PacketSender.sendPlayerAction(Action.STOP_DESTROY_BLOCK, brokenPosition, destroyFace);
-                              WorldStateManager worldState = ClientContext.worldStateManager;
-                              worldState.destroyBlockPredicted(brokenPosition);
+                              if (this.isToggled()
+                                 && this.lifecycleGeneration == expectedBreakGeneration
+                                 && ClientAccess.schizoMinecraft.level == expectedBreakLevel
+                                 && ClientAccess.schizoMinecraft.player == expectedBreakPlayer) {
+                                 PacketSender.sendPlayerAction(
+                                    Action.STOP_DESTROY_BLOCK, brokenPosition, destroyFace
+                                 );
+                                 WorldStateManager worldState = ClientContext.worldStateManager;
+                                 worldState.destroyBlockPredicted(brokenPosition);
+                              }
                            } finally {
-                              swapPending.set(false);
                               restoreSlotTask.run();
                            }
                         };
