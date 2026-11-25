@@ -453,7 +453,7 @@ class ModuleCompatibilityTest {
 
    @Test
    void settingReviewCountIncludesExplicitReviewsOnly() {
-      assertTrue(ModuleCompatibility.reviewedSettingCount() >= 302);
+      assertTrue(ModuleCompatibility.reviewedSettingCount() >= 331);
    }
 
    @Test
@@ -637,6 +637,26 @@ class ModuleCompatibilityTest {
       assertEquals(
          ModuleCompatibility.Classification.VISUAL_ONLY,
          ModuleCompatibility.assessSetting(NukerModule.class, "Color").classification()
+      );
+   }
+
+   @Test
+   void localLifecycleControlsCanBeSaferThanPacketFacingParents() {
+      assertEquals(
+         ModuleCompatibility.Classification.CLIENT_ONLY,
+         ModuleCompatibility.assessSetting(AutoLogModule.class, "Reconnect").classification()
+      );
+      assertEquals(
+         ModuleCompatibility.Classification.PACKET_AFFECTING,
+         ModuleCompatibility.assessSetting(AutoLogModule.class, "Health").classification()
+      );
+      assertEquals(
+         ModuleCompatibility.Classification.CLIENT_ONLY,
+         ModuleCompatibility.assessSetting(SelfFillModule.class, "JumpDisable").classification()
+      );
+      assertEquals(
+         ModuleCompatibility.Classification.PACKET_AFFECTING,
+         ModuleCompatibility.assessSetting(SelfFillModule.class, "Mode").classification()
       );
    }
 
