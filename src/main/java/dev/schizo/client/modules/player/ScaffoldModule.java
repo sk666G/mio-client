@@ -80,7 +80,7 @@ import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
 public class ScaffoldModule extends Module {
-   private static AntiCheatModule antiCheatModule = (AntiCheatModule)ClientContext.getModule(AntiCheatModule.class);
+
    private final Setting<ScaffoldMode> modeSetting;
    private final Setting<Integer> sizeSetting;
    private final Setting<Integer> frequencySetting;
@@ -155,7 +155,7 @@ public class ScaffoldModule extends Module {
       ElapsedTimer timer = this.inventoryClickTimer;
       if (!timer.hasElapsed(50L)) {
          if (ClientAccess.schizoMinecraft.player.onGround()) {
-            if (antiCheatModule.movementSyncSetting.getValue()) {
+            if (schizo$antiCheatModule().movementSyncSetting.getValue()) {
                return;
             }
          }
@@ -656,7 +656,7 @@ public class ScaffoldModule extends Module {
    private void updatePlacementRotation() {
       int rotationTimeout = 500;
       if (RotationManager.isMovementSyncEnabled()) {
-         if (antiCheatModule.is2b2tEnabled()) {
+         if (schizo$antiCheatModule().is2b2tEnabled()) {
             rotationTimeout = 200;
          } else {
             rotationTimeout = -1;
@@ -764,7 +764,7 @@ public class ScaffoldModule extends Module {
    }
 
    public static void bindReferencedModules(ModuleRegistry moduleRegistry) {
-      antiCheatModule = (AntiCheatModule)moduleRegistry.getModule(
+      schizo$antiCheatModule() = (AntiCheatModule)moduleRegistry.getModule(
          AntiCheatModule.class
       );
    }
@@ -833,5 +833,9 @@ public class ScaffoldModule extends Module {
       TowerChoice(String displayName) {
          this.displayName = displayName;
       }
+   }
+
+   private static AntiCheatModule schizo$antiCheatModule() {
+      return ClientContext.requireModule(AntiCheatModule.class);
    }
 }
