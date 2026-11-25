@@ -8,7 +8,7 @@ This file separates verified behavior from work that still needs runtime or arch
 - No controlled Minecraft server was available. No claims are made about compatibility of remaining movement, combat, interaction or packet modules with vanilla servers or specific plugins.
 - The source-level audit removed `GrimDisablerModule` and `RaytraceBypassModule`, including registration and rebuild-script reinjection. The remaining module set has not yet been reduced to a complete per-module protocol compatibility matrix.
 - The runtime lifecycle of Context Profiles needs tests with initialized client services for connect, disconnect, server switch, dimension/game-mode switch, failed category restoration and AutoPreset ordering.
-- **AutoCrystal and AnchorAura worker scans are not thread-safe.** Their cancellable background tasks still read live ClientLevel, entity, block-state and client-global data through placement, visibility and damage helpers. Cancellation and partial coordinate snapshots do not make those reads immutable. Use [Combat Scan Snapshot Design](COMBAT_SCAN_SNAPSHOT_DESIGN.md) as the required migration plan; keep this limitation open until the workers are snapshot-only and their results are revalidated on the client thread.
+- AutoCrystal and AnchorAura placement scans no longer run on worker executors; the existing live-world calculations now execute on the Minecraft client thread and retain client-thread result revalidation. This closes the live-world worker safety issue, but it introduces a **runtime performance validation requirement**: heavy combat scans must be profiled in representative worlds. If asynchronous scanning is reintroduced, it must follow the immutable capture → data-only worker → client-thread revalidation design in [Combat Scan Snapshot Design](COMBAT_SCAN_SNAPSHOT_DESIGN.md).
 - Discord IPC now has a 12-second module-side connection deadline, a cancellation state, tracked in-flight pipes and immediate raw transport abort for Unix and Windows after a pipe object exists. Windows frame I/O uses `FileChannel`, so closing the tracked channel can interrupt a blocked channel read. Regression tests cover a blocked Unix handshake read and the Windows little-endian frame decoder using a temporary file; neither substitutes for a real Windows named-pipe runtime test. Windows `RandomAccessFile` endpoint construction happens before a pipe object can be tracked; if that native open itself blocks, the module can time out and turn off but cannot forcibly stop that native open.
 
 ## Performance
@@ -27,6 +27,6 @@ This file separates verified behavior from work that still needs runtime or arch
 
 ## Release
 
-- A GitHub Actions build is the available build verification; local runtime verification and artifact launch verification remain outstanding.
+- GitHub Actions verifies the clean build and review artifact. The workflow now uploads only the runnable remapped JAR together with `COMMIT_SHA.txt` and `SHA256SUMS.txt`; local runtime verification and artifact launch verification remain outstanding.
 - The vendored DiscordIPC source carries Apache-2.0 attribution and the full license in `LICENSES/DiscordIPC-APACHE-2.0.txt`. Unix framing uses the original Schizo MIT codec; two helpers with unverified provenance were removed.
 - No public release was created. The branch is not merged.
