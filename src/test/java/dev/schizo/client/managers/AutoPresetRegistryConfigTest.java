@@ -3,7 +3,6 @@ package dev.schizo.client.managers;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.google.gson.JsonObject;
-import dev.schizo.client.settings.options.PresetCategory;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
@@ -78,14 +77,21 @@ class AutoPresetRegistryConfigTest {
    }
 
    @Test
-   void removingLastPresetPrunesServerEntry() {
-      AutoPresetRegistry registry = new AutoPresetRegistry();
-      PresetCategory category = PresetCategory.values()[0];
-      registry.setPreset("Example.org", category, "preset");
+   void emptyServerPredicateRequiresNoPresetsAndNoKit() {
+      dev.schizo.client.utils.network.AutoPresetServerEntry settings =
+         new dev.schizo.client.utils.network.AutoPresetServerEntry("example.org");
 
-      assertTrue(registry.removePreset("EXAMPLE.ORG", category));
-      assertTrue(registry.getServers().isEmpty());
-      assertFalse(registry.removePreset("example.org", category));
+      assertTrue(AutoPresetRegistry.isEmptyServer(settings));
+
+      settings.setKitName("kit");
+      assertFalse(AutoPresetRegistry.isEmptyServer(settings));
+
+      settings.setKitName(null);
+      settings.getPresets().put("synthetic-category", "preset");
+      assertFalse(AutoPresetRegistry.isEmptyServer(settings));
+
+      settings.getPresets().clear();
+      assertTrue(AutoPresetRegistry.isEmptyServer(settings));
    }
 
    @Test
