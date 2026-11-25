@@ -84,9 +84,8 @@ public final class KitRegistry extends dev.schizo.client.managers.Registry<Kit> 
          return;
       }
       JsonObject root = json.getAsJsonObject();
-      if (root.has("current")) {
-         this.setCurrentKitName(root.get("current").getAsString());
-      }
+      String selected = root.has("current") ? root.get("current").getAsString() : null;
+      var loaded = new ArrayList<Kit>();
 
       Iterator kitEntries = root.entrySet().iterator();
       while (kitEntries.hasNext()) {
@@ -139,8 +138,11 @@ public final class KitRegistry extends dev.schizo.client.managers.Registry<Kit> 
                itemsBySlot.put(slot, descriptor);
             }
          }
-         this.registerEntry(kit);
+         loaded.add(kit);
       }
+      this.entries.clear();
+      this.entries.addAll(loaded);
+      this.setCurrentKitName(selected);
    }
 
    @Override
@@ -192,7 +194,6 @@ public final class KitRegistry extends dev.schizo.client.managers.Registry<Kit> 
    }
 
    public void captureInventory(String name) {
-      this.getRegistry().removeIf((Predicate<Kit>)existingKit -> existingKit.getName().equalsIgnoreCase(name));
       Kit kit = new Kit(name);
       int slot = 0;
       LocalPlayer player = ClientAccess.schizoMinecraft.player;
@@ -210,6 +211,7 @@ public final class KitRegistry extends dev.schizo.client.managers.Registry<Kit> 
          );
       }
 
+      this.getRegistry().removeIf((Predicate<Kit>)existingKit -> existingKit.getName().equalsIgnoreCase(name));
       this.getRegistry().add(kit);
       this.setCurrentKitName(name);
    }
