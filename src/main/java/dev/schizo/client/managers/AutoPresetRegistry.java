@@ -18,6 +18,7 @@ import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.ConnectScreenConnectEvent;
 import dev.schizo.client.events.EventHandler;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.settings.JsonConfigurable;
 import dev.schizo.client.settings.options.PresetCategory;
 
@@ -229,57 +230,76 @@ public final class AutoPresetRegistry implements ClientAccess, JsonConfigurable 
       settings.getPresets().put(category, presetName);
    }
 
+   boolean beginConnection(String serverAddress) {
+      String serverKey = normalizeServerKey(serverAddress);
+      if (serverKey.equals(this.lastServer)) {
+         return false;
+      }
+      this.lastServer = serverKey;
+      return true;
+   }
+
+   void resetConnectionState() {
+      this.lastServer = null;
+   }
+
    @EventHandler
    public void onConnectScreenConnectEvent(ConnectScreenConnectEvent event) {
       String serverAddress = event.getServerAddress();
-      String previousServer = this.lastServer;
-      if (!serverAddress.equalsIgnoreCase(previousServer)) {
-         this.lastServer = event.getServerAddress();
-         AutoPresetServerEntry settings = (AutoPresetServerEntry)this.serverSettings.get(normalizeServerKey(this.lastServer));
-         if (settings != null) {
+      if (!this.beginConnection(serverAddress)) {
+         return;
+      }
 
-            AtomicInteger messageCounter = new AtomicInteger(-2);
+      AutoPresetServerEntry settings = (AutoPresetServerEntry)this.serverSettings.get(this.lastServer);
+      if (settings == null) {
+         return;
+      }
 
-            settings.getPresets().forEach((BiConsumer<PresetCategory, String>)(category, presetName) -> {
-               ConfigurationManager configurationManager = ClientContext.configurationManager;
-               PresetRegistry presetRegistry = configurationManager.getPresetRegistry(category);
-               presetRegistry.applyPreset(presetName);
-               TaskScheduler schedulerForPreset = ClientContext.taskScheduler;
-               Runnable messageForPreset = () -> {
+      AtomicInteger messageCounter = new AtomicInteger(-2);
+
+      settings.getPresets().forEach((BiConsumer<PresetCategory, String>)(category, presetName) -> {
+         ConfigurationManager configurationManager = ClientContext.configurationManager;
+         PresetRegistry presetRegistry = configurationManager.getPresetRegistry(category);
+         presetRegistry.applyPreset(presetName);
+         TaskScheduler schedulerForPreset = ClientContext.taskScheduler;
+         Runnable messageForPreset = () -> {
+            int messageId = messageCounter.getAndDecrement();
+
+            MessageSignature signature = ChatUtils.createSignature(messageId);
+
+            Object[] messageArguments = new Object[]{presetName};
+            String messageFormat = "Preset %s has been loaded.";
+            String messageText = messageFormat.formatted(messageArguments);
+            ChatUtils.printChat(Component.literal(messageText), signature);
+         };
+         schedulerForPreset.scheduleRotationTask(messageForPreset, 0);
+      });
+
+      if (settings.hasKit()) {
+         String kitName = settings.getKitName();
+         ClientContext.kitRegistry.findFirst((Predicate<Kit>)kit -> kit.getName().equalsIgnoreCase(kitName))
+            .ifPresent((Consumer<Kit>)matchingKit -> {
+               KitRegistry kitRegistry = ClientContext.kitRegistry;
+               kitRegistry.setCurrentKitName(kitName);
+               TaskScheduler schedulerForKit = ClientContext.taskScheduler;
+               Runnable messageForKit = () -> {
                   int messageId = messageCounter.getAndDecrement();
 
                   MessageSignature signature = ChatUtils.createSignature(messageId);
 
-                  Object[] messageArguments = new Object[]{presetName};
-                  String messageFormat = "Preset %s has been loaded.";
+                  Object[] messageArguments = new Object[]{kitName};
+                  String messageFormat = "Kit %s has been loaded.";
                   String messageText = messageFormat.formatted(messageArguments);
                   ChatUtils.printChat(Component.literal(messageText), signature);
                };
-               schedulerForPreset.scheduleRotationTask(messageForPreset, 0);
+               schedulerForKit.scheduleRunTickTask(messageForKit);
             });
-
-            if (settings.hasKit()) {
-               String kitName = settings.getKitName();
-               ClientContext.kitRegistry.findFirst((Predicate<Kit>)kit -> kit.getName().equalsIgnoreCase(kitName))
-                  .ifPresent((Consumer<Kit>)matchingKit -> {
-                     KitRegistry kitRegistry = ClientContext.kitRegistry;
-                     kitRegistry.setCurrentKitName(kitName);
-                     TaskScheduler schedulerForKit = ClientContext.taskScheduler;
-                     Runnable messageForKit = () -> {
-                        int messageId = messageCounter.getAndDecrement();
-
-                        MessageSignature signature = ChatUtils.createSignature(messageId);
-
-                        Object[] messageArguments = new Object[]{kitName};
-                        String messageFormat = "Kit %s has been loaded.";
-                        String messageText = messageFormat.formatted(messageArguments);
-                        ChatUtils.printChat(Component.literal(messageText), signature);
-                     };
-                     schedulerForKit.scheduleRunTickTask(messageForKit);
-                  });
-            }
-         }
       }
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.resetConnectionState();
    }
 
    public boolean removeServer(String server) {
