@@ -1,7 +1,7 @@
 package dev.schizo.client.gametest;
 
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
-import net.fabricmc.fabric.api.client.gametest.v1.context.TestServerConnection;
+import net.fabricmc.fabric.api.client.gametest.v1.context.TestClientWorldContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestServerContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
 import net.fabricmc.fabric.api.client.gametest.v1.world.TestWorldSave;
@@ -24,8 +24,8 @@ final class GameTestWorlds {
          }
 
          @Override
-         public TestServerConnection getConnection() {
-            return world.getConnection();
+         public TestClientWorldContext getClientWorld() {
+            return world.getClientWorld();
          }
 
          @Override
