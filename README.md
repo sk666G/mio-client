@@ -24,7 +24,7 @@ To launch a development client:
 ./gradlew runClient
 ```
 
-The remapped client JAR is written to `build/libs/`. CI uploads a `schizo-client` artifact for branch review; this is not a published release.
+The remapped client JAR is written to `build/libs/`. CI uploads a `schizo-client` review artifact containing the runnable remapped JAR, `COMMIT_SHA.txt`, and `SHA256SUMS.txt`; source/dev JARs are excluded. This is not a published release.
 
 ## Install
 
