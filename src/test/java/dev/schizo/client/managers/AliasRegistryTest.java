@@ -32,4 +32,36 @@ class AliasRegistryTest {
 
       assertEquals("Alias", registry.getPlayerAlias("Player"));
    }
+
+   @Test
+   void playerAliasesUseCaseInsensitiveIdentity() {
+      AliasRegistry registry = new AliasRegistry();
+      registry.setPlayerAlias("Alice", "First");
+
+      assertEquals("First", registry.getPlayerAlias("alice"));
+
+      registry.setPlayerAlias("ALICE", "Second");
+      assertEquals("Second", registry.getPlayerAlias("Alice"));
+
+      registry.removePlayerAlias("aLiCe");
+      assertEquals("Alice", registry.getPlayerAlias("Alice"));
+   }
+
+   @Test
+   void reloadCollapsesCaseOnlyDuplicatePlayerNames() {
+      AliasRegistry registry = new AliasRegistry();
+
+      JsonObject root = new JsonObject();
+      JsonObject players = new JsonObject();
+      players.addProperty("Alice", "First");
+      players.addProperty("ALICE", "Second");
+      root.add("players", players);
+
+      registry.fromJson(root);
+
+      assertEquals("Second", registry.getPlayerAlias("alice"));
+      JsonObject savedPlayers = registry.toJson().getAsJsonObject().getAsJsonObject("players");
+      assertEquals(1, savedPlayers.size());
+   }
+
 }
