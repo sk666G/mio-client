@@ -581,7 +581,7 @@ public final class FireworksModule extends Module {
          }
       }
 
-      if (!ClientContext.taskScheduler.scheduleRotationTask(
+      if (!this.scheduleRotationTask(
          () -> this.completeTemporaryElytraSwap(generation), 2
       )) {
          this.completeTemporaryElytraSwap(generation);
