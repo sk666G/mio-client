@@ -511,14 +511,16 @@ public final class MacroCommand extends Command {
             event.getCode(), Keybind.Mode.TOGGLE, event.isMouse()
          );
          Macro macro = capturedType.create(capturedName, keybind);
-         ClientContext.macroRegistry.registerEntry(macro);
-
-         MutableComponent namedMessage = Component.literal("Macro ").append(macro.getDisplayComponent());
-
-         MutableComponent createdMessage = namedMessage.append(" has been created");
-
-         ChatUtils.printChat(createdMessage, ChatUtils.DEFAULT_SIGNATURE);
+         if (ClientContext.macroRegistry.registerEntry(macro)) {
+            MutableComponent namedMessage = Component.literal("Macro ").append(macro.getDisplayComponent());
+            MutableComponent createdMessage = namedMessage.append(" has been created");
+            ChatUtils.printChat(createdMessage, ChatUtils.DEFAULT_SIGNATURE);
+         } else {
+            ChatUtils.printChat(Component.literal("A macro with that name already exists"), ChatUtils.DEFAULT_SIGNATURE);
+         }
          this.waitingForKey = false;
+         this.pendingMacroName = null;
+         this.pendingMacroType = null;
       }
    }
 
