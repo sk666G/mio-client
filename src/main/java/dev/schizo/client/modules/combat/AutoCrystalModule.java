@@ -86,11 +86,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.FutureTask;
-import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.SynchronousQueue;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
@@ -132,7 +127,6 @@ import net.minecraft.world.phys.Vec2;
 import net.minecraft.world.phys.Vec3;
 
 public class AutoCrystalModule extends Module {
-   private static final ThreadPoolExecutor calculationExecutor;
    private static SpeedMineModule speedMine;
    private static AntiCheatModule antiCheat;
    private static AnchorAuraModule anchorAura;
@@ -229,7 +223,6 @@ public class AutoCrystalModule extends Module {
    private final List<Integer> predictedAttackIds;
    private final Set ignoredBlocks;
    private CompletableFuture<CrystalPlacementResult> calculationFuture;
-   private FutureTask<Void> calculationTask;
    private ClientLevel calculationWorld;
    protected volatile BlockPos lastPlacedBase;
    protected volatile BlockPos lastAttackedBase;
@@ -250,24 +243,11 @@ public class AutoCrystalModule extends Module {
    public LivingEntity previousTarget;
    private Vec3 eyePosition;
    static {
-      calculationExecutor = createCalculationExecutor();
       speedMine = (SpeedMineModule)ClientContext.getModule(SpeedMineModule.class);
       antiCheat = (AntiCheatModule)ClientContext.getModule(AntiCheatModule.class);
       anchorAura = (AnchorAuraModule)ClientContext.getModule(AnchorAuraModule.class);
       aura = (AuraModule)ClientContext.getModule(AuraModule.class);
       autoExp = (AutoExpModule)ClientContext.getModule(AutoExpModule.class);
-   }
-
-   static ThreadPoolExecutor createCalculationExecutor() {
-      // A timed-out scan may still be unwinding a live-state helper after
-      // interruption; never queue or run overlapping replacements.
-      return new ThreadPoolExecutor(
-         0,
-         1,
-         30L,
-         TimeUnit.SECONDS,
-         new SynchronousQueue<>()
-      );
    }
 
    @Override
@@ -302,7 +282,6 @@ public class AutoCrystalModule extends Module {
       this.placementData.set(null);
       this.completeCalculation();
       this.calculationFuture = null;
-      this.calculationTask = null;
       this.calculationWorld = null;
 
       this.swapDelayTimer.reset();
@@ -315,7 +294,6 @@ public class AutoCrystalModule extends Module {
    public void onDisable() {
       this.completeCalculation();
       this.calculationFuture = null;
-      this.calculationTask = null;
       this.calculationWorld = null;
       this.restoreSelectedSlot();
    }
@@ -1857,7 +1835,6 @@ public class AutoCrystalModule extends Module {
    private void onMinecraftDisconnectEvent(MinecraftDisconnectEvent event) {
       this.completeCalculation();
       this.calculationFuture = null;
-      this.calculationTask = null;
       this.calculationWorld = null;
       this.placementData.set(null);
       this.rotationTarget.set(null);
@@ -2017,8 +1994,7 @@ public class AutoCrystalModule extends Module {
             // A scan started in another world must never publish an entity from that world.
             this.completeCalculation();
             this.calculationFuture = null;
-            this.calculationTask = null;
-            this.calculationWorld = null;
+                  this.calculationWorld = null;
             this.placementData.set(null);
             this.selectedDamage = 0.0F;
             this.target = null;
@@ -2060,32 +2036,12 @@ public class AutoCrystalModule extends Module {
             if (this.calculationFuture == null || this.calculationFuture.isDone() || this.calculationFuture.isCancelled()) {
                this.clearInvalidTarget();
                List<LivingEntity> targets = this.targeting.snapshot();
-               CompletableFuture<CrystalPlacementResult> scheduledCalculation = new CompletableFuture<>();
-               FutureTask<Void> task = new FutureTask<>(() -> {
-                  try {
-                     scheduledCalculation.complete(this.calculatePlacement(targets));
-                  } catch (Throwable failure) {
-                     scheduledCalculation.completeExceptionally(failure);
-                  }
-                  return null;
-               });
+               this.calculationWorld = activeLevel;
                try {
-                  calculationExecutor.execute(task);
-                  this.calculationWorld = activeLevel;
-                  this.calculationTask = task;
-                  this.calculationFuture = scheduledCalculation
-                     .completeOnTimeout(null, 750L, TimeUnit.MILLISECONDS)
-                     .whenComplete((result, failure) -> {
-                        // A timed-out or superseded scan must not keep consuming CPU in the background.
-                        if (failure != null || result == null) {
-                           task.cancel(true);
-                        }
-                     })
-                     .exceptionally((Function<Throwable, CrystalPlacementResult>)failure -> null);
-               } catch (RejectedExecutionException busyExecutor) {
-                  // The previous cancelled scan has not exited yet. Retry next tick;
-                  // never fall back to doing this expensive scan on the client thread.
-                  task.cancel(false);
+                  this.calculationFuture = CompletableFuture.completedFuture(this.calculatePlacement(targets));
+               } catch (Throwable failure) {
+                  ClientAccess.logger.error("AutoCrystal placement calculation failed", failure);
+                  this.calculationFuture = CompletableFuture.completedFuture(null);
                }
             }
 
@@ -2286,11 +2242,6 @@ public class AutoCrystalModule extends Module {
       }
    }
    public void completeCalculation() {
-      FutureTask<Void> task = this.calculationTask;
-      if (task != null && !task.isDone()) {
-         task.cancel(true);
-      }
-
       CompletableFuture<CrystalPlacementResult> pending = this.calculationFuture;
       if (pending != null && !pending.isDone() && !pending.isCancelled()) {
          pending.complete(null);
