@@ -21,8 +21,6 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.TreeMap;
-import java.util.TreeSet;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
@@ -92,27 +90,9 @@ public final class WaypointRegistry extends AbstractRegistry<Waypoint> implement
       if (!configObject.has("waypoints")) {
          return;
       }
-      List<Waypoint> loaded = decodeWaypoints(configObject.getAsJsonArray("waypoints"), ClientAccess.gson);
+      List<Waypoint> loaded = WaypointConfig.decode(configObject.getAsJsonArray("waypoints"), ClientAccess.gson);
       this.entries.clear();
       this.entries.addAll(loaded);
-   }
-
-   static List<Waypoint> decodeWaypoints(JsonArray array, Gson gson) {
-      List<Waypoint> loaded = new ArrayList<>();
-      var namesByServer = new TreeMap<String, TreeSet<String>>(String.CASE_INSENSITIVE_ORDER);
-      for (JsonElement element : array) {
-         Waypoint waypoint = gson.fromJson(element, Waypoint.class);
-         if (waypoint == null || waypoint.getName() == null || waypoint.getServer() == null
-            || waypoint.getDimension() == null || !Double.isFinite(waypoint.getX())
-            || !Double.isFinite(waypoint.getY()) || !Double.isFinite(waypoint.getZ())) {
-            throw new IllegalArgumentException("Invalid waypoint in waypoints.json");
-         }
-         if (namesByServer.computeIfAbsent(waypoint.getServer(), ignored -> new TreeSet<>(String.CASE_INSENSITIVE_ORDER))
-               .add(waypoint.getName())) {
-            loaded.add(waypoint);
-         }
-      }
-      return loaded;
    }
 
    @Override
@@ -136,17 +116,36 @@ public final class WaypointRegistry extends AbstractRegistry<Waypoint> implement
    }
 
    public boolean registerWaypoint(Waypoint waypoint) {
-      if (waypoint == null || this.entries.stream().anyMatch(candidate -> sameIdentity(candidate, waypoint))) {
-         return false;
+      Iterator<Waypoint> iterator = this.getRegistry().iterator();
+      while (iterator.hasNext()) {
+         Waypoint existingWaypoint = iterator.next();
+         String existingName = existingWaypoint.getName();
+         String requestedName = waypoint.getName();
+         if (existingName.equalsIgnoreCase(requestedName)) {
+            String existingServer = existingWaypoint.getServer();
+            String requestedServer = waypoint.getServer();
+            if (existingServer.equalsIgnoreCase(requestedServer)) {
+               return false;
+            }
+         }
       }
-      return this.entries.add(waypoint);
+      return this.getRegistry().add(waypoint);
    }
 
    public boolean unregisterWaypoint(Waypoint waypoint) {
-      return waypoint != null && this.entries.removeIf(candidate -> sameIdentity(candidate, waypoint));
-   }
-
-   static boolean sameIdentity(Waypoint left, Waypoint right) {
-      return left.getName().equalsIgnoreCase(right.getName()) && left.getServer().equalsIgnoreCase(right.getServer());
+      return this.getRegistry().removeIf((java.util.function.Predicate<Waypoint>)candidate -> {
+         if (candidate != null && waypoint != null) {
+            String candidateName = candidate.getName();
+            String requestedName = waypoint.getName();
+            if (candidateName.equalsIgnoreCase(requestedName)) {
+               String candidateServer = candidate.getServer();
+               String requestedNameComparison = waypoint.getName();
+               if (candidateServer.equalsIgnoreCase(requestedNameComparison)) {
+                  return true;
+               }
+            }
+         }
+         return false;
+      });
    }
 }

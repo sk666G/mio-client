@@ -5,7 +5,7 @@ import com.google.gson.JsonParser;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
-class WaypointRegistryTest {
+class WaypointConfigTest {
    @Test
    void identityIncludesServerAndIgnoresCase() {
       var array = JsonParser.parseString("""
@@ -13,11 +13,11 @@ class WaypointRegistryTest {
           {"name":"camp","server":"ONE","dimension":"end"},
           {"name":"Camp","server":"two","dimension":"end"}]
          """).getAsJsonArray();
-      var loaded = WaypointRegistry.decodeWaypoints(array, new Gson());
+      var loaded = WaypointConfig.decode(array, new Gson());
       assertEquals(2, loaded.size());
-      assertFalse(WaypointRegistry.sameIdentity(loaded.get(0), loaded.get(1)));
-      assertTrue(WaypointRegistry.sameIdentity(loaded.get(0), loaded.get(0)));
+      assertEquals("one", loaded.get(0).getServer());
+      assertEquals("two", loaded.get(1).getServer());
       array.add(com.google.gson.JsonNull.INSTANCE);
-      assertThrows(IllegalArgumentException.class, () -> WaypointRegistry.decodeWaypoints(array, new Gson()));
+      assertThrows(IllegalArgumentException.class, () -> WaypointConfig.decode(array, new Gson()));
    }
 }
