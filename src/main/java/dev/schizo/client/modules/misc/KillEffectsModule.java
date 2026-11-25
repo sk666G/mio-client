@@ -168,7 +168,12 @@ public class KillEffectsModule extends Module {
             UUID uuidSnapshot = player.getUUID();
             Integer trackedTick = (int)(ClientAccess.schizoMinecraft.player.tickCount);
             targetsSnapshot.put(uuidSnapshot, trackedTick);
-         } catch (Exception trackingFailure) {
+         } catch (RuntimeException trackingFailure) {
+            RuntimeDiagnostics.record(
+               RuntimeDiagnostics.Area.MODULE_LIFECYCLE,
+               "KillEffects target tracking",
+               trackingFailure
+            );
          }
       }
    }
