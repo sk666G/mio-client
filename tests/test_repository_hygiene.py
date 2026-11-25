@@ -128,6 +128,14 @@ class RepositoryHygieneTest(unittest.TestCase):
             f"Registered modules cache dependencies eagerly without post-registration binding: {offenders}",
         )
 
+    def test_module_dependency_binding_precedes_dependent_manager_construction(self):
+        initializer = (ROOT / "src/main/java/dev/schizo/client/bootstrap/ClientInitializer.java").read_text(encoding="utf-8")
+        registry_index = initializer.index("ClientContext.moduleRegistry = new ModuleRegistry();")
+        bind_index = initializer.index("ModuleDependencies.bind(ClientContext.moduleRegistry);")
+        first_dependent_manager = initializer.index("ClientContext.socialRegistry = new SocialRegistry();")
+        self.assertLess(registry_index, bind_index)
+        self.assertLess(bind_index, first_dependent_manager)
+
     def test_explicit_module_registrations_resolve_without_duplicates(self):
         registry_path = ROOT / "src/main/java/dev/schizo/client/managers/ModuleRegistry.java"
         registry = registry_path.read_text(encoding="utf-8")
