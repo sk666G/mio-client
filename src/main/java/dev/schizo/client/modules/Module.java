@@ -291,11 +291,11 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
    public String getInfoString() {
       AliasRegistry aliasRegistry = ClientContext.aliasRegistry;
       String moduleAlias = AliasRegistry.getModuleAlias(aliasRegistry, this);
+      String info = this.getInfo();
       String infoSuffix;
-      if (this.getInfo() != null) {
+      if (info != null) {
          String openingColor = String.valueOf(ChatFormatting.GRAY);
          String infoColor = String.valueOf(ChatFormatting.WHITE);
-         String info = this.getInfo();
          String closingColor = String.valueOf(ChatFormatting.GRAY);
          infoSuffix = openingColor + " [" + infoColor + info + closingColor + "]";
       } else {
