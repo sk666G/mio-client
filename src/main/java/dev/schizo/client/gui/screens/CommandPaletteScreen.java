@@ -24,6 +24,7 @@ import dev.schizo.client.render.FontRenderer;
 import dev.schizo.client.render.GuiDrawUtils;
 import dev.schizo.client.render.GuiScaleUtils;
 import dev.schizo.client.settings.Setting;
+import dev.schizo.client.settings.BooleanSetting;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
@@ -43,10 +44,17 @@ public final class CommandPaletteScreen extends ClientScreen {
    private static final int MAX_RESULTS = 40;
 
    private enum EntryKind {
+      ACTION,
       MODULE,
       COMMAND,
       SETTING,
       KEYBIND
+   }
+
+   private enum ActionKind {
+      CLICK_GUI,
+      HUD_STUDIO,
+      PERFORMANCE_CENTER
    }
 
    private record PaletteEntry(
@@ -54,8 +62,48 @@ public final class CommandPaletteScreen extends ClientScreen {
       String title,
       String subtitle,
       Module module,
-      Command command
+      Command command,
+      Setting<?> setting,
+      ActionKind action
    ) {
+      static PaletteEntry action(String title, String subtitle, ActionKind action) {
+         return new PaletteEntry(EntryKind.ACTION, title, subtitle, null, null, null, action);
+      }
+
+      static PaletteEntry module(Module module, String subtitle) {
+         return new PaletteEntry(EntryKind.MODULE, module.getName(), subtitle, module, null, null, null);
+      }
+
+      static PaletteEntry command(Command command, String subtitle) {
+         return new PaletteEntry(EntryKind.COMMAND, command.getName(), subtitle, null, command, null, null);
+      }
+
+      static PaletteEntry setting(Module module, Setting<?> setting) {
+         String state = setting instanceof BooleanSetting booleanSetting
+            ? (booleanSetting.getValue() ? "On" : "Off")
+            : "Open";
+         return new PaletteEntry(
+            EntryKind.SETTING,
+            setting.getName(),
+            module.getName() + " setting · " + state,
+            module,
+            null,
+            setting,
+            null
+         );
+      }
+
+      static PaletteEntry keybind(Module module) {
+         return new PaletteEntry(
+            EntryKind.KEYBIND,
+            module.getKeybind().getDisplayName() + " - " + module.getName(),
+            "Keybind for " + module.getName(),
+            module,
+            null,
+            null,
+            null
+         );
+      }
    }
 
    private record PaletteResult(PaletteEntry entry, int score, ModuleQuickAccessRanking.Rank quickAccessRank) {
@@ -81,6 +129,9 @@ public final class CommandPaletteScreen extends ClientScreen {
    private void rebuildIndex() {
       this.index.clear();
       ModulePreferencesRegistry preferences = ClientContext.modulePreferencesRegistry;
+      this.index.add(PaletteEntry.action("Open ClickGUI", "Schizo module and setting browser", ActionKind.CLICK_GUI));
+      this.index.add(PaletteEntry.action("Open HUD Studio", "Arrange, snap and resize HUD widgets", ActionKind.HUD_STUDIO));
+      this.index.add(PaletteEntry.action("Open Performance Center", "Frame metrics, profiler and diagnostics", ActionKind.PERFORMANCE_CENTER));
 
       for (Object moduleElement : ClientContext.moduleRegistry.getRegistry()) {
          Module module = (Module)moduleElement;
@@ -91,35 +142,17 @@ public final class CommandPaletteScreen extends ClientScreen {
             : recentIndex >= 0
                ? "Recently enabled · #" + (recentIndex + 1)
                : module.isToggled() ? "Enabled module" : "Module";
-         this.index.add(new PaletteEntry(
-            EntryKind.MODULE,
-            module.getName(),
-            moduleSubtitle,
-            module,
-            null
-         ));
+         this.index.add(PaletteEntry.module(module, moduleSubtitle));
 
          for (Setting<?> setting : module.getSettings()) {
-            if (setting.isGroupOnly()) {
+            if (setting.isGroupOnly() || !setting.isVisible()) {
                continue;
             }
-            this.index.add(new PaletteEntry(
-               EntryKind.SETTING,
-               setting.getName(),
-               module.getName() + " setting",
-               module,
-               null
-            ));
+            this.index.add(PaletteEntry.setting(module, setting));
          }
 
          if (!module.getKeybind().isUnbound()) {
-            this.index.add(new PaletteEntry(
-               EntryKind.KEYBIND,
-               module.getKeybind().getDisplayName() + " - " + module.getName(),
-               "Keybind for " + module.getName(),
-               module,
-               null
-            ));
+            this.index.add(PaletteEntry.keybind(module));
          }
       }
 
@@ -127,12 +160,9 @@ public final class CommandPaletteScreen extends ClientScreen {
          for (Object commandElement : ClientContext.commandRegistry.getRegistry()) {
             Command command = (Command)commandElement;
             String description = command.getDescription();
-            this.index.add(new PaletteEntry(
-               EntryKind.COMMAND,
-               command.getName(),
-               description.isBlank() ? "Command" : description,
-               null,
-               command
+            this.index.add(PaletteEntry.command(
+               command,
+               description.isBlank() ? "Command" : description
             ));
          }
       }
@@ -152,6 +182,7 @@ public final class CommandPaletteScreen extends ClientScreen {
          int score = PaletteMatcher.scoreNormalized(entry.title(), entry.subtitle(), query);
          if (score >= 0) {
             ModuleQuickAccessRanking.Rank rank = switch (entry.kind()) {
+               case ACTION -> new ModuleQuickAccessRanking.Rank(2, Integer.MAX_VALUE);
                case MODULE -> quickAccessRanks.rank(entry.module().getConfigName());
                case COMMAND -> new ModuleQuickAccessRanking.Rank(3, Integer.MAX_VALUE);
                case SETTING -> new ModuleQuickAccessRanking.Rank(4, Integer.MAX_VALUE);
@@ -201,6 +232,13 @@ public final class CommandPaletteScreen extends ClientScreen {
 
       PaletteEntry entry = this.results.get(this.selectedIndex).entry();
       switch (entry.kind()) {
+         case ACTION -> {
+            switch (entry.action()) {
+               case CLICK_GUI -> ClientContext.getClickGui().open();
+               case HUD_STUDIO -> ClientContext.getHudEditor().open();
+               case PERFORMANCE_CENTER -> new PerformanceCenterScreen().open();
+            }
+         }
          case MODULE -> {
             entry.module().toggle();
             ClientAccess.schizoMinecraft.setScreen(null);
@@ -208,7 +246,16 @@ public final class CommandPaletteScreen extends ClientScreen {
          case COMMAND -> ClientAccess.schizoMinecraft.setScreen(
             new ChatScreen(CommandRegistry.getPrefix() + entry.command().getName() + " ", false)
          );
-         case SETTING, KEYBIND -> this.openModuleSettings(entry.module());
+         case SETTING -> {
+            if (entry.setting() instanceof BooleanSetting booleanSetting) {
+               booleanSetting.setValue(!booleanSetting.getValue());
+               this.rebuildIndex();
+               this.updateResults();
+            } else {
+               this.openModuleSettings(entry.module());
+            }
+         }
+         case KEYBIND -> this.openModuleSettings(entry.module());
       }
    }
 
@@ -428,6 +475,7 @@ public final class CommandPaletteScreen extends ClientScreen {
          }
 
          String kindLabel = switch (entry.kind()) {
+            case ACTION -> "ACTION";
             case MODULE -> "MODULE";
             case COMMAND -> "COMMAND";
             case SETTING -> "SETTING";
@@ -457,7 +505,7 @@ public final class CommandPaletteScreen extends ClientScreen {
       }
 
       float footerY = this.resultsTop + resultCount * CommandPaletteLayout.RESULT_ROW_HEIGHT + 7.0F;
-      String footer = "↑ ↓ Select    Enter Open    Esc Close";
+      String footer = "↑ ↓ Select    Enter Run / Toggle / Open    Esc Close";
       font.drawWithShadow(
          poseStack,
          footer,
