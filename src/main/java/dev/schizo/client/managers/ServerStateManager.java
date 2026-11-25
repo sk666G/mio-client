@@ -56,18 +56,18 @@ public final class ServerStateManager implements ClientAccess {
    private final ElapsedTimer teleportAckTimer;
    private final ElapsedTimer packetFlowTimer;
    private final ElapsedTimer peakLatencyTimer;
-   private long lastPacketMillis;
-   private long lastEntityPacketMillis;
-   private long lastPacketNanos;
-   private long lastEntityPacketNanos;
-   private long lastTimeUpdateNanos;
-   private int teleportId;
-   private boolean serverSprinting;
-   private boolean serverSneaking;
-   private boolean inEnd;
-   private ServerData serverData;
-   private int footerLatencyMillis;
-   private int peakLatencyMillis;
+   private volatile long lastPacketMillis;
+   private volatile long lastEntityPacketMillis;
+   private volatile long lastPacketNanos;
+   private volatile long lastEntityPacketNanos;
+   private volatile long lastTimeUpdateNanos;
+   private volatile int teleportId;
+   private volatile boolean serverSprinting;
+   private volatile boolean serverSneaking;
+   private volatile boolean inEnd;
+   private volatile ServerData serverData;
+   private volatile int footerLatencyMillis;
+   private volatile int peakLatencyMillis;
    public boolean autoLogged;
 
    public boolean isServerSneaking() {
@@ -287,8 +287,12 @@ public final class ServerStateManager implements ClientAccess {
             this.setbackTimer.reset();
          }
 
-         LocalPlayer sprintPlayer = ClientAccess.schizoMinecraft.player;
-         this.serverSprinting = sprintPlayer.isSprinting();
+         ClientAccess.schizoMinecraft.executeIfPossible(() -> {
+            LocalPlayer sprintPlayer = ClientAccess.schizoMinecraft.player;
+            if (sprintPlayer != null) {
+               this.serverSprinting = sprintPlayer.isSprinting();
+            }
+         });
       }
 
       if (event.getPacket() instanceof ClientboundSetTimePacket) {
@@ -308,9 +312,7 @@ public final class ServerStateManager implements ClientAccess {
       }
 
       if (event.getPacket() instanceof ClientboundTabListPacket tabListPacket) {
-         ClientPacketListener serverConnection = ClientAccess.schizoMinecraft.player.connection;
-         ServerData connectedServer = serverConnection.getServerData();
-         if (connectedServer == null) {
+         if (this.serverData == null) {
             return;
          }
 
