@@ -109,6 +109,11 @@ public final class InputOverrideManager {
 
     @EventHandler
     private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+        clearPendingOverrides();
+    }
+
+    /** Clears pending synthetic input without creating another one-tick override. */
+    public void clearPendingOverrides() {
         pendingSneak.clear();
         pendingJump.clear();
         pendingForward.clear();
