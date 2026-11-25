@@ -46,7 +46,6 @@ public final class InventoryUtils implements ClientAccess {
 
    public static void selectHotbarSlot(int slot) {
       if (slot < 0 || slot >= 9) return;
-      TemporaryHotbarSelection.selectionChanged();
       ClientAccess.schizoMinecraft.player.getInventory().setSelectedSlot(slot);
       ((MultiPlayerGameModeAccessor)ClientAccess.schizoMinecraft.gameMode).sync();
    }
