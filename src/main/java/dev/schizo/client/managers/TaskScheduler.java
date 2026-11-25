@@ -12,6 +12,7 @@ package dev.schizo.client.managers;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.MinecraftRunTickEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.events.RotationRequestEvent;
 import dev.schizo.client.events.bus.EventBus;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -48,6 +49,12 @@ public final class TaskScheduler implements ClientAccess {
 
    public boolean scheduleScreenChange(Screen screen) {
       return this.scheduleRunTickTask(() -> ClientAccess.schizoMinecraft.setScreen(screen));
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.rotationTasks.clear();
+      this.runTickTasks.clear();
    }
 
    /** Stops accepting work and discards tasks that have not started. Running tasks are not interrupted. */
@@ -104,6 +111,11 @@ public final class TaskScheduler implements ClientAccess {
 
       private void run() {
          this.tasks.runPass(failure -> ClientAccess.logger.error("Scheduled {} task failed", this.name, failure));
+      }
+
+      private void clear() {
+         this.tasks.clear();
+         this.capacityWarningLogged.set(false);
       }
 
       private void shutdown() {

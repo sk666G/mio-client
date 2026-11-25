@@ -17,6 +17,7 @@ import dev.schizo.client.events.ModuleToggleEvent;
 import dev.schizo.client.modules.Module;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Objects;
 import net.minecraft.util.Mth;
 
 public class TickRateController implements ClientAccess {
@@ -61,6 +62,10 @@ public class TickRateController implements ClientAccess {
       private float multiplier = 1.0F;
 
       synchronized void request(Object owner, float requestedMultiplier) {
+         Objects.requireNonNull(owner, "owner");
+         if (!Float.isFinite(requestedMultiplier)) {
+            throw new IllegalArgumentException("Requested multiplier must be finite");
+         }
          this.activeRequests.remove(owner);
          this.activeRequests.put(owner, requestedMultiplier);
          this.multiplier = requestedMultiplier;

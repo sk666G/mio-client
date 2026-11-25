@@ -46,7 +46,21 @@ public final class DisabledBaritoneBridge implements BaritoneBridge {
    }
 
    @Override
+   public void pathTo(NamedFeature owner, BlockPos position) {
+   }
+
+   @Override
+   public boolean ownsPath(NamedFeature owner) {
+      return false;
+   }
+
+   @Override
    public void cancelPathing() {
+   }
+
+   @Override
+   public boolean cancelPathing(NamedFeature owner) {
+      return false;
    }
 
    @Override

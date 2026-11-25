@@ -186,4 +186,36 @@ class BoundedActionQueueTest {
       BoundedActionQueue queue = new BoundedActionQueue(1);
       assertThrows(NullPointerException.class, () -> queue.offer(null));
    }
+
+   @Test
+   void clearDiscardsPendingActionsAndQueueRemainsReusable() {
+      BoundedActionQueue queue = new BoundedActionQueue(3);
+      List<Integer> executed = new ArrayList<>();
+      queue.offer(() -> executed.add(1));
+      queue.offer(() -> executed.add(2));
+
+      assertEquals(2, queue.clear());
+      assertTrue(queue.isEmpty());
+      assertEquals(0, queue.drain(10, Runnable::run));
+      assertTrue(executed.isEmpty());
+
+      assertTrue(queue.offer(() -> executed.add(3)));
+      assertEquals(1, queue.drain(10, Runnable::run));
+      assertEquals(List.of(3), executed);
+   }
+
+   @Test
+   void clearDuringDrainKeepsTheRunningActionButDropsLaterActions() {
+      BoundedActionQueue queue = new BoundedActionQueue(3);
+      List<Integer> executed = new ArrayList<>();
+      queue.offer(() -> {
+         executed.add(1);
+         assertEquals(1, queue.clear());
+      });
+      queue.offer(() -> executed.add(2));
+
+      assertEquals(1, queue.drain(10, Runnable::run));
+      assertEquals(List.of(1), executed);
+      assertTrue(queue.isEmpty());
+   }
 }
