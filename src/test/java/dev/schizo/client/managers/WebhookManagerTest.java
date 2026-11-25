@@ -68,6 +68,22 @@ class WebhookManagerTest {
       assertTrue(restored.getDestinationDescription().contains("re-enter"));
    }
 
+   @Test
+   void replacingDestinationStopsUnsentChunks() {
+      AtomicInteger calls = new AtomicInteger();
+      CompletableFuture<HttpResponse<String>> first = new CompletableFuture<>();
+      WebhookManager manager = new WebhookManager(request -> {
+         calls.incrementAndGet();
+         return first;
+      });
+      manager.setUrl("https://example.test/original");
+      var batch = manager.sendContent("x".repeat(2500));
+      manager.setUrl("https://example.test/replacement");
+      first.complete(response(204, ""));
+      assertThrows(CompletionException.class, batch::join);
+      assertEquals(1, calls.get());
+   }
+
    private static HttpResponse<String> response(int status, String body) {
       HttpRequest request = HttpRequest.newBuilder(URI.create("https://example.test")).GET().build();
       return new HttpResponse<>() {

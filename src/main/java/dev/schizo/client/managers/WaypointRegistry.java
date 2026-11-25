@@ -21,7 +21,6 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Collection;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
@@ -91,20 +90,9 @@ public final class WaypointRegistry extends AbstractRegistry<Waypoint> implement
       if (!configObject.has("waypoints")) {
          return;
       }
-      configObject = json.getAsJsonObject();
-      JsonArray waypointArray = configObject.getAsJsonArray("waypoints");
-      Iterator<JsonElement> iterator = waypointArray.iterator();
-      while (iterator.hasNext()) {
-         JsonElement element = iterator.next();
-         try {
-            Collection destination = this.entries;
-            Gson gson = ClientAccess.gson;
-            Class<Waypoint> waypointClass = Waypoint.class;
-            destination.add((Waypoint)gson.fromJson(element, waypointClass));
-         } catch (Exception loadFailure) {
-            loadFailure.printStackTrace();
-         }
-      }
+      List<Waypoint> loaded = WaypointConfig.decode(configObject.getAsJsonArray("waypoints"), ClientAccess.gson);
+      this.entries.clear();
+      this.entries.addAll(loaded);
    }
 
    @Override
