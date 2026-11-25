@@ -42,8 +42,8 @@ import org.lwjgl.glfw.GLFW;
 /** Global fuzzy-search launcher for modules, commands and settings. */
 public final class CommandPaletteScreen extends ClientScreen {
    private static final int MAX_RESULTS = 40;
-   private static final int VISIBLE_RESULTS = 8;
-   private static final int RESULT_ROW_HEIGHT = 22;
+   private static final int this.visibleResults = 8;
+   private static final int CommandPaletteLayout.RESULT_ROW_HEIGHT = 22;
    private static final int PANEL_WIDTH = 390;
 
    private enum EntryKind {
@@ -74,6 +74,7 @@ public final class CommandPaletteScreen extends ClientScreen {
    private float panelTop;
    private float resultsTop;
    private float panelWidth;
+   private int visibleResults = CommandPaletteLayout.MAX_VISIBLE_RESULTS;
 
    public static void openPalette() {
       if (ClientAccess.schizoMinecraft.screen == null) {
@@ -144,17 +145,18 @@ public final class CommandPaletteScreen extends ClientScreen {
    private void updateResults() {
       String query = this.searchBox == null
          ? ""
-         : this.searchBox.getValue().strip().toLowerCase(Locale.ROOT);
+         : PaletteMatcher.normalizeQuery(this.searchBox.getValue());
 
       this.results.clear();
       ModulePreferencesRegistry preferences = ClientContext.modulePreferencesRegistry;
-      List<String> favorites = preferences == null ? List.of() : preferences.getFavorites();
-      List<String> recent = preferences == null ? List.of() : preferences.getRecentlyUsed();
+      var quickAccessRanks = preferences == null
+         ? ModuleQuickAccessRanking.emptySnapshot()
+         : ModuleQuickAccessRanking.snapshot(preferences.getFavorites(), preferences.getRecentlyUsed());
       for (PaletteEntry entry : this.index) {
          int score = PaletteMatcher.score(entry.title(), entry.subtitle(), query);
          if (score >= 0) {
             ModuleQuickAccessRanking.Rank rank = switch (entry.kind()) {
-               case MODULE -> ModuleQuickAccessRanking.rank(entry.module().getConfigName(), favorites, recent);
+               case MODULE -> quickAccessRanks.rank(entry.module().getConfigName());
                case COMMAND -> new ModuleQuickAccessRanking.Rank(3, Integer.MAX_VALUE);
                case SETTING -> new ModuleQuickAccessRanking.Rank(4, Integer.MAX_VALUE);
                case KEYBIND -> new ModuleQuickAccessRanking.Rank(5, Integer.MAX_VALUE);
@@ -187,12 +189,12 @@ public final class CommandPaletteScreen extends ClientScreen {
       this.selectedIndex = Math.max(0, Math.min(this.selectedIndex, this.results.size() - 1));
       if (this.selectedIndex < this.firstVisibleIndex) {
          this.firstVisibleIndex = this.selectedIndex;
-      } else if (this.selectedIndex >= this.firstVisibleIndex + VISIBLE_RESULTS) {
-         this.firstVisibleIndex = this.selectedIndex - VISIBLE_RESULTS + 1;
+      } else if (this.selectedIndex >= this.firstVisibleIndex + this.visibleResults) {
+         this.firstVisibleIndex = this.selectedIndex - this.visibleResults + 1;
       }
       this.firstVisibleIndex = Math.max(
          0,
-         Math.min(this.firstVisibleIndex, Math.max(0, this.results.size() - VISIBLE_RESULTS))
+         Math.min(this.firstVisibleIndex, Math.max(0, this.results.size() - this.visibleResults))
       );
    }
 
@@ -242,7 +244,7 @@ public final class CommandPaletteScreen extends ClientScreen {
       this.rebuildIndex();
       int screenWidth = GuiScaleUtils.getScaledWidth();
       int screenHeight = GuiScaleUtils.getScaledHeight();
-      int width = Math.min(PANEL_WIDTH, screenWidth - 24);
+      int width = Math.round(CommandPaletteLayout.calculate(screenWidth, screenHeight).panelWidth());
       int left = (screenWidth - width) / 2;
       int top = Math.max(18, (int)(screenHeight * 0.22F));
       this.searchBox = new EditBox(
@@ -309,10 +311,10 @@ public final class CommandPaletteScreen extends ClientScreen {
       }
 
       float relativeY = (float)mouseY - this.resultsTop;
-      int row = (int)(relativeY / RESULT_ROW_HEIGHT);
+      int row = (int)(relativeY / CommandPaletteLayout.RESULT_ROW_HEIGHT);
       boolean insidePanel = mouseX >= this.panelLeft
          && mouseX <= this.panelLeft + this.panelWidth;
-      if (insidePanel && relativeY >= 0.0F && row >= 0 && row < VISIBLE_RESULTS) {
+      if (insidePanel && relativeY >= 0.0F && row >= 0 && row < this.visibleResults) {
          int resultIndex = this.firstVisibleIndex + row;
          if (resultIndex < this.results.size()) {
             this.selectedIndex = resultIndex;
@@ -339,13 +341,17 @@ public final class CommandPaletteScreen extends ClientScreen {
    ) {
       int screenWidth = GuiScaleUtils.getScaledWidth();
       int screenHeight = GuiScaleUtils.getScaledHeight();
-      this.panelWidth = Math.min(PANEL_WIDTH, screenWidth - 24.0F);
-      this.panelLeft = (screenWidth - this.panelWidth) / 2.0F;
-      this.panelTop = Math.max(18.0F, screenHeight * 0.22F);
-      this.resultsTop = this.panelTop + 62.0F;
+      CommandPaletteLayout.Layout layout = CommandPaletteLayout.calculate(screenWidth, screenHeight);
+      this.panelWidth = layout.panelWidth();
+      this.panelLeft = layout.panelLeft();
+      this.panelTop = layout.panelTop();
+      this.visibleResults = layout.visibleRows();
+      this.resultsTop = this.panelTop + CommandPaletteLayout.HEADER_HEIGHT;
 
-      int resultCount = Math.min(VISIBLE_RESULTS, Math.max(1, this.results.size()));
-      float panelHeight = 62.0F + resultCount * RESULT_ROW_HEIGHT + 30.0F;
+      int resultCount = Math.min(this.visibleResults, Math.max(1, this.results.size()));
+      float panelHeight = CommandPaletteLayout.HEADER_HEIGHT
+         + resultCount * CommandPaletteLayout.RESULT_ROW_HEIGHT
+         + CommandPaletteLayout.FOOTER_HEIGHT;
       Color surface = UIModule.INSTANCE.backgroundSetting.getValue();
       Color accent = UIModule.INSTANCE.colorSetting.getValue();
 
@@ -405,21 +411,21 @@ public final class CommandPaletteScreen extends ClientScreen {
             Color.GRAY
          );
       }
-      for (int row = 0; row < VISIBLE_RESULTS; row++) {
+      for (int row = 0; row < this.visibleResults; row++) {
          int resultIndex = this.firstVisibleIndex + row;
          if (resultIndex >= this.results.size()) {
             break;
          }
 
          PaletteEntry entry = this.results.get(resultIndex).entry();
-         float rowTop = this.resultsTop + row * RESULT_ROW_HEIGHT;
+         float rowTop = this.resultsTop + row * CommandPaletteLayout.RESULT_ROW_HEIGHT;
          if (resultIndex == this.selectedIndex) {
             GuiDrawUtils.fillRect(
                poseStack,
                this.panelLeft + 8.0F,
                rowTop,
                this.panelLeft + this.panelWidth - 8.0F,
-               rowTop + RESULT_ROW_HEIGHT,
+               rowTop + CommandPaletteLayout.RESULT_ROW_HEIGHT,
                ColorUtils.withAlpha(accent, 48)
             );
          }
@@ -453,7 +459,7 @@ public final class CommandPaletteScreen extends ClientScreen {
          );
       }
 
-      float footerY = this.resultsTop + resultCount * RESULT_ROW_HEIGHT + 7.0F;
+      float footerY = this.resultsTop + resultCount * CommandPaletteLayout.RESULT_ROW_HEIGHT + 7.0F;
       String footer = "↑ ↓ Select    Enter Open    Esc Close";
       font.drawWithShadow(
          poseStack,
