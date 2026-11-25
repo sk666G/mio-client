@@ -26,7 +26,8 @@ import com.google.gson.JsonObject;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumMap;
-import java.util.EnumSet;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -44,8 +45,8 @@ public final class ContextProfileRegistry implements ClientAccess, JsonConfigura
    public static final int MAX_RULES = 512;
 
    private final List<Rule> rules = new ArrayList<>();
-   private final Map<PresetCategory, JsonElement> baseline = new EnumMap<>(PresetCategory.class);
-   private final Set<PresetCategory> modifiedCategories = EnumSet.noneOf(PresetCategory.class);
+   private final Map<PresetCategory, JsonElement> baseline = new HashMap<>();
+   private final Set<PresetCategory> modifiedCategories = new HashSet<>();
    private volatile boolean enabled;
    private boolean dirty = true;
    private String lastAppliedContext;
