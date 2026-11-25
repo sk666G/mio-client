@@ -45,10 +45,7 @@ public final class AutoMineHeadProvider extends AutoMineProviderBase {
       super(module);
    }
 
-   static {
-      autoTrap = (AutoTrapModule)ClientContext.getModule(AutoTrapModule.class);
-      antiCheat = (AntiCheatModule)ClientContext.getModule(AntiCheatModule.class);
-   }
+   
 
    @Override
    public void collectCandidates(AutoMineCandidates candidates) {
