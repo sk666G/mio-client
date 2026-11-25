@@ -93,7 +93,8 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
 
                   }
                }
-            } catch (IOException ignoredIoException) {
+            } catch (IOException unlockFailure) {
+               ClientAccess.logger.warn("Could not persist game panel unlock state", unlockFailure);
             }
 
             this.gamePanelUnlocked = true;
@@ -180,7 +181,7 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
             );
             presetScreen.open();
          } catch (Exception pasteException) {
-            pasteException.printStackTrace();
+            ClientAccess.logger.warn("Could not import module preset from clipboard", pasteException);
          }
       }
    }
