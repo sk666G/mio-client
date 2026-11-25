@@ -53,6 +53,6 @@ Other mods listed under `suggests` in `fabric.mod.json` are optional.
 
 ## Upstream and attribution
 
-Schizo is an independent rebrand and derivative of Open Zio. See [UPSTREAM.md](UPSTREAM.md) for the pinned source snapshot. Upstream source headers are retained where the source remains in the project. [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) records vendor attribution and unresolved license questions.
+Schizo is an independent rebrand and derivative of Open Zio. See [UPSTREAM.md](UPSTREAM.md) for the pinned source snapshot and [LICENSING.md](LICENSING.md) for the repository licensing/attribution index. Upstream source headers are retained where the source remains in the project. [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) records vendor attribution and unresolved license questions.
 
 Schizo is not affiliated with or endorsed by Mio. The two server-validation circumvention modules `GrimDisabler` and `RaytraceBypass` are excluded from the active source tree and rebuild import.
