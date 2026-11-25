@@ -107,14 +107,14 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 public class SpeedMineModule extends Module {
-   private static AutoExpModule autoExpModule = (AutoExpModule)ClientContext.getModule(AutoExpModule.class);
-   private static AutoCrystalModule autoCrystalModule = (AutoCrystalModule)ClientContext.getModule(AutoCrystalModule.class);
-   private static AutoMineModule autoMineModule = (AutoMineModule)ClientContext.getModule(AutoMineModule.class);
-   private static NoGlitchBlocksModule noGlitchBlocksModule = (NoGlitchBlocksModule)ClientContext.getModule(NoGlitchBlocksModule.class);
-   private static ItemSaverModule itemSaverModule = (ItemSaverModule)ClientContext.getModule(ItemSaverModule.class);
-   private static LogoutSpotsModule logoutSpotsModule = (LogoutSpotsModule)ClientContext.getModule(LogoutSpotsModule.class);
-   private static MultiTaskModule multiTaskModule = (MultiTaskModule)ClientContext.getModule(MultiTaskModule.class);
-   private static AnchorAuraModule anchorAuraModule = (AnchorAuraModule)ClientContext.getModule(AnchorAuraModule.class);
+
+
+
+
+
+
+
+
    public static boolean automatedMiningStart;
    protected final Setting<Set<Block>> blocksSetting;
    public final Setting<ListFilterMode> modeSetting;
@@ -280,8 +280,8 @@ public class SpeedMineModule extends Module {
       AABB blockBounds = new AABB(blockPos);
       ClientLevel level = ClientAccess.schizoMinecraft.level;
       ArrayList players = new ArrayList<>(level.players());
-      if (logoutSpotsModule.isToggled()) {
-         Collection logoutPlayers = logoutSpotsModule.getSpotPlayers();
+      if (schizo$logoutSpotsModule().isToggled()) {
+         Collection logoutPlayers = schizo$logoutSpotsModule().getSpotPlayers();
          players.addAll(logoutPlayers);
       }
 
@@ -378,7 +378,7 @@ public class SpeedMineModule extends Module {
 
    private boolean isMainHandMultitask() {
       InteractionHand hand = ClientAccess.schizoMinecraft.player.getUsedItemHand();
-      return multiTaskModule.shouldPauseModule(this) && hand == InteractionHand.MAIN_HAND;
+      return schizo$multiTaskModule().shouldPauseModule(this) && hand == InteractionHand.MAIN_HAND;
    }
 
    public ElapsedTimer getBreakDelayTimer() {
@@ -462,10 +462,10 @@ public class SpeedMineModule extends Module {
 
    private boolean isAlternativeAllowed() {
       if (RotationManager.is2b2tMode()) {
-         MultiTaskModule multiTask = multiTaskModule;
+         MultiTaskModule multiTask = schizo$multiTaskModule();
 
          if (!multiTask.isItemUseRestricted()) {
-            MultiTaskModule recentMultiTask = multiTaskModule;
+            MultiTaskModule recentMultiTask = schizo$multiTaskModule();
 
             if (!recentMultiTask.isItemUseActiveOrRecent(150L)) {
                return false;
@@ -543,7 +543,7 @@ public class SpeedMineModule extends Module {
       this.extraBreakTarget = null;
       swapPending.set(false);
       restartPending.set(false);
-      autoCrystalModule.placementGate.set(false);
+      schizo$autoCrystalModule().placementGate.set(false);
    }
 
    private static Direction selectDestroyFace(BlockPos blockPos) {
@@ -786,7 +786,7 @@ public class SpeedMineModule extends Module {
       this.extraBreakTarget = null;
       swapPending.set(false);
       restartPending.set(false);
-      autoCrystalModule.placementGate.set(false);
+      schizo$autoCrystalModule().placementGate.set(false);
    }
 
    @EventHandler
@@ -804,7 +804,7 @@ public class SpeedMineModule extends Module {
             this.extraBreakTarget = null;
             swapPending.set(false);
             restartPending.set(false);
-            autoCrystalModule.placementGate.set(false);
+            schizo$autoCrystalModule().placementGate.set(false);
          });
       }
 
@@ -1054,9 +1054,9 @@ public class SpeedMineModule extends Module {
                            return;
                         }
 
-                        if (autoExpModule.isToggled()) {
-                           if (autoExpModule.modeSetting.getValue() == AutoExpModule.ModeChoice.SILENT
-                              && !autoExpModule.stopped
+                        if (schizo$autoExpModule().isToggled()) {
+                           if (schizo$autoExpModule().modeSetting.getValue() == AutoExpModule.ModeChoice.SILENT
+                              && !schizo$autoExpModule().stopped
                               )
                             {
                               reset(this);
@@ -1068,7 +1068,7 @@ public class SpeedMineModule extends Module {
                }
 
                if (!automatedMiningStart) {
-                  autoMineModule.setMiningActive(true);
+                  schizo$autoMineModule().setMiningActive(true);
                }
 
                this.miningPos = this.lastMiningPos = requestedPosition;
@@ -1215,7 +1215,7 @@ public class SpeedMineModule extends Module {
          ItemStack heldStack = ClientAccess.schizoMinecraft.player.getMainHandItem();
 
          if (!(ItemSaverModule.isSafeToUse(heldStack))) {
-            if ((itemSaverModule.isToggled())) {
+            if ((schizo$itemSaverModule().isToggled())) {
                return;
             }
          }
@@ -1280,7 +1280,7 @@ public class SpeedMineModule extends Module {
                   this.extraBreakTimer.reset();
 
                   ClientContext.worldStateManager.markExtraBreak(this.extraBreakTarget.getPosition());
-                  AutoMineMiningTracker miningTracker = autoMineModule.miningTracker;
+                  AutoMineMiningTracker miningTracker = schizo$autoMineModule().miningTracker;
 
                   BlockPos trackedExtraPosition = this.extraBreakTarget.getPosition();
                   miningTracker.rememberPosition(trackedExtraPosition);
@@ -1363,7 +1363,7 @@ public class SpeedMineModule extends Module {
 
       if (!(this.restartForRebreak())) {
          if (this.miningPos != null) {
-            AnchorAuraModule anchorAura = anchorAuraModule;
+            AnchorAuraModule anchorAura = schizo$anchorAuraModule();
             BlockPos anchorPosition = this.miningPos;
 
             if ((anchorAura.isManagedAnchor(anchorPosition))) {
@@ -1602,7 +1602,7 @@ public class SpeedMineModule extends Module {
                         } finally {
                            if (cleanupAllowed) {
                               swapPending.set(false);
-                              autoCrystalModule.placementGate.set(false);
+                              schizo$autoCrystalModule().placementGate.set(false);
                            }
                         }
                      };
@@ -1703,35 +1703,35 @@ public class SpeedMineModule extends Module {
    }
 
    public static void bindModules(ModuleRegistry moduleRegistry) {
-      autoExpModule = (AutoExpModule)moduleRegistry.getModule(
+      schizo$autoExpModule() = (AutoExpModule)moduleRegistry.getModule(
          AutoExpModule.class
       );
-      autoCrystalModule = (AutoCrystalModule)moduleRegistry.getModule(
+      schizo$autoCrystalModule() = (AutoCrystalModule)moduleRegistry.getModule(
          AutoCrystalModule.class
       );
-      autoMineModule = (AutoMineModule)moduleRegistry.getModule(
+      schizo$autoMineModule() = (AutoMineModule)moduleRegistry.getModule(
          AutoMineModule.class
       );
-      noGlitchBlocksModule = (NoGlitchBlocksModule)moduleRegistry.getModule(
+      schizo$noGlitchBlocksModule() = (NoGlitchBlocksModule)moduleRegistry.getModule(
          NoGlitchBlocksModule.class
       );
-      itemSaverModule = (ItemSaverModule)moduleRegistry.getModule(
+      schizo$itemSaverModule() = (ItemSaverModule)moduleRegistry.getModule(
          ItemSaverModule.class
       );
-      logoutSpotsModule = (LogoutSpotsModule)moduleRegistry.getModule(
+      schizo$logoutSpotsModule() = (LogoutSpotsModule)moduleRegistry.getModule(
          LogoutSpotsModule.class
       );
-      multiTaskModule = (MultiTaskModule)moduleRegistry.getModule(
+      schizo$multiTaskModule() = (MultiTaskModule)moduleRegistry.getModule(
          MultiTaskModule.class
       );
-      anchorAuraModule = (AnchorAuraModule)moduleRegistry.getModule(
+      schizo$anchorAuraModule() = (AnchorAuraModule)moduleRegistry.getModule(
          AnchorAuraModule.class
       );
    }
 
    private SpeedMineModule.InstantBreakResult evaluateInstantBreak(BlockPos blockPos) {
-      if (SpeedMineModule.noGlitchBlocksModule.isToggled()) {
-         if (SpeedMineModule.noGlitchBlocksModule.breakSetting.getValue()) {
+      if (SpeedMineModule.schizo$noGlitchBlocksModule().isToggled()) {
+         if (SpeedMineModule.schizo$noGlitchBlocksModule().breakSetting.getValue()) {
             return new SpeedMineModule.InstantBreakResult(false, -1, false);
          }
       }
@@ -1874,5 +1874,37 @@ public class SpeedMineModule extends Module {
       int toolSlot,
       boolean breaksInOneTick
    ) {
+   }
+
+   private static AutoExpModule schizo$autoExpModule() {
+      return ClientContext.requireModule(AutoExpModule.class);
+   }
+
+   private static AutoCrystalModule schizo$autoCrystalModule() {
+      return ClientContext.requireModule(AutoCrystalModule.class);
+   }
+
+   private static AutoMineModule schizo$autoMineModule() {
+      return ClientContext.requireModule(AutoMineModule.class);
+   }
+
+   private static NoGlitchBlocksModule schizo$noGlitchBlocksModule() {
+      return ClientContext.requireModule(NoGlitchBlocksModule.class);
+   }
+
+   private static ItemSaverModule schizo$itemSaverModule() {
+      return ClientContext.requireModule(ItemSaverModule.class);
+   }
+
+   private static LogoutSpotsModule schizo$logoutSpotsModule() {
+      return ClientContext.requireModule(LogoutSpotsModule.class);
+   }
+
+   private static MultiTaskModule schizo$multiTaskModule() {
+      return ClientContext.requireModule(MultiTaskModule.class);
+   }
+
+   private static AnchorAuraModule schizo$anchorAuraModule() {
+      return ClientContext.requireModule(AnchorAuraModule.class);
    }
 }
