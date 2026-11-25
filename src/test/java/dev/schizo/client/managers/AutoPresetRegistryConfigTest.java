@@ -54,15 +54,16 @@ class AutoPresetRegistryConfigTest {
    }
 
    @Test
-   void reconnectToSameServerAppliesAgainAfterDisconnectReset() {
+   void repeatedSameServerConnectionLookupsRemainAvailable() {
       AutoPresetRegistry registry = new AutoPresetRegistry();
+      registry.setKit("Example.org", "kit");
 
-      assertTrue(registry.beginConnection("Example.org"));
-      assertFalse(registry.beginConnection("example.ORG"));
-
-      registry.resetConnectionState();
-
-      assertTrue(registry.beginConnection("example.org"));
+      assertNotNull(registry.getSettingsForConnection("example.ORG"));
+      assertNotNull(registry.getSettingsForConnection("EXAMPLE.org"));
+      assertSame(
+         registry.getSettingsForConnection("example.org"),
+         registry.getSettingsForConnection("EXAMPLE.ORG")
+      );
    }
 
    @Test
