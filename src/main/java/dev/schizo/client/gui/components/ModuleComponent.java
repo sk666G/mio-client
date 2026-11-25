@@ -16,6 +16,7 @@ import dev.schizo.client.gui.components.RegistrySetSettingComponent;
 import dev.schizo.client.gui.components.ComponentFlag;
 import dev.schizo.client.gui.components.SettingComponent;
 import dev.schizo.client.config.ModulePresetCodec;
+import dev.schizo.client.integrations.ModuleCertification;
 import dev.schizo.client.gui.components.EnumSettingComponent;
 import dev.schizo.client.utils.FloatAnimation;
 import dev.schizo.client.utils.ClampedInterpolatedFloat;
@@ -544,10 +545,17 @@ public class ModuleComponent extends AbstractComponent implements CloseState {
          );
       } else if (this.getUiModule().descriptionsSetting.getValue()
          && this.isMouseOver(mouseX, mouseY)) {
-         ClientContext.getClickGui()
-            .setTooltipText(
-               this.module.getDescription()
-            );
+         ModuleCertification.Assessment certification = ModuleCertification.assess(this.module);
+         String certificationText = "Certification: "
+            + certification.passedGates() + "/" + certification.totalGates()
+            + " · next: " + certification.nextGate()
+            + "\nCompatibility: " + certification.compatibility();
+         String description = this.module.getDescription();
+         ClientContext.getClickGui().setTooltipText(
+            description == null || description.isBlank()
+               ? certificationText
+               : description + "\n\n" + certificationText
+         );
       }
    }
 
