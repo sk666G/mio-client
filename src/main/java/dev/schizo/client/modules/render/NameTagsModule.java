@@ -619,49 +619,48 @@ public class NameTagsModule extends Module {
          EntityRenderer entityRenderer = entityDispatcherSnapshot.getRenderer(entity);
          EntityRenderState renderState = entityRenderer.createRenderState(entity, partialTick);
          Vec3 renderOffset = entityRenderer.getRenderOffset(renderState);
-         (event.getPoseStack()).pushPose();
-         PoseStack translatePosesSnapshot = event.getPoseStack();
-         double translatedXSnapshot = relativeX + renderOffset.x();
-         double translatedYSnapshot = relativeY + renderOffset.y();
-         double translatedZ = relativeZ + renderOffset.z();
-         translatePosesSnapshot.translate(translatedXSnapshot, translatedYSnapshot, translatedZ);
-         PoseStack tagPosesSnapshot = event.getPoseStack();
-         LivingEntity tagEntity = (LivingEntity)entity;
-         this.renderTag(tagPosesSnapshot, tagEntity);
-         (event.getPoseStack()).popPose();
+         PoseStack entityPoses = event.getPoseStack();
+         entityPoses.pushPose();
+         try {
+            double translatedXSnapshot = relativeX + renderOffset.x();
+            double translatedYSnapshot = relativeY + renderOffset.y();
+            double translatedZ = relativeZ + renderOffset.z();
+            entityPoses.translate(translatedXSnapshot, translatedYSnapshot, translatedZ);
+            LivingEntity tagEntity = (LivingEntity)entity;
+            this.renderTag(entityPoses, tagEntity);
+         } finally {
+            entityPoses.popPose();
+         }
       }
       OptionInstance glintOptionSnapshot = ClientAccess.schizoMinecraft.options.glintStrength();
       double originalGlint = (Double)glintOptionSnapshot.get();
-      double reducedGlint = originalGlint * 0.5D;
-      glintOptionSnapshot.set(reducedGlint);
-      if (this.overlayMesh
-         .isBuilding()) {
-         RenderType overlayRenderTypeSnapshot = ClientRenderTypes.image(
-            ICON_TEXTURE
-         );
-         MeshData overlayMeshData = this.overlayMesh
-            .build();
-         overlayRenderTypeSnapshot.draw(overlayMeshData);
-      }
       Lighting lightingSnapshot = ClientAccess.schizoMinecraft.gameRenderer.getLighting();
-      com.mojang.blaze3d.platform.Lighting.Entry flatLightingEntry = com.mojang.blaze3d.platform.Lighting.Entry.ITEMS_FLAT;
-      lightingSnapshot.setupFor(flatLightingEntry);
-      ShaderModule shaderSnapshot = shader;
-      if (shaderSnapshot.includesNameTags()) {
-         RenderTargetUtils.overrideRenderTargets(renderTarget);
-         RenderUtils.clearColor(renderTarget);
-         RenderUtils.clearDepth(renderTarget);
-         NameTagItemRenderer.flush();
-         RenderTargetUtils.restoreRenderTargets();
-      } else {
-         NameTagItemRenderer.flush();
+      try {
+         glintOptionSnapshot.set(originalGlint * 0.5D);
+         if (this.overlayMesh.isBuilding()) {
+            RenderType overlayRenderTypeSnapshot = ClientRenderTypes.image(ICON_TEXTURE);
+            MeshData overlayMeshData = this.overlayMesh.build();
+            overlayRenderTypeSnapshot.draw(overlayMeshData);
+         }
+
+         lightingSnapshot.setupFor(com.mojang.blaze3d.platform.Lighting.Entry.ITEMS_FLAT);
+         ShaderModule shaderSnapshot = shader;
+         if (shaderSnapshot.includesNameTags()) {
+            RenderTargetUtils.overrideRenderTargets(renderTarget);
+            try {
+               RenderUtils.clearColor(renderTarget);
+               RenderUtils.clearDepth(renderTarget);
+               NameTagItemRenderer.flush();
+            } finally {
+               RenderTargetUtils.restoreRenderTargets();
+            }
+         } else {
+            NameTagItemRenderer.flush();
+         }
+      } finally {
+         lightingSnapshot.setupFor(com.mojang.blaze3d.platform.Lighting.Entry.LEVEL);
+         glintOptionSnapshot.set(originalGlint);
       }
-      lightingSnapshot = ClientAccess.schizoMinecraft.gameRenderer.getLighting();
-      com.mojang.blaze3d.platform.Lighting.Entry levelLightingEntry = com.mojang.blaze3d.platform.Lighting.Entry.LEVEL;
-      lightingSnapshot.setupFor(levelLightingEntry);
-      originalGlint = (Double)glintOptionSnapshot.get();
-      double restoredGlint = originalGlint * 2.0D;
-      glintOptionSnapshot.set(restoredGlint);
       GuiDrawUtils.flush(ClientRenderTypes.worldTagQuads(), true);
    }
    @EventHandler
