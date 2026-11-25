@@ -43,7 +43,7 @@ import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 
 public class IndicatorModule extends HudWidgetModule {
-   private static final WarpModule warp = ClientContext.getModule(WarpModule.class);
+
    private final Setting<Boolean> warpSetting;
    private final Setting<Boolean> resistanceSetting;
    private final Setting<Boolean> strengthSetting;
@@ -123,12 +123,12 @@ public class IndicatorModule extends HudWidgetModule {
    }
 
    private DisplayData getWarpData() {
-      int requiredCharge = warp.chargeSetting.getValue();
+      int requiredCharge = schizo$warp().chargeSetting.getValue();
       float progress = requiredCharge <= 0 ? 1.0F
          : Mth.clamp(this.warpChargeAnimation.getValue() / requiredCharge, 0.0F, 1.0F);
       float eased = progress < 0.5F ? 2.0F * progress * progress
          : (float)(1.0D - Math.pow(-2.0F * progress + 2.0F, 2.0D) / 2.0D);
-      return new DisplayData("Warp", String.valueOf(warp.getCharge()), eased);
+      return new DisplayData("Warp", String.valueOf(schizo$warp().getCharge()), eased);
    }
 
    private float indicatorWidth(DisplayData data) {
@@ -172,7 +172,7 @@ public class IndicatorModule extends HudWidgetModule {
    @Override
    public void renderContent(PoseStack poses) {
       if (ClientAccess.schizoMinecraft.player == null) return;
-      this.warpChargeAnimation.setTarget(warp.getCharge(), 100L);
+      this.warpChargeAnimation.setTarget(schizo$warp().getCharge(), 100L);
       poses.pushPose();
       try {
          float scale = hud.getTextScale();
@@ -306,5 +306,9 @@ public class IndicatorModule extends HudWidgetModule {
       String formatText(boolean prefix) {
          return prefix ? this.label + ChatFormatting.WHITE + " " + this.valueText : this.valueText;
       }
+   }
+
+   private static WarpModule schizo$warp() {
+      return ClientContext.requireModule(WarpModule.class);
    }
 }
