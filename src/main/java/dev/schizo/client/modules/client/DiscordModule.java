@@ -149,7 +149,8 @@ public class DiscordModule extends Module {
          }
          RichPresence presence = presenceBuilder.build();
          ipcClient.sendRichPresence(presence);
-      } catch (Exception ignored) {
+      } catch (Exception updateFailure) {
+         LOGGER.warn("Could not update Discord activity", updateFailure);
       }
    }
 
