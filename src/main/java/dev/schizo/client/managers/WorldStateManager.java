@@ -70,7 +70,7 @@ import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
 public final class WorldStateManager implements ClientAccess {
-   private static final AntiCheatModule antiCheatModule;
+   private static AntiCheatModule antiCheatModule;
 
    private final List<BlockEntity> blockEntities = Collections.synchronizedList(new ArrayList<>());
 
@@ -153,10 +153,6 @@ public final class WorldStateManager implements ClientAccess {
       ClientAccess.eventBus.subscribe(this);
    }
 
-   static {
-      antiCheatModule = (AntiCheatModule)ClientContext.getModule(AntiCheatModule.class);
-   }
-
    public boolean isPlacementOccupied(BlockPos position) {
       if (this.hasActiveGlassUpdate(position) && RotationManager.isMovementSyncEnabled()) {
          return false;
@@ -201,18 +197,13 @@ public final class WorldStateManager implements ClientAccess {
          return !position.closerThan(playerPosition, 128.0D);
       });
       synchronized (this.pendingPlacements) {
-         List<BlockPos> expiredPlacements = new ArrayList<>();
+         long now = System.currentTimeMillis();
          Iterator<Entry<BlockPos, PendingPlacement>> placementsIterator = this.pendingPlacements.entrySet().iterator();
          while (placementsIterator.hasNext()) {
-            Entry<BlockPos, PendingPlacement> placementEntry = placementsIterator.next();
-            long now = System.currentTimeMillis();
-            long createdAtMillis = placementEntry.getValue().createdAtMillis();
-            if (now > createdAtMillis + 250L) {
-               expiredPlacements.add(placementEntry.getKey());
+            PendingPlacement placement = placementsIterator.next().getValue();
+            if (now > placement.createdAtMillis() + 250L) {
+               placementsIterator.remove();
             }
-         }
-         for (BlockPos expiredPosition : expiredPlacements) {
-            this.pendingPlacements.remove(expiredPosition);
          }
       }
       synchronized (this.getBlockEntities()) {
@@ -221,18 +212,14 @@ public final class WorldStateManager implements ClientAccess {
          this.blockEntities.removeIf(Objects::isNull);
       }
       synchronized (this.rollbackBlocks) {
-         this.rollbackBlocks.forEach((position, snapshot) -> {
+         Iterator<Entry<BlockPos, BlockStateSnapshot>> rollbackIterator = this.rollbackBlocks.entrySet().iterator();
+         while (rollbackIterator.hasNext()) {
+            BlockStateSnapshot snapshot = rollbackIterator.next().getValue();
             if (snapshot.hasExpired()) {
-               ClientLevel level = ClientAccess.schizoMinecraft.level;
-               BlockPos savedPosition = snapshot.position();
-               BlockState savedState = snapshot.state();
-               level.setBlockAndUpdate(savedPosition, savedState);
+               ClientAccess.schizoMinecraft.level.setBlockAndUpdate(snapshot.position(), snapshot.state());
+               rollbackIterator.remove();
             }
-         });
-         this.rollbackBlocks.entrySet().removeIf(entry -> {
-            BlockStateSnapshot snapshot = entry.getValue();
-            return snapshot.hasExpired();
-         });
+         }
       }
       this.glassUpdateWindows.values().removeIf(GlassUpdateWindow::hasExpired);
    }
@@ -357,13 +344,20 @@ public final class WorldStateManager implements ClientAccess {
       if (!BlockInteractionUtils.isGlass(state)) {
          return;
       }
-      long now = System.currentTimeMillis();
-      int latencyDurationMillis = ClientContext.serverStateManager.getLatencyTicks() * (50) + (50);
-      long activeDurationMillis = Math.min(250, latencyDurationMillis);
+      long nowNanos = System.nanoTime();
+      int latencyDurationMillis = ClientContext.serverStateManager.getLatencyTicks() * 50 + 50;
+      long activeDurationNanos = java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(
+         Math.min(250, latencyDurationMillis)
+      );
       Map<BlockPos, GlassUpdateWindow> windows = this.glassUpdateWindows;
       BlockPos immutableWindowPosition = position.immutable();
-      long activeUntilMillis = now + activeDurationMillis;
-      windows.putIfAbsent(immutableWindowPosition, new WorldStateManager.GlassUpdateWindow(activeUntilMillis, now + 10000L));
+      windows.putIfAbsent(
+         immutableWindowPosition,
+         new WorldStateManager.GlassUpdateWindow(
+            nowNanos + activeDurationNanos,
+            nowNanos + java.util.concurrent.TimeUnit.SECONDS.toNanos(10L)
+         )
+      );
    }
 
    private ItemStack resolveHandStack(InteractionHand hand) {
@@ -456,14 +450,18 @@ public final class WorldStateManager implements ClientAccess {
    }
 
    private record GlassUpdateWindow(
-      long activeUntilMillis,
-      long expiresAtMillis
+      long activeUntilNanos,
+      long expiresAtNanos
    ) {
       public boolean isActive() {
-         return System.currentTimeMillis() < this.activeUntilMillis;
+         return System.nanoTime() < this.activeUntilNanos;
       }
       public boolean hasExpired() {
-         return System.currentTimeMillis() >= this.expiresAtMillis;
+         return System.nanoTime() >= this.expiresAtNanos;
       }
+   }
+
+   public static void bindModules(ModuleRegistry registry) {
+      antiCheatModule = registry.requireModule(AntiCheatModule.class);
    }
 }
