@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.events.EventHandler;
+import dev.schizo.client.events.ModuleToggleEvent;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
@@ -22,6 +23,37 @@ class ModuleLifecycleTest {
    }
 
    @Test
+   void toggleNotificationFailureStillRunsLocalToggleHookAndRollsBackEnable() {
+      TestModule module = new TestModule();
+      FailingToggleObserver observer = new FailingToggleObserver();
+      ClientAccess.eventBus.subscribe(observer);
+      try {
+         assertThrows(IllegalStateException.class, module::enable);
+         assertFalse(module.isToggled());
+         assertEquals(1, module.toggleCalls.get());
+         assertEquals(0, module.enableCalls.get());
+      } finally {
+         ClientAccess.eventBus.unsubscribe(observer);
+      }
+   }
+
+   @Test
+   void toggleNotificationFailureStillRunsDisableHooks() {
+      TestModule module = new TestModule();
+      module.enable();
+      FailingToggleObserver observer = new FailingToggleObserver();
+      ClientAccess.eventBus.subscribe(observer);
+      try {
+         assertThrows(IllegalStateException.class, module::disable);
+         assertFalse(module.isToggled());
+         assertEquals(2, module.toggleCalls.get());
+         assertEquals(1, module.disableCalls.get());
+      } finally {
+         ClientAccess.eventBus.unsubscribe(observer);
+      }
+   }
+
+   @Test
    void failedDisableStillLeavesModuleDisabledAndUnsubscribed() {
       TestModule module = new TestModule();
       module.enable();
@@ -37,8 +69,17 @@ class ModuleLifecycleTest {
    private static final class ProbeEvent {
    }
 
+   private static final class FailingToggleObserver {
+      @EventHandler
+      private void onToggle(ModuleToggleEvent event) {
+         throw new IllegalStateException("observer failure");
+      }
+   }
+
    private static final class TestModule extends Module {
       private final AtomicInteger eventCalls = new AtomicInteger();
+      private final AtomicInteger toggleCalls = new AtomicInteger();
+      private final AtomicInteger enableCalls = new AtomicInteger();
       private final AtomicInteger disableCalls = new AtomicInteger();
       private boolean failEnable;
       private boolean failDisable;
@@ -48,7 +89,13 @@ class ModuleLifecycleTest {
       }
 
       @Override
+      public void onToggle() {
+         this.toggleCalls.incrementAndGet();
+      }
+
+      @Override
       public void onEnable() {
+         this.enableCalls.incrementAndGet();
          if (this.failEnable) {
             throw new IllegalStateException("enable failure");
          }
