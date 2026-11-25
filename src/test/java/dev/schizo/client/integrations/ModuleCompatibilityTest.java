@@ -453,7 +453,7 @@ class ModuleCompatibilityTest {
 
    @Test
    void settingReviewCountIncludesExplicitReviewsOnly() {
-      assertTrue(ModuleCompatibility.reviewedSettingCount() >= 129);
+      assertTrue(ModuleCompatibility.reviewedSettingCount() >= 174);
    }
 
    @Test
@@ -517,6 +517,43 @@ class ModuleCompatibilityTest {
       assertTrue(viewScroll.requiresWarning());
       assertEquals(ModuleCompatibility.Classification.PACKET_AFFECTING, warpMode.classification());
       assertTrue(warpMode.requiresWarning());
+   }
+
+   @Test
+   void phaseSettingsKeepInteractionAndPacketBoundariesDistinct() {
+      assertEquals(
+         ModuleCompatibility.Classification.PACKET_AFFECTING,
+         ModuleCompatibility.assessSetting(PhaseModule.class, "Mode").classification()
+      );
+      assertEquals(
+         ModuleCompatibility.Classification.WORLD_INTERACTION,
+         ModuleCompatibility.assessSetting(PhaseModule.class, "Place").classification()
+      );
+      assertEquals(
+         ModuleCompatibility.Classification.SERVER_SENSITIVE,
+         ModuleCompatibility.assessSetting(PhaseModule.class, "Delay").classification()
+      );
+   }
+
+   @Test
+   void speedMineRenderControlsDoNotInheritPacketWarnings() {
+      ModuleCompatibility.SettingAssessment rebreak =
+         ModuleCompatibility.assessSetting(SpeedMineModule.class, "Rebreak");
+      ModuleCompatibility.SettingAssessment render =
+         ModuleCompatibility.assessSetting(SpeedMineModule.class, "Render");
+      ModuleCompatibility.SettingAssessment group =
+         ModuleCompatibility.assessSetting(SpeedMineModule.class, "RebreakPage");
+      ModuleCompatibility.SettingAssessment abort =
+         ModuleCompatibility.assessSetting(SpeedMineModule.class, "Abort");
+
+      assertEquals(ModuleCompatibility.Classification.PACKET_AFFECTING, rebreak.classification());
+      assertTrue(rebreak.requiresWarning());
+      assertEquals(ModuleCompatibility.Classification.VISUAL_ONLY, render.classification());
+      assertFalse(render.requiresWarning());
+      assertEquals(ModuleCompatibility.Classification.CLIENT_ONLY, group.classification());
+      assertFalse(group.requiresWarning());
+      assertEquals(ModuleCompatibility.Classification.CLIENT_ONLY, abort.classification());
+      assertFalse(abort.requiresWarning());
    }
 
    @Test
