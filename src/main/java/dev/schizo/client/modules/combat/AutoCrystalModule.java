@@ -9,6 +9,7 @@
 
 package dev.schizo.client.modules.combat;
 
+import dev.schizo.client.diagnostics.RuntimeDiagnostics;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.PacketEvent;
@@ -2100,7 +2101,13 @@ public class AutoCrystalModule extends Module {
                }
 
                this.onCrystalSpawn(spawnPacket);
-            } catch (Throwable ignoredFailure) {
+            } catch (Throwable crystalFailure) {
+               RuntimeDiagnostics.record(
+                  RuntimeDiagnostics.Area.EVENT,
+                  "AutoCrystal spawn handling",
+                  crystalFailure
+               );
+               if (crystalFailure instanceof Error fatal) throw fatal;
             }
          }
       }
