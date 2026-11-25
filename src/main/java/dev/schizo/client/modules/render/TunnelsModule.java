@@ -9,6 +9,7 @@
 
 package dev.schizo.client.modules.render;
 
+import dev.schizo.client.utils.IncrementalWorkBudget;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.events.WorldRenderEvent;
 import dev.schizo.client.events.EventHandler;
@@ -297,7 +298,7 @@ public class TunnelsModule extends Module {
       }
 
       int processed = 0;
-      while (processed < CHUNK_SCAN_BUDGET_PER_TICK) {
+      while (IncrementalWorkBudget.canContinue(processed, CHUNK_SCAN_BUDGET_PER_TICK)) {
          if (this.activeChunkScan == null) {
             ChunkPos nextChunk = this.pendingChunkScans.poll();
             if (nextChunk == null) {
