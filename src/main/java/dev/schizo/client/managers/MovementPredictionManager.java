@@ -36,10 +36,12 @@ public final class MovementPredictionManager implements ClientAccess {
    private Vec3 previousPlayerPosition;
 
    public Vec3 getAdjustedLocalMotion() {
-      LocalPlayer player = ClientAccess.schizoMinecraft.player;
-      if (player == null || this.previousPlayerPosition == null) {
+      if (ClientAccess.schizoMinecraft == null
+         || ClientAccess.schizoMinecraft.player == null
+         || this.previousPlayerPosition == null) {
          return Vec3.ZERO;
       }
+      LocalPlayer player = ClientAccess.schizoMinecraft.player;
       Vec3 motion = player.position().subtract(this.previousPlayerPosition);
       if (player.isSprinting() && !player.isFallFlying()) {
          motion = motion.multiply((double)0.9F, 1.0D, (double)0.9F);
