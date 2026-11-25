@@ -22,7 +22,7 @@ import net.minecraft.world.item.trading.MerchantOffer;
 public final class VillagerOfferCache {
    private final Map<Integer, Entry> entries = new HashMap<>();
 
-   public long getLastUpdatedMillis(int entityId) {
+   public synchronized long getLastUpdatedMillis(int entityId) {
       Entry entry = this.entries.get(entityId);
       return entry == null ? 0L : entry.lastUpdatedMillis;
    }
@@ -50,9 +50,13 @@ public final class VillagerOfferCache {
       }
    }
 
-   public List<TradeOfferSnapshot> getOffers(int entityId) {
+   public synchronized List<TradeOfferSnapshot> getOffers(int entityId) {
       Entry entry = this.entries.get(entityId);
-      return entry == null ? null : entry.offers;
+      return entry == null ? null : List.copyOf(entry.offers);
+   }
+
+   public synchronized void clear() {
+      this.entries.clear();
    }
 
    private static class Entry {
