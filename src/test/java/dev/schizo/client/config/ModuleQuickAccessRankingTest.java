@@ -37,6 +37,17 @@ class ModuleQuickAccessRankingTest {
    }
 
    @Test
+   void snapshotMatchesDirectRankingAndHandlesUnknownModules() {
+      var favorites = List.of("Surround", "AutoCrystal");
+      var recent = List.of("Flight", "Speed", "AutoCrystal");
+      var snapshot = ModuleQuickAccessRanking.snapshot(favorites, recent);
+
+      assertTrue(snapshot.rank("Surround").compareTo(snapshot.rank("Flight")) < 0);
+      assertTrue(snapshot.rank("Flight").compareTo(snapshot.rank("Unknown")) < 0);
+      assertTrue(snapshot.rank("AutoCrystal").compareTo(snapshot.rank("Flight")) < 0);
+   }
+
+   @Test
    void favoritesTakePrecedenceOverRecentMembership() {
       var favorites = List.of("Surround");
       var recent = List.of("Flight", "Surround");
