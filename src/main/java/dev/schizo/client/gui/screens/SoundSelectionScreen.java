@@ -59,7 +59,7 @@ public class SoundSelectionScreen extends ClientScreen {
             try {
                Files.copy(droppedFile, customSoundsDirectory.resolve(droppedFile.getFileName()));
             } catch (IOException exception) {
-               exception.printStackTrace();
+               dev.schizo.client.ClientAccess.logger.warn("Could not import custom sound {}", droppedFile, exception);
             }
          }
       }
