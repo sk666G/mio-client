@@ -41,7 +41,6 @@ import net.minecraft.network.chat.MessageSignature;
 
 public final class AutoPresetRegistry implements ClientAccess, JsonConfigurable {
    private final Map serverSettings = new HashMap();
-   private String lastServer;
 
    public Collection getServers() {
       return this.serverSettings.keySet();
@@ -84,7 +83,6 @@ public final class AutoPresetRegistry implements ClientAccess, JsonConfigurable 
 
       this.serverSettings.clear();
       this.serverSettings.putAll(loaded);
-      this.lastServer = null;
    }
 
    static Map<String, ParsedServerEntry> parseSettings(JsonElement json) {
@@ -98,6 +96,7 @@ public final class AutoPresetRegistry implements ClientAccess, JsonConfigurable 
          if (server == null || server.isBlank() || server.length() > 255) {
             continue;
          }
+         server = normalizeServerKey(server);
 
          JsonElement serverJson = serverEntry.getValue();
          if (serverJson == null || !serverJson.isJsonObject()) {
@@ -142,6 +141,13 @@ public final class AutoPresetRegistry implements ClientAccess, JsonConfigurable 
       return Map.copyOf(loaded);
    }
 
+   static String normalizeServerKey(String server) {
+      if (server == null) {
+         throw new IllegalArgumentException("Server key must not be null");
+      }
+      return server.toLowerCase(Locale.ROOT);
+   }
+
    record ParsedServerEntry(Map<String, String> presets, String kitName) {
       ParsedServerEntry {
          presets = Map.copyOf(presets);
@@ -180,12 +186,18 @@ public final class AutoPresetRegistry implements ClientAccess, JsonConfigurable 
    }
 
    public boolean removeKit(String server) {
-      AutoPresetServerEntry settings = (AutoPresetServerEntry)this.serverSettings.get(server);
-      if (settings == null) {
+      if (server == null) {
+         return false;
+      }
+
+      String serverKey = normalizeServerKey(server);
+      AutoPresetServerEntry settings = (AutoPresetServerEntry)this.serverSettings.get(serverKey);
+      if (settings == null || !settings.hasKit()) {
          return false;
       }
 
       settings.setKitName(null);
+      this.pruneEmptyServer(serverKey, settings);
       return true;
    }
 
@@ -197,81 +209,108 @@ public final class AutoPresetRegistry implements ClientAccess, JsonConfigurable 
    }
 
    public boolean removePreset(String server, PresetCategory category) {
-      AutoPresetServerEntry settings = (AutoPresetServerEntry)this.serverSettings.get(server);
+      if (server == null || category == null) {
+         return false;
+      }
+
+      String serverKey = normalizeServerKey(server);
+      AutoPresetServerEntry settings = (AutoPresetServerEntry)this.serverSettings.get(serverKey);
       if (settings == null) {
          return false;
       }
 
-      return settings.getPresets().remove(category) != null;
+      boolean removed = settings.getPresets().remove(category) != null;
+      if (removed) {
+         this.pruneEmptyServer(serverKey, settings);
+      }
+      return removed;
+   }
+
+   private void pruneEmptyServer(String serverKey, AutoPresetServerEntry settings) {
+      if (isEmptyServer(settings)) {
+         this.serverSettings.remove(serverKey);
+      }
+   }
+
+   static boolean isEmptyServer(AutoPresetServerEntry settings) {
+      return settings != null && settings.getPresets().isEmpty() && !settings.hasKit();
    }
 
    public void setPreset(
       String server, PresetCategory category, String presetName
    ) {
-      AutoPresetServerEntry settings = (AutoPresetServerEntry)this.serverSettings.computeIfAbsent(server, (Function<String, AutoPresetServerEntry>)ignoredServer -> new AutoPresetServerEntry(server));
+      String serverKey = normalizeServerKey(server);
+      AutoPresetServerEntry settings = (AutoPresetServerEntry)this.serverSettings.computeIfAbsent(
+         serverKey,
+         (Function<String, AutoPresetServerEntry>)ignoredServer -> new AutoPresetServerEntry(serverKey)
+      );
 
       settings.getPresets().put(category, presetName);
    }
 
+   AutoPresetServerEntry getSettingsForConnection(String serverAddress) {
+      return (AutoPresetServerEntry)this.serverSettings.get(normalizeServerKey(serverAddress));
+   }
+
    @EventHandler
    public void onConnectScreenConnectEvent(ConnectScreenConnectEvent event) {
-      String serverAddress = event.getServerAddress();
-      String previousServer = this.lastServer;
-      if (!serverAddress.equalsIgnoreCase(previousServer)) {
-         this.lastServer = event.getServerAddress();
-         AutoPresetServerEntry settings = (AutoPresetServerEntry)this.serverSettings.get(this.lastServer);
-         if (settings != null) {
+      AutoPresetServerEntry settings = this.getSettingsForConnection(event.getServerAddress());
+      if (settings == null) {
+         return;
+      }
 
-            AtomicInteger messageCounter = new AtomicInteger(-2);
+      AtomicInteger messageCounter = new AtomicInteger(-2);
 
-            settings.getPresets().forEach((BiConsumer<PresetCategory, String>)(category, presetName) -> {
-               ConfigurationManager configurationManager = ClientContext.configurationManager;
-               PresetRegistry presetRegistry = configurationManager.getPresetRegistry(category);
-               presetRegistry.applyPreset(presetName);
-               TaskScheduler schedulerForPreset = ClientContext.taskScheduler;
-               Runnable messageForPreset = () -> {
+      settings.getPresets().forEach((BiConsumer<PresetCategory, String>)(category, presetName) -> {
+         ConfigurationManager configurationManager = ClientContext.configurationManager;
+         PresetRegistry presetRegistry = configurationManager.getPresetRegistry(category);
+         presetRegistry.applyPreset(presetName);
+         TaskScheduler schedulerForPreset = ClientContext.taskScheduler;
+         Runnable messageForPreset = () -> {
+            int messageId = messageCounter.getAndDecrement();
+
+            MessageSignature signature = ChatUtils.createSignature(messageId);
+
+            Object[] messageArguments = new Object[]{presetName};
+            String messageFormat = "Preset %s has been loaded.";
+            String messageText = messageFormat.formatted(messageArguments);
+            ChatUtils.printChat(Component.literal(messageText), signature);
+         };
+         schedulerForPreset.scheduleRotationTask(messageForPreset, 0);
+      });
+
+      if (settings.hasKit()) {
+         String kitName = settings.getKitName();
+         ClientContext.kitRegistry.findFirst((Predicate<Kit>)kit -> kit.getName().equalsIgnoreCase(kitName))
+            .ifPresent((Consumer<Kit>)matchingKit -> {
+               KitRegistry kitRegistry = ClientContext.kitRegistry;
+               kitRegistry.setCurrentKitName(kitName);
+               TaskScheduler schedulerForKit = ClientContext.taskScheduler;
+               Runnable messageForKit = () -> {
                   int messageId = messageCounter.getAndDecrement();
 
                   MessageSignature signature = ChatUtils.createSignature(messageId);
 
-                  Object[] messageArguments = new Object[]{presetName};
-                  String messageFormat = "Preset %s has been loaded.";
+                  Object[] messageArguments = new Object[]{kitName};
+                  String messageFormat = "Kit %s has been loaded.";
                   String messageText = messageFormat.formatted(messageArguments);
                   ChatUtils.printChat(Component.literal(messageText), signature);
                };
-               schedulerForPreset.scheduleRotationTask(messageForPreset, 0);
+               schedulerForKit.scheduleRunTickTask(messageForKit);
             });
-
-            if (settings.hasKit()) {
-               String kitName = settings.getKitName();
-               ClientContext.kitRegistry.findFirst((Predicate<Kit>)kit -> kit.getName().equalsIgnoreCase(kitName))
-                  .ifPresent((Consumer<Kit>)matchingKit -> {
-                     KitRegistry kitRegistry = ClientContext.kitRegistry;
-                     kitRegistry.setCurrentKitName(kitName);
-                     TaskScheduler schedulerForKit = ClientContext.taskScheduler;
-                     Runnable messageForKit = () -> {
-                        int messageId = messageCounter.getAndDecrement();
-
-                        MessageSignature signature = ChatUtils.createSignature(messageId);
-
-                        Object[] messageArguments = new Object[]{kitName};
-                        String messageFormat = "Kit %s has been loaded.";
-                        String messageText = messageFormat.formatted(messageArguments);
-                        ChatUtils.printChat(Component.literal(messageText), signature);
-                     };
-                     schedulerForKit.scheduleRunTickTask(messageForKit);
-                  });
-            }
-         }
       }
    }
 
    public boolean removeServer(String server) {
-      return this.serverSettings.remove(server) != null;
+      return server != null && this.serverSettings.remove(normalizeServerKey(server)) != null;
    }
 
    public void setKit(String server, String kitName) {
-      AutoPresetServerEntry settings = (AutoPresetServerEntry)this.serverSettings.computeIfAbsent(server, (Function<String, AutoPresetServerEntry>)ignoredServer -> new AutoPresetServerEntry(server));
+      String serverKey = normalizeServerKey(server);
+      AutoPresetServerEntry settings = (AutoPresetServerEntry)this.serverSettings.computeIfAbsent(
+         serverKey,
+         (Function<String, AutoPresetServerEntry>)ignoredServer -> new AutoPresetServerEntry(serverKey)
+      );
 
       settings.setKitName(kitName);
    }
