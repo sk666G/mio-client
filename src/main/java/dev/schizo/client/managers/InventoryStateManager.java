@@ -59,8 +59,8 @@ import net.minecraft.world.level.block.Blocks;
 
 public final class InventoryStateManager implements ClientAccess {
    private static final long CLICK_WINDOW_NANOS = java.util.concurrent.TimeUnit.SECONDS.toNanos(4L);
-   private static final AntiCheatModule antiCheat;
-   private static final XCarryModule xCarry;
+   private static volatile AntiCheatModule antiCheat;
+   private static volatile XCarryModule xCarry;
    private final Map<Integer, DeferredSlotUpdate> deferredSlotUpdates = Collections.synchronizedMap(new HashMap<>());
    private final Queue<Long> clickTimestamps = new ArrayDeque<>();
    private final ElapsedTimer lastClickTimer = new ElapsedTimer();
