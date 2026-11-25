@@ -86,7 +86,7 @@ public class AutoSignModule extends Module {
    }
 
    static {
-      antiCheat = ClientContext.getModule(AntiCheatModule.class);
+
       numericDateFormat = new SimpleDateFormat("dd/MM/yyyy", Locale.ENGLISH);
       monthYearDateFormat = new SimpleDateFormat("MMM yyyy", Locale.ENGLISH);
    }
