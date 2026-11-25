@@ -107,7 +107,16 @@ public final class ClientContext {
    public static <T extends Module> T getModule(Class<T> moduleType) {
       Objects.requireNonNull(moduleType, "Module type");
       ModuleRegistry registry = moduleRegistry;
-      return registry == null ? null : moduleType.cast(registry.getModule(moduleType));
+      return registry == null ? null : registry.getModule(moduleType);
+   }
+
+   public static <T extends Module> T requireModule(Class<T> moduleType) {
+      Objects.requireNonNull(moduleType, "Module type");
+      ModuleRegistry registry = moduleRegistry;
+      if (registry == null) {
+         throw new IllegalStateException("Module registry is not initialized");
+      }
+      return registry.requireModule(moduleType);
    }
 
    public static ClickGuiScreen getClickGui() {
