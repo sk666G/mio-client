@@ -649,14 +649,9 @@ public final class MacroCommand extends Command {
             }
          }
 
-         Optional existingMacro = ClientContext.macroRegistry.findFirst((Predicate<Macro>)candidateMacro -> {
-               String candidateName = candidateMacro.getName();
-               String importedName = macro.getName();
-               return candidateName.equalsIgnoreCase(importedName);
-            });
-         MacroRegistry registryForRemoval = ClientContext.macroRegistry;
-         existingMacro.ifPresent((Consumer<Macro>)registryForRemoval::unregisterEntry);
-         ClientContext.macroRegistry.registerEntry(macro);
+         if (!ClientContext.macroRegistry.upsertMacro(macro)) {
+            throw new IllegalStateException("Macro import could not be applied");
+         }
 
          MutableComponent message = Component.literal("Successfully loaded ");
          String nameForMessage = macro.getName();
