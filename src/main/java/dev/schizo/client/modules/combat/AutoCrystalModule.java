@@ -888,38 +888,39 @@ public class AutoCrystalModule extends Module {
    }
 
    private boolean shouldPause() {
+      this.clearPauseReason();
       if (this.isWorldUnavailable()) {
-         return true;
+         return this.pauseWithReason("Waiting for world");
       }
 
       if (BlockInteractionUtils.isInteractionCooldownActive()) {
-         return true;
+         return this.pauseWithReason("Interaction cooldown");
       }
 
       if (OffhandModule.isRecentSwapWindowActive()) {
-         return true;
+         return this.pauseWithReason("Offhand swap");
       }
       if (SpeedMineModule.isSwapPending()) {
-         return true;
+         return this.pauseWithReason("Mining swap");
       }
       LivingEntity targetSnapshot = this.target;
       if (this.isInvalidTarget(targetSnapshot)) {
-         return true;
+         return this.pauseWithReason("No valid target");
       }
 
       if (ClientAccess.schizoMinecraft.player.isSleeping()) {
-         return true;
+         return this.pauseWithReason("Sleeping");
       }
 
       if (ClientAccess.schizoMinecraft.player.isUsingItem()) {
          if (this.pauseEatingSetting.getValue()) {
-            return true;
+            return this.pauseWithReason("Using item");
          }
       }
 
       if (this.pauseMendingSetting.getValue()) {
          if (autoExp.isActive()) {
-            return true;
+            return this.pauseWithReason("Mending");
          }
       }
 
@@ -933,7 +934,7 @@ public class AutoCrystalModule extends Module {
 
       if (miningFlag) {
          if (this.pauseMiningSetting.getValue()) {
-            return true;
+            return this.pauseWithReason("Mining");
          }
       }
 
@@ -950,7 +951,7 @@ public class AutoCrystalModule extends Module {
 
                CrystalPlacementResult crystalPlacementSnapshot = (CrystalPlacementResult)this.placementData.get();
                if (anchorDamage > crystalPlacementSnapshot.damage()) {
-                  return true;
+                  return this.pauseWithReason("AnchorAura selected");
                }
             }
          }
@@ -959,12 +960,12 @@ public class AutoCrystalModule extends Module {
       if (RotationManager.isMovementSyncEnabled()) {
          if (!RotationManager.isSilentRotationMode()) {
             if (ClientAccess.schizoMinecraft.player.isFallFlying()) {
-               return true;
+               return this.pauseWithReason("Flight rotation");
             }
          }
       }
 
-      return ClientAccess.schizoMinecraft.player.isDeadOrDying();
+      return ClientAccess.schizoMinecraft.player.isDeadOrDying() && this.pauseWithReason("Player dead");
    }
 
    public boolean shouldIgnoreMiningBlock() {

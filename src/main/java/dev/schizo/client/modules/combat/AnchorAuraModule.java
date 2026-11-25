@@ -165,23 +165,24 @@ public class AnchorAuraModule extends Module {
    }
 
    private boolean shouldPause() {
+      this.clearPauseReason();
       if (this.isWorldUnavailable()) {
-         return true;
+         return this.pauseWithReason("Waiting for world");
       }
 
       if (ClientAccess.schizoMinecraft.player.isSleeping()) {
-         return true;
+         return this.pauseWithReason("Sleeping");
       }
 
       if (ClientAccess.schizoMinecraft.player.isUsingItem()) {
          if (this.eatingSetting.getValue()) {
-            return true;
+            return this.pauseWithReason("Using item");
          }
       }
 
       if (ClientAccess.schizoMinecraft.gameMode.isDestroying()) {
          if (this.miningSetting.getValue()) {
-            return true;
+            return this.pauseWithReason("Mining");
          }
       }
 
@@ -191,7 +192,7 @@ public class AnchorAuraModule extends Module {
             AnchorTargetDamage anchorDamageSnapshot = this.targetDamage;
 
             if (crystalDamage > anchorDamageSnapshot.damage()) {
-               return true;
+               return this.pauseWithReason("AutoCrystal selected");
             }
          }
       }
@@ -199,7 +200,7 @@ public class AnchorAuraModule extends Module {
       float selfHealth = EntityUtils.getPlayerHealthWithAbsorption();
 
       Float minimumHealth = this.healthSetting.getValue();
-      return selfHealth < minimumHealth;
+      return selfHealth < minimumHealth && this.pauseWithReason("Below minimum health");
    }
 
    boolean shouldIgnoreMiningBlock() {

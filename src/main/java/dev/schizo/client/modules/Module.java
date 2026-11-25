@@ -43,6 +43,7 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
    private final String[] aliases;
    private Keybind keybind;
    private boolean enabled;
+   private String pauseReason;
    private boolean drawn;
    private boolean workInProgress;
    private boolean ignoreEnabledState;
@@ -95,6 +96,7 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
          return;
       }
       this.compatibilityPolicySuppressed = false;
+      this.pauseReason = null;
       this.enabled = true;
       ClientAccess.eventBus.subscribe(this);
       EventBus eventBus = ClientAccess.eventBus;
@@ -128,6 +130,21 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
    @Override
    public boolean isToggled() {
       return this.enabled;
+   }
+
+   /** Describes the most recently evaluated pause condition without running module logic from the GUI. */
+   public String getRuntimeStatus() {
+      if (!this.isToggled()) return "Disabled";
+      return this.pauseReason == null ? "Enabled" : "Paused - " + this.pauseReason;
+   }
+
+   protected final boolean pauseWithReason(String reason) {
+      this.pauseReason = reason;
+      return true;
+   }
+
+   protected final void clearPauseReason() {
+      this.pauseReason = null;
    }
 
    public void onEnable() {
