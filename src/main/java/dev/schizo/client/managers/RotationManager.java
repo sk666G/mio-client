@@ -235,10 +235,6 @@ public final class RotationManager implements ClientAccess {
       eventBus.subscribe(this);
    }
 
-   static {
-      antiCheat = (AntiCheatModule)ClientContext.getModule(AntiCheatModule.class);
-   }
-
    private float calculateBodyYaw(float yaw, float previousBodyYaw) {
       if (ClientAccess.schizoMinecraft.player.isPassenger()) {
          return yaw;
@@ -747,8 +743,9 @@ public final class RotationManager implements ClientAccess {
    }
 
    public static void bindReferencedModules(ModuleRegistry modules) {
-      antiCheat = (AntiCheatModule)modules.getModule(
-         AntiCheatModule.class
+      antiCheat = (AntiCheatModule)java.util.Objects.requireNonNull(
+         modules.getModule(AntiCheatModule.class),
+         "Required module is not registered: AntiCheatModule"
       );
    }
 }
