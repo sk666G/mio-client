@@ -44,7 +44,18 @@ jobs:
       - name: Build mod
         env:
           ORG_GRADLE_JAVA_INSTALLATIONS_PATHS: ${{ env.JAVA_HOME_21_X64 }}
-        run: ./gradlew --no-daemon clean build
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            if ./gradlew --no-daemon clean build; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              exit 1
+            fi
+            sleep $((attempt * 15))
+          done
 
       - name: Verify remapped artifacts and record provenance
         shell: bash
