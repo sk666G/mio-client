@@ -10,6 +10,7 @@
 package dev.schizo.mixin;
 
 import dev.schizo.client.bootstrap.MixinModuleRegistry;
+import dev.schizo.client.diagnostics.MixinHealthRegistry;
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import com.llamalad7.mixinextras.injector.v2.WrapWithCondition;
 import com.llamalad7.mixinextras.sugar.Local;
@@ -65,6 +66,7 @@ public class MinecraftMixin {
 
    @Inject(method = "destroy", at = @At("HEAD"))
    public void saveConfigurationOnDestroy(CallbackInfo callback) {
+      MixinHealthRegistry.markSeen("minecraft.destroy");
       if (!shutdownSaveStarted
          && ClientContext.configurationManager != null) {
          shutdownSaveStarted = true;
@@ -130,6 +132,7 @@ public class MinecraftMixin {
 
    @Inject(method = "tick", at = @At("HEAD"))
    private void postMinecraftTick(CallbackInfo callback) {
+      MixinHealthRegistry.markSeen("minecraft.tick");
       ClientAccess.eventBus
          .post(
             MinecraftTickEvent.INSTANCE
@@ -162,6 +165,7 @@ public class MinecraftMixin {
    private void postMinecraftRunTick(
       boolean renderLevel, CallbackInfo callback, @Local int ticksToRun
    ) {
+      MixinHealthRegistry.markSeen("minecraft.runTick");
       ClientAccess.eventBus
          .post(new MinecraftRunTickEvent(ticksToRun >= 1));
    }
