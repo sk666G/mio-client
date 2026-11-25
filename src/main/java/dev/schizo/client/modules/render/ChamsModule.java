@@ -14,6 +14,7 @@ import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.EntityRenderEvent;
 import dev.schizo.client.events.GlintTextureTransformEvent;
 import dev.schizo.client.events.PlayerTotemEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.events.WorldRenderEvent;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.RenderTypeDrawEvent;
@@ -739,6 +740,15 @@ public class ChamsModule extends Module {
 
    @Override
    public void onDisable() {
+      this.clearTransientRenderState();
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.clearTransientRenderState();
+   }
+
+   private void clearTransientRenderState() {
       synchronized (this.popGhostTimes) {
          this.popGhostTimes.clear();
       }
