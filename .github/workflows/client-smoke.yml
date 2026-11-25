@@ -71,6 +71,11 @@ jobs:
           grep -Fq "Schizo main initialization completed." "$log_file"
           grep -Fq "Schizo client initialization completed." "$log_file"
 
+          if grep -E '\[.*(WARN|ERROR).*\] \(Schizo\)|\(Schizo\).*\[(WARN|ERROR)\]' "$log_file"; then
+            printf '%s\n' 'Schizo emitted WARN/ERROR diagnostics during launch smoke.' >&2
+            exit 1
+          fi
+
           if [ -d run/crash-reports ] && find run/crash-reports -type f -print -quit | grep -q .; then
             printf '%s\n' 'Minecraft generated a crash report during launch smoke.' >&2
             find run/crash-reports -type f -maxdepth 1 -print >&2
