@@ -19,6 +19,7 @@ import dev.schizo.client.events.WorldRenderEvent;
 import dev.schizo.client.events.ConnectScreenConnectEvent;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.LocalPlayerTickEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.managers.ServerStateManager;
 import dev.schizo.client.render.GuiDrawUtils;
 import dev.schizo.client.render.LineMeshRenderer;
@@ -183,6 +184,18 @@ public class LogoutSpotsModule extends Module {
    public void onToggle() {
       Object2ObjectOpenHashMap<String, LogoutSpot> spots = this.spotsByName;
       spots.clear();
+      this.clearTransientRemovalState();
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.clearTransientRemovalState();
+   }
+
+   private void clearTransientRemovalState() {
+      this.pendingRemovals.clear();
+      this.spotCleanupTimer.clear();
+      renderingTexturedModel = false;
    }
 
    public void putSpot(
@@ -294,7 +307,7 @@ public class LogoutSpotsModule extends Module {
          }
 
          List<PendingRemoval> pending = this.pendingRemovals;
-         pending.add(new LogoutSpotsModule.PendingRemoval(removedPlayer, System.currentTimeMillis(), new AtomicBoolean()));
+         pending.add(new LogoutSpotsModule.PendingRemoval(removedPlayer, System.nanoTime(), new AtomicBoolean()));
       }
    }
 
@@ -907,13 +920,13 @@ public class LogoutSpotsModule extends Module {
 
    private record PendingRemoval(
       Player player,
-      long removalTime,
+      long removalTimeNanos,
       AtomicBoolean processedFlag
    ) {
 
       public boolean isReadyForRemoval() {
-         long ageMillis = System.currentTimeMillis() - this.removalTime;
-         return ageMillis >= 300L || this.processedFlag.get();
+         long ageNanos = System.nanoTime() - this.removalTimeNanos;
+         return ageNanos >= TimeUnit.MILLISECONDS.toNanos(300L) || this.processedFlag.get();
       }
 
    }
