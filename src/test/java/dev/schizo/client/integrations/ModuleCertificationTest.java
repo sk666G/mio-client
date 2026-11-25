@@ -36,6 +36,8 @@ class ModuleCertificationTest {
          ModuleCertification.assessClass(UnreviewedModule.class);
 
       assertFalse(assessment.sourceReviewed());
+      assertFalse(assessment.allSettingsReviewed());
+      assertEquals(-1, assessment.settingCount());
       assertEquals(ModuleCertification.AutomatedEvidence.NONE, assessment.automatedEvidence());
       assertEquals(ModuleCertification.LiveEvidence.NOT_RECORDED, assessment.runtimeEvidence());
       assertEquals(ModuleCertification.LiveEvidence.NOT_RECORDED, assessment.multiplayerEvidence());
