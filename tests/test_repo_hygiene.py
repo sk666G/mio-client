@@ -35,7 +35,10 @@ class RepositoryHygieneTest(unittest.TestCase):
             )
             if field_lookup or block_lookup:
                 offenders.append(str(path.relative_to(ROOT)))
-        self.assertEqual([], offenders)
+        self.assertFalse(
+            offenders,
+            "Static module lookup during class initialization:\n" + "\n".join(offenders),
+        )
 
     def test_no_empty_broad_exception_catches(self):
         offenders = []
@@ -46,7 +49,10 @@ class RepositoryHygieneTest(unittest.TestCase):
         for path in (ROOT / "src/main/java/dev/schizo").rglob("*.java"):
             if broad.search(path.read_text(encoding="utf-8")):
                 offenders.append(str(path.relative_to(ROOT)))
-        self.assertEqual([], offenders)
+        self.assertFalse(
+            offenders,
+            "Empty broad exception catches:\n" + "\n".join(offenders),
+        )
 
     def test_root_branding_does_not_ship_legacy_zio_image(self):
         self.assertFalse((ROOT / "zio.png").exists())
