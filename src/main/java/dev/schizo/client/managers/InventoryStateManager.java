@@ -59,8 +59,12 @@ import net.minecraft.world.level.block.Blocks;
 
 public final class InventoryStateManager implements ClientAccess {
    private static final long CLICK_WINDOW_NANOS = java.util.concurrent.TimeUnit.SECONDS.toNanos(4L);
-   private static final AntiCheatModule antiCheat;
-   private static final XCarryModule xCarry;
+   private static AntiCheatModule antiCheat() {
+      return ClientContext.requireModule(AntiCheatModule.class);
+   }
+   private static XCarryModule xCarry() {
+      return ClientContext.requireModule(XCarryModule.class);
+   }
    private final Map<Integer, DeferredSlotUpdate> deferredSlotUpdates = Collections.synchronizedMap(new HashMap<>());
    private final Queue<Long> clickTimestamps = new ArrayDeque<>();
    private final ElapsedTimer lastClickTimer = new ElapsedTimer();
@@ -78,7 +82,7 @@ public final class InventoryStateManager implements ClientAccess {
 
          if (!(ClientAccess.schizoMinecraft.screen instanceof AbstractContainerScreen)) {
             if (RotationManager.isMovementSyncEnabled()) {
-               XCarryModule xCarryModule = xCarry;
+               XCarryModule xCarryModule = xCarry();
                if (!xCarryModule.isToggled()
                   && !this.clickBatching
                   && this.clickBatchCompleted) {
@@ -95,10 +99,7 @@ public final class InventoryStateManager implements ClientAccess {
       eventBus.subscribe(this);
    }
 
-   static {
-      antiCheat = (AntiCheatModule)ClientContext.getModule(AntiCheatModule.class);
-      xCarry = (XCarryModule)ClientContext.getModule(XCarryModule.class);
-   }
+   
 
    public void close() {
       Packet packet = new ServerboundContainerClosePacket(ClientAccess.schizoMinecraft.player.containerMenu.containerId);
@@ -108,7 +109,7 @@ public final class InventoryStateManager implements ClientAccess {
 
    public static boolean wouldReachClickLimit(InventoryStateManager manager, int additionalClicks) {
       java.util.Objects.requireNonNull(manager);
-      return antiCheat.is2b2tEnabled() && manager.clickTimestamps.size() + additionalClicks >= 71;
+      return antiCheat().is2b2tEnabled() && manager.clickTimestamps.size() + additionalClicks >= 71;
    }
 
    private void resendHeldSlot(int slot) {
@@ -144,7 +145,7 @@ public final class InventoryStateManager implements ClientAccess {
       int selectedSlot = ClientAccess.schizoMinecraft.player.getInventory().getSelectedSlot();
       Minecraft minecraft = ClientAccess.schizoMinecraft;
       if (!minecraft.isLocalServer()) {
-         Setting<Boolean> noServerSlotSetting = antiCheat.noServerSlotSetting;
+         Setting<Boolean> noServerSlotSetting = antiCheat().noServerSlotSetting;
          if (noServerSlotSetting.getValue()) {
             int slotWord = event.getSlot();
             this.resendHeldSlot(slotWord);
@@ -319,7 +320,7 @@ public final class InventoryStateManager implements ClientAccess {
       }
 
       this.localEntityEventPending = false;
-      if (xCarry.isToggled()
+      if (xCarry().isToggled()
          || ClientAccess.schizoMinecraft.screen instanceof AbstractContainerScreen) {
          return;
       }
