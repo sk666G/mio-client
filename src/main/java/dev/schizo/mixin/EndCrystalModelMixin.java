@@ -29,8 +29,12 @@ import org.spongepowered.asm.mixin.injection.At;
 
 @Mixin(EndCrystalModel.class)
 public class EndCrystalModelMixin {
-   private static final AutoCrystalModule autoCrystalModule = ClientContext.getModule(AutoCrystalModule.class);
-   private static final AnimationsModule animationsModule = ClientContext.getModule(AnimationsModule.class);
+   private static AutoCrystalModule autoCrystalModule() {
+      return ClientContext.requireModule(AutoCrystalModule.class);
+   }
+   private static AnimationsModule animationsModule() {
+      return ClientContext.requireModule(AnimationsModule.class);
+   }
    @Shadow
    @Final
    public ModelPart base;
@@ -56,21 +60,21 @@ public class EndCrystalModelMixin {
       Entity entity = EntityRenderStateAccess.getEntity(renderState);
       float speedMultiplier = 1.0F;
       if (entity.tickCount < 10
-         && autoCrystalModule.isToggled()
-         && (autoCrystalModule.instantSetting
+         && autoCrystalModule().isToggled()
+         && (autoCrystalModule().instantSetting
                .getValue())
             .isEnabled()
          && ((EndCrystalState)entity).isClientAttacked()) {
          speedMultiplier *= 1.5F;
       }
 
-      if (animationsModule.isToggled()
-         && animationsModule.crystalsSetting.getValue()) {
-         speedMultiplier *= animationsModule.rotationSpeedSetting.getValue();
-         this.base.skipDraw = animationsModule.shouldHideCrystalPart(0);
-         this.outerGlass.skipDraw = animationsModule.shouldHideCrystalPart(1);
-         this.innerGlass.skipDraw = animationsModule.shouldHideCrystalPart(2);
-         this.cube.skipDraw = animationsModule.shouldHideCrystalPart(3);
+      if (animationsModule().isToggled()
+         && animationsModule().crystalsSetting.getValue()) {
+         speedMultiplier *= animationsModule().rotationSpeedSetting.getValue();
+         this.base.skipDraw = animationsModule().shouldHideCrystalPart(0);
+         this.outerGlass.skipDraw = animationsModule().shouldHideCrystalPart(1);
+         this.innerGlass.skipDraw = animationsModule().shouldHideCrystalPart(2);
+         this.cube.skipDraw = animationsModule().shouldHideCrystalPart(3);
       }
       return speedMultiplier;
    }
