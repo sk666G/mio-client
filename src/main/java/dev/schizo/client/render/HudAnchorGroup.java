@@ -23,9 +23,16 @@ import net.minecraft.util.Mth;
 
 public class HudAnchorGroup implements ClientAccess, GuiElement {
 
-   private static final HUDModule hud = (HUDModule)ClientContext.getModule(HUDModule.class);
    private final List widgets = new ArrayList();
    private final HudAnchor anchor;
+
+   private static HUDModule hud() {
+      HUDModule hud = HUDModule.INSTANCE;
+      if (hud == null) {
+         throw new IllegalStateException("HUD module is not initialized");
+      }
+      return hud;
+   }
 
    public List getWidgets() {
       return this.widgets;
@@ -45,10 +52,10 @@ public class HudAnchorGroup implements ClientAccess, GuiElement {
 
    private float getBottomMargin(boolean rightAligned) {
       float sideOffset = rightAligned
-         ? hud.getBottomHudOffset()
-         : hud.getChatInputOffset();
+         ? hud().getBottomHudOffset()
+         : hud().getChatInputOffset();
       return Mth.clamp(
-         hud.getSafeY()
+         hud().getSafeY()
             + sideOffset,
          0.0F,
          16.0F
@@ -59,8 +66,8 @@ public class HudAnchorGroup implements ClientAccess, GuiElement {
       float height, HudHorizontalAlignment horizontalAlignment, HudVerticalAlignment verticalAlignment
    ) {
       return switch (verticalAlignment) {
-         case TOP -> hud.getSafeY()
-            + (horizontalAlignment == HudHorizontalAlignment.RIGHT ? hud.getEffectIconOffset() : 0.0F);
+         case TOP -> hud().getSafeY()
+            + (horizontalAlignment == HudHorizontalAlignment.RIGHT ? hud().getEffectIconOffset() : 0.0F);
          case BOTTOM -> ClientAccess.schizoMinecraft.getWindow().getGuiScaledHeight()
             - height - this.getBottomMargin(horizontalAlignment == HudHorizontalAlignment.RIGHT);
          case CENTER -> (ClientAccess.schizoMinecraft.getWindow().getGuiScaledHeight() - height) / 2.0F;
@@ -184,8 +191,8 @@ public class HudAnchorGroup implements ClientAccess, GuiElement {
 
    private float calculateX(float width, HudHorizontalAlignment horizontalAlignment) {
       return switch (horizontalAlignment) {
-         case LEFT -> hud.getSafeX();
-         case RIGHT -> ClientAccess.schizoMinecraft.getWindow().getGuiScaledWidth() - width - hud.getSafeX();
+         case LEFT -> hud().getSafeX();
+         case RIGHT -> ClientAccess.schizoMinecraft.getWindow().getGuiScaledWidth() - width - hud().getSafeX();
          case CENTER -> ClientAccess.schizoMinecraft.getWindow().getGuiScaledWidth() / 2.0F - width / 2.0F;
          default -> throw new IllegalStateException("Unexpected value: " + horizontalAlignment);
       };
@@ -193,7 +200,7 @@ public class HudAnchorGroup implements ClientAccess, GuiElement {
 
    private void applyHudTranslation(PoseStack poseStack) {
       poseStack.translate(
-         hud.getParallaxOffset()
+         hud().getParallaxOffset()
       );
    }
 
