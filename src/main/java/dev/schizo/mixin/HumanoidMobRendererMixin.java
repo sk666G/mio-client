@@ -20,14 +20,18 @@ import org.spongepowered.asm.mixin.injection.At;
 
 @Mixin(HumanoidMobRenderer.class)
 public class HumanoidMobRendererMixin {
-   private static final NoRenderModule noRenderModule = ClientContext.getModule(NoRenderModule.class);
 
    @ModifyReturnValue(method = "getEquipmentIfRenderable", at = @At("RETURN"))
    private static ItemStack suppressElytraEquipment(ItemStack originalStack) {
-      return noRenderModule.isToggled()
-            && noRenderModule.elytraSetting.getValue()
+      return schizo$noRenderModule().isToggled()
+            && schizo$noRenderModule().elytraSetting.getValue()
             && originalStack.is(Items.ELYTRA)
          ? ItemStack.EMPTY
          : originalStack;
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static NoRenderModule schizo$noRenderModule() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(NoRenderModule.class);
    }
 }
