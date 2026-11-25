@@ -1196,6 +1196,158 @@ public final class ModuleCompatibility {
       Map.entry(setting(AntiCheatModule.class, "AssumeBlockBreaking"), settingAssessed(
          Classification.WORLD_INTERACTION,
          "Changes shared placement occupancy decisions for blocks currently tracked as being broken."
+      )),
+      Map.entry(setting(SprintModule.class, "Mode"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Selects the sprint behavior path, including variants that explicitly coordinate sprint command and position/rotation traffic."
+      )),
+      Map.entry(setting(SprintModule.class, "StopInLiquids"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Changes whether automated sprinting is suppressed while the player is in liquid."
+      )),
+      Map.entry(setting(SprintModule.class, "InBlocks"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Changes whether automated sprinting is permitted while collision state indicates the player is inside blocks."
+      )),
+      Map.entry(setting(SprintModule.class, "DirectionSpoof"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Changes the rotation/position state reported during reviewed sprint movement coordination."
+      )),
+      Map.entry(setting(SprintModule.class, "Keep"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls explicit stop/start sprint command handling around attacks."
+      )),
+      Map.entry(setting(SprintModule.class, "VanillaSlowdown"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Changes sprint speed calculation to include vanilla block slowdown factors."
+      )),
+      Map.entry(setting(SprintModule.class, "Adjust"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Enables a configurable multiplier in sprint movement-speed calculation."
+      )),
+      Map.entry(setting(SprintModule.class, "Factor"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls the sprint movement-speed multiplier when Adjust is enabled."
+      )),
+      Map.entry(setting(SprintModule.class, "Boost"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Enables reviewed explosion-impulse-based sprint movement boost handling."
+      )),
+      Map.entry(setting(SprintModule.class, "BoostSpeed"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls the multiplier applied by the reviewed sprint boost path."
+      )),
+      Map.entry(setting(StepModule.class, "Mode"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Selects the step implementation, including the reviewed path that emits intermediate position packets."
+      )),
+      Map.entry(setting(StepModule.class, "Height"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls the requested non-vanilla step height."
+      )),
+      Map.entry(setting(StepModule.class, "SafeDisable"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Changes when Step automatically disables based on local collision/ground safety state."
+      )),
+      Map.entry(setting(StepModule.class, "UseTimer"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Enables temporary client tick-rate adjustment during the reviewed step path."
+      )),
+      Map.entry(setting(StepModule.class, "TimerSpeed"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls the temporary tick-rate multiplier used by Step."
+      )),
+      Map.entry(setting(VelocityModule.class, "Mode"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Selects the velocity handler used for incoming motion/push packet and event processing."
+      )),
+      Map.entry(setting(VelocityModule.class, "Horizontal"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls the horizontal component retained from reviewed incoming velocity handling."
+      )),
+      Map.entry(setting(VelocityModule.class, "Vertical"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls the vertical component retained from reviewed incoming velocity handling."
+      )),
+      Map.entry(setting(VelocityModule.class, "Inverse"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Changes the direction applied to retained velocity in the plain velocity mode."
+      )),
+      Map.entry(setting(VelocityModule.class, "Reduce"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Enables additional reduction behavior in reviewed velocity handling."
+      )),
+      Map.entry(setting(VelocityModule.class, "Static"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Changes how the reviewed velocity reduction path derives its resulting motion."
+      )),
+      Map.entry(setting(VelocityModule.class, "Sources"), settingAssessed(
+         Classification.CLIENT_ONLY,
+         "Acts as the local settings group for velocity-source selectors and is not itself a packet/movement control."
+      )),
+      Map.entry(setting(VelocityModule.class, "Explosions"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls interception of explosion-derived velocity handling."
+      )),
+      Map.entry(setting(VelocityModule.class, "Push"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls interception of entity/player push handling."
+      )),
+      Map.entry(setting(VelocityModule.class, "Liquids"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls reviewed liquid-current motion suppression."
+      )),
+      Map.entry(setting(VelocityModule.class, "FishingBobber"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls interception of fishing-bobber pull motion handling."
+      )),
+      Map.entry(setting(NoGlitchBlocksModule.class, "Place"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Can replace normal placement handling with an explicit use-item-on interaction."
+      )),
+      Map.entry(setting(NoGlitchBlocksModule.class, "Break"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls cancellation of selected local block-break interaction handling."
+      )),
+      Map.entry(setting(SkinFlickerModule.class, "Mode"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls the sequence of player model-part option changes that are broadcast through client options."
+      )),
+      Map.entry(setting(SkinFlickerModule.class, "Cape"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls whether cape visibility participates in the transmitted model-part option changes."
+      )),
+      Map.entry(setting(SkinFlickerModule.class, "Delay"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls the cadence of transmitted model-part option changes."
+      )),
+      Map.entry(setting(IllegalDisconnectModule.class, "IgnoreProxy"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Changes whether the module permits its existing invalid-packet disconnect action for recognized proxy brands."
+      )),
+      Map.entry(setting(XCarryModule.class, "AutoPickup"), settingAssessed(
+         Classification.WORLD_INTERACTION,
+         "Enables automatic inventory slot pickup/movement into crafting slots; the module's close-packet interception is independent of this setting."
+      )),
+      Map.entry(setting(XCarryModule.class, "OnlyNearItems"), settingAssessed(
+         Classification.WORLD_INTERACTION,
+         "Restricts XCarry auto-pickup inventory actions to times when nearby pickup items are detected."
+      )),
+      Map.entry(setting(FastLatencyModule.class, "Mode"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Selects the latency probe and response-handling packet path."
+      )),
+      Map.entry(setting(FastLatencyModule.class, "Timeout"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls when an outstanding latency probe is considered expired."
+      )),
+      Map.entry(setting(FastLatencyModule.class, "FastResponse"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls how selected server ping/keepalive/resource-pack response packets are answered by the reviewed fast-response path."
+      )),
+      Map.entry(setting(AntiCyrillicModule.class, "Mode"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Selects whether Cyrillic normalization applies to outgoing chat, commands or both."
       ))
    );
 
