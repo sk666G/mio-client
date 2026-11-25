@@ -431,10 +431,18 @@ public final class ModuleRegistry extends Registry<Module> implements ClientAcce
       return ModuleClassIndex.cacheSuccessfulRegistration(this.modulesByClass, module, super.registerEntry(module));
    }
 
-   @Deprecated
-   public Module getModule(Class moduleType) {
-      Object2ObjectOpenHashMap<Class<?>, Module> cache = this.modulesByClass;
-      return cache.get(moduleType);
+   public <T extends Module> T getModule(Class<T> moduleType) {
+      java.util.Objects.requireNonNull(moduleType, "moduleType");
+      Module module = this.modulesByClass.get(moduleType);
+      return module == null ? null : moduleType.cast(module);
+   }
+
+   public <T extends Module> T requireModule(Class<T> moduleType) {
+      T module = this.getModule(moduleType);
+      if (module == null) {
+         throw new IllegalStateException("Required module is not registered: " + moduleType.getSimpleName());
+      }
+      return module;
    }
 
 }
