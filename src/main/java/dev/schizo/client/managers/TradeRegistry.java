@@ -95,11 +95,25 @@ public final class TradeRegistry extends Registry<TradeDefinition> implements Cl
    }
 
    public boolean registerTrade(TradeDefinition trade) {
+      if (trade == null || trade.getName() == null || trade.getName().isBlank()) {
+         return false;
+      }
+      if (this.entries.stream().anyMatch(existing -> hasSameName(existing, trade))) {
+         return false;
+      }
       if (trade.from() != Items.EMERALD && trade.to() != Items.EMERALD) {
          return false;
       }
 
-      return super.registerEntry(trade);
+      return this.entries.add(trade);
+   }
+
+   static boolean hasSameName(TradeDefinition first, TradeDefinition second) {
+      return first != null
+         && second != null
+         && first.getName() != null
+         && second.getName() != null
+         && first.getName().equalsIgnoreCase(second.getName());
    }
 
 }
