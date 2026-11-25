@@ -35,6 +35,7 @@ public final class PortableMediaSessionProvider implements AutoCloseable {
     private volatile Availability availability = Availability.NOT_STARTED;
     private volatile String lastFailure;
     private volatile MediaSessionSource source;
+    private MediaSessionSource externallyClosedSource;
     private volatile Thread worker;
     private volatile WindowsBackend windows;
     private volatile boolean closed;
@@ -101,8 +102,22 @@ public final class PortableMediaSessionProvider implements AutoCloseable {
             } catch (IOException | RuntimeException | LinkageError unavailable) {
                 publishFailure(unavailable);
             } finally {
-                synchronized (this) { if (source == opened) source = null; }
-                if (opened != null) try { opened.close(); } catch (IOException cleanup) { if (!closed) lastFailure = "Media close failed: " + cleanup.getMessage(); }
+                boolean closeOpened = opened != null;
+                synchronized (this) {
+                    if (source == opened) {
+                        source = null;
+                    } else if (externallyClosedSource == opened) {
+                        externallyClosedSource = null;
+                        closeOpened = false;
+                    }
+                }
+                if (closeOpened) {
+                    try {
+                        opened.close();
+                    } catch (IOException cleanup) {
+                        if (!closed) lastFailure = "Media close failed: " + cleanup.getMessage();
+                    }
+                }
             }
             if (!closed && !Thread.currentThread().isInterrupted()) {
                 try { Thread.sleep(RETRY_MILLIS); } catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); }
@@ -110,14 +125,27 @@ public final class PortableMediaSessionProvider implements AutoCloseable {
         }
     }
     @Override public void close() {
-        MediaSessionSource current; WindowsBackend w; Thread thread;
+        WindowsBackend w;
         synchronized (this) {
             if (closed) return;
-            closed = true; availability = Availability.CLOSED;
-            current = source; w = windows; thread = worker;
+            closed = true;
+            availability = Availability.CLOSED;
+            Thread thread = worker;
+            if (thread != null) thread.interrupt();
+
+            MediaSessionSource current = source;
+            source = null;
+            if (current != null) {
+                try {
+                    current.close();
+                    externallyClosedSource = current;
+                } catch (IOException cleanup) {
+                    lastFailure = "Media close failed: " + cleanup.getMessage();
+                }
+            }
+            w = windows;
+            windows = null;
         }
-        if (thread != null) thread.interrupt();
-        if (current != null) try { current.close(); } catch (IOException cleanup) { lastFailure = "Media close failed: " + cleanup.getMessage(); }
         if (w != null) w.close();
     }
 }
