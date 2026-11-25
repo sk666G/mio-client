@@ -144,6 +144,36 @@ public final class WaypointRegistry extends AbstractRegistry<Waypoint> implement
       return waypoint != null && this.entries.removeIf(candidate -> hasSameIdentity(candidate, waypoint));
    }
 
+   public boolean renameWaypoint(Waypoint waypoint, String targetName) {
+      if (waypoint == null || targetName == null || targetName.isBlank() || !this.entries.contains(waypoint)) {
+         return false;
+      }
+
+      Waypoint replacement = new Waypoint(
+         targetName,
+         waypoint.getPosition(),
+         waypoint.getDimension(),
+         waypoint.getServer()
+      );
+      replacement.setToggled(waypoint.isToggled());
+
+      for (Waypoint existing : this.entries) {
+         if (existing != waypoint && hasSameIdentity(existing, replacement)) {
+            return false;
+         }
+      }
+
+      if (!this.entries.remove(waypoint)) {
+         return false;
+      }
+      if (this.registerWaypoint(replacement)) {
+         return true;
+      }
+
+      this.entries.add(waypoint);
+      return false;
+   }
+
    static boolean hasSameIdentity(Waypoint first, Waypoint second) {
       if (first == null || second == null) {
          return false;
