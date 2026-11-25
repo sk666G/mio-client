@@ -14,6 +14,7 @@ import dev.schizo.client.utils.movement.PlayerMotionPredictor;
 import dev.schizo.client.utils.ElapsedTimer;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.events.ClientLevelRemoveEntityEvent;
+import dev.schizo.client.events.ConnectScreenConnectEvent;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.LocalPlayerTickEvent;
 import dev.schizo.client.events.MinecraftDisconnectEvent;
@@ -35,10 +36,10 @@ public final class MovementPredictionManager implements ClientAccess {
    private Vec3 previousPlayerPosition;
 
    public Vec3 getAdjustedLocalMotion() {
-      if (this.previousPlayerPosition == null) {
+      LocalPlayer player = ClientAccess.schizoMinecraft.player;
+      if (player == null || this.previousPlayerPosition == null) {
          return Vec3.ZERO;
       }
-      LocalPlayer player = ClientAccess.schizoMinecraft.player;
       Vec3 motion = player.position().subtract(this.previousPlayerPosition);
       if (player.isSprinting() && !player.isFallFlying()) {
          motion = motion.multiply((double)0.9F, 1.0D, (double)0.9F);
@@ -76,8 +77,19 @@ public final class MovementPredictionManager implements ClientAccess {
    }
 
    @EventHandler
+   private void onConnectScreenConnectEvent(ConnectScreenConnectEvent event) {
+      this.resetSessionState();
+   }
+
+   @EventHandler
    private void onMinecraftDisconnectEvent(MinecraftDisconnectEvent event) {
+      this.resetSessionState();
+   }
+
+   void resetSessionState() {
       this.playerPredictions.clear();
+      this.previousPlayerPosition = null;
+      this.predictionTimer.clear();
    }
 
    public synchronized AABB getPredictedBoundingBox(Player player, int tickIndex) {
