@@ -159,6 +159,10 @@ public class ClientScreen extends Screen implements ClientAccess {
       return this.guiScale;
    }
 
+   protected float resolveGuiScale(float preferredScale) {
+      return preferredScale;
+   }
+
    @Override
    public boolean isPauseScreen() {
       return false;
@@ -367,9 +371,9 @@ public class ClientScreen extends Screen implements ClientAccess {
       this.panelDragging = false;
       this.getPanels()
          .forEach(panel -> panel.setDragging(false));
-      this.guiScale = UIModule.INSTANCE
-         .scaleSetting
-         .getValue();
+      this.guiScale = this.resolveGuiScale(
+         UIModule.INSTANCE.scaleSetting.getValue()
+      );
       this.closing = false;
 
       double scale = GuiScaleUtils.calculateScaleMultiplier(this.guiScale);
