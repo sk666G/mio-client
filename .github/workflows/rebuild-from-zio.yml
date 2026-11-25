@@ -66,11 +66,16 @@ jobs:
           PYTHONDONTWRITEBYTECODE: 1
         run: python3 tools/rebrand_open_zio.py "$RUNNER_TEMP/open-zio" . --replace-existing
 
+      - name: Normalize raw rebuild file modes
+        run: chmod +x ./gradlew
+
       - name: Verify raw rebuild baseline
         shell: bash
         run: |
           set -euo pipefail
-          git diff --exit-code "$REBUILD_BASE_COMMIT" -- .             ':(exclude).github/**'             ':(exclude)tools/**'             ':(exclude)LICENSES/**'
+          git add -A
+          git diff --cached --exit-code "$REBUILD_BASE_COMMIT" -- . ':(exclude).github/**' ':(exclude)tools/**' ':(exclude)LICENSES/**'
+          git reset --mixed "$SOURCE_HEAD"
 
       - name: Replay Schizo source overlay
         shell: bash
@@ -80,9 +85,6 @@ jobs:
           git apply "$RUNNER_TEMP/schizo-overlay.patch"
           git diff --exit-code "$SOURCE_HEAD" -- .
           test -z "$(git status --porcelain --untracked-files=all)"
-
-      - name: Ensure Gradle wrapper is executable
-        run: chmod +x ./gradlew
 
       - name: Build reconstructed remapped client
         env:
