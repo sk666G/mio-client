@@ -53,6 +53,11 @@ public final class TaskScheduler implements ClientAccess {
 
    @EventHandler
    private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.clearPendingTasks();
+   }
+
+   /** Discards queued work without closing the scheduler to future tasks. */
+   public void clearPendingTasks() {
       this.rotationTasks.clear();
       this.runTickTasks.clear();
    }
