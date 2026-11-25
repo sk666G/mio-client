@@ -453,7 +453,7 @@ class ModuleCompatibilityTest {
 
    @Test
    void settingReviewCountIncludesExplicitReviewsOnly() {
-      assertTrue(ModuleCompatibility.reviewedSettingCount() >= 260);
+      assertTrue(ModuleCompatibility.reviewedSettingCount() >= 302);
    }
 
    @Test
@@ -614,6 +614,30 @@ class ModuleCompatibilityTest {
       assertTrue(lavaSpeed.individuallyReviewed());
       assertTrue(packetVertical.individuallyReviewed());
       assertTrue(mute.individuallyReviewed());
+   }
+
+   @Test
+   void packetFacingUtilityReviewsPreserveLocalVisualControls() {
+      assertEquals(
+         ModuleCompatibility.Classification.PACKET_AFFECTING,
+         ModuleCompatibility.assessSetting(ChorusControlModule.class, "Yaw").classification()
+      );
+      assertEquals(
+         ModuleCompatibility.Classification.VISUAL_ONLY,
+         ModuleCompatibility.assessSetting(ChorusControlModule.class, "Render").classification()
+      );
+      assertEquals(
+         ModuleCompatibility.Classification.CLIENT_ONLY,
+         ModuleCompatibility.assessSetting(FreecamModule.class, "Speed").classification()
+      );
+      assertEquals(
+         ModuleCompatibility.Classification.SERVER_SENSITIVE,
+         ModuleCompatibility.assessSetting(FreecamModule.class, "Rotate").classification()
+      );
+      assertEquals(
+         ModuleCompatibility.Classification.VISUAL_ONLY,
+         ModuleCompatibility.assessSetting(NukerModule.class, "Color").classification()
+      );
    }
 
    @Test
