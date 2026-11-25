@@ -667,6 +667,11 @@ public final class RotationManager implements ClientAccess {
 
    @EventHandler
    private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.resetRuntimeState();
+   }
+
+   /** Releases queued/held rotation state without changing persistent settings. */
+   public void resetRuntimeState() {
       this.deferredActions.clear();
       this.deferredQueueOverflowWarningLogged.set(false);
       this.deferredDrainScheduled.set(false);
