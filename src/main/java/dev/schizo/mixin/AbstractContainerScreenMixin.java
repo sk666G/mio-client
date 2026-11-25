@@ -52,9 +52,9 @@ import org.spongepowered.asm.mixin.injection.invoke.arg.Args;
 
 @Mixin(AbstractContainerScreen.class)
 public class AbstractContainerScreenMixin implements ClientAccess {
-   private static final ChestSearchBarModule schizo$chestSearchBar = ClientContext.getModule(ChestSearchBarModule.class);
-   private static final TooltipsModule schizo$tooltips = ClientContext.getModule(TooltipsModule.class);
-   private static final InventoryTweaksModule schizo$inventoryTweaks = ClientContext.getModule(InventoryTweaksModule.class);
+
+
+
    @Shadow
    @Nullable
    protected Slot hoveredSlot;
@@ -272,5 +272,20 @@ public class AbstractContainerScreenMixin implements ClientAccess {
       }
 
       return false;
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static ChestSearchBarModule schizo$schizo$chestSearchBar() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(ChestSearchBarModule.class);
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static TooltipsModule schizo$schizo$tooltips() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(TooltipsModule.class);
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static InventoryTweaksModule schizo$schizo$inventoryTweaks() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(InventoryTweaksModule.class);
    }
 }
