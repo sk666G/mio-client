@@ -426,7 +426,7 @@ public final class PresetCommand extends Command {
       }
 
       ChatUtils.printChat(errorMessage, ChatUtils.createSignature(-1), ChatUtils.MessagePriority.MID);
-      importFailure.printStackTrace();
+      dev.schizo.client.ClientAccess.logger.warn("Preset import failed", importFailure);
    }
 
    private static int restorePreset(PresetCommand owner, ConfigurationManager configurationManager) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
@@ -435,7 +435,7 @@ public final class PresetCommand extends Command {
       try {
          action = restoreManager.undo();
       } catch (IOException undoFailure) {
-         undoFailure.printStackTrace();
+         dev.schizo.client.ClientAccess.logger.warn("Preset undo failed", undoFailure);
          ChatUtils.printChat(Component.literal("Failed to undo preset change."), ChatUtils.DEFAULT_SIGNATURE, ChatUtils.MessagePriority.MID);
          return 1;
       }
