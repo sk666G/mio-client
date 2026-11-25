@@ -173,8 +173,8 @@ public class AntiCheatModule extends PermanentModule {
 
    static {
 
-      speedMineModule = ClientContext.getModule(SpeedMineModule.class);
-      velocityModule = ClientContext.getModule(VelocityModule.class);
+      
+      
 
       double exponent = 3.0D;
       double base = 0.20000000298023224D;
