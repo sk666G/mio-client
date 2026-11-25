@@ -13,6 +13,7 @@ import dev.schizo.client.ClientAccess;
 import dev.schizo.client.SchizoClient;
 import dev.schizo.client.events.MinecraftTickEvent;
 import dev.schizo.client.events.EventHandler;
+import dev.schizo.client.profiling.RuntimeDiagnostics;
 import dev.schizo.client.utils.ElapsedTimer;
 import dev.schizo.client.modules.Module;
 import dev.schizo.client.modules.ModuleCategory;
@@ -28,6 +29,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.client.multiplayer.ServerData;
@@ -41,6 +43,8 @@ public class DiscordModule extends Module {
       thread.setDaemon(true);
       return thread;
    });
+   private static final long FAILURE_LOG_INTERVAL_NANOS = TimeUnit.SECONDS.toNanos(10L);
+   private final AtomicLong lastPresenceFailureLogNanos = new AtomicLong();
    private final Setting<Boolean> serverSetting;
    private volatile CompletableFuture<IPCClient> connectionFuture;
    private volatile IPCClient activeClient;
@@ -149,7 +153,18 @@ public class DiscordModule extends Module {
          }
          RichPresence presence = presenceBuilder.build();
          ipcClient.sendRichPresence(presence);
-      } catch (Exception ignored) {
+      } catch (Exception presenceFailure) {
+         RuntimeDiagnostics.GLOBAL.record(
+            RuntimeDiagnostics.Area.INTEGRATION,
+            "Discord presence update",
+            presenceFailure
+         );
+         long now = System.nanoTime();
+         long previous = this.lastPresenceFailureLogNanos.get();
+         if (now - previous >= FAILURE_LOG_INTERVAL_NANOS
+            && this.lastPresenceFailureLogNanos.compareAndSet(previous, now)) {
+            LOGGER.warn("Discord presence update failed", presenceFailure);
+         }
       }
    }
 
