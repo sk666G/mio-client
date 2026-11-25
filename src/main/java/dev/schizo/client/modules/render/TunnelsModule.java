@@ -119,7 +119,8 @@ public class TunnelsModule extends Module {
 
    @Override
    public void onDisable() {
-      this.tunnels.clear();
+      this.tunnels = Collections.emptyList();
+      this.pendingTunnels.clear();
       ChunkScanner scanner = this.chunkScanner;
 
       scanner.stop();
@@ -201,9 +202,16 @@ public class TunnelsModule extends Module {
                boolean busy = true;
                AtomicBoolean busyFlag = this.mergeInProgress;
                busyFlag.set(busy);
-               ArrayList<Tunnel> snapshot = new ArrayList<>(this.tunnels);
+               List<Tunnel> currentTunnels = this.tunnels;
+               ArrayList<Tunnel> snapshot = new ArrayList<>(currentTunnels.size());
+               for (Tunnel tunnel : currentTunnels) {
+                  snapshot.add(tunnel.copy());
+               }
+               ClientLevel expectedLevel = ClientAccess.schizoMinecraft.level;
+               LocalPlayer expectedPlayer = ClientAccess.schizoMinecraft.player;
+               Vec3 eyePosition = expectedPlayer.getEyePosition();
                ClientAccess.executorService.submit(
-                  (Runnable)() -> this.mergePendingTunnels(snapshot)
+                  (Runnable)() -> this.mergePendingTunnels(snapshot, eyePosition, expectedLevel, expectedPlayer)
                );
             }
          }
@@ -339,7 +347,12 @@ public class TunnelsModule extends Module {
       return merged;
    }
 
-   private void mergePendingTunnels(List<Tunnel> snapshot) {
+   private void mergePendingTunnels(
+      List<Tunnel> snapshot,
+      Vec3 eyePosition,
+      ClientLevel expectedLevel,
+      LocalPlayer expectedPlayer
+   ) {
       try {
          boolean changed = false;
 
@@ -370,14 +383,19 @@ public class TunnelsModule extends Module {
             snapshot.removeAll(merged);
          }
 
-         LocalPlayer player = ClientAccess.schizoMinecraft.player;
-         Vec3 eyePosition = player.getEyePosition();
          snapshot.removeIf((Predicate<TunnelsModule.Tunnel>)tunnel -> {
             double distanceSquared = tunnel.distanceToCenterSquared(eyePosition);
 
             return distanceSquared > 65536.0D;
          });
-         this.tunnels = snapshot;
+         BlockableEventLoop<?> client = ClientAccess.schizoMinecraft;
+         client.executeIfPossible(() -> {
+            if (this.isToggled()
+               && ClientAccess.schizoMinecraft.level == expectedLevel
+               && ClientAccess.schizoMinecraft.player == expectedPlayer) {
+               this.tunnels = snapshot;
+            }
+         });
       } catch (Exception ignoredFailure) {
       } finally {
          boolean idle = false;
@@ -434,6 +452,10 @@ public class TunnelsModule extends Module {
          this.maxY = maxY;
          this.maxZ = maxZ;
          this.vertical = vertical;
+      }
+
+      private Tunnel copy() {
+         return new Tunnel(this.minX, this.minY, this.minZ, this.maxX, this.maxY, this.maxZ, this.vertical);
       }
 
       public AABB getBounds() {
