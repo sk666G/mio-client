@@ -996,6 +996,154 @@ public final class ModuleCompatibility {
       Map.entry(setting(PingSpoofModule.class, "Jitter"), settingAssessed(
          Classification.PACKET_AFFECTING,
          "Adds variation to the configured packet-delay interval."
+      )),
+      Map.entry(setting(FakeLagModule.class, "Mode"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Selects whether buffered outbound packets are held until disable or released on a timed pulse."
+      )),
+      Map.entry(setting(FakeLagModule.class, "Cancel"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Discards the current buffered packet set and rolls the local position back to the buffered position."
+      )),
+      Map.entry(setting(FakeLagModule.class, "Timeout"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls the timed release interval for buffered packets in pulse mode."
+      )),
+      Map.entry(setting(FakeLagModule.class, "AutoDisable"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls automatic termination of packet buffering in response to configured conditions."
+      )),
+      Map.entry(setting(FakeLagModule.class, "OnDamage"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls whether observed damage terminates the active packet-buffering session."
+      )),
+      Map.entry(setting(FakeLagModule.class, "OnRubberBand"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls whether a received server position correction terminates the active packet-buffering session."
+      )),
+      Map.entry(setting(FakeLagModule.class, "OnTime"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls the duration before an auto-disable condition ends packet buffering."
+      )),
+      Map.entry(setting(FakeLagModule.class, "Render"), settingAssessed(
+         Classification.VISUAL_ONLY,
+         "Controls only the local buffered-position rendering feature."
+      )),
+      Map.entry(setting(FakeLagModule.class, "Chams"), settingAssessed(
+         Classification.VISUAL_ONLY,
+         "Controls only local rendering of the buffered player representation."
+      )),
+      Map.entry(setting(FakeLagModule.class, "Fill"), settingAssessed(
+         Classification.VISUAL_ONLY,
+         "Changes only the local buffered-position fill color."
+      )),
+      Map.entry(setting(FakeLagModule.class, "Outline"), settingAssessed(
+         Classification.VISUAL_ONLY,
+         "Changes only the local buffered-position outline color."
+      )),
+      Map.entry(setting(FakeLagModule.class, "LineWidth"), settingAssessed(
+         Classification.VISUAL_ONLY,
+         "Changes only the local buffered-position outline width."
+      )),
+      Map.entry(setting(FakeLagModule.class, "Packets"), settingAssessed(
+         Classification.CLIENT_ONLY,
+         "Acts as the local settings group for packet-selection controls and is not itself read by the buffering logic."
+      )),
+      Map.entry(setting(FakeLagModule.class, "Movement"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls buffering of outgoing movement packets."
+      )),
+      Map.entry(setting(FakeLagModule.class, "Interact"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls buffering of outgoing block-use interaction packets."
+      )),
+      Map.entry(setting(FakeLagModule.class, "Swing"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls buffering of outgoing swing packets."
+      )),
+      Map.entry(setting(FakeLagModule.class, "Swap"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls buffering of outgoing carried-slot change packets."
+      )),
+      Map.entry(setting(FakeLagModule.class, "InteractEntity"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls buffering of outgoing entity-interaction packets."
+      )),
+      Map.entry(setting(FakeLagModule.class, "Digging"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls buffering of outgoing player-action packets."
+      )),
+      Map.entry(setting(FakeLagModule.class, "Ping"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls buffering of selected latency, keepalive and resource-pack response packets."
+      )),
+      Map.entry(setting(FakeLagModule.class, "All"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Causes every outgoing packet seen by FakeLag's send hook to be eligible for buffering."
+      )),
+      Map.entry(setting(ReachModule.class, "Modifier"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls the interaction/reach distance used by the Reach module."
+      )),
+      Map.entry(setting(ReachModule.class, "GhostHand"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Changes block-use targeting and can replace the normal interaction with an explicit use-item-on packet."
+      )),
+      Map.entry(setting(ReachModule.class, "Boats"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Changes handling of outgoing boat placement interactions."
+      )),
+      Map.entry(setting(ReachModule.class, "LiquidPlace"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Changes liquid-target placement handling and can emit replacement use-item-on interactions."
+      )),
+      Map.entry(setting(ReachModule.class, "AirPlace"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Enables placement handling without the normal block-target requirement."
+      )),
+      Map.entry(setting(ReachModule.class, "Grim"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Selects an alternate packet/hand sequencing path for reviewed Reach placement interactions."
+      )),
+      Map.entry(setting(ReachModule.class, "NoEntityTrace"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Changes whether entity hits are ignored when selecting an interaction target."
+      )),
+      Map.entry(setting(ReachModule.class, "Pickaxe"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls when NoEntityTrace applies while holding a pickaxe."
+      )),
+      Map.entry(setting(ReachModule.class, "Food"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls when NoEntityTrace applies while holding food."
+      )),
+      Map.entry(setting(ReachModule.class, "Crystals"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls when NoEntityTrace applies while holding end crystals."
+      )),
+      Map.entry(setting(ReachModule.class, "Totems"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls when NoEntityTrace applies while holding a totem."
+      )),
+      Map.entry(setting(ReachModule.class, "All"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Applies NoEntityTrace targeting behavior regardless of the held-item filter."
+      )),
+      Map.entry(setting(FreeLookModule.class, "Scroll"), settingAssessed(
+         Classification.INPUT_MODIFYING,
+         "Consumes mouse-wheel input to change local third-person camera distance while FreeLook is active."
+      )),
+      Map.entry(setting(NoRenderModule.class, "Chunks"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Cancels selected clientbound chunk-cache-radius packet handling."
+      )),
+      Map.entry(setting(NoRenderModule.class, "Fire"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Can cancel a matching clientbound fire block-update packet in the reviewed End-crystal fire path."
+      )),
+      Map.entry(setting(NoRenderModule.class, "FireBlock"), settingAssessed(
+         Classification.VISUAL_ONLY,
+         "Suppresses local fire/smoke particle presentation and is distinct from the packet-facing entity Fire setting."
       ))
    );
 
