@@ -51,9 +51,10 @@ public final class AliasRegistry implements ClientAccess, JsonConfigurable {
       }
 
       if (json.get("players") instanceof JsonObject playerObject) {
-         playerObject.asMap().forEach((playerName, aliasElement) ->
-            loadedPlayerAliases.put(playerName, aliasElement.getAsString())
-         );
+         playerObject.asMap().forEach((playerName, aliasElement) -> {
+            loadedPlayerAliases.keySet().removeIf(existing -> existing.equalsIgnoreCase(playerName));
+            loadedPlayerAliases.put(playerName, aliasElement.getAsString());
+         });
       }
 
       this.moduleAliases.clear();
@@ -87,7 +88,10 @@ public final class AliasRegistry implements ClientAccess, JsonConfigurable {
    }
 
    public void removePlayerAlias(String playerName) {
-      this.playerAliases.remove(playerName);
+      if (playerName == null) {
+         return;
+      }
+      this.playerAliases.keySet().removeIf(existing -> existing.equalsIgnoreCase(playerName));
    }
 
    public String getPlayerAlias(Player player) {
@@ -97,11 +101,23 @@ public final class AliasRegistry implements ClientAccess, JsonConfigurable {
    }
 
    public String getPlayerAlias(String playerName) {
-      return this.playerAliases.getOrDefault(playerName, playerName);
+      if (playerName == null) {
+         return null;
+      }
+      for (Map.Entry<String, String> entry : this.playerAliases.entrySet()) {
+         if (entry.getKey().equalsIgnoreCase(playerName)) {
+            return entry.getValue();
+         }
+      }
+      return playerName;
    }
 
    public void setPlayerAlias(String playerName, String alias) {
-      this.playerAliases.compute(playerName, (playerNameKey, previousAlias) -> alias);
+      if (playerName == null) {
+         return;
+      }
+      this.playerAliases.keySet().removeIf(existing -> existing.equalsIgnoreCase(playerName));
+      this.playerAliases.put(playerName, alias);
    }
 
    public void removeModuleAlias(Module module) {
