@@ -84,18 +84,22 @@ public class PositionModule extends HudWidgetModule {
    private void onPlayerPositionPacket(
       PacketEvent.Receive event
    ) {
-      if (!this.isWorldUnavailable()) {
-         if (event.getPacket() instanceof ClientboundPlayerPositionPacket packet) {
-            PositionMoveRotation positionChange = packet.change();
-            Vec3 packetPosition = positionChange.position();
+      if (event.getPacket() instanceof ClientboundPlayerPositionPacket packet) {
+         PositionMoveRotation positionChange = packet.change();
+         Vec3 packetPosition = positionChange.position();
+         ClientAccess.schizoMinecraft.executeIfPossible(() -> {
+            if (!this.isToggled()) {
+               return;
+            }
             LocalPlayer player = ClientAccess.schizoMinecraft.player;
-            Vec3 playerPosition = player.position();
-            double distanceSquared = packetPosition.distanceToSqr(playerPosition);
-
+            if (player == null) {
+               return;
+            }
+            double distanceSquared = packetPosition.distanceToSqr(player.position());
             if (distanceSquared >= 10000.0D) {
                this.redactionTimer.reset();
             }
-         }
+         });
       }
    }
 
