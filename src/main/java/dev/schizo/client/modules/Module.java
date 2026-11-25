@@ -115,6 +115,9 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
                }
             }
          }
+         if (ClientContext.taskScheduler != null) {
+            ClientContext.taskScheduler.cancelOwnedTasks(this);
+         }
          eventBus.unsubscribe(this);
          this.enabled = false;
          this.compatibilityPolicySuppressed = false;
@@ -299,6 +302,9 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
          return;
       }
       EventBus eventBus = ClientAccess.eventBus;
+      if (ClientContext.taskScheduler != null) {
+         ClientContext.taskScheduler.cancelOwnedTasks(this);
+      }
       eventBus.unsubscribe(this);
       this.enabled = false;
 
