@@ -70,7 +70,7 @@ public class DiscordModule extends Module {
             client.cancelConnect();
             throw new java.util.concurrent.CompletionException(failure);
          }
-      });
+      }, ClientAccess.executorService);
       this.connectionFuture = pending;
       pending.whenComplete((connectedClient, failure) -> {
          if (failure != null) {
