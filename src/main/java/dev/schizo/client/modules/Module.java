@@ -302,43 +302,30 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
       eventBus.unsubscribe(this);
       this.enabled = false;
 
-      RuntimeException runtimeFailure = null;
-      Error errorFailure = null;
+      Throwable lifecycleFailure = null;
       try {
          ModuleToggleEvent toggleEvent = new ModuleToggleEvent(this);
          eventBus.post(toggleEvent);
          this.onToggle();
-      } catch (RuntimeException failure) {
-         runtimeFailure = failure;
-      } catch (Error failure) {
-         errorFailure = failure;
+      } catch (RuntimeException | Error failure) {
+         lifecycleFailure = failure;
       }
 
       try {
          this.onDisable();
-      } catch (RuntimeException cleanupFailure) {
-         if (runtimeFailure != null && runtimeFailure != cleanupFailure) {
-            runtimeFailure.addSuppressed(cleanupFailure);
-         } else if (errorFailure != null && errorFailure != cleanupFailure) {
-            errorFailure.addSuppressed(cleanupFailure);
-         } else {
-            runtimeFailure = cleanupFailure;
-         }
-      } catch (Error cleanupFailure) {
-         if (runtimeFailure != null && runtimeFailure != cleanupFailure) {
-            runtimeFailure.addSuppressed(cleanupFailure);
-         } else if (errorFailure != null && errorFailure != cleanupFailure) {
-            errorFailure.addSuppressed(cleanupFailure);
-         } else {
-            errorFailure = cleanupFailure;
+      } catch (RuntimeException | Error cleanupFailure) {
+         if (lifecycleFailure != null && lifecycleFailure != cleanupFailure) {
+            lifecycleFailure.addSuppressed(cleanupFailure);
+         } else if (lifecycleFailure == null) {
+            lifecycleFailure = cleanupFailure;
          }
       }
 
-      if (runtimeFailure != null) {
+      if (lifecycleFailure instanceof RuntimeException runtimeFailure) {
          ClientAccess.logger.error("Module {} failed while disabling", this.getName(), runtimeFailure);
          throw runtimeFailure;
       }
-      if (errorFailure != null) {
+      if (lifecycleFailure instanceof Error errorFailure) {
          ClientAccess.logger.error("Module {} failed while disabling", this.getName(), errorFailure);
          throw errorFailure;
       }
