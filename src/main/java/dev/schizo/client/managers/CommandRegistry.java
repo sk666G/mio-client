@@ -12,6 +12,7 @@ package dev.schizo.client.managers;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.NamedFeature;
+import dev.schizo.client.diagnostics.RuntimeDiagnostics;
 import dev.schizo.client.commands.BaritoneCommand;
 import dev.schizo.client.commands.ModuleCommand;
 import dev.schizo.client.commands.Command;
@@ -164,19 +165,29 @@ public final class CommandRegistry extends Registry<Command> implements ClientAc
             Component.literal(failure.getMessage()).withStyle(ChatFormatting.RED),
             ChatUtils.DEFAULT_SIGNATURE
          );
+      } catch (RuntimeException failure) {
+         RuntimeDiagnostics.record(RuntimeDiagnostics.Area.COMMAND, input, failure);
+         ChatUtils.printChat(
+            Component.literal("Command failed; see Performance Center → Diagnostics.").withStyle(ChatFormatting.RED),
+            ChatUtils.DEFAULT_SIGNATURE
+         );
       }
    }
 
    @Override
    public void fromJson(JsonElement config) {
-      JsonObject objectForPresence = config.getAsJsonObject();
-      if (objectForPresence.has("prefix")) {
-         JsonObject objectForValue = config.getAsJsonObject();
-         JsonElement prefixElement = objectForValue.get("prefix");
-         String prefix = prefixElement.getAsString();
-
-         setPrefix(prefix);
+      if (config == null || !config.isJsonObject()) {
+         throw new IllegalArgumentException("Command configuration requires a JSON object");
       }
+      JsonObject object = config.getAsJsonObject();
+      if (!object.has("prefix")) {
+         return;
+      }
+      JsonElement prefixElement = object.get("prefix");
+      if (!prefixElement.isJsonPrimitive() || !prefixElement.getAsJsonPrimitive().isString()) {
+         throw new IllegalArgumentException("Command prefix must be a JSON string");
+      }
+      setPrefix(prefixElement.getAsString());
    }
 
    @Override
@@ -231,10 +242,7 @@ public final class CommandRegistry extends Registry<Command> implements ClientAc
    }
 
    public static void setPrefix(String prefix) {
-      if (prefix.isBlank()) {
-         return;
-      }
-      String updatedPrefix = prefix.substring(0, 1);
+      String updatedPrefix = CommandPrefix.normalize(prefix);
       commandPrefix = updatedPrefix;
       SettingsModule settingsModule = ClientContext.getModule(SettingsModule.class);
       if (settingsModule != null) {
