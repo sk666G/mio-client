@@ -425,11 +425,16 @@ public class AutoLogModule extends Module {
    private void onPacketReceived(
       PacketEvent.Receive event
    ) {
-      if (event.getPacket() instanceof ClientboundDisconnectPacket && this.pendingDisconnect != null) {
-         this.pendingDisconnect = null;
-         if (shouldDisableAfterPendingDisconnect(this.autoDisableSetting.getValue(), true)) {
-            this.disable();
-         }
+      if (event.getPacket() instanceof ClientboundDisconnectPacket) {
+         ClientAccess.schizoMinecraft.executeIfPossible(() -> {
+            if (!this.isToggled() || this.pendingDisconnect == null) {
+               return;
+            }
+            this.pendingDisconnect = null;
+            if (shouldDisableAfterPendingDisconnect(this.autoDisableSetting.getValue(), true)) {
+               this.disable();
+            }
+         });
       }
    }
 
