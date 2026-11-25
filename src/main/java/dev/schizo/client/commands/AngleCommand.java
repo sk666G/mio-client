@@ -20,14 +20,13 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.phys.Vec3;
 
 public final class AngleCommand extends Command {
-   private static final RotationLockModule rotationLock;
 
    public AngleCommand() {
       super("angle");
    }
 
    static {
-      rotationLock = ClientContext.getModule(RotationLockModule.class);
+
    }
 
    @Override
@@ -39,7 +38,7 @@ public final class AngleCommand extends Command {
       com.mojang.brigadier.Command<Object> yawLockAction = commandContext -> {
          Vec3 position = (Vec3)commandContext.getArgument("pos", Vec3.class);
          float[] rotations = RotationManager.getRotationsToPosition(position);
-         rotationLock.yawValueSetting.setValue(rotations[0]);
+         schizo$rotationLock().yawValueSetting.setValue(rotations[0]);
          return 1;
       };
       ArgumentBuilder yawLock = yawLockBuilder.executes(yawLockAction);
@@ -54,5 +53,9 @@ public final class AngleCommand extends Command {
       };
       ArgumentBuilder angle = positionWithYawLock.executes(angleAction);
       builder.then(angle);
+   }
+
+   private static RotationLockModule schizo$rotationLock() {
+      return ClientContext.requireModule(RotationLockModule.class);
    }
 }
