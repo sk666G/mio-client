@@ -39,6 +39,7 @@ Other mods listed under `suggests` in `fabric.mod.json` are optional.
 
 - [HUD Studio](docs/HUD_EDITOR.md)
 - [Performance HUD](docs/PERFORMANCE_HUD.md)
+- [Health diagnostics](docs/HEALTH_DIAGNOSTICS.md)
 - [Module and event profiler](docs/module-profiler.md)
 - [Command Palette](docs/COMMAND_PALETTE.md)
 - [Context Profiles](docs/CONTEXT_PROFILES.md)
