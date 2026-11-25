@@ -17,9 +17,11 @@ import dev.schizo.client.modules.combat.AutoClickerModule;
 import dev.schizo.client.modules.combat.AutoCrystalModule;
 import dev.schizo.client.modules.combat.NoHitDelayModule;
 import dev.schizo.client.modules.exploit.MultiTaskModule;
+import dev.schizo.client.modules.exploit.PingSpoofModule;
 import dev.schizo.client.modules.exploit.ReachModule;
 import dev.schizo.client.modules.exploit.TridentModule;
 import dev.schizo.client.modules.misc.AntiQuitModule;
+import dev.schizo.client.modules.misc.NoPacketKickModule;
 import dev.schizo.client.modules.misc.SwingModule;
 import dev.schizo.client.modules.movement.ElytraFlyModule;
 import dev.schizo.client.modules.movement.EntityControlModule;
@@ -47,6 +49,8 @@ public final class MixinModuleRegistry {
    private MixinModuleRegistry() {}
 
    public static volatile NoSlowModule blockNoslow;
+   public static volatile PingSpoofModule connectionPingSpoofModule;
+   public static volatile NoPacketKickModule connectionNoPacketKickModule;
    public static volatile ReachModule liquidBlockReach;
    public static volatile FastWebModule webBlockFastWebModule;
    public static volatile NoSlowModule slimeBlockNoslow;
@@ -90,6 +94,8 @@ public final class MixinModuleRegistry {
    public static void bind(ModuleRegistry registry) {
       Objects.requireNonNull(registry, "Module registry is not initialized");
       blockNoslow = (NoSlowModule)Objects.requireNonNull(registry.getModule(NoSlowModule.class), "Required module is not registered: NoSlowModule");
+      connectionPingSpoofModule = (PingSpoofModule)Objects.requireNonNull(registry.getModule(PingSpoofModule.class), "Required module is not registered: PingSpoofModule");
+      connectionNoPacketKickModule = (NoPacketKickModule)Objects.requireNonNull(registry.getModule(NoPacketKickModule.class), "Required module is not registered: NoPacketKickModule");
       liquidBlockReach = (ReachModule)Objects.requireNonNull(registry.getModule(ReachModule.class), "Required module is not registered: ReachModule");
       webBlockFastWebModule = (FastWebModule)Objects.requireNonNull(registry.getModule(FastWebModule.class), "Required module is not registered: FastWebModule");
       slimeBlockNoslow = (NoSlowModule)Objects.requireNonNull(registry.getModule(NoSlowModule.class), "Required module is not registered: NoSlowModule");
