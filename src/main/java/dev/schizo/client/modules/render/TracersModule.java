@@ -42,7 +42,6 @@ import net.minecraft.world.phys.Vec3;
 
 public class TracersModule extends Module {
 
-   private static ColorsModule colorsModule = (ColorsModule)ClientContext.getModule(ColorsModule.class);
    final Setting<TracersModeChoice> modeSetting;
    public final Setting<TracersHitboxChoice> hitboxSetting;
    private final Setting<Float> minDistanceSetting;
@@ -184,7 +183,7 @@ public class TracersModule extends Module {
          }
       }
 
-      ColorsModule colors = colorsModule;
+      ColorsModule colors = schizo$colorsModule();
       if (distanceColor && colors != null) {
          Setting<ColorsSchemeChoice> schemeSetting = colors.schemeSetting;
          ColorsSchemeChoice configuredScheme = schemeSetting.getValue();
@@ -195,7 +194,7 @@ public class TracersModule extends Module {
    }
 
    public static void bindReferencedModules(ModuleRegistry moduleRegistry) {
-      colorsModule = (ColorsModule)moduleRegistry.getModule(
+      schizo$colorsModule() = (ColorsModule)moduleRegistry.getModule(
          ColorsModule.class
       );
    }
@@ -243,5 +242,9 @@ public class TracersModule extends Module {
          capturedMinimumSetting.setValue(Math.min(maximum, minimum));
       };
       maximumCallbackSetting.setChangeCallback(maximumDistanceCallback);
+   }
+
+   private static ColorsModule schizo$colorsModule() {
+      return ClientContext.requireModule(ColorsModule.class);
    }
 }
