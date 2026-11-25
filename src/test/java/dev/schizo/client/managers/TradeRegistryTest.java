@@ -47,6 +47,19 @@ class TradeRegistryTest {
 
    @Test
    @SuppressWarnings("unchecked")
+   void emptyTradeReloadReplacesExistingState() {
+      TradeRegistry registry = new TradeRegistry();
+      registry.getRegistry().add(trade("Old"));
+
+      com.google.gson.JsonObject root = new com.google.gson.JsonObject();
+      root.add("trades", new com.google.gson.JsonArray());
+      registry.fromJson(root);
+
+      assertTrue(registry.getRegistry().isEmpty());
+   }
+
+   @Test
+   @SuppressWarnings("unchecked")
    void malformedTradeRootPreservesExistingState() {
       TradeRegistry registry = new TradeRegistry();
       TradeDefinition existing = trade("Keep");
