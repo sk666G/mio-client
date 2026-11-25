@@ -15,4 +15,9 @@ public final class MonotonicTime {
    public static boolean isWithin(long startNanos, long nowNanos, long durationNanos) {
       return !hasElapsed(startNanos, nowNanos, durationNanos);
    }
+
+   public static long elapsedNanos(long startNanos, long nowNanos) {
+      long elapsed = nowNanos - startNanos;
+      return elapsed < 0L ? 0L : elapsed;
+   }
 }
