@@ -46,12 +46,7 @@ public class BaritoneModule extends PermanentModule {
    private final Setting<Color> goalSetting;
    private List<AssumedSetting> assumedSettings;
 
-   static {
-
-      step = ClientContext.getModule(StepModule.class);
-      autoTool = ClientContext.getModule(AutoToolModule.class);
-      safeWalk = ClientContext.getModule(SafeWalkModule.class);
-   }
+   
 
    private List<AssumedSetting> getAssumedSettings() {
       if (this.assumedSettings == null) {
