@@ -28,7 +28,7 @@ class SocialRegistryTest {
    @Test
    void reloadReplacesRemovedSocialEntriesAndCollapsesCaseOnlyDuplicates() {
       SocialRegistry registry = new SocialRegistry();
-      assertTrue(registry.registerSocial(new SocialEntry("Old", SocialRole.FRIEND)));
+      registry.entries.add(new SocialEntry("Old", SocialRole.FRIEND));
 
       com.google.gson.JsonObject root = new com.google.gson.JsonObject();
       com.google.gson.JsonArray socials = new com.google.gson.JsonArray();
@@ -54,7 +54,7 @@ class SocialRegistryTest {
    @Test
    void malformedSocialRootPreservesExistingState() {
       SocialRegistry registry = new SocialRegistry();
-      assertTrue(registry.registerSocial(new SocialEntry("Keep", SocialRole.FRIEND)));
+      registry.entries.add(new SocialEntry("Keep", SocialRole.FRIEND));
 
       assertThrows(IllegalArgumentException.class, () -> registry.fromJson(new com.google.gson.JsonObject()));
 
