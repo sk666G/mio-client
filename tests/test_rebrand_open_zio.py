@@ -13,6 +13,16 @@ SPEC.loader.exec_module(REBRAND)
 
 class RebuildSecurityTest(unittest.TestCase):
 
+    def test_rebuild_preserves_verified_license_directory(self):
+        self.assertIn("LICENSES", REBRAND.PRESERVE_TOP_LEVEL)
+
+    def test_rebuild_templates_include_verified_licensing_index(self):
+        self.assertIn("LICENSING.md", REBRAND.README)
+        self.assertIn("Apache License 2.0", REBRAND.THIRD_PARTY)
+        self.assertIn("LICENSES/DiscordIPC-APACHE-2.0.txt", REBRAND.THIRD_PARTY)
+        self.assertNotIn("must be verified", REBRAND.THIRD_PARTY)
+        self.assertIn("does not invent a copyright owner", REBRAND.LICENSING)
+
     def test_preserves_apache_license_header_during_rebrand(self):
         header = """/*
  * Copyright 2017 John Grosh (john.a.grosh@gmail.com).
