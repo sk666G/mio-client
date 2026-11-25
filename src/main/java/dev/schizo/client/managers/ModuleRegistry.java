@@ -12,6 +12,7 @@ package dev.schizo.client.managers;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.config.ModuleConfigLoadReport;
+import dev.schizo.client.diagnostics.RuntimeDiagnostics;
 import dev.schizo.client.NamedFeature;
 import dev.schizo.client.events.InputPressEvent;
 import dev.schizo.client.events.WorldRenderEvent;
@@ -312,8 +313,20 @@ public final class ModuleRegistry extends Registry<Module> implements ClientAcce
             try {
                String moduleConfigName = module.getConfigName();
                JsonElement moduleConfig = module.toJson();
+               if (moduleConfig == null || !moduleConfig.isJsonObject()) {
+                  throw new IllegalStateException("Module configuration is not a JSON object");
+               }
                config.add(moduleConfigName, moduleConfig);
-            } catch (Exception ignoredFailure) {
+            } catch (RuntimeException serializationFailure) {
+               RuntimeDiagnostics.record(
+                  RuntimeDiagnostics.Area.CONFIG_SERIALIZATION,
+                  module.getName(),
+                  serializationFailure
+               );
+               throw new IllegalStateException(
+                  "Could not serialize module " + module.getName(),
+                  serializationFailure
+               );
             }
          }
       }
