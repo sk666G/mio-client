@@ -77,10 +77,21 @@ public final class SocialRegistry extends Registry<SocialEntry> implements Clien
    }
 
    public boolean registerSocial(SocialEntry entry) {
-      String capturedName = entry.getName();
-      SocialRole role = entry.role();
-      this.updatePlayerRole(capturedName, role);
-      return super.registerEntry(entry);
+      if (entry == null || entry.getName() == null) {
+         return false;
+      }
+
+      boolean duplicateName = this.entries.stream().anyMatch(existing ->
+         existing != null
+            && existing.getName() != null
+            && existing.getName().equalsIgnoreCase(entry.getName())
+      );
+      if (duplicateName || !super.registerEntry(entry)) {
+         return false;
+      }
+
+      this.updatePlayerRole(entry.getName(), entry.role());
+      return true;
    }
 
    @Override
