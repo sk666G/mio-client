@@ -93,6 +93,22 @@ import dev.schizo.client.modules.misc.KillEffectsModule;
 import dev.schizo.client.modules.misc.SkinFlickerModule;
 import dev.schizo.client.modules.misc.CoordLoggerModule;
 import dev.schizo.client.modules.exploit.FakeVanillaModule;
+import dev.schizo.client.modules.misc.AnnouncerModule;
+import dev.schizo.client.modules.misc.AntiAFKModule;
+import dev.schizo.client.modules.misc.AutoReconnectModule;
+import dev.schizo.client.modules.misc.AutoRespawnModule;
+import dev.schizo.client.modules.misc.SpammerModule;
+import dev.schizo.client.modules.player.AutoFishModule;
+import dev.schizo.client.modules.player.AutoFarmModule;
+import dev.schizo.client.modules.player.InventorySorterModule;
+import dev.schizo.client.modules.player.ChestStealerModule;
+import dev.schizo.client.modules.player.InventoryCleanerModule;
+import dev.schizo.client.modules.movement.FireworksModule;
+import dev.schizo.client.modules.misc.MiddleClickModule;
+import dev.schizo.client.modules.player.AutoBreedModule;
+import dev.schizo.client.modules.player.AutoTameModule;
+import dev.schizo.client.modules.player.AutoTradeModule;
+import dev.schizo.client.modules.player.AutoCraftModule;
 import java.util.Map;
 
 /**
@@ -250,6 +266,70 @@ public final class ModuleCompatibility {
       Map.entry(FakeVanillaModule.class, assessed(
          Classification.PACKET_AFFECTING,
          "Rewrites the outbound client brand payload to report 'vanilla'; this changes information presented to the server and is not a compatibility certification."
+      )),
+      Map.entry(AnnouncerModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Observes gameplay/player events and sends configured chat announcements through the normal server chat path."
+      )),
+      Map.entry(AntiAFKModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automates ordinary player activity such as attacks/input actions to avoid inactivity."
+      )),
+      Map.entry(AutoReconnectModule.class, assessed(
+         Classification.CLIENT_ONLY,
+         "Automates the client connection-screen lifecycle after disconnect; no in-session gameplay packet mutation was found."
+      )),
+      Map.entry(AutoRespawnModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automatically requests player respawn and can send configured post-death chat or commands."
+      )),
+      Map.entry(SpammerModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automatically sends configured chat messages through the normal client chat/command path."
+      )),
+      Map.entry(AutoFishModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Observes fishing feedback and automatically performs ordinary use-item actions to reel/cast."
+      )),
+      Map.entry(AutoFarmModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automatically breaks crops and performs use-item-on interactions for farming."
+      )),
+      Map.entry(InventorySorterModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automatically performs inventory/menu slot swaps according to the configured sorting strategy."
+      )),
+      Map.entry(ChestStealerModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automatically performs container quick-move/drop clicks and can close the opened container screen."
+      )),
+      Map.entry(InventoryCleanerModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automatically performs inventory/container click actions to remove configured items."
+      )),
+      Map.entry(FireworksModule.class, assessed(
+         Classification.SERVER_SENSITIVE,
+         "Automates rocket/item use and can emit start-fall-flying/swing actions, making movement and interaction timing server-sensitive."
+      )),
+      Map.entry(MiddleClickModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Configured middle-click actions can perform ordinary item use in addition to local social actions."
+      )),
+      Map.entry(AutoBreedModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automatically interacts with nearby breedable entities using ordinary entity interaction paths."
+      )),
+      Map.entry(AutoTameModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automatically interacts with tameable entities according to configured action/frequency."
+      )),
+      Map.entry(AutoTradeModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automates villager interaction, trade selection and inventory/container clicks."
+      )),
+      Map.entry(AutoCraftModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automates crafting/container actions and ordinary placement/use-item steps required by its crafting flow."
       )),
       Map.entry(AmbienceModule.class, assessed(
          Classification.VISUAL_ONLY,
