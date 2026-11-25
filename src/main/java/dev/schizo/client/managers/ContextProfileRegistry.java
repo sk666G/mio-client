@@ -213,14 +213,6 @@ public final class ContextProfileRegistry implements ClientAccess, JsonConfigura
 
    @Override
    public synchronized void fromJson(JsonElement json) {
-      this.rules.clear();
-      this.enabled = false;
-      this.dirty = true;
-      this.lastAppliedContext = null;
-      this.applyFailure.clear();
-      this.baseline.clear();
-      this.modifiedCategories.clear();
-
       if (json == null || !json.isJsonObject()) {
          return;
       }
@@ -233,17 +225,25 @@ public final class ContextProfileRegistry implements ClientAccess, JsonConfigura
          return;
       }
 
+      JsonElement profileElement = root.get("profiles");
+      if (profileElement == null || !profileElement.isJsonArray()) {
+         ClientAccess.logger.warn("Ignoring malformed context profile list");
+         return;
+      }
+
+      this.rules.clear();
+      this.enabled = false;
+      this.dirty = true;
+      this.lastAppliedContext = null;
+      this.applyFailure.clear();
+      this.baseline.clear();
+      this.modifiedCategories.clear();
+
       JsonElement enabledElement = root.get("enabled");
       this.enabled = enabledElement != null
          && enabledElement.isJsonPrimitive()
          && enabledElement.getAsJsonPrimitive().isBoolean()
          && enabledElement.getAsBoolean();
-      JsonElement profileElement = root.get("profiles");
-      if (profileElement == null || !profileElement.isJsonArray()) {
-         this.enabled = false;
-         ClientAccess.logger.warn("Ignoring malformed context profile list");
-         return;
-      }
 
       JsonArray profiles = profileElement.getAsJsonArray();
       int limit = Math.min(profiles.size(), MAX_RULES);
