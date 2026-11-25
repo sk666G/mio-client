@@ -313,7 +313,12 @@ public final class ModuleRegistry extends Registry<Module> implements ClientAcce
                String moduleConfigName = module.getConfigName();
                JsonElement moduleConfig = module.toJson();
                config.add(moduleConfigName, moduleConfig);
-            } catch (Exception ignoredFailure) {
+            } catch (Exception serializationFailure) {
+               ClientAccess.logger.error(
+                  "Could not serialize module {} into modules.json",
+                  module.getName(),
+                  serializationFailure
+               );
             }
          }
       }
