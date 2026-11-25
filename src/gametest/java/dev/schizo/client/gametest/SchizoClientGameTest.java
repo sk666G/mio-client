@@ -16,7 +16,7 @@ import org.lwjgl.glfw.GLFW;
 public final class SchizoClientGameTest implements FabricClientGameTest {
    @Override
    public void runTest(ClientGameTestContext context) {
-      try (TestSingleplayerContext singleplayer = context.worldBuilder().create()) {
+      try (TestSingleplayerContext singleplayer = GameTestWorlds.create(context)) {
          singleplayer.getClientWorld().waitForChunksRender();
          context.waitTicks(5);
 
