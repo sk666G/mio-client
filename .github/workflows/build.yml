@@ -2,7 +2,11 @@ name: Build
 
 on:
   push:
-    branches: [main, codex/reliability-hardening, codex/schizo-master-integration, lunyx/integration-candidate, lunyx/verified-candidate-v7]
+    branches:
+      - main
+      - 'lunyx/**'
+      - 'codex/**'
+      - 'astra/**'
   pull_request:
   workflow_dispatch:
 
@@ -41,6 +45,9 @@ jobs:
         env:
           ORG_GRADLE_JAVA_INSTALLATIONS_PATHS: ${{ env.JAVA_HOME_21_X64 }}
         run: ./gradlew --no-daemon clean build
+
+      - name: Record resolved runtime dependencies
+        run: ./gradlew --no-daemon dependencies --configuration runtimeClasspath > build/libs/DEPENDENCIES.txt
 
       - name: Verify remapped artifacts and record provenance
         shell: bash
@@ -93,4 +100,5 @@ jobs:
             build/libs/COMMIT_SHA.txt
             build/libs/BUILD_COMMIT_SHA.txt
             build/libs/NESTED_JARS.txt
+            build/libs/DEPENDENCIES.txt
           if-no-files-found: error

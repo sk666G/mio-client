@@ -51,8 +51,12 @@ Other mods listed under `suggests` in `fabric.mod.json` are optional.
 - [Dependency and distribution review](docs/DEPENDENCY_REVIEW.md)
 - [Release checklist](docs/RELEASE_CHECKLIST.md)
 
+## Runtime diagnostics
+
+Recoverable event, module-lifecycle, setting-callback and scheduled-task failures are retained in a bounded in-process diagnostics buffer. Open **Performance Center → DIAGNOSTICS** to inspect the newest failures together with task-queue pressure. The reset action clears both profiler samples and the diagnostics buffer.
+
 ## Upstream and attribution
 
-Schizo is an independent rebrand and derivative of Open Zio. See [UPSTREAM.md](UPSTREAM.md) for the pinned source snapshot. Upstream source headers are retained where the source remains in the project. [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) records vendor attribution and unresolved license questions.
+Schizo is an independent rebrand and derivative of Open Zio. See [UPSTREAM.md](UPSTREAM.md) for the pinned source snapshot. Upstream source headers are retained where the source remains in the project. [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) records vendored-source attribution and the corresponding license material.
 
 Schizo is not affiliated with or endorsed by Mio. The two server-validation circumvention modules `GrimDisabler` and `RaytraceBypass` are excluded from the active source tree and rebuild import.
