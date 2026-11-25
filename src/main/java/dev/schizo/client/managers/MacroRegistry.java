@@ -26,6 +26,11 @@ import dev.schizo.client.utils.KeyUtils;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import java.nio.ByteBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -128,6 +133,46 @@ public final class MacroRegistry extends Registry<Macro> implements ClientAccess
 
       this.entries.clear();
       this.entries.addAll(loaded);
+   }
+
+   /**
+    * Decode and validate clipboard data before touching the live registry.
+    * Clipboard imports retain their historical enabled-by-default behavior.
+    */
+   public static Macro decodeClipboardMacro(String encoded) {
+      if (encoded == null || encoded.isBlank()) {
+         throw new IllegalArgumentException("Empty macro clipboard");
+      }
+      final String decoded;
+      try {
+         decoded = StandardCharsets.UTF_8.newDecoder()
+            .decode(ByteBuffer.wrap(Base64.getDecoder().decode(encoded))).toString();
+      } catch (CharacterCodingException invalidEncoding) {
+         throw new IllegalArgumentException("Invalid macro clipboard encoding", invalidEncoding);
+      }
+
+      if (!(JsonParser.parseString(decoded) instanceof JsonObject config)) {
+         throw new IllegalArgumentException("Macro clipboard must contain an object");
+      }
+
+      JsonElement key = config.get("key");
+      JsonElement mouse = config.get("mouse");
+      if (key == null || !key.isJsonPrimitive() || !key.getAsJsonPrimitive().isNumber()
+         || mouse == null || !mouse.isJsonPrimitive() || !mouse.getAsJsonPrimitive().isBoolean()) {
+         throw new IllegalArgumentException("Invalid macro key binding");
+      }
+      try {
+         key.getAsBigDecimal().intValueExact();
+      } catch (ArithmeticException | NumberFormatException invalidKey) {
+         throw new IllegalArgumentException("Invalid macro key code", invalidKey);
+      }
+
+      config.remove("toggled");
+      Macro macro = parseMacro(config);
+      if (macro == null) {
+         throw new IllegalArgumentException("Invalid macro clipboard configuration");
+      }
+      return macro;
    }
 
    static Macro parseMacro(JsonElement macroElement) {
