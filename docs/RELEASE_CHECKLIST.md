@@ -12,7 +12,8 @@ Status is intentionally conservative. A checked item requires recorded evidence;
 - [x] Add the first full-client hardening layer: transactional module lifecycle rollback, owner-scoped scheduled work, event-failure diagnostics, schema validation, reduced-motion UI policy, render-state guards and post-registry mixin bindings.
 - [x] Add frame-pressure-aware incremental scan throughput for AutoCrystal/Search/Tunnels and incremental VoidESP floor scanning.
 - [x] Add repository mixin/branding hygiene tests, active development-branch CI coverage and transient dependency-resolution retries.
-- [ ] Complete the per-module multiplayer compatibility matrix and authorized controlled-server scenarios.
+- [x] Complete a class-level source compatibility assessment for every explicitly registered module (178/178) and guard registry/assessment parity in CI.
+- [ ] Complete setting-level multiplayer review for server-relevant options and authorized controlled-server scenarios.
 - [ ] Complete visual/input QA across ClickGUI, HUD Studio, command palette, integration/profile screens, Performance Center, theme presets and render modules touched by v8.
 
 ## Build, tests and artifacts
@@ -22,9 +23,10 @@ Status is intentionally conservative. A checked item requires recorded evidence;
 - [x] Inspect Build #845 artifact provenance directly: JAR SHA-256 matched the manifest, the synthetic merge tree equaled the branch-head tree, required notices/metadata were packaged and `NESTED_JARS.txt` was empty.
 - [x] Pass independent CI for the later frozen runtime lifecycle delta (Build #853), PhaseESP lifecycle changes (Build #850) and render guards (Build #855).
 - [x] Preserve green CI checkpoints through the post-v8 hardening branch while changes are layered.
-- [ ] Verify the final frozen `lunyx/full-client-hardening-v1` exact head and inspect its uploaded artifact before release approval.
+- [x] Verify frozen `lunyx/full-client-hardening-v1` exact head `ea3a641...` through independent push/PR builds and inspect the uploaded artifact; both produced runnable JAR SHA-256 `e3cdf36d...`.
 - [ ] Verify the remapped artifact starts in the target Minecraft/Fabric environment.
-- [ ] Run the rebuild workflow from a clean dedicated staging checkout at the final frozen v8 source head and inspect its generated artifact.
+- [x] Validate the corrected fresh-upstream reconstruction contract on Draft PR #161: raw pinned-upstream rebuild verification, Schizo overlay replay, exact source-tree match and reconstructed JAR SHA-256 `e3cdf36d...`.
+- [ ] Integrate the PR #161 rebuild-workflow correction and rerun it at the final combined release-candidate head.
 
 ## Security, persistence and distribution
 
@@ -40,7 +42,7 @@ Status is intentionally conservative. A checked item requires recorded evidence;
 
 - [ ] Complete live client launch, reconnect/respawn, GUI/HUD, render and long-session smoke checks.
 - [ ] Complete controlled-server compatibility checks for the supported module matrix.
-- [ ] Complete the final fresh-upstream staging rebuild.
+- [ ] Integrate PR #161 and complete the final fresh-upstream reconstruction at the final combined candidate head.
 - [ ] Review the final frozen full-client-hardening diff and exact-head artifact evidence on Draft PR #160.
 - [ ] Obtain explicit approval before any merge to `main` or public release.
 
