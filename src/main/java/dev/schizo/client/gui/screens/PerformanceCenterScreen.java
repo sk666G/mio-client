@@ -51,6 +51,7 @@ public final class PerformanceCenterScreen extends ClientScreen {
    private final MonotonicRefreshGate refreshGate = new MonotonicRefreshGate(250_000_000L);
    private List<ProfilerDisplayRow> rows = List.of();
    private MetricsSnapshot metrics = MetricsSnapshot.EMPTY;
+   private String taskQueueStatus = "TASKS —";
    private float[] frameHistorySamples = new float[0];
 
    private float fitScale = 1.0F;
@@ -156,10 +157,11 @@ public final class PerformanceCenterScreen extends ClientScreen {
          false
       );
       String profilerStatus = EventProfiler.GLOBAL.isEnabled() ? "SAMPLING ON" : "PROFILER IDLE";
+      String runtimeStatus = profilerStatus + "  •  " + this.taskQueueStatus;
       font.drawWithShadow(
          poseStack,
-         profilerStatus,
-         this.panelLeft + this.panelWidth - font.getWidth(profilerStatus) - 16.0F,
+         runtimeStatus,
+         this.panelLeft + this.panelWidth - font.getWidth(runtimeStatus) - 16.0F,
          this.panelTop + 53.0F,
          EventProfiler.GLOBAL.isEnabled() ? accent : muted
       );
@@ -452,6 +454,14 @@ public final class PerformanceCenterScreen extends ClientScreen {
             Integer.toString(timing.getStuttersPerSecond()),
             String.format(Locale.ROOT, "%.2f ms²", timing.getFrameTimeVarianceMillisSquared())
          );
+      }
+
+      if (ClientContext.taskScheduler == null) {
+         this.taskQueueStatus = "TASKS —";
+      } else {
+         var queue = ClientContext.taskScheduler.snapshot();
+         this.taskQueueStatus = "TASKS " + queue.totalQueued() + " queued / "
+            + queue.totalOutstanding() + " outstanding";
       }
 
       EventProfiler profiler = EventProfiler.GLOBAL;
