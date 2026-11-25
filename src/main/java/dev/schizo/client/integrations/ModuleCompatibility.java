@@ -1360,6 +1360,78 @@ public final class ModuleCompatibility {
       Map.entry(setting(NoRotateModule.class, "InBlocks"), settingAssessed(
          Classification.PACKET_AFFECTING,
          "Selects how reviewed rotation-correction handling behaves while the player is inside blocks, including cancellation or reported-rotation handling."
+      )),
+      Map.entry(setting(WarpModule.class, "Mode"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Selects the reviewed Warp movement/packet timing implementation."
+      )),
+      Map.entry(setting(WarpModule.class, "Boost"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls the movement/displacement multiplier used by Warp."
+      )),
+      Map.entry(setting(WarpModule.class, "Charge"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls the amount of packet-timing charge accumulated or consumed by Warp."
+      )),
+      Map.entry(setting(WarpModule.class, "ChargeSpeed"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls the rate at which the reviewed Warp charge state changes."
+      )),
+      Map.entry(setting(WarpModule.class, "Recharge"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Selects how reviewed queued timing-response packets are released to replenish Warp charge."
+      )),
+      Map.entry(setting(WarpModule.class, "FakeLag"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Enables Warp's reviewed packet-holding behavior while displacement is active."
+      )),
+      Map.entry(setting(WarpModule.class, "DisableGround"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls whether the movement effect is disabled when grounded."
+      )),
+      Map.entry(setting(WarpModule.class, "AutoDisable"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls automatic termination of Warp's reviewed movement/packet state."
+      )),
+      Map.entry(setting(FastClimbModule.class, "Speed"), settingAssessed(
+         Classification.INPUT_MODIFYING,
+         "Controls the locally requested climb-speed adjustment."
+      )),
+      Map.entry(setting(FastClimbModule.class, "Airborne"), settingAssessed(
+         Classification.INPUT_MODIFYING,
+         "Controls whether fast-climb input/movement handling remains active while not grounded."
+      )),
+      Map.entry(setting(ViewClipModule.class, "Skip"), settingAssessed(
+         Classification.VISUAL_ONLY,
+         "Selects which side of the local third-person camera clip animation is skipped."
+      )),
+      Map.entry(setting(ViewClipModule.class, "Range"), settingAssessed(
+         Classification.VISUAL_ONLY,
+         "Controls local third-person camera clip distance."
+      )),
+      Map.entry(setting(ViewClipModule.class, "Smooth"), settingAssessed(
+         Classification.VISUAL_ONLY,
+         "Controls only local camera interpolation."
+      )),
+      Map.entry(setting(ViewClipModule.class, "Scroll"), settingAssessed(
+         Classification.INPUT_MODIFYING,
+         "Consumes mouse-wheel input to adjust local third-person camera distance."
+      )),
+      Map.entry(setting(ZoomModule.class, "Smooth"), settingAssessed(
+         Classification.VISUAL_ONLY,
+         "Controls only the local zoom transition animation."
+      )),
+      Map.entry(setting(ZoomModule.class, "SmoothCamera"), settingAssessed(
+         Classification.VISUAL_ONLY,
+         "Controls the local Minecraft smooth-camera option while Zoom is active."
+      )),
+      Map.entry(setting(ZoomModule.class, "Scroll"), settingAssessed(
+         Classification.INPUT_MODIFYING,
+         "Consumes mouse-wheel input to change local zoom distance."
+      )),
+      Map.entry(setting(ZoomModule.class, "Amount"), settingAssessed(
+         Classification.VISUAL_ONLY,
+         "Controls the local field-of-view zoom divisor."
       ))
    );
 
