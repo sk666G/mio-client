@@ -22,25 +22,29 @@ import org.spongepowered.asm.mixin.injection.At;
 
 @Mixin(IdDispatchCodec.class)
 public class IdDispatchCodecMixin {
-   private static final NoPacketKickModule noPacketKickModule = ClientContext.getModule(NoPacketKickModule.class);
 
    @WrapOperation(method = "decode", at = @At(value = "INVOKE", target = "Lnet/minecraft/network/codec/StreamCodec;decode(Ljava/lang/Object;)Ljava/lang/Object;"))
    private Object decodeWithPacketKickHandling(
       StreamCodec codec, Object input, Operation original
    ) {
-      if (!noPacketKickModule.isToggled()) {
+      if (!schizo$noPacketKickModule().isToggled()) {
          return original.call(codec, input);
       }
 
       try {
          return original.call(codec, input);
       } catch (DecoderException decoderFailure) {
-         noPacketKickModule.logInterceptedException(decoderFailure);
+         schizo$noPacketKickModule().logInterceptedException(decoderFailure);
          if (input instanceof ByteBuf buffer) {
             buffer.skipBytes(buffer.readableBytes());
          }
 
          throw decoderFailure;
       }
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static NoPacketKickModule schizo$noPacketKickModule() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(NoPacketKickModule.class);
    }
 }
