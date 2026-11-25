@@ -10,6 +10,7 @@
 package dev.schizo.mixin;
 
 import dev.schizo.client.modules.misc.AutoReconnectModule;
+import dev.schizo.client.utils.MonotonicCountdown;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.modules.client.UIModule;
 import net.minecraft.ChatFormatting;
@@ -41,7 +42,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(DisconnectedScreen.class)
 public class DisconnectedScreenMixin extends Screen {
    @Unique
-   private long reconnectTimerStartMillis;
+   private long reconnectTimerStartNanos;
    @Shadow
    @Final
    private DisconnectionDetails details;
@@ -59,7 +60,7 @@ public class DisconnectedScreenMixin extends Screen {
 
    @Inject(method = "init()V", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/screens/DisconnectedScreen;repositionElements()V", shift = Shift.BEFORE))
    private void addReconnectButtons(CallbackInfo callback) {
-      this.reconnectTimerStartMillis = System.currentTimeMillis();
+      this.reconnectTimerStartNanos = System.nanoTime();
       AutoReconnectModule autoReconnectModule = ClientContext.getModule(AutoReconnectModule.class);
       if (autoReconnectModule == null || ClientContext.serverStateManager == null) {
          return;
@@ -82,7 +83,7 @@ public class DisconnectedScreenMixin extends Screen {
                }
 
                autoReconnectModule.toggle();
-               this.reconnectTimerStartMillis = System.currentTimeMillis();
+               this.reconnectTimerStartNanos = System.nanoTime();
                button.setFocused(false);
             }
          )
@@ -212,11 +213,10 @@ public class DisconnectedScreenMixin extends Screen {
       float delaySeconds = module.secondsSetting.getValue()
          + module.minutesSetting.getValue()
             * 60;
-      return Math.max(
+      return MonotonicCountdown.remainingSeconds(
+         this.reconnectTimerStartNanos,
+         System.nanoTime(),
          delaySeconds
-            - (float)(System.currentTimeMillis() - this.reconnectTimerStartMillis)
-               / 1000.0F,
-         0.0F
       );
    }
 }

@@ -98,6 +98,7 @@ public final class AutoPresetRegistry implements ClientAccess, JsonConfigurable 
          if (server == null || server.isBlank() || server.length() > 255) {
             continue;
          }
+         server = normalizeServerKey(server);
 
          JsonElement serverJson = serverEntry.getValue();
          if (serverJson == null || !serverJson.isJsonObject()) {
@@ -142,6 +143,13 @@ public final class AutoPresetRegistry implements ClientAccess, JsonConfigurable 
       return Map.copyOf(loaded);
    }
 
+   static String normalizeServerKey(String server) {
+      if (server == null) {
+         throw new IllegalArgumentException("Server key must not be null");
+      }
+      return server.toLowerCase(Locale.ROOT);
+   }
+
    record ParsedServerEntry(Map<String, String> presets, String kitName) {
       ParsedServerEntry {
          presets = Map.copyOf(presets);
@@ -180,7 +188,9 @@ public final class AutoPresetRegistry implements ClientAccess, JsonConfigurable 
    }
 
    public boolean removeKit(String server) {
-      AutoPresetServerEntry settings = (AutoPresetServerEntry)this.serverSettings.get(server);
+      AutoPresetServerEntry settings = server == null
+         ? null
+         : (AutoPresetServerEntry)this.serverSettings.get(normalizeServerKey(server));
       if (settings == null) {
          return false;
       }
@@ -197,7 +207,9 @@ public final class AutoPresetRegistry implements ClientAccess, JsonConfigurable 
    }
 
    public boolean removePreset(String server, PresetCategory category) {
-      AutoPresetServerEntry settings = (AutoPresetServerEntry)this.serverSettings.get(server);
+      AutoPresetServerEntry settings = server == null
+         ? null
+         : (AutoPresetServerEntry)this.serverSettings.get(normalizeServerKey(server));
       if (settings == null) {
          return false;
       }
@@ -208,7 +220,11 @@ public final class AutoPresetRegistry implements ClientAccess, JsonConfigurable 
    public void setPreset(
       String server, PresetCategory category, String presetName
    ) {
-      AutoPresetServerEntry settings = (AutoPresetServerEntry)this.serverSettings.computeIfAbsent(server, (Function<String, AutoPresetServerEntry>)ignoredServer -> new AutoPresetServerEntry(server));
+      String serverKey = normalizeServerKey(server);
+      AutoPresetServerEntry settings = (AutoPresetServerEntry)this.serverSettings.computeIfAbsent(
+         serverKey,
+         (Function<String, AutoPresetServerEntry>)ignoredServer -> new AutoPresetServerEntry(serverKey)
+      );
 
       settings.getPresets().put(category, presetName);
    }
@@ -219,7 +235,7 @@ public final class AutoPresetRegistry implements ClientAccess, JsonConfigurable 
       String previousServer = this.lastServer;
       if (!serverAddress.equalsIgnoreCase(previousServer)) {
          this.lastServer = event.getServerAddress();
-         AutoPresetServerEntry settings = (AutoPresetServerEntry)this.serverSettings.get(this.lastServer);
+         AutoPresetServerEntry settings = (AutoPresetServerEntry)this.serverSettings.get(normalizeServerKey(this.lastServer));
          if (settings != null) {
 
             AtomicInteger messageCounter = new AtomicInteger(-2);
@@ -267,11 +283,15 @@ public final class AutoPresetRegistry implements ClientAccess, JsonConfigurable 
    }
 
    public boolean removeServer(String server) {
-      return this.serverSettings.remove(server) != null;
+      return server != null && this.serverSettings.remove(normalizeServerKey(server)) != null;
    }
 
    public void setKit(String server, String kitName) {
-      AutoPresetServerEntry settings = (AutoPresetServerEntry)this.serverSettings.computeIfAbsent(server, (Function<String, AutoPresetServerEntry>)ignoredServer -> new AutoPresetServerEntry(server));
+      String serverKey = normalizeServerKey(server);
+      AutoPresetServerEntry settings = (AutoPresetServerEntry)this.serverSettings.computeIfAbsent(
+         serverKey,
+         (Function<String, AutoPresetServerEntry>)ignoredServer -> new AutoPresetServerEntry(serverKey)
+      );
 
       settings.setKitName(kitName);
    }
