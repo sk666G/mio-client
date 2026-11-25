@@ -90,6 +90,12 @@ public final class PresetRegistry extends Registry<PresetData> {
       JsonStateTransaction.apply(snapshotSupplier, applier, desiredState);
    }
 
+   public java.util.List<String> getPresetNames() {
+      synchronized (this.getRegistry()) {
+         return this.entries.stream().map(PresetData::getName).toList();
+      }
+   }
+
    public PresetData getPreset(String name) {
       final String normalized;
       try {
