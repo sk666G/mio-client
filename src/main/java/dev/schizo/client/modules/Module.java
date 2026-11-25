@@ -18,6 +18,7 @@ import dev.schizo.client.ClientContext;
 import dev.schizo.client.NamedFeature;
 import dev.schizo.client.events.bus.EventBus;
 import dev.schizo.client.utils.Toggleable;
+import dev.schizo.client.utils.LifecycleGeneration;
 import dev.schizo.client.render.text.LanguageTable;
 import dev.schizo.client.managers.AliasRegistry;
 import dev.schizo.client.utils.inventory.RegistryContainer;
@@ -42,7 +43,8 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
    private final List<Setting<?>> settings;
    private final String[] aliases;
    private Keybind keybind;
-   private boolean enabled;
+   private volatile boolean enabled;
+   private final LifecycleGeneration activationLifecycle = new LifecycleGeneration();
    private boolean drawn;
    private boolean workInProgress;
    private boolean ignoreEnabledState;
@@ -95,6 +97,7 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
          return;
       }
       this.compatibilityPolicySuppressed = false;
+      this.activationLifecycle.invalidate();
       this.enabled = true;
       ClientAccess.eventBus.subscribe(this);
       EventBus eventBus = ClientAccess.eventBus;
@@ -114,6 +117,28 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
 
    public String getInfo() {
       return null;
+   }
+
+   /**
+    * Captures the current module activation. The token becomes stale on disable and on
+    * every later re-enable, so delayed work cannot silently cross activation boundaries.
+    */
+   protected final LifecycleGeneration.Token captureActivationToken() {
+      return this.activationLifecycle.capture();
+   }
+
+   protected final boolean isActivationCurrent(LifecycleGeneration.Token token) {
+      return token != null && this.enabled && token.isCurrent();
+   }
+
+   protected final Runnable guardActivation(Runnable task) {
+      Objects.requireNonNull(task, "task");
+      LifecycleGeneration.Token token = this.captureActivationToken();
+      return () -> {
+         if (this.isActivationCurrent(token)) {
+            task.run();
+         }
+      };
    }
 
    @Override
@@ -281,6 +306,7 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
       }
       ClientAccess.eventBus.unsubscribe(this);
       this.enabled = false;
+      this.activationLifecycle.invalidate();
       EventBus eventBus = ClientAccess.eventBus;
       ModuleToggleEvent toggleEvent = new ModuleToggleEvent(this);
       eventBus.post(toggleEvent);
