@@ -22,7 +22,6 @@ import net.minecraft.resources.Identifier;
 
 public class ResizableHudWidgetRenderer extends HudWidgetRenderer {
 
-   private static final HUDModule hudSettings = (HUDModule)ClientContext.getModule(HUDModule.class);
    static {
       Identifier.fromNamespaceAndPath("schizo", "textures/triangle.png");
    }
@@ -39,7 +38,14 @@ public class ResizableHudWidgetRenderer extends HudWidgetRenderer {
    private boolean resizingEnabled;
 
    private float getHudScaleMultiplier() {
-      return this.applyHudScale ? hudSettings.getTextScale() : 1.0F;
+      if (!this.applyHudScale) {
+         return 1.0F;
+      }
+      HUDModule hudSettings = ClientContext.getModule(HUDModule.class);
+      if (hudSettings == null) {
+         throw new IllegalStateException("HUD module is not initialized");
+      }
+      return hudSettings.getTextScale();
    }
 
    public float getScale() {
