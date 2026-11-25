@@ -9,6 +9,7 @@
 
 package dev.schizo.client.utils;
 
+import dev.schizo.client.diagnostics.RuntimeDiagnostics;
 import dev.schizo.client.modules.Module;
 import dev.schizo.client.settings.Setting;
 
@@ -79,7 +80,7 @@ public class ExperimentalFeatures {
             Setting<?> setting = (Setting<?>)field.get(module);
             module.unregister(setting);
          } catch (IllegalAccessException accessFailure) {
-            accessFailure.printStackTrace();
+            RuntimeDiagnostics.record(RuntimeDiagnostics.Area.MODULE_LIFECYCLE, "Experimental setting removal", accessFailure);
          }
       }
    }
