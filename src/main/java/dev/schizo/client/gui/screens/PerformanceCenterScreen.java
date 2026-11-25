@@ -298,7 +298,7 @@ public final class PerformanceCenterScreen extends ClientScreen {
          : (this.selectedTab == 2
             ? "HUD timings cover direct widget renders. Use frame metrics for total frame duration."
             : "Callback / module timings are inclusive and overlap; do not add them to frame time.");
-      if (this.selectedTab == 3) footer = "Scan times in ms. AVG/MAX per slice; CELLS counts positions examined.";
+      if (this.selectedTab == 3) footer = this.panelWidth < 590 ? "Scan ms per slice; CELLS counts positions." : "Scan times in ms. AVG/MAX per slice; CELLS counts positions examined.";
       font.drawWithShadow(
          poseStack,
          footer,

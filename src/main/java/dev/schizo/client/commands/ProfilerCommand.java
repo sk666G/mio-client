@@ -35,6 +35,7 @@ public final class ProfilerCommand extends Command {
       }));
       commandBuilder.then(literal("reset").executes(context -> {
          profiler.reset();
+         dev.schizo.client.profiling.ScanWorkTracker.GLOBAL.reset();
          send("Profiler statistics reset.");
          return 1;
       }));

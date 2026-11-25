@@ -144,8 +144,8 @@ public class AutoEatModule extends Module {
          this.swappedContainerId = -1;
          this.swappedContainerOwner = null;
          this.swappedContainerMenu = null;
-      this.expectedContainerStack = ItemStack.EMPTY;
-      this.expectedHotbarStack = ItemStack.EMPTY;
+         this.expectedContainerStack = ItemStack.EMPTY;
+         this.expectedHotbarStack = ItemStack.EMPTY;
       }
    }
 
