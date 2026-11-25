@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.profiling.EventProfiler;
+import dev.schizo.client.profiling.RuntimeDiagnostics;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
@@ -48,6 +49,25 @@ class EventBusLifecycleTest {
    }
 
    @Test
+   void failingListenerIsIdentifiedBeforeTheExceptionPropagates() {
+      EventProfiler profiler = new EventProfiler(() -> 0L);
+      RuntimeDiagnostics diagnostics = new RuntimeDiagnostics();
+      EventBus bus = new EventBus(profiler, diagnostics);
+      FailingListener listener = new FailingListener();
+      bus.subscribe(listener);
+
+      IllegalStateException failure =
+         assertThrows(IllegalStateException.class, () -> bus.post(new TickEvent()));
+
+      assertEquals("listener failure", failure.getMessage());
+      RuntimeDiagnostics.Snapshot snapshot = diagnostics.snapshot();
+      assertEquals(1L, snapshot.totalFailures());
+      assertEquals(RuntimeDiagnostics.Area.EVENT_DISPATCH, snapshot.lastFailure().area());
+      assertTrue(snapshot.lastFailure().detail().contains("FailingListener#onTick"));
+      assertTrue(snapshot.lastFailure().detail().contains("TickEvent"));
+   }
+
+   @Test
    void directListenerSubscriptionIsAlsoIdempotent() {
       EventBus bus = new EventBus(new EventProfiler(() -> 0L));
       AtomicInteger calls = new AtomicInteger();
@@ -69,6 +89,13 @@ class EventBusLifecycleTest {
    }
 
    private static final class TickEvent {
+   }
+
+   private static final class FailingListener {
+      @EventHandler
+      private void onTick(TickEvent event) {
+         throw new IllegalStateException("listener failure");
+      }
    }
 
    private static final class CountingListener {
