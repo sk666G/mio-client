@@ -130,7 +130,7 @@ public enum PresetCategory implements JsonConfigurable, NamedEntry {
 
                Keybind.Mode keyMode = keybind.mode();
                String modeName = keyMode.name();
-               String modeValue = modeName.toLowerCase();
+               String modeValue = modeName.toLowerCase(Locale.ROOT);
                moduleJson.addProperty("state", modeValue);
 
                keybind = module.getKeybind();
@@ -149,23 +149,26 @@ public enum PresetCategory implements JsonConfigurable, NamedEntry {
 
       @Override
       public void fromJson(JsonElement json) {
+         JsonObject preset = json.getAsJsonObject();
          ModuleRegistry moduleRegistry = ClientContext.moduleRegistry;
          Iterator<?> modules = ((List<?>)moduleRegistry.getRegistry()).iterator();
 
          while (modules.hasNext()) {
             Module module = (Module)modules.next();
-            if (this.isHudModule(module)) {
-               try {
-                  JsonObject preset = json.getAsJsonObject();
-                  String moduleName = module.getConfigName();
-                  JsonElement moduleElement = preset.get(moduleName);
-                  JsonObject moduleJson = moduleElement.getAsJsonObject();
-                  String[] bindingKeys = {"key", "state", "mouse"};
-                  JsonUtils.removeProperties(moduleJson, bindingKeys);
-                  module.fromJson(moduleJson);
-               } catch (Exception ignored) {
-               }
+            if (!this.isHudModule(module)) {
+               continue;
             }
+
+            String moduleName = module.getConfigName();
+            JsonElement moduleElement = preset.get(moduleName);
+            if (!(moduleElement instanceof JsonObject moduleObject)) {
+               continue;
+            }
+
+            JsonObject moduleJson = moduleObject.deepCopy();
+            String[] bindingKeys = {"key", "state", "mouse"};
+            JsonUtils.removeProperties(moduleJson, bindingKeys);
+            module.fromJson(moduleJson);
          }
       }
 
@@ -364,12 +367,9 @@ public enum PresetCategory implements JsonConfigurable, NamedEntry {
 
       @Override
       public void fromJson(JsonElement json) {
-         MacroRegistry registryForLock = ClientContext.macroRegistry;
-         synchronized ((List)registryForLock.getRegistry()) {
-            MacroRegistry registryForClear = ClientContext.macroRegistry;
-            ((List<?>)registryForClear.getRegistry()).clear();
-            MacroRegistry registryForLoad = ClientContext.macroRegistry;
-            registryForLoad.fromJson(json);
+         MacroRegistry registry = ClientContext.macroRegistry;
+         synchronized ((List)registry.getRegistry()) {
+            registry.fromJson(json);
          }
       }
 
@@ -404,7 +404,7 @@ public enum PresetCategory implements JsonConfigurable, NamedEntry {
    PresetCategory(String displayName) {
       this.displayName = displayName;
       Path presetsDirectory = ConfigurationManager.PRESETS_DIRECTORY;
-      this.directory = presetsDirectory.resolve(displayName.toLowerCase());
+      this.directory = presetsDirectory.resolve(displayName.toLowerCase(Locale.ROOT));
    }
 
    @Override
