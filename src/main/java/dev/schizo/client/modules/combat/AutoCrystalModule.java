@@ -243,14 +243,6 @@ public class AutoCrystalModule extends Module {
    public LivingEntity target;
    public LivingEntity previousTarget;
    private Vec3 eyePosition;
-   static {
-      speedMine = (SpeedMineModule)ClientContext.getModule(SpeedMineModule.class);
-      antiCheat = (AntiCheatModule)ClientContext.getModule(AntiCheatModule.class);
-      anchorAura = (AnchorAuraModule)ClientContext.getModule(AnchorAuraModule.class);
-      aura = (AuraModule)ClientContext.getModule(AuraModule.class);
-      autoExp = (AutoExpModule)ClientContext.getModule(AutoExpModule.class);
-   }
-
    @Override
    public String getInfo() {
       if (this.target != null) {
@@ -2259,20 +2251,20 @@ public class AutoCrystalModule extends Module {
    }
 
    public static void bindReferencedModules(ModuleRegistry modules) {
-      speedMine = (SpeedMineModule)modules.getModule(
-         SpeedMineModule.class
+      speedMine = (SpeedMineModule)Objects.requireNonNull(
+         modules.getModule(SpeedMineModule.class), "Required module is not registered: SpeedMineModule"
       );
-      antiCheat = (AntiCheatModule)modules.getModule(
-         AntiCheatModule.class
+      antiCheat = (AntiCheatModule)Objects.requireNonNull(
+         modules.getModule(AntiCheatModule.class), "Required module is not registered: AntiCheatModule"
       );
-      anchorAura = (AnchorAuraModule)modules.getModule(
-         AnchorAuraModule.class
+      anchorAura = (AnchorAuraModule)Objects.requireNonNull(
+         modules.getModule(AnchorAuraModule.class), "Required module is not registered: AnchorAuraModule"
       );
-      aura = (AuraModule)modules.getModule(
-         AuraModule.class
+      aura = (AuraModule)Objects.requireNonNull(
+         modules.getModule(AuraModule.class), "Required module is not registered: AuraModule"
       );
-      autoExp = (AutoExpModule)modules.getModule(
-         AutoExpModule.class
+      autoExp = (AutoExpModule)Objects.requireNonNull(
+         modules.getModule(AutoExpModule.class), "Required module is not registered: AutoExpModule"
       );
    }
 
