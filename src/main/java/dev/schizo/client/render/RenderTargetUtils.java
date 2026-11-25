@@ -119,11 +119,13 @@ public final class RenderTargetUtils implements ClientAccess {
    }
 
    public static String readShaderSource(String resourcePath) {
-      try {
-         InputStream stream = BaseShaderPass.class.getResourceAsStream("/assets/schizo/shaders/" + resourcePath);
-         assert stream != null;
+      try (InputStream stream = BaseShaderPass.class.getResourceAsStream("/assets/schizo/shaders/" + resourcePath)) {
+         if (stream == null) {
+            dev.schizo.client.ClientAccess.logger.error("Bundled shader source is missing: {}", resourcePath);
+            return "";
+         }
          return IOUtils.toString(stream, StandardCharsets.UTF_8);
-      } catch (IOException | AssertionError failure) {
+      } catch (IOException failure) {
          dev.schizo.client.ClientAccess.logger.error("Could not read bundled shader source {}", resourcePath, failure);
          return "";
       }
