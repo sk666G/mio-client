@@ -40,6 +40,34 @@ import dev.schizo.client.modules.hud.TextRadarModule;
 import dev.schizo.client.modules.hud.TotemsModule;
 import dev.schizo.client.modules.hud.WatermarkModule;
 import dev.schizo.client.modules.hud.WelcomerModule;
+import dev.schizo.client.modules.misc.AnnouncerModule;
+import dev.schizo.client.modules.misc.AntiAFKModule;
+import dev.schizo.client.modules.misc.AntiAimModule;
+import dev.schizo.client.modules.misc.AntiCyrillicModule;
+import dev.schizo.client.modules.misc.AntiQuitModule;
+import dev.schizo.client.modules.misc.AntiSpamModule;
+import dev.schizo.client.modules.misc.AutoReconnectModule;
+import dev.schizo.client.modules.misc.AutoRespawnModule;
+import dev.schizo.client.modules.misc.AutoSignModule;
+import dev.schizo.client.modules.misc.BetterChatModule;
+import dev.schizo.client.modules.misc.ChatFilterModule;
+import dev.schizo.client.modules.misc.ChestSearchBarModule;
+import dev.schizo.client.modules.misc.CoordLoggerModule;
+import dev.schizo.client.modules.misc.CustomDeathTextModule;
+import dev.schizo.client.modules.misc.ExtraScreenshotModule;
+import dev.schizo.client.modules.misc.ExtraTabModule;
+import dev.schizo.client.modules.misc.HeavenModule;
+import dev.schizo.client.modules.misc.KillEffectsModule;
+import dev.schizo.client.modules.misc.MiddleClickModule;
+import dev.schizo.client.modules.misc.NoNarratorModule;
+import dev.schizo.client.modules.misc.NoPacketKickModule;
+import dev.schizo.client.modules.misc.NoRotateModule;
+import dev.schizo.client.modules.misc.SkinFlickerModule;
+import dev.schizo.client.modules.misc.SoundBlockerModule;
+import dev.schizo.client.modules.misc.SpammerModule;
+import dev.schizo.client.modules.misc.StashFinderModule;
+import dev.schizo.client.modules.misc.VisualRangeModule;
+import dev.schizo.client.modules.misc.WebhookNotifsModule;
 import dev.schizo.client.modules.movement.NoFallModule;
 import dev.schizo.client.modules.exploit.ReachModule;
 import dev.schizo.client.modules.exploit.PhaseModule;
@@ -227,6 +255,119 @@ public final class ModuleCompatibility {
          Classification.SERVER_SENSITIVE,
          "Permanent bridge that changes Baritone pathing/automation assumptions, optional block backfilling and disconnect-on-arrival behavior; these settings can change automated multiplayer actions."
       )),
+      Map.entry(AnnouncerModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Observes local/world/player activity and can automatically send configured chat announcements to the connected server."
+      )),
+      Map.entry(AntiAFKModule.class, assessed(
+         Classification.SERVER_SENSITIVE,
+         "Automates rotation, jumping/swinging and optional whisper replies to prevent inactivity; behavior can affect server-observed player state."
+      )),
+      Map.entry(AntiAimModule.class, assessed(
+         Classification.SERVER_SENSITIVE,
+         "Changes player rotation behavior while observing item-use packets; the resulting rotations are server-visible."
+      )),
+      Map.entry(AntiCyrillicModule.class, assessed(
+         Classification.PACKET_AFFECTING,
+         "Normalizes outgoing chat/command text, including mutation of the serverbound command payload."
+      )),
+      Map.entry(AntiQuitModule.class, assessed(
+         Classification.INPUT_MODIFYING,
+         "Adds local confirmation flow before server disconnect or game close; it does not synthesize gameplay packets."
+      )),
+      Map.entry(AntiSpamModule.class, assessed(
+         Classification.CLIENT_ONLY,
+         "Deduplicates and formats local incoming chat presentation and resets local history on disconnect."
+      )),
+      Map.entry(AutoReconnectModule.class, assessed(
+         Classification.SERVER_SENSITIVE,
+         "Automatically initiates a new connection attempt after a disconnect when configured."
+      )),
+      Map.entry(AutoRespawnModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automatically requests respawn and can send configured chat/command text after respawn."
+      )),
+      Map.entry(AutoSignModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automatically submits sign text with a ServerboundSignUpdatePacket."
+      )),
+      Map.entry(BetterChatModule.class, assessed(
+         Classification.PACKET_AFFECTING,
+         "Mostly changes local chat presentation, but its message prefix/suffix feature modifies outgoing chat text before transmission."
+      )),
+      Map.entry(ChatFilterModule.class, assessed(
+         Classification.CLIENT_ONLY,
+         "Filters local incoming chat; outgoing chat is observed only to avoid filtering the client's echoed message."
+      )),
+      Map.entry(ChestSearchBarModule.class, assessed(
+         Classification.CLIENT_ONLY,
+         "Adds local inventory/container search UI only."
+      )),
+      Map.entry(CoordLoggerModule.class, assessed(
+         Classification.CLIENT_ONLY,
+         "Records local coordinates on selected client events and clientbound death information without modifying gameplay traffic."
+      )),
+      Map.entry(CustomDeathTextModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Replaces only the local death-screen text."
+      )),
+      Map.entry(ExtraScreenshotModule.class, assessed(
+         Classification.CLIENT_ONLY,
+         "Adds local screenshot/clipboard tooling and an optional explicit Imgur upload; it does not modify Minecraft gameplay traffic."
+      )),
+      Map.entry(ExtraTabModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Changes local player-list/tab presentation and input display only."
+      )),
+      Map.entry(HeavenModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Moves only the local death-screen camera after death."
+      )),
+      Map.entry(KillEffectsModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Observes clientbound kill state and creates local visual/audio kill effects without sending gameplay actions."
+      )),
+      Map.entry(MiddleClickModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Middle-click can toggle local friend state or use firework rockets through normal client interaction paths."
+      )),
+      Map.entry(NoNarratorModule.class, assessed(
+         Classification.CLIENT_ONLY,
+         "Suppresses local narrator behavior only."
+      )),
+      Map.entry(NoPacketKickModule.class, assessed(
+         Classification.PACKET_AFFECTING,
+         "Cancels the client's connection exception handler while enabled, changing how malformed/exceptional packet handling affects the session."
+      )),
+      Map.entry(NoRotateModule.class, assessed(
+         Classification.PACKET_AFFECTING,
+         "Mutates clientbound position-correction rotation and selected outgoing movement yaw/pitch fields."
+      )),
+      Map.entry(SkinFlickerModule.class, assessed(
+         Classification.PACKET_AFFECTING,
+         "Toggles player model-part options and broadcasts the resulting client-information state to the server."
+      )),
+      Map.entry(SoundBlockerModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Cancels selected sounds in the local sound engine only."
+      )),
+      Map.entry(SpammerModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automatically sends configured chat/command messages to the connected server."
+      )),
+      Map.entry(StashFinderModule.class, assessed(
+         Classification.CLIENT_ONLY,
+         "Observes loaded chunk/container state and records/notifies local stash information without issuing world interactions."
+      )),
+      Map.entry(VisualRangeModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Observes client entity/chunk packets and prints local range notifications without modifying outgoing gameplay traffic."
+      )),
+      Map.entry(WebhookNotifsModule.class, assessed(
+         Classification.CLIENT_ONLY,
+         "Forwards selected local chat/session notifications to an explicitly configured external webhook or Telegram destination without modifying Minecraft gameplay traffic."
+      )),
+
       Map.entry(AmbienceModule.class, assessed(
          Classification.VISUAL_ONLY,
          "Changes local gamma, time, fog, sky and lighting presentation; its time adjustments are applied to the client world and no outgoing gameplay packet path was found."
