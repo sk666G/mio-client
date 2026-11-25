@@ -28,6 +28,20 @@ class RepositoryHygieneTest(unittest.TestCase):
         missing = [name for name in entries if not (mixin_root / f"{name}.java").is_file()]
         self.assertEqual([], missing, f"Mixin sources missing for configured entries: {missing}")
 
+    def test_production_source_uses_structured_logging(self):
+        source_root = ROOT / "src/main/java"
+        print_stack = []
+        raw_console = []
+        for path in source_root.rglob("*.java"):
+            text = path.read_text(encoding="utf-8")
+            relative = str(path.relative_to(source_root))
+            if ".printStackTrace(" in text:
+                print_stack.append(relative)
+            if "System.out." in text or "System.err." in text:
+                raw_console.append(relative)
+        self.assertEqual([], sorted(print_stack), f"printStackTrace remains in production source: {print_stack}")
+        self.assertEqual([], sorted(raw_console), f"Raw console logging remains in production source: {raw_console}")
+
     def test_no_stale_root_zio_branding_asset(self):
         self.assertFalse((ROOT / "zio.png").exists())
 
