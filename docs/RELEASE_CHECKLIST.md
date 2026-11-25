@@ -4,17 +4,20 @@ Status is intentionally conservative. A checked item requires recorded evidence.
 
 ## Source and integration
 
-- [x] Start from `lunyx/safe-mode` (`684333a2edce978cc7673ae3277c4d65d92f1d63`) and consolidate the reviewed feature branches.
-- [x] Integrate the Module/Event Profiler while preserving newer command registrations.
-- [x] Keep the reliability-hardening stack in branch ancestry.
+- [x] Consolidate the reviewed GUI/HUD lineage through `lunyx/music-text-format` and the broad module/reliability stack through `lunyx/module-reliability-integration-v1` (Build #696).
+- [x] Reconcile the newer runtime ownership/session hardening into `lunyx/module-reliability-integration-v2` (Build #712).
+- [x] Keep the Module/Event Profiler and Performance Center work in branch ancestry while preserving command registrations.
 - [x] Remove GrimDisabler and RaytraceBypass implementations, registration and rebuild-script reinjection.
+- [x] Remove live-world worker execution from AutoCrystal and AnchorAura placement scans (Build #715).
+- [ ] Profile AutoCrystal and AnchorAura client-thread scan cost in representative combat worlds before release.
 - [ ] Complete per-module multiplayer compatibility matrix and authorized controlled-server scenarios.
 - [ ] Complete visual QA across ClickGUI, HUD Studio, command palette, integration/profile screens, Performance Center (profiler start/stop/reset and frame-history graph) and all theme presets.
 
 ## Build and tests
 
-- [x] Run automated tests and clean Gradle build in GitHub Actions for the consolidated integration candidate.
-- [ ] Obtain a successful GitHub Actions run for the latest branch head after all final changes.
+- [x] Run automated tests and clean Gradle build in GitHub Actions for the consolidated runtime candidate (Build #712) and combat thread-safety candidate (Build #715).
+- [ ] Obtain a successful GitHub Actions run for the final integrated branch head after Astra/Lunyx reconciliation.
+- [ ] Verify the final review artifact's `COMMIT_SHA.txt` matches the tested commit and `SHA256SUMS.txt` matches the runnable JAR.
 - [ ] Verify remapped artifact starts in the target Minecraft/Fabric environment.
 - [ ] Verify Python rebuild security tests after the final rebuild-script changes.
 - [ ] Run the rebuild workflow from a clean dedicated staging checkout and inspect the generated artifact.
