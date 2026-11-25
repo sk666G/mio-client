@@ -312,16 +312,18 @@ public class TunnelsModule extends Module {
             );
          }
 
-         if (!this.activeChunkScan.next(this.scanPosition)) {
+         TunnelsChunkScanCursor.Cell cell = this.activeChunkScan.next();
+         if (cell == null) {
             this.queuedChunkScans.remove(this.activeChunkPosition.toLong());
             this.activeChunkScan = null;
             this.activeChunkPosition = null;
             continue;
          }
 
-         int x = this.scanPosition.getX();
-         int y = this.scanPosition.getY();
-         int z = this.scanPosition.getZ();
+         int x = cell.x();
+         int y = cell.y();
+         int z = cell.z();
+         this.scanPosition.set(x, y, z);
          if (this.isNonSolid(this.scanPosition)) {
             if (this.isVerticalTunnelCell(this.scanPosition)) {
                this.pendingTunnels.add(
