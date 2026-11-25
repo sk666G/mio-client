@@ -13,10 +13,12 @@ import dev.schizo.client.ClientAccess;
 import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.events.PacketEvent;
 import dev.schizo.client.utils.network.PingSpoofDelayHandler;
+import dev.schizo.client.utils.FailureLogGate;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPipeline;
+import java.util.concurrent.TimeUnit;
 import net.minecraft.network.Connection;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.PacketFlow;
@@ -30,6 +32,27 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(Connection.class)
 public class ConnectionMixin {
+   private static final long FAILURE_LOG_INTERVAL_NANOS = TimeUnit.SECONDS.toNanos(2L);
+   private static final FailureLogGate RECEIVE_FAILURE_LOG = new FailureLogGate(FAILURE_LOG_INTERVAL_NANOS);
+   private static final FailureLogGate SEND_FAILURE_LOG = new FailureLogGate(FAILURE_LOG_INTERVAL_NANOS);
+   private static final FailureLogGate POST_SEND_FAILURE_LOG = new FailureLogGate(FAILURE_LOG_INTERVAL_NANOS);
+
+   private static void logEventFailure(String phase, Exception failure, FailureLogGate gate) {
+      FailureLogGate.Decision decision = gate.acquire(System.nanoTime());
+      if (!decision.shouldLog()) {
+         return;
+      }
+      long suppressed = decision.suppressedSinceLastLog();
+      if (suppressed == 0L) {
+         ClientAccess.logger.warn("Packet {} event handler failed", phase, failure);
+      } else {
+         ClientAccess.logger.warn(
+            "Packet {} event handler failed ({} similar failures suppressed since the last log)",
+            phase, suppressed, failure
+         );
+      }
+   }
+
    @Shadow
    private Channel channel;
    @Shadow
@@ -62,7 +85,7 @@ public class ConnectionMixin {
                callback.cancel();
             }
          } catch (Exception eventFailure) {
-            ClientAccess.logger.warn("Packet receive event handler failed", eventFailure);
+            logEventFailure("receive", eventFailure, RECEIVE_FAILURE_LOG);
          }
       }
    }
@@ -80,7 +103,7 @@ public class ConnectionMixin {
                callback.cancel();
             }
          } catch (Exception eventFailure) {
-            ClientAccess.logger.warn("Packet send event handler failed", eventFailure);
+            logEventFailure("send", eventFailure, SEND_FAILURE_LOG);
          }
       }
    }
@@ -95,7 +118,7 @@ public class ConnectionMixin {
             ClientAccess.eventBus
                .post(event);
          } catch (Exception eventFailure) {
-            ClientAccess.logger.warn("Packet post-send event handler failed", eventFailure);
+            logEventFailure("post-send", eventFailure, POST_SEND_FAILURE_LOG);
          }
       }
    }
