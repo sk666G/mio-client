@@ -183,6 +183,18 @@ public final class ServerStateManager implements ClientAccess {
       };
    }
 
+   public long getPacketIdleMillis(ServerStateManager.PacketActivity activity) {
+      long packetNanos = switch (activity) {
+         case ANY -> this.lastPacketNanos;
+         case ENTITY -> this.lastEntityPacketNanos;
+      };
+      if (packetNanos == 0L) {
+         return Long.MAX_VALUE;
+      }
+      long elapsedNanos = Math.max(0L, System.nanoTime() - packetNanos);
+      return TimeUnit.NANOSECONDS.toMillis(elapsedNanos);
+   }
+
    @EventHandler(priority = 200)
    private void onConnectionSendPacketEvent(
       PacketEvent.Send event
