@@ -55,7 +55,6 @@ public class Registry<T extends NamedEntry> extends AbstractRegistry<T> {
          return false;
       }
 
-      this.entries.remove(entry);
-      return true;
+      return this.entries.remove(entry);
    }
 }
