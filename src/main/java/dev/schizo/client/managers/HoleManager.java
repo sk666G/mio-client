@@ -12,19 +12,17 @@ package dev.schizo.client.managers;
 import dev.schizo.client.utils.entity.PlayerStateUtils;
 import dev.schizo.client.utils.world.BlockStateUtils;
 import dev.schizo.client.utils.world.HoleInfo;
-import dev.schizo.client.managers.HoleScanTask;
 
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.LocalPlayerTickEvent;
 import dev.schizo.client.settings.options.DimensionType;
-import java.util.ArrayList;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.player.LocalPlayer;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.function.IntFunction;
 import java.util.stream.Stream;
 import net.minecraft.core.BlockPos;
@@ -43,11 +41,13 @@ public final class HoleManager implements ClientAccess {
 
    private static final Direction[] horizontalDirections;
 
-   private static final ScheduledExecutorService scanExecutor;
+   private HoleScanTask scan;
+   private ClientLevel scanLevel;
+   private LocalPlayer scanPlayer;
 
    private static final MutableBlockPos classificationCursor;
 
-   private volatile List<HoleInfo> holes = new ArrayList<>();
+   private List<HoleInfo> holes = List.of();
 
    private boolean inHole;
 
@@ -56,7 +56,7 @@ public final class HoleManager implements ClientAccess {
    }
 
    public boolean intersectsHole(AABB bounds) {
-      return this.holes.stream().anyMatch(
+      return this.getHoles().stream().anyMatch(
          hole -> {
             AABB holeBounds = hole.bounds();
             return holeBounds.intersects(bounds);
@@ -64,12 +64,12 @@ public final class HoleManager implements ClientAccess {
       );
    }
 
-   public List getHoles() {
-      return this.holes;
+   public List<HoleInfo> getHoles() {
+      return this.ownsSession() ? this.holes : List.of();
    }
 
    public HoleInfo findIntersectingHole(BlockPos position) {
-      Stream<HoleInfo> matchingHoles = this.holes.stream().filter(
+      Stream<HoleInfo> matchingHoles = this.getHoles().stream().filter(
             hole -> {
                AABB holeBounds = hole.bounds();
                return holeBounds.intersects(new AABB(position));
@@ -80,21 +80,16 @@ public final class HoleManager implements ClientAccess {
    }
 
    public boolean isInHole() {
-      return this.inHole;
+      return this.ownsSession() && this.inHole;
    }
 
    public HoleManager() {
       ClientAccess.eventBus.subscribe(this);
-      ScheduledExecutorService executor = scanExecutor;
-      HoleScanTask scanTask = new HoleScanTask(this);
-      TimeUnit scanTimeUnit = TimeUnit.MILLISECONDS;
-      executor.scheduleAtFixedRate(scanTask, 0L, 50L, scanTimeUnit);
    }
 
    static {
       Plane horizontalPlane = Plane.HORIZONTAL;
       horizontalDirections = horizontalPlane.stream().toArray((IntFunction<Direction[]>)Direction[]::new);
-      scanExecutor = Executors.newSingleThreadScheduledExecutor();
       classificationCursor = new MutableBlockPos();
    }
 
@@ -181,12 +176,42 @@ public final class HoleManager implements ClientAccess {
 
    @EventHandler
    private void onLocalPlayerTickEvent(LocalPlayerTickEvent event) {
+      if (!this.ownsSession()) {
+         this.resetScan();
+         this.scanLevel = schizoMinecraft.level;
+         this.scanPlayer = schizoMinecraft.player;
+      }
+      if (this.scanPlayer == null || this.scanLevel == null) {
+         return;
+      }
+
+      BlockPos origin = this.scanPlayer.blockPosition();
+      if (this.scan == null || !this.scan.covers(origin)) {
+         this.scan = new HoleScanTask(origin);
+      }
+      if (this.scan.advance()) {
+         this.holes = this.scan.result();
+         this.scan = null;
+      }
       BlockPos roundedPosition = PlayerStateUtils.getLocalRoundedBlockPosition();
       this.inHole = this.intersectsHole(roundedPosition);
    }
 
-   public void setHoles(List updatedHoles) {
-      this.holes = updatedHoles;
+   private boolean ownsSession() {
+      return this.scanLevel == schizoMinecraft.level && this.scanPlayer == schizoMinecraft.player;
+   }
+
+   @EventHandler
+   private void onDisconnect(MinecraftDisconnectEvent event) {
+      this.resetScan();
+   }
+
+   private void resetScan() {
+      this.scan = null;
+      this.scanLevel = null;
+      this.scanPlayer = null;
+      this.holes = List.of();
+      this.inHole = false;
    }
 
    private static AABB createHoleBounds(BlockPos position, Direction face) {
