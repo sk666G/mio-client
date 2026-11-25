@@ -9,6 +9,7 @@
 
 package dev.schizo.client.gui.screens;
 
+import dev.schizo.client.diagnostics.RuntimeDiagnostics;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.audio.BuiltinSound;
@@ -59,7 +60,7 @@ public class SoundSelectionScreen extends ClientScreen {
             try {
                Files.copy(droppedFile, customSoundsDirectory.resolve(droppedFile.getFileName()));
             } catch (IOException exception) {
-               exception.printStackTrace();
+               RuntimeDiagnostics.record(RuntimeDiagnostics.Area.FILE_IO, "Sound import", exception);
             }
          }
       }
