@@ -479,7 +479,12 @@ public final class PresetCommand extends Command {
                String moduleConfigName = module.getConfigName();
                JsonElement moduleConfig = LegacyBranding.findModuleConfig(contentsObject, moduleConfigName);
                module.fromJson(moduleConfig);
-            } catch (Exception ignoredLoadFailure) {
+            } catch (Exception loadFailure) {
+               RuntimeDiagnostics.record(
+                  RuntimeDiagnostics.Area.COMMAND,
+                  "Preset apply: " + module.getName(),
+                  loadFailure
+               );
             }
          }
       }
