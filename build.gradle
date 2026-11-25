@@ -108,6 +108,7 @@ processResources {
     filesMatching('fabric.mod.json') { expand version: modVersion }
     from('LICENSES') { into 'LICENSES' }
     from('THIRD_PARTY_NOTICES.md')
+    from('LICENSING.md')
 }
 
 java {
@@ -118,6 +119,7 @@ java {
 tasks.named('sourcesJar') {
     from('LICENSES') { into 'LICENSES' }
     from('THIRD_PARTY_NOTICES.md')
+    from('LICENSING.md')
 }
 
 tasks.withType(Test).configureEach {
