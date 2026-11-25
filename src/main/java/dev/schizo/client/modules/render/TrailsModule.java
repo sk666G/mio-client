@@ -30,9 +30,8 @@ import dev.schizo.client.settings.Setting;
 import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
+import java.util.ArrayDeque;
+import java.util.Iterator;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 import net.minecraft.client.multiplayer.ClientLevel;
@@ -46,7 +45,7 @@ import net.minecraft.world.entity.projectile.throwableitemprojectile.ThrownExper
 import net.minecraft.world.phys.Vec3;
 
 public class TrailsModule extends Module {
-   private final HashMap<Integer, List<TrailPoint>> trailsByEntityId = new HashMap<>();
+   private final TrailHistory<TrailPoint> trailsByEntityId = new TrailHistory<>(256, 1024);
    private final Setting<Boolean> renderSetting;
    private final Setting<Boolean> bloomSetting;
    private final Setting<Float> delaySetting;
@@ -125,10 +124,7 @@ public class TrailsModule extends Module {
                this.lastPruneTick = playerTick;
                long now = System.nanoTime();
                long lifetime = TimeUnit.MILLISECONDS.toNanos(this.getFadeDelayMillis() + this.getFadeDurationMillis());
-               this.trailsByEntityId.values().removeIf(points -> {
-                  points.removeIf(point -> now - point.createdAtNanos > lifetime);
-                  return points.isEmpty();
-               });
+               this.trailsByEntityId.prune(point -> now - point.createdAtNanos > lifetime);
             }
 
             ClientLevel level = ClientAccess.schizoMinecraft.level;
@@ -136,17 +132,14 @@ public class TrailsModule extends Module {
 
                if (this.shouldTrackEntity(entity)) {
                   TrailsModule.TrailPoint point = new TrailsModule.TrailPoint(entity.getPosition(RenderUtils.getPartialTick()));
-                  HashMap<Integer, List<TrailPoint>> trailMap = this.trailsByEntityId;
-                  int newEntityId = entity.getId();
-                  List<TrailPoint> entityTrail = trailMap.computeIfAbsent(newEntityId, entityId -> new ArrayList<>());
-                  entityTrail.add(point);
+                  this.trailsByEntityId.add(entity.getId(), point);
                }
             }
          }
       }
    }
 
-   private void renderTrail(PoseStack poseStack, List<TrailPoint> points, float lineWidth) {
+   private void renderTrail(PoseStack poseStack, ArrayDeque<TrailPoint> points, float lineWidth) {
       LineMeshRenderer.begin(poseStack, lineWidth);
       Color base = this.colorSetting.getValue();
       int redValue = base.getRed();
@@ -154,10 +147,11 @@ public class TrailsModule extends Module {
       int blueValue = base.getBlue();
       float[] baseHsb = Color.RGBtoHSB(redValue, greenValue, blueValue, null);
       long now = System.nanoTime();
-      TrailPoint previous = points.getFirst();
+      Iterator<TrailPoint> iterator = points.iterator();
+      TrailPoint previous = iterator.next();
       int previousColor = this.getPointColor(baseHsb, previous, now).hashCode();
-      for (int pointIndex = 1; pointIndex < points.size(); pointIndex++) {
-         TrailPoint point = points.get(pointIndex);
+      while (iterator.hasNext()) {
+         TrailPoint point = iterator.next();
          int pointColor = this.getPointColor(baseHsb, point, now).hashCode();
          LineMeshRenderer.addVertex(previous.position.x, previous.position.y, previous.position.z,
             previousColor, true, false);
@@ -236,7 +230,7 @@ public class TrailsModule extends Module {
             );
             try {
                float width = this.lineWidthSetting.getValue();
-               for (List<TrailPoint> points : this.trailsByEntityId.values()) {
+               for (ArrayDeque<TrailPoint> points : this.trailsByEntityId.values()) {
                   if (points.size() > 2) {
                      this.renderTrail(event.getPoseStack(), points, width);
                   }
