@@ -16,6 +16,7 @@ import dev.schizo.client.config.PresetNameValidator;
 import dev.schizo.client.settings.options.PresetCategory;
 import dev.schizo.client.utils.FileUtils;
 
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import java.io.IOException;
@@ -27,6 +28,7 @@ import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.Locale;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -58,9 +60,50 @@ public final class PresetRegistry extends Registry<PresetData> {
       }
       synchronized (this.getRegistry()) {
          PresetData preset = this.findPreset(normalized);
-         if (preset == null) return false;
-         this.category.fromJson(preset.copyContents());
-         return true;
+         if (preset == null || this.category == null) return false;
+         try {
+            applyWithRollback(
+               this.category::toJson,
+               this.category::fromJson,
+               preset.copyContents()
+            );
+            return true;
+         } catch (RuntimeException failure) {
+            LOGGER.error(
+               "Could not apply {} preset {}; restored the previous category state when possible",
+               this.category.getName(),
+               preset.getName(),
+               failure
+            );
+            return false;
+         }
+      }
+   }
+
+   static void applyWithRollback(
+      Supplier<JsonElement> snapshotSupplier,
+      Consumer<JsonElement> applier,
+      JsonElement desiredState
+   ) {
+      if (snapshotSupplier == null || applier == null || desiredState == null) {
+         throw new IllegalArgumentException("Preset transaction inputs must not be null");
+      }
+
+      JsonElement previousState = snapshotSupplier.get();
+      if (previousState == null) {
+         throw new IllegalStateException("Preset category did not provide a rollback snapshot");
+      }
+      previousState = previousState.deepCopy();
+
+      try {
+         applier.accept(desiredState.deepCopy());
+      } catch (RuntimeException applyFailure) {
+         try {
+            applier.accept(previousState.deepCopy());
+         } catch (RuntimeException rollbackFailure) {
+            applyFailure.addSuppressed(rollbackFailure);
+         }
+         throw applyFailure;
       }
    }
 
