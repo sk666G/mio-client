@@ -66,6 +66,27 @@ class JsonStateTransactionTest {
    }
 
    @Test
+   void repeatedExceptionInstanceDoesNotMaskOriginalApplyFailure() {
+      IllegalStateException sharedFailure = new IllegalStateException("shared failure");
+      AtomicInteger calls = new AtomicInteger();
+
+      RuntimeException failure = assertThrows(RuntimeException.class, () ->
+         JsonStateTransaction.apply(
+            () -> json("before"),
+            value -> {
+               calls.incrementAndGet();
+               throw sharedFailure;
+            },
+            json("after")
+         )
+      );
+
+      assertSame(sharedFailure, failure);
+      assertEquals(2, calls.get());
+      assertEquals(0, failure.getSuppressed().length);
+   }
+
+   @Test
    void desiredPayloadIsDefensivelyCopied() {
       JsonObject desired = json("after");
 
