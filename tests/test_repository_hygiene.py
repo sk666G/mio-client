@@ -20,6 +20,33 @@ class RepositoryHygieneTest(unittest.TestCase):
     def test_no_stale_root_zio_branding_asset(self):
         self.assertFalse((ROOT / "zio.png").exists())
 
+    def test_mod_metadata_matches_supported_runtime(self):
+        metadata = json.loads((ROOT / "src/main/resources/fabric.mod.json").read_text(encoding="utf-8"))
+        self.assertEqual("schizo", metadata.get("id"))
+        self.assertEqual("Schizo", metadata.get("name"))
+        self.assertEqual("schizo.mixins.json", metadata.get("mixins", [None])[0])
+        self.assertEqual("schizo.accesswidener", metadata.get("accessWidener"))
+        self.assertEqual(">=21", metadata.get("depends", {}).get("java"))
+        for entrypoint in ("main", "client"):
+            self.assertEqual(
+                ["dev.schizo.client.SchizoClient"],
+                metadata.get("entrypoints", {}).get(entrypoint),
+            )
+
+    def test_validation_circumvention_modules_cannot_reappear(self):
+        forbidden = (
+            ROOT / "src/main/java/dev/schizo/client/modules/exploit/GrimDisablerModule.java",
+            ROOT / "src/main/java/dev/schizo/client/modules/exploit/RaytraceBypassModule.java",
+        )
+        for path in forbidden:
+            self.assertFalse(path.exists(), f"Forbidden module returned: {path.name}")
+
+        registry = (ROOT / "src/main/java/dev/schizo/client/managers/ModuleRegistry.java").read_text(encoding="utf-8")
+        rebuild = (ROOT / "tools/rebrand_open_zio.py").read_text(encoding="utf-8")
+        for name in ("GrimDisablerModule", "RaytraceBypassModule"):
+            self.assertNotIn(f"new dev.schizo.client.modules.exploit.{name}", registry)
+            self.assertIn(name, rebuild)
+
 
 if __name__ == "__main__":
     unittest.main()
