@@ -56,7 +56,6 @@ public class SkeletonModule extends Module {
 
    static {
 
-      freecamModule = (FreecamModule)ClientContext.getModule(FreecamModule.class);
    }
 
    private void applyModelPartRotation(PoseStack poseStack, ModelPart part) {
