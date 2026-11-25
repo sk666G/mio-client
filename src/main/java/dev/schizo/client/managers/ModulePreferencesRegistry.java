@@ -118,17 +118,15 @@ public final class ModulePreferencesRegistry implements ClientAccess, JsonConfig
 
    @Override
    public void fromJson(JsonElement json) {
-      this.state.clear();
       if (json == null || !json.isJsonObject()) {
-         return;
+         throw new IllegalArgumentException("Module preferences configuration must be a JSON object");
       }
       JsonObject root = json.getAsJsonObject();
       JsonElement version = root.get("version");
       if (version == null || !version.isJsonPrimitive()
          || !version.getAsJsonPrimitive().isNumber()
          || version.getAsDouble() != CURRENT_SCHEMA_VERSION) {
-         ClientAccess.logger.warn("Ignoring unsupported module preferences configuration");
-         return;
+         throw new IllegalArgumentException("Unsupported module preferences schema version");
       }
 
       List<String> favorites = this.loadKnownNames(root.get("favorites"), MAX_FAVORITES, false);
