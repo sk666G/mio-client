@@ -361,7 +361,11 @@ public class FreecamModule extends Module {
       PacketEvent.Receive event
    ) {
       if (event.getPacket() instanceof ClientboundDisconnectPacket) {
-         this.disable();
+         ClientAccess.schizoMinecraft.executeIfPossible(() -> {
+            if (this.isToggled()) {
+               this.disable();
+            }
+         });
       }
    }
 
