@@ -169,6 +169,24 @@ import dev.schizo.client.modules.player.NukerModule;
 import dev.schizo.client.modules.combat.OffhandModule;
 import dev.schizo.client.modules.combat.PistonCrystalModule;
 import dev.schizo.client.modules.combat.PusherModule;
+import dev.schizo.client.modules.player.ReplenishModule;
+import dev.schizo.client.modules.exploit.RocketExtenderModule;
+import dev.schizo.client.modules.player.RotationLockModule;
+import dev.schizo.client.modules.movement.SafeWalkModule;
+import dev.schizo.client.modules.player.ScaffoldModule;
+import dev.schizo.client.modules.combat.SelfFillModule;
+import dev.schizo.client.modules.combat.SelfTrapModule;
+import dev.schizo.client.modules.combat.SelfWebModule;
+import dev.schizo.client.modules.player.SourceFillModule;
+import dev.schizo.client.modules.movement.SpeedModule;
+import dev.schizo.client.modules.movement.SprintModule;
+import dev.schizo.client.modules.movement.StepModule;
+import dev.schizo.client.modules.misc.SwingModule;
+import dev.schizo.client.modules.exploit.TimerModule;
+import dev.schizo.client.modules.exploit.TridentModule;
+import dev.schizo.client.modules.movement.VelocityModule;
+import dev.schizo.client.modules.combat.WebAuraModule;
+import dev.schizo.client.modules.exploit.XCarryModule;
 import java.util.Map;
 
 /**
@@ -630,6 +648,78 @@ public final class ModuleCompatibility {
       Map.entry(PusherModule.class, assessed(
          Classification.WORLD_INTERACTION,
          "Automatically places pistons and power sources around selected targets using ordinary placement/swing helpers."
+      )),
+      Map.entry(ReplenishModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automatically performs container quick-move clicks to replenish configured hotbar stacks."
+      )),
+      Map.entry(RocketExtenderModule.class, assessed(
+         Classification.PACKET_AFFECTING,
+         "Holds/cancels selected ping and interaction packets and releases responses later while extending rocket-related state."
+      )),
+      Map.entry(RotationLockModule.class, assessed(
+         Classification.SERVER_SENSITIVE,
+         "Forces or requests locked yaw/pitch values that can become the player's reported server-side rotation."
+      )),
+      Map.entry(SafeWalkModule.class, assessed(
+         Classification.INPUT_MODIFYING,
+         "Requests sneak input or cancels local edge movement to prevent walking off blocks."
+      )),
+      Map.entry(ScaffoldModule.class, assessed(
+         Classification.SERVER_SENSITIVE,
+         "Automates block placement and can alter jump strength, velocity, tick rate and rotation while bridging/towering."
+      )),
+      Map.entry(SelfFillModule.class, assessed(
+         Classification.PACKET_AFFECTING,
+         "Automates self-placement while emitting explicit position/rotation and destroy-action packets around the fill sequence."
+      )),
+      Map.entry(SelfTrapModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Placement automation that covers the local player with configured blocks."
+      )),
+      Map.entry(SelfWebModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automatically places a cobweb at the local player's position with optional rotation."
+      )),
+      Map.entry(SourceFillModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automatically replaces nearby liquid source blocks with solid-block placements."
+      )),
+      Map.entry(SpeedModule.class, assessed(
+         Classification.SERVER_SENSITIVE,
+         "Changes movement physics, movement events and optional tick-rate behavior across multiple speed modes."
+      )),
+      Map.entry(SprintModule.class, assessed(
+         Classification.PACKET_AFFECTING,
+         "Automates sprint state and can emit explicit position/rotation plus start/stop sprint command packets."
+      )),
+      Map.entry(StepModule.class, assessed(
+         Classification.PACKET_AFFECTING,
+         "Changes step height and emits intermediate position packets for configured step behavior."
+      )),
+      Map.entry(SwingModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Changes local swing arm, duration and legacy animation/shake presentation; its packet observer does not rewrite the swing packet."
+      )),
+      Map.entry(TimerModule.class, assessed(
+         Classification.SERVER_SENSITIVE,
+         "Changes client/player tick-rate multipliers, altering the cadence of movement and gameplay simulation."
+      )),
+      Map.entry(TridentModule.class, assessed(
+         Classification.SERVER_SENSITIVE,
+         "Changes riptide eligibility, minimum charge time and riptide push strength through TridentItem mixins."
+      )),
+      Map.entry(VelocityModule.class, assessed(
+         Classification.PACKET_AFFECTING,
+         "Intercepts/cancels incoming push/explosion/entity-motion handling and has packet-aware velocity modes."
+      )),
+      Map.entry(WebAuraModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Placement automation that traps selected nearby targets with cobwebs."
+      )),
+      Map.entry(XCarryModule.class, assessed(
+         Classification.PACKET_AFFECTING,
+         "Cancels selected container-close packets so crafting slots can remain usable as extra carried inventory."
       )),
       Map.entry(AmbienceModule.class, assessed(
          Classification.VISUAL_ONLY,
