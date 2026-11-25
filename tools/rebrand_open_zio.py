@@ -15,7 +15,7 @@ from pathlib import Path, PurePosixPath, PureWindowsPath
 
 EXPECTED_COMMIT = "2fec97aa0c52860f9252b61543dce8fc9825e081"
 VERSION_PLACEHOLDER = "$" + "{version}"
-PRESERVE_TOP_LEVEL = {".git", ".github", "tools"}
+PRESERVE_TOP_LEVEL = {".git", ".github", "tools", "LICENSES"}
 REMOVED_MODULES = {
     "src/main/java/dev/zio/client/modules/exploit/GrimDisablerModule.java",
     "src/main/java/dev/zio/client/modules/exploit/RaytraceBypassModule.java",
@@ -27,7 +27,7 @@ Schizo is a client-only Fabric client for Minecraft 1.21.11, rebuilt on the Open
 
 ## Upstream and attribution
 
-This is an independent rebrand and derivative of Open Zio. See UPSTREAM.md for the pinned snapshot. Original upstream source headers are retained. Third-party notices and known license gaps are recorded in THIRD_PARTY_NOTICES.md.
+This is an independent rebrand and derivative of Open Zio. See UPSTREAM.md for the pinned snapshot. Original upstream source headers are retained. Third-party notices and verified vendored-license information are recorded in THIRD_PARTY_NOTICES.md and LICENSING.md.
 
 Schizo is not affiliated with or endorsed by Mio.
 
@@ -59,16 +59,25 @@ This file supplements rather than replaces upstream notices.
 """
 THIRD_PARTY = """# Third-party notices
 
-## DiscordIPC
+## DiscordIPC core
 
-The source files under src/main/java/com/jagrosh/discordipc/ are vendored from DiscordIPC by John Grosh (jagrosh).
-Upstream: https://github.com/jagrosh/DiscordIPC
+Source files under `src/main/java/com/jagrosh/discordipc/` correspond to the public CDAGaming/DiscordIPC lineage and are covered by Apache License 2.0. The full license text is preserved at `LICENSES/DiscordIPC-APACHE-2.0.txt` and packaged with Schizo runtime/source artifacts.
 
-The supplied Open Zio archive contains no separate DiscordIPC license file. Its exact upstream license text must be verified and included before redistribution; no license terms are invented here.
+The corresponding files contain downstream Open Zio and Schizo changes. Retained upstream attribution headers remain in source where present.
 
 ## Gradle Wrapper
 
 The wrapper scripts and JAR retain their original Gradle Apache License 2.0 notices.
+"""
+LICENSING = """# Licensing and attribution
+
+Schizo contains code from more than one source lineage. This file is an index; it does not replace or broaden the license grant carried by an individual source file or third-party component.
+
+Java and project files derived from Open Zio retain their source-level license headers. The imported upstream snapshot did not contain a separate root license file, so Schizo does not invent a copyright owner or retroactively replace those notices.
+
+Original Schizo files use the MIT license header shown in those files. Vendored DiscordIPC source is covered by Apache License 2.0, with the full text preserved under `LICENSES/DiscordIPC-APACHE-2.0.txt`.
+
+See `UPSTREAM.md`, `THIRD_PARTY_NOTICES.md` and `docs/DEPENDENCY_REVIEW.md` for the source and distribution record.
 """
 
 
@@ -297,6 +306,26 @@ def build_staging_tree(stage: Path, members) -> int:
     (stage / "README.md").write_text(README, encoding="utf-8")
     (stage / "UPSTREAM.md").write_text(UPSTREAM, encoding="utf-8")
     (stage / "THIRD_PARTY_NOTICES.md").write_text(THIRD_PARTY, encoding="utf-8")
+    (stage / "LICENSING.md").write_text(LICENSING, encoding="utf-8")
+
+    build = stage / "build.gradle"
+    build_text = build.read_text(encoding="utf-8")
+    if "LICENSING.md" not in build_text:
+        build_text += """
+tasks.named('processResources') {
+    from('LICENSES') { into 'LICENSES' }
+    from('THIRD_PARTY_NOTICES.md')
+    from('LICENSING.md')
+}
+
+tasks.named('sourcesJar') {
+    from('LICENSES') { into 'LICENSES' }
+    from('THIRD_PARTY_NOTICES.md')
+    from('LICENSING.md')
+}
+"""
+        build.write_text(build_text, encoding="utf-8")
+
     gitignore = stage / ".gitignore"
     current = gitignore.read_text(encoding="utf-8") if gitignore.exists() else ""
     for pattern in (".gradle/", "build/", "run/", "run-*/", ".idea/", "*.iml"):
