@@ -12,6 +12,7 @@ package dev.schizo.client.modules.render;
 
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
+import dev.schizo.client.utils.AdaptiveScanBudget;
 import dev.schizo.client.events.ClientLevelAddEntityEvent;
 import dev.schizo.client.events.PacketEvent;
 import dev.schizo.client.events.WorldRenderEvent;
@@ -282,7 +283,8 @@ public class SearchModule extends Module {
       }
 
       int processed = 0;
-      while (processed < CHUNK_SCAN_BUDGET_PER_TICK) {
+      int scanBudget = AdaptiveScanBudget.limit(CHUNK_SCAN_BUDGET_PER_TICK, ClientContext.frameTiming);
+      while (processed < scanBudget) {
          if (this.blocksByPosition.size() >= MAX_CACHED_BLOCKS) {
             this.clearPendingChunkScans();
             return;
