@@ -9,6 +9,7 @@
 
 package dev.schizo.client.modules.movement;
 
+import dev.schizo.client.diagnostics.RuntimeDiagnostics;
 
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
@@ -436,7 +437,12 @@ public class SprintModule extends Module {
    public void setPlayerSprinting(boolean sprinting) {
       try {
          ClientAccess.schizoMinecraft.player.setSprinting(sprinting);
-      } catch (Exception ignoredFailure) {
+      } catch (RuntimeException sprintFailure) {
+         RuntimeDiagnostics.record(
+            RuntimeDiagnostics.Area.MODULE_LIFECYCLE,
+            "Sprint player state",
+            sprintFailure
+         );
       }
    }
 

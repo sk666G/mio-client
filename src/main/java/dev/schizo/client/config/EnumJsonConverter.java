@@ -56,6 +56,9 @@ public final class EnumJsonConverter<E extends Enum<E>> {
    }
 
    public E fromJson(JsonElement json) {
+      if (json == null || !json.isJsonPrimitive() || !json.getAsJsonPrimitive().isString()) {
+         throw new IllegalArgumentException("Enum setting requires a JSON string");
+      }
       for (E candidate : this.enumClass.getEnumConstants()) {
          if (!(candidate instanceof NamedEntry namedCandidate)) {
             throw new IllegalArgumentException();
@@ -70,7 +73,7 @@ public final class EnumJsonConverter<E extends Enum<E>> {
          }
       }
 
-      return this.enumClass.getEnumConstants()[0];
+      throw new IllegalArgumentException("Unknown enum value: " + json.getAsString());
    }
 
    public static Enum nextValue(Enum value) {

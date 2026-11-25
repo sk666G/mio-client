@@ -97,6 +97,7 @@ public final class ModuleDependencies {
    public static void bind(ModuleRegistry registry) {
       Objects.requireNonNull(registry, "Module manager is not initialized");
       ServerStateManager.bindModules(registry);
+      dev.schizo.client.managers.WorldStateManager.bindModules(registry);
       BlockBreakTracker.bindModules(registry);
       RotationManager.bindReferencedModules(registry);
       SprintModule.bindReferencedModules(registry);
@@ -129,6 +130,7 @@ public final class ModuleDependencies {
       AutoExpModule.bindReferencedModules(registry);
       BetterChatModule.bindReferencedModules(registry);
       HUDModule.bindReferencedModules(registry);
+      dev.schizo.client.modules.HudWidgetModule.bindModules(registry);
       ChamsModule.bindReferencedModules(registry);
       NameTagsModule.bindReferencedModules(registry);
       KeyPearlModule.bindReferencedModules(registry);

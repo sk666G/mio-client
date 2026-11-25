@@ -9,6 +9,7 @@
 
 package dev.schizo.client.modules.movement;
 
+import dev.schizo.client.diagnostics.RuntimeDiagnostics;
 
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
@@ -173,7 +174,12 @@ public class WarpModule extends Module {
             Packet<?> packet = this.rechargeController.pendingPongs.poll();
             connection.send(packet);
          }
-      } catch (Exception ignored) {
+      } catch (RuntimeException flushFailure) {
+         RuntimeDiagnostics.record(
+            RuntimeDiagnostics.Area.EVENT,
+            "Warp pending pong flush",
+            flushFailure
+         );
       } finally {
          this.rechargeController.pendingPongs.clear();
       }

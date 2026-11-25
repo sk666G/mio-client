@@ -9,6 +9,7 @@
 
 package dev.schizo.client.render;
 
+import dev.schizo.client.diagnostics.RuntimeDiagnostics;
 import dev.schizo.client.utils.math.MathConstants;
 import dev.schizo.client.modules.client.UIModule;
 import dev.schizo.client.utils.math.MathUtils;
@@ -179,7 +180,7 @@ public final class ColorUtils {
             (int)(firstColor.getAlpha() * firstWeight + secondColor.getAlpha() * (1.0F - firstWeight))
          );
       } catch (IllegalArgumentException exception) {
-         exception.printStackTrace();
+         RuntimeDiagnostics.record(RuntimeDiagnostics.Area.RENDER, "Color blend", exception);
          return Color.white;
       }
    }

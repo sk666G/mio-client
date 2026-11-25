@@ -52,7 +52,9 @@ public final class IrisShaderBridge {
          activeMethod.setAccessible(true);
          MethodHandle activeHandle = lookup.unreflect(activeMethod);
          handRendererActiveSupplier = () -> Boolean.TRUE.equals(invokeOrDefault(activeHandle, handRenderer, false));
-      } catch (Exception | LinkageError ignored) {
+      } catch (Exception | LinkageError failure) {
+         handRendererActiveSupplier = null;
+         handRendererFailure = failure.getClass().getSimpleName();
       }
    }
 
@@ -76,8 +78,20 @@ public final class IrisShaderBridge {
             Object currentPack = invokeOrDefault(currentPackHandle, null, Optional.empty());
             return currentPack instanceof Optional<?> pack && pack.isPresent();
          };
-      } catch (Exception | LinkageError ignored) {
+      } catch (Exception | LinkageError failure) {
+         shaderPackPresentSupplier = null;
+         shaderPackFailure = failure.getClass().getSimpleName();
       }
+   }
+
+   public static String getAvailabilityDescription() {
+      if (!handRendererFailure.isEmpty() || !shaderPackFailure.isEmpty()) {
+         return "optional Iris bridge unavailable: "
+            + (handRendererFailure.isEmpty() ? shaderPackFailure : handRendererFailure);
+      }
+      return shaderPackPresentSupplier == null && handRendererActiveSupplier == null
+         ? "Iris not detected"
+         : "available";
    }
 
    static Object invokeOrDefault(

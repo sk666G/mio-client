@@ -148,7 +148,7 @@ public class HighlightModule extends Module {
       OUTLINE_BUFFER = MeshBuffer.create(
          8192
       );
-      reach = (ReachModule)ClientContext.getModule(ReachModule.class);
+      
    }
 
    private boolean isAirPlaceBlockItem(Item item) {

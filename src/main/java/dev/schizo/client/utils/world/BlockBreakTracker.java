@@ -94,10 +94,7 @@ public final class BlockBreakTracker implements ClientAccess {
       eventBus.subscribe(this);
    }
 
-   static {
-
-      speedMine = ClientContext.getModule(SpeedMineModule.class);
-   }
+   
 
    @EventHandler
    private void onLocalPlayerTickEvent(LocalPlayerTickEvent event) {

@@ -50,7 +50,7 @@ public enum HudColorMode implements NamedEntry {
       }
    },
    RAINBOW("Rainbow") {
-      private static ColorsModule colorsModule = ClientContext.getModule(ColorsModule.class);
+      private static ColorsModule colorsModule;
 
       @Override
       public Color getColor(HUDModule hud, float position) {

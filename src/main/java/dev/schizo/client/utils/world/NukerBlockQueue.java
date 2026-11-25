@@ -27,7 +27,7 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 public final class NukerBlockQueue implements ClientAccess {
-   private static SpeedMineModule speedMineModule = ClientContext.getModule(SpeedMineModule.class);
+   private static SpeedMineModule speedMineModule;
    private final List<BlockPos> positions = new ArrayList<>();
    private final NukerModule nukerModule;
 

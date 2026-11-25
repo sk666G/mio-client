@@ -9,6 +9,7 @@
 
 package dev.schizo.client.media;
 
+import dev.schizo.client.diagnostics.RuntimeDiagnostics;
 import com.sun.jna.Function;
 import com.sun.jna.Memory;
 import com.sun.jna.Native;
@@ -320,7 +321,11 @@ public final class WindowsMediaSessionProvider implements PortableMediaSessionPr
             try {
                 invoke(slot);
             } catch (RuntimeException cleanupFailure) {
-
+                RuntimeDiagnostics.record(
+                    RuntimeDiagnostics.Area.INTEGRATION,
+                    "Windows media best-effort cleanup",
+                    cleanupFailure
+                );
             }
         }
 

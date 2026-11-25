@@ -9,6 +9,7 @@
 
 package dev.schizo.client.utils;
 
+import dev.schizo.client.diagnostics.RuntimeDiagnostics;
 import dev.schizo.client.ClientAccess;
 import java.net.SocketAddress;
 import net.minecraft.client.multiplayer.ClientPacketListener;
@@ -40,7 +41,12 @@ public final class ServerAddressUtils {
          while (address.endsWith(".")) {
             address = address.substring(0, address.length() - 1);
          }
-      } catch (Throwable ignoredFailure) {
+      } catch (RuntimeException addressFailure) {
+         RuntimeDiagnostics.record(
+            RuntimeDiagnostics.Area.INTEGRATION,
+            "Server address detection",
+            addressFailure
+         );
       }
 
       return address != null && !address.isEmpty() ? address : fallbackServerAddress;

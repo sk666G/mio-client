@@ -9,6 +9,7 @@
 
 package dev.schizo.client.settings.options;
 
+import dev.schizo.client.diagnostics.RuntimeDiagnostics;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.managers.MacroRegistry;
 import dev.schizo.client.config.JsonUtils;
@@ -163,7 +164,12 @@ public enum PresetCategory implements JsonConfigurable, NamedEntry {
                   String[] bindingKeys = {"key", "state", "mouse"};
                   JsonUtils.removeProperties(moduleJson, bindingKeys);
                   module.fromJson(moduleJson);
-               } catch (Exception ignored) {
+               } catch (RuntimeException presetFailure) {
+                  RuntimeDiagnostics.record(
+                     RuntimeDiagnostics.Area.CONFIG_SERIALIZATION,
+                     "HUD preset apply: " + module.getName(),
+                     presetFailure
+                  );
                }
             }
          }

@@ -9,6 +9,7 @@
 
 package dev.schizo.client.modules.combat;
 
+import dev.schizo.client.diagnostics.RuntimeDiagnostics;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.PacketEvent;
@@ -31,6 +32,7 @@ import dev.schizo.client.managers.CrystalInteractionManager;
 import dev.schizo.client.utils.inventory.ItemUtils;
 import dev.schizo.client.utils.combat.DamageUtils;
 import dev.schizo.client.utils.ElapsedTimer;
+import dev.schizo.client.utils.IncrementalWorkBudget;
 import dev.schizo.client.utils.combat.EndCrystalState;
 import dev.schizo.client.utils.network.PacketSender;
 import dev.schizo.client.managers.SocialRegistry;
@@ -243,14 +245,6 @@ public class AutoCrystalModule extends Module {
    public LivingEntity target;
    public LivingEntity previousTarget;
    private Vec3 eyePosition;
-   static {
-      speedMine = (SpeedMineModule)ClientContext.getModule(SpeedMineModule.class);
-      antiCheat = (AntiCheatModule)ClientContext.getModule(AntiCheatModule.class);
-      anchorAura = (AnchorAuraModule)ClientContext.getModule(AnchorAuraModule.class);
-      aura = (AuraModule)ClientContext.getModule(AuraModule.class);
-      autoExp = (AutoExpModule)ClientContext.getModule(AutoExpModule.class);
-   }
-
    @Override
    public String getInfo() {
       if (this.target != null) {
@@ -500,10 +494,13 @@ public class AutoCrystalModule extends Module {
    private void advancePlacementScan(AutoCrystalScanState state) {
       long startedNanos = System.nanoTime();
       int processed = 0;
-      while (!state.cursor.isComplete() && processed < MAX_SCAN_CANDIDATES_PER_TICK) {
-         if (processed > 0 && System.nanoTime() - startedNanos >= SCAN_BUDGET_NANOS) {
-            break;
-         }
+      while (!state.cursor.isComplete()
+         && IncrementalWorkBudget.canContinue(
+            processed,
+            System.nanoTime() - startedNanos,
+            MAX_SCAN_CANDIDATES_PER_TICK,
+            SCAN_BUDGET_NANOS
+         )) {
 
          IncrementalCubeScanCursor.Offset offset = state.cursor.next();
          if (offset == null) {
@@ -2104,7 +2101,13 @@ public class AutoCrystalModule extends Module {
                }
 
                this.onCrystalSpawn(spawnPacket);
-            } catch (Throwable ignoredFailure) {
+            } catch (Throwable crystalFailure) {
+               RuntimeDiagnostics.record(
+                  RuntimeDiagnostics.Area.EVENT,
+                  "AutoCrystal spawn handling",
+                  crystalFailure
+               );
+               if (crystalFailure instanceof Error fatal) throw fatal;
             }
          }
       }
@@ -2259,20 +2262,20 @@ public class AutoCrystalModule extends Module {
    }
 
    public static void bindReferencedModules(ModuleRegistry modules) {
-      speedMine = (SpeedMineModule)modules.getModule(
-         SpeedMineModule.class
+      speedMine = (SpeedMineModule)Objects.requireNonNull(
+         modules.getModule(SpeedMineModule.class), "Required module is not registered: SpeedMineModule"
       );
-      antiCheat = (AntiCheatModule)modules.getModule(
-         AntiCheatModule.class
+      antiCheat = (AntiCheatModule)Objects.requireNonNull(
+         modules.getModule(AntiCheatModule.class), "Required module is not registered: AntiCheatModule"
       );
-      anchorAura = (AnchorAuraModule)modules.getModule(
-         AnchorAuraModule.class
+      anchorAura = (AnchorAuraModule)Objects.requireNonNull(
+         modules.getModule(AnchorAuraModule.class), "Required module is not registered: AnchorAuraModule"
       );
-      aura = (AuraModule)modules.getModule(
-         AuraModule.class
+      aura = (AuraModule)Objects.requireNonNull(
+         modules.getModule(AuraModule.class), "Required module is not registered: AuraModule"
       );
-      autoExp = (AutoExpModule)modules.getModule(
-         AutoExpModule.class
+      autoExp = (AutoExpModule)Objects.requireNonNull(
+         modules.getModule(AutoExpModule.class), "Required module is not registered: AutoExpModule"
       );
    }
 

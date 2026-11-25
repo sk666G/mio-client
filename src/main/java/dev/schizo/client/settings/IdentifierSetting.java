@@ -27,13 +27,23 @@ public final class IdentifierSetting extends Setting<NamedIdentifier> {
 
    @Override
    public void fromJson(JsonElement element) {
-      JsonObject object = element.getAsJsonObject();
-      if (JsonUtils.hasProperties(object, "name", "category")) {
-         String name = object.get("name").getAsString();
-         String category = object.get("category").getAsString();
-         NamedIdentifier identifier = new NamedIdentifier(category, name);
-         this.setValue(identifier);
+      if (element == null || !element.isJsonObject()) {
+         throw new IllegalArgumentException("Identifier setting requires a JSON object");
       }
+      JsonObject object = element.getAsJsonObject();
+      if (!JsonUtils.hasProperties(object, "name", "category")
+         || !object.get("name").isJsonPrimitive()
+         || !object.get("name").getAsJsonPrimitive().isString()
+         || !object.get("category").isJsonPrimitive()
+         || !object.get("category").getAsJsonPrimitive().isString()) {
+         throw new IllegalArgumentException("Identifier setting requires string name and category fields");
+      }
+      String name = object.get("name").getAsString();
+      String category = object.get("category").getAsString();
+      if (name.isBlank() || category.isBlank() || name.length() > 256 || category.length() > 128) {
+         throw new IllegalArgumentException("Identifier setting contains an invalid name or category");
+      }
+      this.setValue(new NamedIdentifier(category, name));
    }
 
    @Override

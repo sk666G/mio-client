@@ -9,6 +9,7 @@
 
 package dev.schizo.client.gui.components;
 
+import dev.schizo.client.diagnostics.RuntimeDiagnostics;
 import dev.schizo.client.gui.panels.Panel;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.ClientAccess;
@@ -263,7 +264,12 @@ public class PresetPanel extends Panel {
             );
             new ProcessBuilder(createExplorerCommand(path)).start();
          }
-      } catch (Throwable ignoredOpenFailure) {
+      } catch (Exception openFailure) {
+         RuntimeDiagnostics.record(
+            RuntimeDiagnostics.Area.GUI,
+            "Preset location open",
+            openFailure
+         );
       }
    }
 

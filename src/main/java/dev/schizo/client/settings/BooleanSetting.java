@@ -25,6 +25,9 @@ public final class BooleanSetting extends Setting<Boolean> {
 
    @Override
    public void fromJson(JsonElement json) {
+      if (json == null || !json.isJsonPrimitive() || !json.getAsJsonPrimitive().isBoolean()) {
+         throw new IllegalArgumentException("Boolean setting requires a JSON boolean");
+      }
       this.setValue(json.getAsBoolean());
    }
 

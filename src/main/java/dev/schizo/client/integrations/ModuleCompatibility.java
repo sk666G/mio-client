@@ -65,8 +65,9 @@ import dev.schizo.client.modules.render.ZoomModule;
 import java.util.Map;
 
 /**
- * Conservative source-review labels for module behavior. Unknown modules and every setting
- * without a dedicated review stay UNVERIFIED by default.
+ * Conservative source-review labels for module behavior. Unknown modules stay UNVERIFIED.
+ * A complete CLIENT_ONLY or VISUAL_ONLY class review also covers its settings because no
+ * setting path in that class can cross the reviewed client-only boundary.
  */
 public final class ModuleCompatibility {
    private static final Assessment UNVERIFIED = new Assessment(
@@ -300,13 +301,20 @@ public final class ModuleCompatibility {
       return REVIEWED.getOrDefault(moduleType, UNVERIFIED);
    }
 
-   /**
-    * No setting has been individually certified yet. The parent module classification is
-    * included only as inherited context and is not a setting-level compatibility claim.
-    */
    public static SettingAssessment assessSetting(Class<?> moduleType, String settingName) {
       Assessment module = assess(moduleType);
       String name = settingName == null || settingName.isBlank() ? "unnamed setting" : settingName;
+      if (module.sourceReviewed()
+         && (module.classification() == Classification.CLIENT_ONLY
+            || module.classification() == Classification.VISUAL_ONLY)) {
+         return new SettingAssessment(
+            module.classification(),
+            module.classification(),
+            true,
+            "Setting '" + name + "' is covered by the complete " + module.classification()
+               + " source review for its parent module."
+         );
+      }
       return new SettingAssessment(
          Classification.UNVERIFIED,
          module.classification(),
@@ -347,7 +355,7 @@ public final class ModuleCompatibility {
       String reason
    ) {
       public boolean requiresWarning() {
-         return this.inheritedModuleClassification().requiresMultiplayerWarning();
+         return this.classification().requiresMultiplayerWarning();
       }
    }
 }

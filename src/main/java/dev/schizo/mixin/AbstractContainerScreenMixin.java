@@ -52,9 +52,15 @@ import org.spongepowered.asm.mixin.injection.invoke.arg.Args;
 
 @Mixin(AbstractContainerScreen.class)
 public class AbstractContainerScreenMixin implements ClientAccess {
-   private static final ChestSearchBarModule schizo$chestSearchBar = ClientContext.getModule(ChestSearchBarModule.class);
-   private static final TooltipsModule schizo$tooltips = ClientContext.getModule(TooltipsModule.class);
-   private static final InventoryTweaksModule schizo$inventoryTweaks = ClientContext.getModule(InventoryTweaksModule.class);
+   private static ChestSearchBarModule schizo$chestSearchBar() {
+      return ClientContext.requireModule(ChestSearchBarModule.class);
+   }
+   private static TooltipsModule schizo$tooltips() {
+      return ClientContext.requireModule(TooltipsModule.class);
+   }
+   private static InventoryTweaksModule schizo$inventoryTweaks() {
+      return ClientContext.requireModule(InventoryTweaksModule.class);
+   }
    @Shadow
    @Nullable
    protected Slot hoveredSlot;
@@ -81,8 +87,8 @@ public class AbstractContainerScreenMixin implements ClientAccess {
    public void schizo$preventInventoryCloseDuringSearch(
       KeyEvent keyEvent, CallbackInfoReturnable<Boolean> callback
    ) {
-      if (schizo$chestSearchBar != null
-         && schizo$chestSearchBar.isToggled()
+      if (schizo$chestSearchBar() != null
+         && schizo$chestSearchBar().isToggled()
          && ChestSearchController.searchBox != null
          && ChestSearchController.searchBox.isFocused()
          && ClientAccess.schizoMinecraft.options.keyInventory.matches(keyEvent)) {
@@ -128,7 +134,7 @@ public class AbstractContainerScreenMixin implements ClientAccess {
       double mouseX, double mouseY, CallbackInfoReturnable<Slot> callback
    ) {
       if (this.schizo$cachedHoveredSlot != null
-         && schizo$tooltips.shouldInspectContents(
+         && schizo$tooltips().shouldInspectContents(
             this.schizo$cachedHoveredSlot.getItem()
          )) {
          callback.setReturnValue(this.schizo$cachedHoveredSlot);
@@ -138,7 +144,7 @@ public class AbstractContainerScreenMixin implements ClientAccess {
    @ModifyExpressionValue(method = "mouseClicked", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/screens/inventory/AbstractContainerScreen;hasClickedOutside(DDII)Z"))
    public boolean schizo$keepInspectedClickInside(boolean originalInside) {
       return (this.schizo$cachedHoveredSlot == null
-         || !schizo$tooltips.shouldInspectContents(this.schizo$cachedHoveredSlot.getItem()))
+         || !schizo$tooltips().shouldInspectContents(this.schizo$cachedHoveredSlot.getItem()))
          && originalInside;
    }
 
@@ -149,7 +155,7 @@ public class AbstractContainerScreenMixin implements ClientAccess {
    private void schizo$useBundleInspectButton(Args arguments) {
       int mouseButton = arguments.<Integer>get(2);
       if (this.schizo$cachedHoveredSlot != null
-         && schizo$tooltips.shouldInspectContents(
+         && schizo$tooltips().shouldInspectContents(
             this.schizo$cachedHoveredSlot.getItem()
          )
          && mouseButton == 0
@@ -167,8 +173,8 @@ public class AbstractContainerScreenMixin implements ClientAccess {
    private void schizo$swapBundleReleaseButton(Args arguments) {
       Slot slot = arguments.get(0);
       int mouseButton = arguments.<Integer>get(2);
-      if (schizo$inventoryTweaks.isToggled()
-         && schizo$inventoryTweaks.shouldSwapBundleClickButton(
+      if (schizo$inventoryTweaks().isToggled()
+         && schizo$inventoryTweaks().shouldSwapBundleClickButton(
             slot, mouseButton
          )) {
          arguments.set(
@@ -189,7 +195,7 @@ public class AbstractContainerScreenMixin implements ClientAccess {
       GuiGraphics graphics, Font font, List text, Optional image, int tooltipX, int tooltipY, Identifier background
    ) {
       if (this.schizo$cachedHoveredSlot != null
-         && schizo$tooltips.shouldInspectContents(
+         && schizo$tooltips().shouldInspectContents(
             this.schizo$cachedHoveredSlot.getItem()
          )) {
          tooltipX = this.schizo$tooltipX;
@@ -245,8 +251,8 @@ public class AbstractContainerScreenMixin implements ClientAccess {
    private boolean schizo$shouldRenderSlotItem(
       GuiGraphics graphics, ItemStack stack, int itemX, int itemY, int seed
    ) {
-      return !schizo$tooltips.isToggled()
-         || !schizo$tooltips.mapOverlaySetting.getValue()
+      return !schizo$tooltips().isToggled()
+         || !schizo$tooltips().mapOverlaySetting.getValue()
          || this.schizo$slotMapData == null;
    }
 
@@ -257,7 +263,7 @@ public class AbstractContainerScreenMixin implements ClientAccess {
    private boolean schizo$renderMapOverlay(
       GuiGraphics graphics, Font font, ItemStack stack, int itemX, int itemY, String countText, @Local(argsOnly = true) Slot slot
    ) {
-      if (!schizo$tooltips.isToggled() || !schizo$tooltips.mapOverlaySetting.getValue() || this.schizo$slotMapData == null) {
+      if (!schizo$tooltips().isToggled() || !schizo$tooltips().mapOverlaySetting.getValue() || this.schizo$slotMapData == null) {
          return true;
       }
       ContainerTooltipComponent.renderMapOverlay(

@@ -90,10 +90,7 @@ public class WebAuraModule extends PlacementModule {
       return InventoryUtils.findSwapSlot(Items.COBWEB, this.alternativeSetting.getValue());
    }
 
-   static {
-      multiTask = (MultiTaskModule)ClientContext.getModule(MultiTaskModule.class);
-      speedMine = (SpeedMineModule)ClientContext.getModule(SpeedMineModule.class);
-   }
+   
 
    @Override
    public String getInfo() {

@@ -9,6 +9,7 @@
 
 package dev.schizo.client.settings;
 
+import dev.schizo.client.diagnostics.RuntimeDiagnostics;
 import dev.schizo.client.utils.math.MathConstants;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.render.ColorUtils;
@@ -35,10 +36,6 @@ public final class ColorSetting extends Setting<Color> {
       super(name, defaultColor);
    }
 
-   static {
-      colorsModule = (ColorsModule)ClientContext.getModule(ColorsModule.class);
-   }
-
    @Override
    public Color getValue() {
       return this.getColor();
@@ -49,27 +46,20 @@ public final class ColorSetting extends Setting<Color> {
    }
 
    public boolean isRainbow() {
-      if (this == colorsModule.themeColorSetting) {
+      ColorsModule boundColors = colorsModule;
+      if (boundColors != null && this == boundColors.themeColorSetting) {
          return this.rainbow;
       }
 
-      if (!this.rainbow) {
-         if (this.isSynced()) {
-            ColorSetting themeSetting = (ColorSetting)colorsModule.themeColorSetting;
-
-            if (themeSetting.isRainbow()) {
-               return true;
-            }
-         }
-
-         return false;
-      } else {
-         return true;
+      if (!this.rainbow && this.isSynced() && boundColors != null) {
+         ColorSetting themeSetting = (ColorSetting)boundColors.themeColorSetting;
+         return themeSetting.isRainbow();
       }
+      return this.rainbow;
    }
 
    public boolean isThemeColor() {
-      return this == colorsModule.themeColorSetting;
+      return colorsModule != null && this == colorsModule.themeColorSetting;
    }
 
    public void setColor(Color color) {
@@ -115,6 +105,9 @@ public final class ColorSetting extends Setting<Color> {
       float[] hsb = Color.RGBtoHSB(red, green, blue, null);
       float rainbowPeriodFactor = MathConstants.FULL_TURN_DEGREES;
       ColorsModule colorsSnapshot = colorsModule;
+      if (colorsSnapshot == null) {
+         return color;
+      }
 
       int rainbowPeriod = (int)(rainbowPeriodFactor * colorsSnapshot.getRainbowPeriod());
       float saturation = hsb[1];
@@ -128,7 +121,7 @@ public final class ColorSetting extends Setting<Color> {
 
    public Color getColor() {
       Color color = super.getValue();
-      if (this.synced) {
+      if (this.synced && colorsModule != null) {
          Setting<Color> themeSetting = colorsModule.themeColorSetting;
          Color themeColor = themeSetting.getValue();
 
@@ -159,7 +152,8 @@ public final class ColorSetting extends Setting<Color> {
       try {
          Color parsedColor = ColorUtils.parseHexColor(text);
          this.setColor(parsedColor);
-      } catch (Throwable failure) {
+      } catch (RuntimeException failure) {
+         RuntimeDiagnostics.record(RuntimeDiagnostics.Area.SETTING_CALLBACK, this.getConfigName() + " color parse", failure);
       }
    }
 
@@ -169,6 +163,9 @@ public final class ColorSetting extends Setting<Color> {
    }
 
    public static void bindModuleRegistry(ModuleRegistry registry) {
-      colorsModule = (ColorsModule)registry.getModule(ColorsModule.class);
+      colorsModule = (ColorsModule)java.util.Objects.requireNonNull(
+         registry.getModule(ColorsModule.class),
+         "Required module is not registered: ColorsModule"
+      );
    }
 }

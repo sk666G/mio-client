@@ -27,8 +27,12 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(Screen.class)
 public abstract class ScreenMixin {
-   private static final NoRenderModule noRenderModule = ClientContext.getModule(NoRenderModule.class);
-   private static final BlurModule blurModule = ClientContext.getModule(BlurModule.class);
+   private static NoRenderModule noRenderModule() {
+      return ClientContext.requireModule(NoRenderModule.class);
+   }
+   private static BlurModule blurModule() {
+      return ClientContext.requireModule(BlurModule.class);
+   }
    @Shadow
    @Nullable
    protected Minecraft minecraft;
@@ -50,7 +54,7 @@ public abstract class ScreenMixin {
 
    @Inject(method = "renderTransparentBackground", at = @At("HEAD"), cancellable = true)
    private void suppressScreenTint(GuiGraphics graphics, CallbackInfo callback) {
-      if (noRenderModule.shouldHideScreenTint()) {
+      if (noRenderModule().shouldHideScreenTint()) {
          callback.cancel();
       }
    }
@@ -63,7 +67,7 @@ public abstract class ScreenMixin {
    private void replaceBlurredScreenBackground(
       GuiGraphics graphics, int mouseX, int mouseY, float partialTick, CallbackInfo callback
    ) {
-      if (blurModule.isToggled()
+      if (blurModule().isToggled()
          && this.minecraft.level != null
          && this.minecraft.player != null) {
          this.renderMenuBackground(graphics);

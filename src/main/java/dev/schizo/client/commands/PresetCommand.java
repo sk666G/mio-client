@@ -9,6 +9,7 @@
 
 package dev.schizo.client.commands;
 
+import dev.schizo.client.diagnostics.RuntimeDiagnostics;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.NamedFeature;
@@ -426,7 +427,7 @@ public final class PresetCommand extends Command {
       }
 
       ChatUtils.printChat(errorMessage, ChatUtils.createSignature(-1), ChatUtils.MessagePriority.MID);
-      importFailure.printStackTrace();
+      RuntimeDiagnostics.record(RuntimeDiagnostics.Area.COMMAND, "Preset import", importFailure);
    }
 
    private static int restorePreset(PresetCommand owner, ConfigurationManager configurationManager) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
@@ -435,7 +436,7 @@ public final class PresetCommand extends Command {
       try {
          action = restoreManager.undo();
       } catch (IOException undoFailure) {
-         undoFailure.printStackTrace();
+         RuntimeDiagnostics.record(RuntimeDiagnostics.Area.COMMAND, "Preset undo", undoFailure);
          ChatUtils.printChat(Component.literal("Failed to undo preset change."), ChatUtils.DEFAULT_SIGNATURE, ChatUtils.MessagePriority.MID);
          return 1;
       }
@@ -478,7 +479,12 @@ public final class PresetCommand extends Command {
                String moduleConfigName = module.getConfigName();
                JsonElement moduleConfig = LegacyBranding.findModuleConfig(contentsObject, moduleConfigName);
                module.fromJson(moduleConfig);
-            } catch (Exception ignoredLoadFailure) {
+            } catch (Exception loadFailure) {
+               RuntimeDiagnostics.record(
+                  RuntimeDiagnostics.Area.COMMAND,
+                  "Preset apply: " + module.getName(),
+                  loadFailure
+               );
             }
          }
       }

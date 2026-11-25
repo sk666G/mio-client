@@ -151,7 +151,8 @@ public class NumericSettingComponent<N extends Number> extends SettingComponent<
 
                doubleSetting.setNumber(doubleResult);
          }
-      } catch (Exception ignoredException) {
+      } catch (NumberFormatException invalidNumber) {
+         return;
       }
    }
 

@@ -9,6 +9,7 @@
 
 package dev.schizo.mixin;
 
+import dev.schizo.client.diagnostics.RuntimeDiagnostics;
 import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.utils.math.MathConstants;
 
@@ -199,7 +200,15 @@ public abstract class EntityMixin implements EntityMotionAccess {
       if (output instanceof TagValueOutput tagOutput && tagOutput.buildResult().contains("zio_side_player")) {
          try {
             original.call(entity, output);
-         } catch (Throwable ignoredFailure) {
+         } catch (Throwable failure) {
+            RuntimeDiagnostics.record(
+               RuntimeDiagnostics.Area.MIXIN,
+               "Side-player entity save",
+               failure
+            );
+            if (failure instanceof Error fatal) {
+               throw fatal;
+            }
          }
       } else {
          original.call(entity, output);

@@ -53,7 +53,7 @@ import net.minecraft.world.phys.Vec3;
 
 public class HUDModule extends Module {
 
-   private static NoRenderModule noRenderModule = ClientContext.getModule(NoRenderModule.class);
+   private static NoRenderModule noRenderModule;
    private final Predicate hudEditorVisible = ignored -> {
       if (ClientAccess.schizoMinecraft.screen instanceof ClientScreen screen) {
 
@@ -225,7 +225,10 @@ public class HUDModule extends Module {
    }
 
    public static void bindReferencedModules(ModuleRegistry manager) {
-      noRenderModule = (NoRenderModule)manager.getModule(NoRenderModule.class);
+      noRenderModule = (NoRenderModule)java.util.Objects.requireNonNull(
+         manager.getModule(NoRenderModule.class),
+         "Required module is not registered: NoRenderModule"
+      );
       HudColorMode.RAINBOW.bindColorsModule(manager);
    }
 

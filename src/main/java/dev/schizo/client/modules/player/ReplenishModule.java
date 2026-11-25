@@ -65,11 +65,7 @@ public class ReplenishModule extends Module {
    private final List<RememberedStack> rememberedHotbar;
    private final ElapsedTimer replenishTimer;
 
-   static {
-      multiTaskModule = (MultiTaskModule)ClientContext.getModule(MultiTaskModule.class);
-      xCarryModule = (XCarryModule)ClientContext.getModule(XCarryModule.class);
-      autoCrystalModule = (AutoCrystalModule)ClientContext.getModule(AutoCrystalModule.class);
-   }
+   
 
    private boolean replenishStack(int hotbarSlot) {
       Inventory inventory = ClientAccess.schizoMinecraft.player.getInventory();

@@ -26,6 +26,15 @@ class NumberSettingTest {
    }
 
    @Test
+   void rejectsFractionalAndStringValuesForIntegerSettings() {
+      var setting = new NumberSetting<>("Limit", 4, 0, 10);
+
+      assertThrows(IllegalArgumentException.class, () -> setting.fromJson(new JsonPrimitive(4.5)));
+      assertThrows(IllegalArgumentException.class, () -> setting.fromJson(new JsonPrimitive("5")));
+      assertEquals(4, setting.getValue().intValue());
+   }
+
+   @Test
    void doubleBoundsRemainDistinctAtFloatPrecisionLimit() {
       var setting = new NumberSetting<>("Height", 1.0, 0.0, 1.0);
       setting.setValue(Math.nextUp(1.0));

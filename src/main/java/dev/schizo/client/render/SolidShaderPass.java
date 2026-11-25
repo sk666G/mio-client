@@ -18,7 +18,9 @@ import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL13;
 
 public class SolidShaderPass extends PreprocessedShaderPass {
-   private static final ShaderModule shaderModule;
+   private static ShaderModule shaderModule() {
+      return ClientContext.requireModule(ShaderModule.class);
+   }
 
    @Override
    public void updateUniforms() {
@@ -31,29 +33,29 @@ public class SolidShaderPass extends PreprocessedShaderPass {
       GL11.glBindTexture(GL11.GL_TEXTURE_2D, overlayTextureId);
       ShaderUniforms capturedProgramForImageEnabled = this.uniforms;
 
-      boolean imageEnabled = (shaderModule.imageSetting.getValue());
+      boolean imageEnabled = (shaderModule().imageSetting.getValue());
       capturedProgramForImageEnabled.set("u_Image", imageEnabled);
       ShaderUniforms capturedProgramForOverlaySampler = this.uniforms;
 
       capturedProgramForOverlaySampler.set("u_Overlay", 7);
       ShaderUniforms capturedProgramForOverlayAlpha = this.uniforms;
 
-      ShaderModule capturedShaderForOverlayAlpha = shaderModule;
+      ShaderModule capturedShaderForOverlayAlpha = shaderModule();
       float overlayAlpha = capturedShaderForOverlayAlpha.getOverlayAlpha();
       capturedProgramForOverlayAlpha.set("u_OverlayAlpha", overlayAlpha);
       ShaderUniforms capturedProgramForLineWidth = this.uniforms;
 
-      ShaderModule capturedShaderForHandOutline = shaderModule;
+      ShaderModule capturedShaderForHandOutline = shaderModule();
       int lineWidth;
       if (capturedShaderForHandOutline.shouldSkipHandOutline()) {
          lineWidth = 0;
       } else {
-         lineWidth = (shaderModule.lineWidthSetting.getValue());
+         lineWidth = (shaderModule().lineWidthSetting.getValue());
       }
       capturedProgramForLineWidth.set("u_Width", lineWidth);
       ShaderUniforms capturedProgramForFastLinesEnabled = this.uniforms;
 
-      boolean fastLinesEnabled = (shaderModule.fastLinesSetting.getValue())
+      boolean fastLinesEnabled = (shaderModule().fastLinesSetting.getValue())
          || ClientContext.shaderRegistry.renderingHands;
       capturedProgramForFastLinesEnabled.set("u_FastLines", fastLinesEnabled);
       ShaderUniforms capturedProgramForShapeMode = this.uniforms;
@@ -61,17 +63,17 @@ public class SolidShaderPass extends PreprocessedShaderPass {
       capturedProgramForShapeMode.set("u_ShapeMode", 2);
       ShaderUniforms capturedProgramForGlowWeight = this.uniforms;
 
-      float glowWeight = (shaderModule.weightSetting.getValue());
+      float glowWeight = (shaderModule().weightSetting.getValue());
       capturedProgramForGlowWeight.set("u_Glow", glowWeight);
       ShaderUniforms capturedProgramForFillColor = this.uniforms;
 
-      ShaderModule capturedShaderForHandFill = shaderModule;
+      ShaderModule capturedShaderForHandFill = shaderModule();
       Color selectedFillColor;
       if (capturedShaderForHandFill.shouldSkipHandFill()) {
          selectedFillColor = ColorUtils.TRANSPARENT;
       } else {
-         ShaderModule capturedShaderForClusterAlpha = shaderModule;
-         Color fillColorValue = shaderModule.fillSetting.getValue();
+         ShaderModule capturedShaderForClusterAlpha = shaderModule();
+         Color fillColorValue = shaderModule().fillSetting.getValue();
 
          selectedFillColor = capturedShaderForClusterAlpha.applyClusterAlpha(fillColorValue);
       }
@@ -80,21 +82,21 @@ public class SolidShaderPass extends PreprocessedShaderPass {
       capturedProgramForFillColor.set("u_FillColor", fillColor);
       ShaderUniforms capturedProgramForOutlineColor = this.uniforms;
 
-      Color outlineColor = shaderModule.outlineColorSetting.getValue();
+      Color outlineColor = shaderModule().outlineColorSetting.getValue();
       capturedProgramForOutlineColor.set("u_OutlineColor", outlineColor);
       ShaderUniforms capturedProgramForDecoratorKind = this.uniforms;
 
-      ShaderModule.TypeChoice decoratorTypeValue = shaderModule.typeSetting.getValue();
+      ShaderModule.TypeChoice decoratorTypeValue = shaderModule().typeSetting.getValue();
       int decoratorKind = decoratorTypeValue.ordinal();
       capturedProgramForDecoratorKind.set("u_Dots", decoratorKind);
       ShaderUniforms capturedProgramForDecoratorRadius = this.uniforms;
 
-      Integer decoratorRadiusValue = shaderModule.radiusSetting.getValue();
+      Integer decoratorRadiusValue = shaderModule().radiusSetting.getValue();
       int decoratorRadius = decoratorRadiusValue;
       capturedProgramForDecoratorRadius.set("u_DotsRadius", decoratorRadius);
       ShaderUniforms capturedProgramForDecoratorAlpha = this.uniforms;
 
-      Setting<Float> decoratorAlphaOption = shaderModule.alphaSetting;
+      Setting<Float> decoratorAlphaOption = shaderModule().alphaSetting;
       Float decoratorAlphaValue = decoratorAlphaOption.getValue();
       float decoratorAlpha = decoratorAlphaValue;
       capturedProgramForDecoratorAlpha.set("u_DotsAlpha", decoratorAlpha);
@@ -106,8 +108,6 @@ public class SolidShaderPass extends PreprocessedShaderPass {
       this.initializeProgram();
    }
 
-   static {
-      shaderModule = (ShaderModule)ClientContext.getModule(ShaderModule.class);
-   }
+   
 
 }

@@ -9,6 +9,7 @@
 
 package dev.schizo.client.modules.misc;
 
+import dev.schizo.client.diagnostics.RuntimeDiagnostics;
 import java.util.Set;
 
 import dev.schizo.client.ClientAccess;
@@ -167,7 +168,12 @@ public class KillEffectsModule extends Module {
             UUID uuidSnapshot = player.getUUID();
             Integer trackedTick = (int)(ClientAccess.schizoMinecraft.player.tickCount);
             targetsSnapshot.put(uuidSnapshot, trackedTick);
-         } catch (Exception trackingFailure) {
+         } catch (RuntimeException trackingFailure) {
+            RuntimeDiagnostics.record(
+               RuntimeDiagnostics.Area.MODULE_LIFECYCLE,
+               "KillEffects target tracking",
+               trackingFailure
+            );
          }
       }
    }
@@ -285,7 +291,12 @@ public class KillEffectsModule extends Module {
                      }
                   }
                }
-            } catch (Exception trackingFailure) {
+            } catch (RuntimeException trackingFailure) {
+               RuntimeDiagnostics.record(
+                  RuntimeDiagnostics.Area.MODULE_LIFECYCLE,
+                  "KillEffects target tracking",
+                  trackingFailure
+               );
             }
          }
       }
@@ -298,7 +309,12 @@ public class KillEffectsModule extends Module {
                UUID expiredUuid = expiredIterator.next();
                this.trackedTargets.remove(expiredUuid);
             }
-         } catch (Exception removalFailure) {
+         } catch (RuntimeException removalFailure) {
+            RuntimeDiagnostics.record(
+               RuntimeDiagnostics.Area.MODULE_LIFECYCLE,
+               "KillEffects expired-target cleanup",
+               removalFailure
+            );
          }
       }
    }
@@ -323,7 +339,12 @@ public class KillEffectsModule extends Module {
          UUID uuidSnapshot = player.getUUID();
          Integer trackedTick = (int)(ClientAccess.schizoMinecraft.player.tickCount);
          targetsSnapshot.put(uuidSnapshot, trackedTick);
-      } catch (Exception trackingFailure) {
+      } catch (RuntimeException trackingFailure) {
+         RuntimeDiagnostics.record(
+            RuntimeDiagnostics.Area.MODULE_LIFECYCLE,
+            "KillEffects target tracking",
+            trackingFailure
+         );
       }
    }
 

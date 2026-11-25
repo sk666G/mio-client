@@ -17,6 +17,7 @@ import dev.schizo.client.config.ConfigurationBackupManager;
 import dev.schizo.client.config.ModulePresetCodec;
 import dev.schizo.client.config.JsonStateTransaction;
 import dev.schizo.client.config.ConfigurationSaveGate;
+import dev.schizo.client.config.ConfigurationSchema;
 import dev.schizo.client.config.PresetUndoState;
 import dev.schizo.client.render.BundledResourceInstaller;
 import dev.schizo.client.utils.FileUtils;
@@ -52,7 +53,6 @@ public final class ConfigurationManager implements ClientAccess {
    public static final Path CHUNKS_DIRECTORY;
    public static final Path SOUNDS_DIRECTORY;
    public static final Path SHADERS_DIRECTORY;
-   public static final Path USER_HOME_MARKER_PATH;
    private static final List<Path> directories;
    private final ConfigurationBackupManager backupManager = new ConfigurationBackupManager(ROOT_DIRECTORY);
    private final ModulePresetCodec modulePresetCodec = new ModulePresetCodec();
@@ -119,10 +119,14 @@ public final class ConfigurationManager implements ClientAccess {
                }
                String configText = ConfigFileReader.readUtf8(configPath, (int)ConfigurationBackupManager.MAX_CONFIG_BYTES);
                JsonElement configJson = JsonParser.parseString(configText);
+               JsonObject loadDocument = ConfigurationSchema.prepareForLoad(
+                  configurable.getConfigName(),
+                  configJson.getAsJsonObject()
+               );
                JsonStateTransaction.apply(
                   configurable::toJson,
                   configurable::fromJson,
-                  configJson.getAsJsonObject()
+                  loadDocument
                );
             }
          } catch (Exception loadFailure) {
@@ -219,8 +223,6 @@ public final class ConfigurationManager implements ClientAccess {
 
       SHADERS_DIRECTORY = parentDirectory.resolve("shaders");
 
-      String userHome = System.getProperty("user.home");
-      USER_HOME_MARKER_PATH = Path.of(userHome, "_____a");
       directories = new ArrayList<>();
    }
 
@@ -253,7 +255,8 @@ public final class ConfigurationManager implements ClientAccess {
          }
          try {
             JsonElement serialized = configurable.toJson();
-            snapshots.add(new ConfigSnapshot(configurable.getConfigName(), serialized.getAsJsonObject().deepCopy()));
+            JsonObject document = ConfigurationSchema.stampForSave(serialized.getAsJsonObject());
+            snapshots.add(new ConfigSnapshot(configurable.getConfigName(), document));
          } catch (Exception snapshotFailure) {
             ClientAccess.logger.error("Could not snapshot configuration {}", configurable.getConfigName(), snapshotFailure);
          }
@@ -354,7 +357,7 @@ public final class ConfigurationManager implements ClientAccess {
             }
             Gson gsonSnapshot = ClientAccess.gson;
             JsonElement serialized = configurable.toJson();
-            JsonObject object = serialized.getAsJsonObject();
+            JsonObject object = ConfigurationSchema.stampForSave(serialized.getAsJsonObject());
             FileUtils.writeUtf8Atomically(configPath, gsonSnapshot.toJson(object));
          } catch (Exception saveFailure) {
             ClientAccess.logger.error("Could not save configuration {}", configurable.getConfigName(), saveFailure);

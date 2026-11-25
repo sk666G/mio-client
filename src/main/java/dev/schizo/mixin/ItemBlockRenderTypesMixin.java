@@ -26,14 +26,18 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(ItemBlockRenderTypes.class)
 public class ItemBlockRenderTypesMixin {
-   private static final NoRenderModule noRenderModule = ClientContext.getModule(NoRenderModule.class);
-   private static final XrayModule xrayModule = ClientContext.getModule(XrayModule.class);
+   private static NoRenderModule noRenderModule() {
+      return ClientContext.requireModule(NoRenderModule.class);
+   }
+   private static XrayModule xrayModule() {
+      return ClientContext.requireModule(XrayModule.class);
+   }
 
    @Inject(method = "getRenderType", at = @At("HEAD"), cancellable = true)
    private static void applyTranslucentHandRenderType(
       BlockState blockState, CallbackInfoReturnable<RenderType> callback
    ) {
-      if (noRenderModule.getHandOpacity()
+      if (noRenderModule().getHandOpacity()
             != 1.0F
          && RenderUtils.getRenderColor()[3]
             != 255) {
@@ -45,12 +49,12 @@ public class ItemBlockRenderTypesMixin {
    private static void applyXrayTranslucentChunkLayer(
       BlockState blockState, CallbackInfoReturnable<ChunkSectionLayer> callback
    ) {
-      if (xrayModule.isToggled()
-         && !xrayModule.alphaSetting
+      if (xrayModule().isToggled()
+         && !xrayModule().alphaSetting
             .isAtMinimum()
-         && !xrayModule.alphaSetting
+         && !xrayModule().alphaSetting
             .isAtMaximum()
-         && !xrayModule.shouldRenderBlock(
+         && !xrayModule().shouldRenderBlock(
             BlockPos.ZERO,
             blockState.getBlock()
          )) {

@@ -66,12 +66,24 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(MultiPlayerGameMode.class)
 public abstract class MultiPlayerGameModeInteractionMixin implements ClientAccess, BlockBreakingState {
-   private static final AutoToolModule autoToolModule = ClientContext.getModule(AutoToolModule.class);
-   private static final AutoClickerModule autoClickerModule = ClientContext.getModule(AutoClickerModule.class);
-   private static final NoInteractModule noInteractModule = ClientContext.getModule(NoInteractModule.class);
-   private static final InventoryTweaksModule inventoryTweaksModule = ClientContext.getModule(InventoryTweaksModule.class);
-   private static final AntiCheatModule antiCheatModule = ClientContext.getModule(AntiCheatModule.class);
-   private static SpeedMineModule speedmine = ClientContext.getModule(SpeedMineModule.class);
+   private static AutoToolModule autoToolModule() {
+      return ClientContext.requireModule(AutoToolModule.class);
+   }
+   private static AutoClickerModule autoClickerModule() {
+      return ClientContext.requireModule(AutoClickerModule.class);
+   }
+   private static NoInteractModule noInteractModule() {
+      return ClientContext.requireModule(NoInteractModule.class);
+   }
+   private static InventoryTweaksModule inventoryTweaksModule() {
+      return ClientContext.requireModule(InventoryTweaksModule.class);
+   }
+   private static AntiCheatModule antiCheatModule() {
+      return ClientContext.requireModule(AntiCheatModule.class);
+   }
+   private static SpeedMineModule speedmine() {
+      return ClientContext.requireModule(SpeedMineModule.class);
+   }
    @Shadow
    private boolean isDestroying;
    @Shadow
@@ -119,9 +131,9 @@ public abstract class MultiPlayerGameModeInteractionMixin implements ClientAcces
    public void applyInventoryClickTweaks(
       int containerId, int slotId, int mouseButton, ClickType clickType, Player actingPlayer, CallbackInfo callback
    ) {
-      if (inventoryTweaksModule.isToggled()) {
+      if (inventoryTweaksModule().isToggled()) {
          AbstractContainerMenu menu = actingPlayer.containerMenu;
-         if (inventoryTweaksModule.fastArmorSetting.getValue()
+         if (inventoryTweaksModule().fastArmorSetting.getValue()
             && mouseButton == 1
             && clickType == ClickType.QUICK_MOVE) {
             Slot clickedSlot = menu.getSlot(slotId);
@@ -138,7 +150,7 @@ public abstract class MultiPlayerGameModeInteractionMixin implements ClientAcces
             }
          }
 
-         if (inventoryTweaksModule.xCarryTweaksSetting.getValue()
+         if (inventoryTweaksModule().xCarryTweaksSetting.getValue()
             && mouseButton == 1
             && clickType == ClickType.QUICK_MOVE
             && slotId > 4
@@ -193,12 +205,12 @@ public abstract class MultiPlayerGameModeInteractionMixin implements ClientAcces
             .getItemInHand(
                NoInteractModule.selectUsableHand()
             );
-         if (noInteractModule.shouldBlockInteraction(
+         if (noInteractModule().shouldBlockInteraction(
             heldStack, hit.getBlockPos()
          )) {
-            if (noInteractModule.modeSetting.getValue()
+            if (noInteractModule().modeSetting.getValue()
                == NoInteractModule.ModeChoice.SHIFT) {
-               noInteractModule.shouldStopSneaking = !ClientContext.serverStateManager.isServerSneaking();
+               noInteractModule().shouldStopSneaking = !ClientContext.serverStateManager.isServerSneaking();
                ClientContext.playerStateTracker
                   .setSneaking(true);
             } else {
@@ -237,12 +249,12 @@ public abstract class MultiPlayerGameModeInteractionMixin implements ClientAcces
    private void restoreSneakingAfterUseItemOn(
       LocalPlayer actingPlayer, InteractionHand hand, BlockHitResult hit, CallbackInfoReturnable<InteractionResult> callback
    ) {
-      if (noInteractModule.shouldStopSneaking
+      if (noInteractModule().shouldStopSneaking
          )
        {
          ClientContext.playerStateTracker
             .setSneaking(false);
-         noInteractModule.shouldStopSneaking = false;
+         noInteractModule().shouldStopSneaking = false;
       }
    }
 
@@ -275,7 +287,7 @@ public abstract class MultiPlayerGameModeInteractionMixin implements ClientAcces
    private void protectFriendsFromAttack(
       Player actingPlayer, Entity attackedEntity, CallbackInfo callback
    ) {
-      if (autoClickerModule.shouldProtectFriend(
+      if (autoClickerModule().shouldProtectFriend(
             attackedEntity)
          && actingPlayer == ClientAccess.schizoMinecraft.player) {
          callback.cancel();
@@ -284,14 +296,14 @@ public abstract class MultiPlayerGameModeInteractionMixin implements ClientAcces
 
    @WrapWithCondition(method = "stopDestroyBlock", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/multiplayer/ClientPacketListener;send(Lnet/minecraft/network/protocol/Packet;)V"))
    private boolean allowStopDestroyBlockPacket(ClientPacketListener connection, Packet packet) {
-      return !speedmine.isToggled();
+      return !speedmine().isToggled();
    }
 
    @Inject(method = "continueDestroyBlock", at = @At("HEAD"))
    private void clearDestroyDelayForSpeedMine(
       BlockPos blockPos, Direction face, CallbackInfoReturnable<Boolean> callback
    ) {
-      if (speedmine.isToggled()) {
+      if (speedmine().isToggled()) {
          this.destroyDelay = 0;
       }
    }
@@ -308,16 +320,16 @@ public abstract class MultiPlayerGameModeInteractionMixin implements ClientAcces
 
    @ModifyExpressionValue(method = "continueDestroyBlock", at = @At(value = "CONSTANT", args = "floatValue=1.0"), require = 0)
    private float modifyContinueDestroyBlockDamageThreshold(float originalThreshold) {
-      return autoToolModule.isBlockDamageOverrideActive()
-         ? autoToolModule.blockDamageSetting.getValue()
+      return autoToolModule().isBlockDamageOverrideActive()
+         ? autoToolModule().blockDamageSetting.getValue()
          : originalThreshold;
    }
 
    // Mojang leaves the block-break prediction lambda unnamed.
    @ModifyExpressionValue(method = "method_41930(Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/core/BlockPos;Lnet/minecraft/core/Direction;I)Lnet/minecraft/network/protocol/Packet;", at = @At(value = "CONSTANT", args = "floatValue=1.0"), require = 0)
    private float modifyPredictedBlockDamageThreshold(float originalThreshold) {
-      return autoToolModule.isBlockDamageOverrideActive()
-         ? autoToolModule.blockDamageSetting.getValue()
+      return autoToolModule().isBlockDamageOverrideActive()
+         ? autoToolModule().blockDamageSetting.getValue()
          : originalThreshold;
    }
 
@@ -333,8 +345,8 @@ public abstract class MultiPlayerGameModeInteractionMixin implements ClientAcces
    private void finishBlockAfterStartPrediction(
       BlockPos blockPos, Direction face, CallbackInfoReturnable<Boolean> callback, @Local BlockState blockState
    ) {
-      float damageThreshold = autoToolModule.blockDamageSetting.getValue();
-      if (autoToolModule.isBlockDamageOverrideActive()) {
+      float damageThreshold = autoToolModule().blockDamageSetting.getValue();
+      if (autoToolModule().isBlockDamageOverrideActive()) {
          if (blockState.getDestroyProgress(
                   ClientAccess.schizoMinecraft.player,
                   ClientAccess.schizoMinecraft.player.level(),
@@ -346,7 +358,7 @@ public abstract class MultiPlayerGameModeInteractionMixin implements ClientAcces
                ClientAccess.schizoMinecraft.level,
                sequence -> new ServerboundPlayerActionPacket(Action.STOP_DESTROY_BLOCK, blockPos, face, sequence)
             );
-            if (antiCheatModule.is2b2tEnabled()) {
+            if (antiCheatModule().is2b2tEnabled()) {
                this.startPrediction(
                   ClientAccess.schizoMinecraft.level,
                   sequence -> new ServerboundPlayerActionPacket(Action.ABORT_DESTROY_BLOCK, blockPos, face, sequence)
@@ -358,8 +370,8 @@ public abstract class MultiPlayerGameModeInteractionMixin implements ClientAcces
 
    @ModifyExpressionValue(method = "continueDestroyBlock", at = @At(value = "FIELD", target = "Lnet/minecraft/client/multiplayer/MultiPlayerGameMode;destroyDelay:I", ordinal = 0))
    private int modifyDestroyDelayForAutoTool(int originalDelay) {
-      return autoToolModule.isToggled()
-            && autoToolModule.noBreakDelaySetting.getValue()
+      return autoToolModule().isToggled()
+            && autoToolModule().noBreakDelaySetting.getValue()
          ? 0
          : originalDelay;
    }

@@ -32,20 +32,24 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(EntityRenderDispatcher.class)
 public class EntityRenderDispatcherMixin {
-   private static final NoRenderModule noRenderModule = ClientContext.getModule(NoRenderModule.class);
-   private static final ChamsModule chamsModule = ClientContext.getModule(ChamsModule.class);
+   private static NoRenderModule noRenderModule() {
+      return ClientContext.requireModule(NoRenderModule.class);
+   }
+   private static ChamsModule chamsModule() {
+      return ClientContext.requireModule(ChamsModule.class);
+   }
 
    @ModifyExpressionValue(method = "submit", at = @At(value = "INVOKE", target = "Ljava/util/List;isEmpty()Z"))
    private static boolean applyEntityGlintAndShadow(
       boolean originalShadowFlag, @Local(argsOnly = true) EntityRenderState renderState
    ) {
-      if (chamsModule.shouldRenderGlintForEntity(
+      if (chamsModule().shouldRenderGlintForEntity(
          EntityRenderStateAccess.getEntity(renderState)
       )) {
          return true;
       }
       return ClientContext.shaderRegistry.renderingIntoTarget
-         || noRenderModule.shouldHideEntityShadow()
+         || noRenderModule().shouldHideEntityShadow()
          || originalShadowFlag;
    }
 
@@ -83,16 +87,16 @@ public class EntityRenderDispatcherMixin {
       EntityRenderState renderState, CameraRenderState cameraState, double x, double y, double z, PoseStack poses, SubmitNodeCollector collector, CallbackInfo callback
    ) {
       Entity entity = EntityRenderStateAccess.getEntity(renderState);
-      if (chamsModule.shouldRenderGlintForEntity(
+      if (chamsModule().shouldRenderGlintForEntity(
          entity
       )) {
          renderState.displayFireAnimation = false;
       }
 
-      if (noRenderModule.isToggled()
-         && noRenderModule.fireSetting.getValue()
+      if (noRenderModule().isToggled()
+         && noRenderModule().fireSetting.getValue()
          && (
-            noRenderModule.othersSetting.getValue()
+            noRenderModule().othersSetting.getValue()
                || entity instanceof LocalPlayer
                || entity instanceof EndCrystal
          )) {

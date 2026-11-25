@@ -121,9 +121,7 @@ public class ChestStealerModule extends Module {
    private boolean transferredThisTick;
    private Slot quickMoveDestination;
 
-   static {
-      chestSearchBar = (ChestSearchBarModule)ClientContext.getModule(ChestSearchBarModule.class);
-   }
+   
 
    public ChestStealerModeChoice getRequestedMode() {
       return this.requestedMode;

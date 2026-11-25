@@ -19,7 +19,9 @@ import org.spongepowered.asm.mixin.injection.ModifyArg;
 
 @Mixin(StringDecomposer.class)
 public class StringDecomposerMixin {
-   private static final NameProtectModule nameProtectModule = ClientContext.getModule(NameProtectModule.class);
+   private static NameProtectModule nameProtectModule() {
+      return ClientContext.requireModule(NameProtectModule.class);
+   }
 
    @ModifyArg(
       method = "iterateFormatted(Ljava/lang/String;ILnet/minecraft/network/chat/Style;Lnet/minecraft/util/FormattedCharSink;)Z",
@@ -31,9 +33,9 @@ public class StringDecomposerMixin {
       index = 0
    )
    private static String protectNamesForFormatting(String text) {
-      if (nameProtectModule.isToggled()
+      if (nameProtectModule().isToggled()
          && Minecraft.getInstance().level != null) {
-         text = nameProtectModule.protectNames(
+         text = nameProtectModule().protectNames(
             text
          );
       }

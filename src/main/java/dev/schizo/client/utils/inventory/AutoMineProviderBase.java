@@ -41,9 +41,7 @@ public abstract class AutoMineProviderBase implements ClientAccess, AutoMineProv
       this.autoMine = module;
    }
 
-   static {
-      speedMine = (SpeedMineModule)ClientContext.getModule(SpeedMineModule.class);
-   }
+   
 
    protected boolean canMinePosition(BlockPos position) {
       AutoMineMiningTracker miningTracker = this.autoMine.miningTracker;

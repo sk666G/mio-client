@@ -90,10 +90,7 @@ public class AutoExpModule extends Module {
       return durabilityPercent < stopAtValue;
    }
 
-   static {
-      antiAim = (AntiAimModule)ClientContext.getModule(AntiAimModule.class);
-      elytraFly = (ElytraFlyModule)ClientContext.getModule(ElytraFlyModule.class);
-   }
+   
 
    public boolean isActive() {
       return this.active;

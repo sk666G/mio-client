@@ -233,9 +233,7 @@ public class PusherModule extends Module {
       }
    }
 
-   static {
-      multiTask = (MultiTaskModule)ClientContext.getModule(MultiTaskModule.class);
-   }
+   
 
    @Override
    public String getInfo() {

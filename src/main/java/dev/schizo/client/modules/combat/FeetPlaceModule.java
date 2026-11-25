@@ -9,6 +9,7 @@
 
 package dev.schizo.client.modules.combat;
 
+import dev.schizo.client.diagnostics.RuntimeDiagnostics;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.PacketEvent;
@@ -145,10 +146,7 @@ public class FeetPlaceModule extends PlacementModule {
       }
    }
 
-   static {
-      antiCheat = (AntiCheatModule)ClientContext.getModule(AntiCheatModule.class);
-      speedMine = (SpeedMineModule)ClientContext.getModule(SpeedMineModule.class);
-   }
+   
 
    @Override
    public void onEnable() {
@@ -380,7 +378,13 @@ public class FeetPlaceModule extends PlacementModule {
             }
 
             super.runPlacementCycle();
-         } catch (Throwable ignoredFailure) {
+         } catch (Throwable placementFailure) {
+            RuntimeDiagnostics.record(
+               RuntimeDiagnostics.Area.MODULE_LIFECYCLE,
+               "FeetPlace placement cycle",
+               placementFailure
+            );
+            if (placementFailure instanceof Error fatal) throw fatal;
          }
       }
    }

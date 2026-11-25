@@ -34,3 +34,8 @@ Samples are stored in a bounded primitive ring sized to the graph width. The gra
 - Variance is expressed in `ms²`; a larger value means frame durations are more spread out, not that the average frame is slower by that number.
 
 Frame timing covers the whole rendered frame. It does not identify Minecraft, GPU, other-mod or Schizo module cost. Profile in game before changing hot loops; static inspection is not a benchmark.
+
+
+## Runtime diagnostics and queue pressure
+
+The Performance Center also exposes a **DIAGNOSTICS** tab backed by Schizo's bounded runtime diagnostics registry. It reports recoverable failures with owner/thread attribution. The top status line includes queued/outstanding client-thread task counts so queue pressure can be correlated with frame pacing and callback cost.

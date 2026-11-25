@@ -10,6 +10,7 @@
 package dev.schizo.client.events.bus;
 
 import dev.schizo.client.events.Cancellable;
+import dev.schizo.client.diagnostics.RuntimeDiagnostics;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.modules.Module;
 import dev.schizo.client.profiling.EventProfiler;
@@ -168,13 +169,39 @@ public class EventBus implements EventDispatcher {
       return listeners != null && listeners.length != 0;
    }
 
+   /**
+    * Dispatches an event while containing ordinary listener failures at the boundary.
+    * Fatal {@link Error}s still propagate. This is intended for external/network callbacks
+    * where one broken subscriber must not tear down the transport thread.
+    */
+   public Object postRecoverable(Object event) {
+      EventListener[] listeners = this.listenersByEventClass.get(event.getClass());
+      if (listeners == null) {
+         return event;
+      }
+
+      boolean profiled = this.profiler.isEnabled();
+      for (EventListener listener : listeners) {
+         try {
+            if (profiled) {
+               this.callProfiled(listener, event);
+            } else {
+               this.callUnprofiled(listener, event);
+            }
+         } catch (RuntimeException ignoredFailure) {
+            // callUnprofiled/callProfiled already attributed and recorded the failure.
+         }
+      }
+      return event;
+   }
+
    @Override
    public Object post(Object event) {
       EventListener[] listeners = this.listenersByEventClass.get(event.getClass());
       if (listeners != null) {
          if (!this.profiler.isEnabled()) {
             for (int index = 0; index < listeners.length; index++) {
-               listeners[index].call(event);
+               this.callUnprofiled(listeners[index], event);
             }
          } else {
             for (int index = 0; index < listeners.length; index++) {
@@ -210,10 +237,23 @@ public class EventBus implements EventDispatcher {
       }
       return event;
    }
+   private void callUnprofiled(EventListener listener, Object event) {
+      try {
+         listener.call(event);
+      } catch (RuntimeException | Error failure) {
+         RuntimeDiagnostics.record(
+            RuntimeDiagnostics.Area.EVENT,
+            listener.diagnosticName() + " <- " + event.getClass().getSimpleName(),
+            failure
+         );
+         throw failure;
+      }
+   }
+
    private void callProfiled(EventListener listener, Object event) {
       EventProfiler.CallbackHandle handle = listener.profileHandle();
       if (handle == null) {
-         listener.call(event);
+         this.callUnprofiled(listener, event);
          return;
       }
       long startedAt = this.profiler.nanoTime();
@@ -222,6 +262,11 @@ public class EventBus implements EventDispatcher {
          listener.call(event);
       } catch (RuntimeException | Error failure) {
          callbackFailure = failure;
+         RuntimeDiagnostics.record(
+            RuntimeDiagnostics.Area.EVENT,
+            listener.diagnosticName() + " <- " + event.getClass().getSimpleName(),
+            failure
+         );
          throw failure;
       } finally {
          try {

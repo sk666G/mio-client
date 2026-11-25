@@ -21,6 +21,15 @@ final class ProfilerDisplayRow {
       this.maximumNanos = maximumNanos;
    }
 
+   ProfilerDisplayRow(String name, Values values) {
+      this.name = name;
+      this.calls = 0L;
+      this.totalNanos = 0L;
+      this.averageNanos = 0L;
+      this.maximumNanos = 0L;
+      this.values = values;
+   }
+
    Values values() {
       if (this.values == null) {
          this.values = new Values(

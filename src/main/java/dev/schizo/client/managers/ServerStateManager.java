@@ -50,7 +50,7 @@ import net.minecraft.world.entity.player.Player;
 
 public final class ServerStateManager implements ClientAccess {
    private static FastLatencyModule fastLatency;
-   private static final Pattern LATENCY_PATTERN;
+   private static final Pattern LATENCY_PATTERN = Pattern.compile("\\d+ ping");
    private final ServerTickRateWindow tickRateWindow = new ServerTickRateWindow();
    private final ElapsedTimer setbackTimer;
    private final ElapsedTimer teleportAckTimer;
@@ -115,8 +115,8 @@ public final class ServerStateManager implements ClientAccess {
          return 0;
       }
       FastLatencyModule fastLatencyModule = fastLatency;
-      if (fastLatencyModule.isToggled()) {
-         return fastLatency.getLatencyMillis();
+      if (fastLatencyModule != null && fastLatencyModule.isToggled()) {
+         return fastLatencyModule.getLatencyMillis();
       }
       LocalPlayer latencyPlayer = ClientAccess.schizoMinecraft.player;
       int playerLatency = this.getPlayerLatencyMillis(latencyPlayer);
@@ -141,11 +141,6 @@ public final class ServerStateManager implements ClientAccess {
       this.packetFlowTimer = new ElapsedTimer();
       this.peakLatencyTimer = new ElapsedTimer();
       ClientAccess.eventBus.subscribe(this);
-   }
-
-   static {
-      fastLatency = ClientContext.getModule(FastLatencyModule.class);
-      LATENCY_PATTERN = Pattern.compile("\\d+ ping");
    }
 
    public boolean hasElapsedSinceSetback(long durationMillis) {
@@ -219,12 +214,7 @@ public final class ServerStateManager implements ClientAccess {
       }
 
       if (event.getPacket() instanceof ServerboundPlayerInputPacket inputPacket) {
-         try {
-            extractedInput = inputPacket.input();
-         } catch (Throwable inputFailure) {
-            throw new MatchException(inputFailure.toString(), inputFailure);
-         }
-
+         extractedInput = inputPacket.input();
          this.serverSneaking = extractedInput.shift();
       }
 
@@ -339,15 +329,17 @@ public final class ServerStateManager implements ClientAccess {
                int suffixEnd = textLength - 5;
                latencyText = latencyText.substring(0, suffixEnd).trim();
                this.footerLatencyMillis = Integer.parseInt(latencyText);
-            } catch (Throwable parseFailure) {
+            } catch (NumberFormatException | IndexOutOfBoundsException parseFailure) {
+               this.footerLatencyMillis = 0;
             }
          }
       }
    }
 
    public static void bindModules(ModuleRegistry registry) {
-      fastLatency = (FastLatencyModule)registry.getModule(
-         FastLatencyModule.class
+      fastLatency = (FastLatencyModule)java.util.Objects.requireNonNull(
+         registry.getModule(FastLatencyModule.class),
+         "Required module is not registered: FastLatencyModule"
       );
    }
 

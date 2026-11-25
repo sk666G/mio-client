@@ -176,7 +176,7 @@ public class LogoutSpotsModule extends Module {
 
    static {
 
-      fontsModule = (FontsModule)ClientContext.getModule(FontsModule.class);
+      
       renderingTexturedModel = false;
    }
 

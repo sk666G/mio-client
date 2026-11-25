@@ -442,7 +442,7 @@ public class SpeedMineModule extends Module {
                restartPending.set(false);
             }
          };
-         if (!scheduleRebreakRotationReceiver.scheduleRotationTask(scheduleRebreakRotationTask, 1)) {
+         if (!scheduleRebreakRotationReceiver.scheduleRotationTask(this, scheduleRebreakRotationTask, 1)) {
             restartPending.set(false);
          }
       }
@@ -883,7 +883,7 @@ public class SpeedMineModule extends Module {
          }
       };
       if (!scheduleStartDestroyRotationReceiver.scheduleRotationTask(
-         scheduleStartDestroyRotationTask, 1
+         this, scheduleStartDestroyRotationTask, 1
       )) {
          restartPending.set(false);
       }
@@ -1080,7 +1080,7 @@ public class SpeedMineModule extends Module {
                ClientContext.swingManager.swing(miningHand, miningSwing);
                BlockPos instantBreakPosition = this.miningPos;
 
-               SpeedMineModule.InstantBreakResult instantBreak = this.evaluateInstantBreak(instantBreakPosition);
+               SpeedMineInstantBreakPolicy.Decision instantBreak = this.evaluateInstantBreak(instantBreakPosition);
                int toolSlot = instantBreak.toolSlot();
                int selectedSlot = ClientAccess.schizoMinecraft.player.getInventory().getSelectedSlot();
                BlockPos hardnessPosition = this.miningPos;
@@ -1314,7 +1314,7 @@ public class SpeedMineModule extends Module {
                      }
                   };
 
-                  if (!extraSwapScheduler.scheduleRotationTask(restoreExtraSlot, 2)) {
+                  if (!extraSwapScheduler.scheduleRotationTask(this, restoreExtraSlot, 2)) {
                      restoreExtraSlot.run();
                   }
                   return;
@@ -1626,7 +1626,7 @@ public class SpeedMineModule extends Module {
                               restoreSlotTask.run();
                            }
                         };
-                        if (!scheduler.scheduleRotationTask(delayedBreak, 1)) {
+                        if (!scheduler.scheduleRotationTask(this, delayedBreak, 1)) {
                            delayedBreak.run();
                         }
                      } else {
@@ -1729,38 +1729,29 @@ public class SpeedMineModule extends Module {
       );
    }
 
-   private SpeedMineModule.InstantBreakResult evaluateInstantBreak(BlockPos blockPos) {
-      if (SpeedMineModule.noGlitchBlocksModule.isToggled()) {
-         if (SpeedMineModule.noGlitchBlocksModule.breakSetting.getValue()) {
-            return new SpeedMineModule.InstantBreakResult(false, -1, false);
-         }
-      }
+   private SpeedMineInstantBreakPolicy.Decision evaluateInstantBreak(BlockPos blockPos) {
+      boolean noGlitchBreakGuard = SpeedMineModule.noGlitchBlocksModule.isToggled()
+         && SpeedMineModule.noGlitchBlocksModule.breakSetting.getValue();
 
       BlockPos miningPosition = this.miningPos;
       int bestToolSlot = InventoryUtils.findBestToolSlot(
-         miningPosition, this.alternativeSetting.getValue());
+         miningPosition, this.alternativeSetting.getValue()
+      );
       int selectedSlot = ClientAccess.schizoMinecraft.player.getInventory().getSelectedSlot();
       ItemStack tool = ClientAccess.schizoMinecraft.player.getInventory().getItem(bestToolSlot);
       BlockState state = ClientAccess.schizoMinecraft.level.getBlockState(blockPos);
       boolean onGround = ClientAccess.schizoMinecraft.player.onGround();
       double breakProgress = WorldUtils.getBreakProgress(tool, state, onGround);
-      boolean holdingBestTool = bestToolSlot == selectedSlot;
-      if (this.autoSwapModeSetting.getValue() == SpeedMineAutoSwapChoice.NONE && !holdingBestTool) {
-         return new SpeedMineModule.InstantBreakResult(false, -1, false);
-      }
 
-      if (this.autoSwapModeSetting.getValue() == SpeedMineAutoSwapChoice.SILENT) {
-         if (this.value121Setting.getValue() != SpeedMineValue121Choice.OFF && !holdingBestTool) {
-            return new SpeedMineModule.InstantBreakResult(false, -1, false);
-         }
-      }
-
-      Float damageThreshold = this.damageSetting.getValue();
-      if (breakProgress < damageThreshold.floatValue()) {
-         return new SpeedMineModule.InstantBreakResult(false, -1, false);
-      } else {
-         return new SpeedMineModule.InstantBreakResult(true, bestToolSlot, breakProgress >= 1.0D);
-      }
+      return SpeedMineInstantBreakPolicy.evaluate(
+         noGlitchBreakGuard,
+         bestToolSlot,
+         selectedSlot,
+         breakProgress,
+         this.damageSetting.getValue(),
+         this.autoSwapModeSetting.getValue(),
+         this.value121Setting.getValue()
+      );
    }
 
    public SpeedMineModule() {
@@ -1869,10 +1860,5 @@ public class SpeedMineModule extends Module {
       return false;
    }
 
-   record InstantBreakResult(
-      boolean canInstantBreak,
-      int toolSlot,
-      boolean breaksInOneTick
-   ) {
-   }
 }
+

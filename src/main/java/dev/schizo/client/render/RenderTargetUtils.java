@@ -9,6 +9,7 @@
 
 package dev.schizo.client.render;
 
+import dev.schizo.client.diagnostics.RuntimeDiagnostics;
 import dev.schizo.client.ClientAccess;
 
 import com.mojang.blaze3d.pipeline.RenderTarget;
@@ -124,7 +125,7 @@ public final class RenderTargetUtils implements ClientAccess {
          assert stream != null;
          return IOUtils.toString(stream, StandardCharsets.UTF_8);
       } catch (IOException | AssertionError failure) {
-         failure.printStackTrace();
+         RuntimeDiagnostics.record(RuntimeDiagnostics.Area.RENDER, "Shader source", failure);
          return "";
       }
    }

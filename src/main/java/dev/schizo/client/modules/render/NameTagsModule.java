@@ -218,11 +218,11 @@ public class NameTagsModule extends Module {
    static {
       NAME_TAG_RENDER_TARGET = RenderTargetRegistry.createLazyRenderTarget("nametags_temp");
       ICON_TEXTURE = Identifier.fromNamespaceAndPath("schizo", "textures/schizo.png");
-      animationsModule = (AnimationsModule)ClientContext.getModule(AnimationsModule.class);
-      freecamModule = (FreecamModule)ClientContext.getModule(FreecamModule.class);
-      fontsModule = (FontsModule)ClientContext.getModule(FontsModule.class);
-      shader = (ShaderModule)ClientContext.getModule(ShaderModule.class);
-      colorsModule = (ColorsModule)ClientContext.getModule(ColorsModule.class);
+      
+      
+      
+      
+      
    }
    private Component buildTagText(LivingEntity entity) {
       MutableComponent label = Component.empty();
