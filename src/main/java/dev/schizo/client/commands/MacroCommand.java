@@ -16,7 +16,6 @@ import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.managers.MacroRegistry;
 import dev.schizo.client.render.FontRenderer;
 import dev.schizo.client.utils.chat.ChatUtils;
-import dev.schizo.client.config.JsonUtils;
 import dev.schizo.client.modules.misc.Macro;
 import dev.schizo.client.managers.CommandRegistry;
 import dev.schizo.client.modules.Keybind;
@@ -24,9 +23,7 @@ import dev.schizo.client.settings.options.MacroType;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.ParseResults;
 import com.mojang.brigadier.arguments.BoolArgumentType;
@@ -626,86 +623,26 @@ public final class MacroCommand extends Command {
    }
 
    private int importMacro(CommandContext context) {
-      KeyboardHandler keyboard = ClientAccess.schizoMinecraft.keyboardHandler;
-      String clipboard = keyboard.getClipboard();
-
+      final Macro macro;
       try {
-         String decodedJson = new String(Base64.getDecoder().decode(clipboard.getBytes()));
-         JsonObject config = (JsonObject)JsonParser.parseString(decodedJson);
-
-         String[] requiredFields = new String[5];
-
-         requiredFields[0] = "name";
-
-         requiredFields[1] = "type";
-
-         requiredFields[(2)] = "key";
-
-         requiredFields[(3)] = "mouse";
-
-         requiredFields[(4)] = "commands";
-         if (!JsonUtils.hasProperties(config, requiredFields)) {
-            throw new RuntimeException();
-         }
-
-         JsonElement typeElement = config.get("type");
-         String typeName = typeElement.getAsString();
-         MacroType type = MacroType.fromName(typeName);
-
-         JsonElement nameElement = config.get("name");
-         String name = nameElement.getAsString();
-
-         JsonElement keyElement = config.get("key");
-         int keyCode = keyElement.getAsInt();
-
-         JsonElement mouseElement = config.get("mouse");
-         boolean mouse = mouseElement.getAsBoolean();
-         Keybind keybind = Keybind.toggle(
-            keyCode, mouse
-         );
-         Macro macro = type.create(name, keybind);
-
-         JsonElement commandsElement = config.get("commands");
-         JsonArray commandsJson = commandsElement.getAsJsonArray();
-         Iterator commandIterator = commandsJson.iterator();
-
-         while (commandIterator.hasNext()) {
-            JsonElement commandElement = (JsonElement)commandIterator.next();
-            List commands = macro.getCommands();
-            commands.add(commandElement.getAsString());
-         }
-
-         if (type == MacroType.HOLD) {
-            while (true) {
-               int holdCommandCount = macro.getCommands().size();
-
-               if (holdCommandCount <= (2)) {
-                  break;
-               }
-               macro.getCommands().removeLast();
-            }
-         }
-
+         KeyboardHandler keyboard = ClientAccess.schizoMinecraft.keyboardHandler;
+         macro = MacroRegistry.decodeClipboardMacro(keyboard.getClipboard());
          if (!ClientContext.macroRegistry.upsertMacro(macro)) {
             throw new IllegalStateException("Macro import could not be applied");
          }
-
-         MutableComponent message = Component.literal("Successfully loaded ");
-         String nameForMessage = macro.getName();
-         MutableComponent nameComponent = Component.literal(nameForMessage);
-         ChatFormatting nameColor = ChatFormatting.GRAY;
-         MutableComponent namedMessage = message.append(nameComponent.withStyle(nameColor));
-
-         MutableComponent completedMessage = namedMessage.append(" config from your clipboard");
-
-         ChatUtils.printChat(completedMessage, ChatUtils.DEFAULT_SIGNATURE);
-      } catch (Throwable importFailure) {
-
-         MutableComponent errorMessage = Component.literal("Failed to load macro from your clipboard");
-
-         ChatUtils.printChat(errorMessage, ChatUtils.DEFAULT_SIGNATURE, ChatUtils.MessagePriority.MID);
+      } catch (RuntimeException importFailure) {
+         ChatUtils.printChat(
+            Component.literal("Failed to load macro from your clipboard"),
+            ChatUtils.DEFAULT_SIGNATURE,
+            ChatUtils.MessagePriority.MID
+         );
+         return 0;
       }
 
+      MutableComponent message = Component.literal("Successfully loaded ")
+         .append(Component.literal(macro.getName()).withStyle(ChatFormatting.GRAY))
+         .append(" config from your clipboard");
+      ChatUtils.printChat(message, ChatUtils.DEFAULT_SIGNATURE);
       return 1;
    }
 
