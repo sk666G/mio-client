@@ -12,14 +12,12 @@ package dev.schizo.mixin;
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import com.llamalad7.mixinextras.sugar.Local;
 import dev.schizo.client.ClientAccess;
-import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.events.ClientPacketListenerHandleExplosionEvent;
 import dev.schizo.client.events.ClientPacketListenerHandleOpenSignEditorEvent;
 import dev.schizo.client.events.ClientPacketListenerHandleSetEntityMotionEvent;
 import dev.schizo.client.events.BlockUpdateAppliedEvent;
 import dev.schizo.client.events.SelectedSlotChangeEvent;
-import dev.schizo.client.modules.exploit.FastLatencyModule;
-import dev.schizo.client.modules.render.NoRenderModule;
 import java.util.Optional;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.network.protocol.game.ClientboundAddEntityPacket;
@@ -37,8 +35,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(ClientPacketListener.class)
 public class ClientPacketListenerMixin {
-   private static final FastLatencyModule vanillaPingModule = ClientContext.getModule(FastLatencyModule.class);
-   private static final NoRenderModule noRenderModule = ClientContext.getModule(NoRenderModule.class);
 
    @Inject(
       method = "handleExplosion",
@@ -93,16 +89,24 @@ public class ClientPacketListenerMixin {
       }
    }
 
-   @Inject(method = "handleAddEntity", at = @At("HEAD"), cancellable = true)
+   @Inject(
+      method = "handleAddEntity",
+      at = @At(
+         value = "INVOKE",
+         target = "Lnet/minecraft/network/protocol/PacketUtils;ensureRunningOnSameThread(Lnet/minecraft/network/protocol/Packet;Lnet/minecraft/network/PacketListener;Lnet/minecraft/network/PacketProcessor;)V",
+         shift = Shift.AFTER
+      ),
+      cancellable = true
+   )
    private void suppressRemovedEntitySpawn(ClientboundAddEntityPacket packet, CallbackInfo callback) {
-      if (noRenderModule.isToggled()) {
+      if (MixinModuleRegistry.levelNoRenderModule.isToggled()) {
          if (packet != null
             && packet.getType() != null
-            && noRenderModule.shouldHideEntityType(
+            && MixinModuleRegistry.levelNoRenderModule.shouldHideEntityType(
                packet.getType()
             )
-            && noRenderModule.removalSetting.getValue()
-               == NoRenderModule.RemovalChoice.FULL) {
+            && MixinModuleRegistry.levelNoRenderModule.removalSetting.getValue()
+               == dev.schizo.client.modules.render.NoRenderModule.RemovalChoice.FULL) {
             callback.cancel();
          }
       }
@@ -150,7 +154,7 @@ public class ClientPacketListenerMixin {
 
    @ModifyExpressionValue(method = "tick", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/components/DebugScreenOverlay;showNetworkCharts()Z"))
    private boolean shouldShowNetworkCharts(boolean originalVisible) {
-      return vanillaPingModule.isVanillaPingEnabled()
+      return MixinModuleRegistry.clientPacketFastLatencyModule.isVanillaPingEnabled()
          ? false
          : originalVisible;
    }
