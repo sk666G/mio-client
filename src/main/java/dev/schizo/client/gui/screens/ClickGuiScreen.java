@@ -61,7 +61,6 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
       GLFW.GLFW_KEY_B, GLFW.GLFW_KEY_A
    };
 
-   private static final HUDModule HUD = (HUDModule)ClientContext.getModule(HUDModule.class);
    private SettingComponent<?> editingSetting = null;
    private int secretSequenceIndex = 0;
    private boolean gamePanelUnlocked;
@@ -202,7 +201,7 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
       int panelX = 10;
 
       for (ModuleCategory category : ModuleCategory.values()) {
-         if (category != ModuleCategory.HUD) {
+         if (category != ModuleCategory.schizo$HUD()) {
             ModuleCategoryPanel categoryPanel = new ModuleCategoryPanel(category);
             categoryPanel.setX(
                panelX
@@ -298,7 +297,7 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
          Color hintColor = ColorUtils.pulse(
             Color.GRAY, Color.WHITE, 2000.0D, 250.0D
          );
-         int hudMargin = HUD.getSafeX();
+         int hudMargin = schizo$HUD().getSafeX();
          FontRenderer.INSTANCE
             .drawWithShadow(
                poseStack,
@@ -431,4 +430,8 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
       return this.gamePanelUnlocked;
    }
 
+
+   private static HUDModule schizo$HUD() {
+      return ClientContext.requireModule(HUDModule.class);
+   }
 }
