@@ -35,9 +35,13 @@ public abstract class HudWidgetModule extends Module {
    private static final EnumJsonConverter<HudAnchor> anchorCodec = new EnumJsonConverter<>(
       HudAnchor.class
    );
-   protected static HUDModule hud = ClientContext.getModule(HUDModule.class);
+   protected static HUDModule hud;
    protected HudWidgetRenderer renderer;
    private final float[] dimensionBuffer = new float[2];
+
+   public static void bindModules(dev.schizo.client.managers.ModuleRegistry registry) {
+      hud = registry.requireModule(HUDModule.class);
+   }
 
    public HudWidgetModule(String name, String... aliases) {
       super(name, ModuleCategory.HUD, aliases);
