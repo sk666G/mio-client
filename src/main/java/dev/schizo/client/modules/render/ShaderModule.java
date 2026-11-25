@@ -259,7 +259,9 @@ public class ShaderModule extends Module {
    private void onWorldRender(WorldRenderEvent.Overlay event) {
 
       EntityCullingOverrides.disableCulling();
-      (event.getPoseStack()).pushPose();
+      PoseStack overlayPoses = event.getPoseStack();
+      overlayPoses.pushPose();
+      try {
       Supplier nameTagTargetSupplier = NameTagsModule.NAME_TAG_RENDER_TARGET;
       RenderTarget nameTagTarget = (RenderTarget)nameTagTargetSupplier.get();
       ShaderModule.ShaderChoice shader = this.shaderSetting.getValue();
@@ -321,8 +323,11 @@ public class ShaderModule extends Module {
             Boolean callbackHandsEnabled = this.handsSetting.getValue();
             if (callbackHandsEnabled) {
                ClientContext.shaderRegistry.renderingHands = true;
-               this.renderHands(event);
-               ClientContext.shaderRegistry.renderingHands = false;
+               try {
+                  this.renderHands(event);
+               } finally {
+                  ClientContext.shaderRegistry.renderingHands = false;
+               }
             }
          }
       };
@@ -335,21 +340,24 @@ public class ShaderModule extends Module {
          if (separateHandsEnabled) {
             this.renderHands(event);
             ClientContext.shaderRegistry.renderingHands = true;
-            ShaderRegistry registryForHandsPass = ClientContext.shaderRegistry;
-            Runnable handsPass = () -> {
-               ShaderRegistry.getBufferSource()
-                  .setColorArgb(-1);
-               this.renderHands(event);
-            };
-            registryForHandsPass.render(shaderId, handsPass);
-            ClientContext.shaderRegistry.renderingHands = false;
+            try {
+               ShaderRegistry registryForHandsPass = ClientContext.shaderRegistry;
+               Runnable handsPass = () -> {
+                  ShaderRegistry.getBufferSource()
+                     .setColorArgb(-1);
+                  this.renderHands(event);
+               };
+               registryForHandsPass.render(shaderId, handsPass);
+            } finally {
+               ClientContext.shaderRegistry.renderingHands = false;
+            }
          }
       }
 
-      PoseStack poseForPop = event.getPoseStack();
-      poseForPop.popPose();
-
-      EntityCullingOverrides.restoreCulling();
+      } finally {
+         overlayPoses.popPose();
+         EntityCullingOverrides.restoreCulling();
+      }
    }
 
    public Color blendSettingColors(Setting<Color> firstSetting, Setting<Color> secondSetting) {
@@ -447,17 +455,19 @@ public class ShaderModule extends Module {
          cameraSleeping = false;
       }
       RenderSystem.backupProjectionMatrix();
-
-      GpuBufferSlice projectionBuffer = this.getHandProjectionBuffer();
-      ProjectionType projectionType = ProjectionType.PERSPECTIVE;
-      RenderSystem.setProjectionMatrix(projectionBuffer, projectionType);
-      Quaternionf cameraRotation = (ClientAccess.schizoMinecraft.gameRenderer.getMainCamera()).rotation();
-      Quaternionf inverseRotationDestination = new Quaternionf();
-      Quaternionf inverseCameraRotation = cameraRotation.conjugate(inverseRotationDestination);
-      Matrix4f viewMatrix = new Matrix4f();
-      viewMatrix.rotation(inverseCameraRotation);
-      ClientAccess.schizoMinecraft.gameRenderer.renderItemInHand(event.getPartialTick(), cameraSleeping, viewMatrix);
-      RenderSystem.restoreProjectionMatrix();
+      try {
+         GpuBufferSlice projectionBuffer = this.getHandProjectionBuffer();
+         ProjectionType projectionType = ProjectionType.PERSPECTIVE;
+         RenderSystem.setProjectionMatrix(projectionBuffer, projectionType);
+         Quaternionf cameraRotation = (ClientAccess.schizoMinecraft.gameRenderer.getMainCamera()).rotation();
+         Quaternionf inverseRotationDestination = new Quaternionf();
+         Quaternionf inverseCameraRotation = cameraRotation.conjugate(inverseRotationDestination);
+         Matrix4f viewMatrix = new Matrix4f();
+         viewMatrix.rotation(inverseCameraRotation);
+         ClientAccess.schizoMinecraft.gameRenderer.renderItemInHand(event.getPartialTick(), cameraSleeping, viewMatrix);
+      } finally {
+         RenderSystem.restoreProjectionMatrix();
+      }
    }
 
    public boolean isShaderTarget(Entity entity) {
