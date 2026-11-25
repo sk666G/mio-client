@@ -62,6 +62,131 @@ import dev.schizo.client.modules.render.TrailsModule;
 import dev.schizo.client.modules.render.TrajectoriesModule;
 import dev.schizo.client.modules.render.VoidESPModule;
 import dev.schizo.client.modules.render.ZoomModule;
+import dev.schizo.client.modules.misc.BetterChatModule;
+import dev.schizo.client.modules.misc.AntiCyrillicModule;
+import dev.schizo.client.modules.misc.AntiSpamModule;
+import dev.schizo.client.modules.misc.NoNarratorModule;
+import dev.schizo.client.modules.misc.SoundBlockerModule;
+import dev.schizo.client.modules.misc.VisualRangeModule;
+import dev.schizo.client.modules.player.NameProtectModule;
+import dev.schizo.client.modules.client.NotificationsModule;
+import dev.schizo.client.modules.client.UIModule;
+import dev.schizo.client.modules.client.DiscordModule;
+import dev.schizo.client.modules.misc.WebhookNotifsModule;
+import dev.schizo.client.modules.misc.ExtraScreenshotModule;
+import dev.schizo.client.modules.misc.ExtraTabModule;
+import dev.schizo.client.modules.misc.ChestSearchBarModule;
+import dev.schizo.client.modules.misc.CustomDeathTextModule;
+import dev.schizo.client.modules.render.TunnelsModule;
+import dev.schizo.client.modules.client.CapesModule;
+import dev.schizo.client.modules.misc.ChatFilterModule;
+import dev.schizo.client.modules.player.NoEffectsModule;
+import dev.schizo.client.modules.player.NoGlitchBlocksModule;
+import dev.schizo.client.modules.combat.NoHitDelayModule;
+import dev.schizo.client.modules.player.NoInteractModule;
+import dev.schizo.client.modules.movement.NoJumpDelayModule;
+import dev.schizo.client.modules.exploit.NoMineAnimationModule;
+import dev.schizo.client.modules.misc.NoRotateModule;
+import dev.schizo.client.modules.misc.StashFinderModule;
+import dev.schizo.client.modules.exploit.NewChunksModule;
+import dev.schizo.client.modules.misc.KillEffectsModule;
+import dev.schizo.client.modules.misc.SkinFlickerModule;
+import dev.schizo.client.modules.misc.CoordLoggerModule;
+import dev.schizo.client.modules.exploit.FakeVanillaModule;
+import dev.schizo.client.modules.misc.AnnouncerModule;
+import dev.schizo.client.modules.misc.AntiAFKModule;
+import dev.schizo.client.modules.misc.AutoReconnectModule;
+import dev.schizo.client.modules.misc.AutoRespawnModule;
+import dev.schizo.client.modules.misc.SpammerModule;
+import dev.schizo.client.modules.player.AutoFishModule;
+import dev.schizo.client.modules.player.AutoFarmModule;
+import dev.schizo.client.modules.player.InventorySorterModule;
+import dev.schizo.client.modules.player.ChestStealerModule;
+import dev.schizo.client.modules.player.InventoryCleanerModule;
+import dev.schizo.client.modules.movement.FireworksModule;
+import dev.schizo.client.modules.misc.MiddleClickModule;
+import dev.schizo.client.modules.player.AutoBreedModule;
+import dev.schizo.client.modules.player.AutoTameModule;
+import dev.schizo.client.modules.player.AutoTradeModule;
+import dev.schizo.client.modules.player.AutoCraftModule;
+import dev.schizo.client.modules.combat.AnchorAuraModule;
+import dev.schizo.client.modules.misc.AntiAimModule;
+import dev.schizo.client.modules.combat.AntiBotModule;
+import dev.schizo.client.modules.combat.AntiFeetPlaceModule;
+import dev.schizo.client.modules.combat.AntiPearlModule;
+import dev.schizo.client.modules.combat.AuraModule;
+import dev.schizo.client.modules.combat.AutoArmorModule;
+import dev.schizo.client.modules.combat.AutoBowReleaseModule;
+import dev.schizo.client.modules.combat.AutoClickerModule;
+import dev.schizo.client.modules.combat.AutoCrystalModule;
+import dev.schizo.client.modules.combat.AutoDropModule;
+import dev.schizo.client.modules.combat.AutoExpModule;
+import dev.schizo.client.modules.combat.AutoLogModule;
+import dev.schizo.client.modules.combat.AutoMaceModule;
+import dev.schizo.client.modules.combat.AutoMineModule;
+import dev.schizo.client.modules.combat.AutoPotModule;
+import dev.schizo.client.modules.combat.AutoTrapModule;
+import dev.schizo.client.modules.combat.BedAuraModule;
+import dev.schizo.client.modules.combat.BlockerModule;
+import dev.schizo.client.modules.combat.BowAimModule;
+import dev.schizo.client.modules.misc.AntiQuitModule;
+import dev.schizo.client.modules.exploit.AntiVanishModule;
+import dev.schizo.client.modules.movement.AvoidModule;
+import dev.schizo.client.modules.combat.ArrowsModule;
+import dev.schizo.client.modules.player.AutoEatModule;
+import dev.schizo.client.modules.player.AutoMountModule;
+import dev.schizo.client.modules.player.AutoNameTagModule;
+import dev.schizo.client.modules.misc.AutoSignModule;
+import dev.schizo.client.modules.player.AutoToolModule;
+import dev.schizo.client.modules.player.AutoTemplateModule;
+import dev.schizo.client.modules.movement.AutoWalkModule;
+import dev.schizo.client.modules.exploit.ChorusControlModule;
+import dev.schizo.client.modules.movement.EntityControlModule;
+import dev.schizo.client.modules.movement.FastFallModule;
+import dev.schizo.client.modules.exploit.FastLatencyModule;
+import dev.schizo.client.modules.movement.FastStairsModule;
+import dev.schizo.client.modules.movement.FastSwimModule;
+import dev.schizo.client.modules.movement.FastWebModule;
+import dev.schizo.client.modules.combat.FeetPlaceModule;
+import dev.schizo.client.modules.combat.FishTrapModule;
+import dev.schizo.client.modules.movement.FlightModule;
+import dev.schizo.client.modules.player.FreecamModule;
+import dev.schizo.client.modules.misc.HeavenModule;
+import dev.schizo.client.modules.movement.HighJumpModule;
+import dev.schizo.client.modules.exploit.HitboxDesyncModule;
+import dev.schizo.client.modules.combat.HoleFillModule;
+import dev.schizo.client.modules.movement.HoleSnapModule;
+import dev.schizo.client.modules.exploit.IllegalDisconnectModule;
+import dev.schizo.client.modules.player.InventoryTweaksModule;
+import dev.schizo.client.modules.player.ItemSaverModule;
+import dev.schizo.client.modules.movement.JesusModule;
+import dev.schizo.client.modules.combat.KeyPearlModule;
+import dev.schizo.client.modules.movement.LongJumpModule;
+import dev.schizo.client.modules.combat.MainhandModule;
+import dev.schizo.client.modules.exploit.MultiTaskModule;
+import dev.schizo.client.modules.misc.NoPacketKickModule;
+import dev.schizo.client.modules.player.NukerModule;
+import dev.schizo.client.modules.combat.OffhandModule;
+import dev.schizo.client.modules.combat.PistonCrystalModule;
+import dev.schizo.client.modules.combat.PusherModule;
+import dev.schizo.client.modules.player.ReplenishModule;
+import dev.schizo.client.modules.exploit.RocketExtenderModule;
+import dev.schizo.client.modules.player.RotationLockModule;
+import dev.schizo.client.modules.movement.SafeWalkModule;
+import dev.schizo.client.modules.player.ScaffoldModule;
+import dev.schizo.client.modules.combat.SelfFillModule;
+import dev.schizo.client.modules.combat.SelfTrapModule;
+import dev.schizo.client.modules.combat.SelfWebModule;
+import dev.schizo.client.modules.player.SourceFillModule;
+import dev.schizo.client.modules.movement.SpeedModule;
+import dev.schizo.client.modules.movement.SprintModule;
+import dev.schizo.client.modules.movement.StepModule;
+import dev.schizo.client.modules.misc.SwingModule;
+import dev.schizo.client.modules.exploit.TimerModule;
+import dev.schizo.client.modules.exploit.TridentModule;
+import dev.schizo.client.modules.movement.VelocityModule;
+import dev.schizo.client.modules.combat.WebAuraModule;
+import dev.schizo.client.modules.exploit.XCarryModule;
 import java.util.Map;
 
 /**
@@ -95,6 +220,506 @@ public final class ModuleCompatibility {
       Map.entry(HUDModule.class, assessed(
          Classification.CLIENT_ONLY,
          "Local HUD rendering and editor presentation only; no outgoing gameplay packet path was found."
+      )),
+      Map.entry(BetterChatModule.class, assessed(
+         Classification.CLIENT_ONLY,
+         "Observes outgoing chat sends only to correlate local chat presentation; formatting, timestamps, sounds and message display changes remain client-side."
+      )),
+      Map.entry(AntiSpamModule.class, assessed(
+         Classification.CLIENT_ONLY,
+         "Filters, stacks and rewrites only the local displayed chat event; no outbound packet mutation or world interaction was found."
+      )),
+      Map.entry(NoNarratorModule.class, assessed(
+         Classification.CLIENT_ONLY,
+         "Disables the local narrator feature only."
+      )),
+      Map.entry(SoundBlockerModule.class, assessed(
+         Classification.CLIENT_ONLY,
+         "Cancels selected local sound playback events without changing server state or gameplay packets."
+      )),
+      Map.entry(VisualRangeModule.class, assessed(
+         Classification.CLIENT_ONLY,
+         "Observes clientbound entity-add information to produce local enter/leave notifications; it does not modify packets."
+      )),
+      Map.entry(NameProtectModule.class, assessed(
+         Classification.CLIENT_ONLY,
+         "Changes locally rendered/displayed player-name text without modifying authentication, player identity or gameplay packets."
+      )),
+      Map.entry(UIModule.class, assessed(
+         Classification.CLIENT_ONLY,
+         "Owns the local ClickGUI lifecycle and reacts to disconnect state only to close/reset UI."
+      )),
+      Map.entry(DiscordModule.class, assessed(
+         Classification.CLIENT_ONLY,
+         "Publishes local activity to Discord IPC; no Minecraft gameplay packet or server-state mutation path was found."
+      )),
+      Map.entry(WebhookNotifsModule.class, assessed(
+         Classification.CLIENT_ONLY,
+         "Forwards locally observed notification/chat information to configured webhooks without modifying Minecraft gameplay packets."
+      )),
+      Map.entry(ExtraScreenshotModule.class, assessed(
+         Classification.CLIENT_ONLY,
+         "Extends local screenshot capture/export/upload behavior; no Minecraft gameplay packet path was found."
+      )),
+      Map.entry(ExtraTabModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Customizes the local player-list/TAB presentation only."
+      )),
+      Map.entry(ChestSearchBarModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Adds local inventory-container search/highlighting UI without sending container interactions."
+      )),
+      Map.entry(CustomDeathTextModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Changes only the local death-screen text."
+      )),
+      Map.entry(TunnelsModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Incrementally scans already-loaded client block state and renders tunnel overlays; no outgoing packet or world interaction path was found."
+      )),
+      Map.entry(AntiCyrillicModule.class, assessed(
+         Classification.PACKET_AFFECTING,
+         "Rewrites outbound chat-command packet command text by normalizing Cyrillic characters before the packet is sent."
+      )),
+      Map.entry(NotificationsModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Most notifications are local, but configured totem-pop behavior can send chat text or commands through the normal client chat/command path."
+      )),
+      Map.entry(CapesModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Changes local cape rendering/presentation without modifying Minecraft gameplay packets."
+      )),
+      Map.entry(ChatFilterModule.class, assessed(
+         Classification.CLIENT_ONLY,
+         "Filters and cancels only local chat-display events according to user rules."
+      )),
+      Map.entry(StashFinderModule.class, assessed(
+         Classification.CLIENT_ONLY,
+         "Scans locally available world/container information and records or notifies possible stash locations without sending gameplay actions."
+      )),
+      Map.entry(CoordLoggerModule.class, assessed(
+         Classification.CLIENT_ONLY,
+         "Observes local death/disconnect state and records coordinates; no outgoing gameplay action was found."
+      )),
+      Map.entry(NewChunksModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Classifies locally observed chunk-generation state for rendering/inspection without modifying server packets or world interaction."
+      )),
+      Map.entry(KillEffectsModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Observes clientbound combat-kill state and creates local visual/audio kill effects only."
+      )),
+      Map.entry(NoEffectsModule.class, assessed(
+         Classification.SERVER_SENSITIVE,
+         "Suppresses selected client effect queries, which can make local movement/physics interpretation diverge from server-applied effects."
+      )),
+      Map.entry(NoHitDelayModule.class, assessed(
+         Classification.SERVER_SENSITIVE,
+         "Removes local attack miss delay and shortens use-key timing, changing interaction cadence from vanilla client behavior."
+      )),
+      Map.entry(NoJumpDelayModule.class, assessed(
+         Classification.SERVER_SENSITIVE,
+         "Forces the local living-entity jump delay to zero for the player, changing movement timing from vanilla behavior."
+      )),
+      Map.entry(NoInteractModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Cancels selected block interactions or temporarily changes sneaking/use-item flow around those interactions."
+      )),
+      Map.entry(NoGlitchBlocksModule.class, assessed(
+         Classification.PACKET_AFFECTING,
+         "Cancels selected local interaction handling and can explicitly resend use-item-on interaction packets."
+      )),
+      Map.entry(NoMineAnimationModule.class, assessed(
+         Classification.PACKET_AFFECTING,
+         "Observes mining action packets and emits additional player-action packets while hiding mining progress."
+      )),
+      Map.entry(NoRotateModule.class, assessed(
+         Classification.PACKET_AFFECTING,
+         "Changes handling of server position/rotation corrections and outgoing movement rotation state."
+      )),
+      Map.entry(SkinFlickerModule.class, assessed(
+         Classification.PACKET_AFFECTING,
+         "Toggles player model-part options and broadcasts changed client options, so cosmetic state is transmitted rather than remaining purely local."
+      )),
+      Map.entry(FakeVanillaModule.class, assessed(
+         Classification.PACKET_AFFECTING,
+         "Rewrites the outbound client brand payload to report 'vanilla'; this changes information presented to the server and is not a compatibility certification."
+      )),
+      Map.entry(AnnouncerModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Observes gameplay/player events and sends configured chat announcements through the normal server chat path."
+      )),
+      Map.entry(AntiAFKModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automates ordinary player activity such as attacks/input actions to avoid inactivity."
+      )),
+      Map.entry(AutoReconnectModule.class, assessed(
+         Classification.CLIENT_ONLY,
+         "Automates the client connection-screen lifecycle after disconnect; no in-session gameplay packet mutation was found."
+      )),
+      Map.entry(AutoRespawnModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automatically requests player respawn and can send configured post-death chat or commands."
+      )),
+      Map.entry(SpammerModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automatically sends configured chat messages through the normal client chat/command path."
+      )),
+      Map.entry(AutoFishModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Observes fishing feedback and automatically performs ordinary use-item actions to reel/cast."
+      )),
+      Map.entry(AutoFarmModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automatically breaks crops and performs use-item-on interactions for farming."
+      )),
+      Map.entry(InventorySorterModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automatically performs inventory/menu slot swaps according to the configured sorting strategy."
+      )),
+      Map.entry(ChestStealerModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automatically performs container quick-move/drop clicks and can close the opened container screen."
+      )),
+      Map.entry(InventoryCleanerModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automatically performs inventory/container click actions to remove configured items."
+      )),
+      Map.entry(FireworksModule.class, assessed(
+         Classification.SERVER_SENSITIVE,
+         "Automates rocket/item use and can emit start-fall-flying/swing actions, making movement and interaction timing server-sensitive."
+      )),
+      Map.entry(MiddleClickModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Configured middle-click actions can perform ordinary item use in addition to local social actions."
+      )),
+      Map.entry(AutoBreedModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automatically interacts with nearby breedable entities using ordinary entity interaction paths."
+      )),
+      Map.entry(AutoTameModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automatically interacts with tameable entities according to configured action/frequency."
+      )),
+      Map.entry(AutoTradeModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automates villager interaction, trade selection and inventory/container clicks."
+      )),
+      Map.entry(AutoCraftModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automates crafting/container actions and ordinary placement/use-item steps required by its crafting flow."
+      )),
+      Map.entry(AnchorAuraModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automates respawn-anchor placement/charging/detonation interactions and associated inventory/rotation coordination."
+      )),
+      Map.entry(AntiAimModule.class, assessed(
+         Classification.SERVER_SENSITIVE,
+         "Requests non-vanilla server-side rotations and coordinates those rotations around outgoing use-item actions."
+      )),
+      Map.entry(AntiBotModule.class, assessed(
+         Classification.CLIENT_ONLY,
+         "Filters suspected bot players by removing matching entities from the local client world; no outgoing packet mutation was found."
+      )),
+      Map.entry(AntiFeetPlaceModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automatically replaces mined blocks near eligible targets through ordinary placement interaction helpers."
+      )),
+      Map.entry(AntiPearlModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Observes pearl trajectories and automatically places blocking/support blocks through the placement-module path."
+      )),
+      Map.entry(AuraModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automatically selects and attacks nearby entities while coordinating rotation/sprint state."
+      )),
+      Map.entry(AutoArmorModule.class, assessed(
+         Classification.SERVER_SENSITIVE,
+         "Automates armor/inventory changes and can emit start-fall-flying state while coordinating elytra equipment."
+      )),
+      Map.entry(AutoBowReleaseModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automatically releases and reuses bow/crossbow actions through ordinary release/use-item paths."
+      )),
+      Map.entry(AutoClickerModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automatically invokes the client's attack and interact actions at configured cadence."
+      )),
+      Map.entry(AutoCrystalModule.class, assessed(
+         Classification.PACKET_AFFECTING,
+         "Automates crystal placement/attack and can emit predicted crystal attack IDs plus explicit player-action packets outside ordinary game-mode sequencing."
+      )),
+      Map.entry(AutoDropModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Computes placement positions and automatically places gravity/support blocks around eligible targets."
+      )),
+      Map.entry(AutoExpModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automatically throws experience bottles using normal use-item/swing interaction paths."
+      )),
+      Map.entry(AutoLogModule.class, assessed(
+         Classification.PACKET_AFFECTING,
+         "Automatically disconnects under configured danger conditions and can delegate to the existing IllegalDisconnect mode when that module is enabled."
+      )),
+      Map.entry(AutoMaceModule.class, assessed(
+         Classification.SERVER_SENSITIVE,
+         "Coordinates mace attacks with movement/elytra state, forced rotations and automated item use."
+      )),
+      Map.entry(AutoMineModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automatically selects blocks and starts ordinary block-destroy interactions with optional rotation."
+      )),
+      Map.entry(AutoPotModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automatically selects and throws potions using the normal use-item interaction semantics with coordinated rotation."
+      )),
+      Map.entry(AutoTrapModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Placement-module automation that surrounds selected targets with configured blocks."
+      )),
+      Map.entry(BedAuraModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automates bed placement/use interactions and rotation around eligible targets."
+      )),
+      Map.entry(BlockerModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Placement-oriented defensive automation that places configured blocking positions in response to observed combat state."
+      )),
+      Map.entry(BowAimModule.class, assessed(
+         Classification.SERVER_SENSITIVE,
+         "Calculates target-leading ballistic rotations and injects those rotations into bow/crossbow use-item actions."
+      )),
+      Map.entry(AntiQuitModule.class, assessed(
+         Classification.CLIENT_ONLY,
+         "Prevents accidental local quit/disconnect UI actions; no gameplay packet mutation or world interaction was found."
+      )),
+      Map.entry(AntiVanishModule.class, assessed(
+         Classification.CLIENT_ONLY,
+         "Observes player-info add/remove state and locally reveals/notifies suspected vanished players without modifying outgoing packets."
+      )),
+      Map.entry(AvoidModule.class, assessed(
+         Classification.SERVER_SENSITIVE,
+         "Directly changes local player velocity/position to escape configured hazards, which changes movement reported to the server."
+      )),
+      Map.entry(ArrowsModule.class, assessed(
+         Classification.PACKET_AFFECTING,
+         "Coordinates arrow selection/release and can cancel normal handling while emitting explicit player-action/use-item sequences."
+      )),
+      Map.entry(AutoEatModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automatically selects food and performs ordinary inventory/use-item actions."
+      )),
+      Map.entry(AutoMountModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automatically rotates toward and interacts with rideable entities."
+      )),
+      Map.entry(AutoNameTagModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automatically performs ordinary entity interactions to apply nearby name tags."
+      )),
+      Map.entry(AutoSignModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automatically submits configured sign text by replacing the local sign-edit flow with the normal sign-update action."
+      )),
+      Map.entry(AutoToolModule.class, assessed(
+         Classification.PACKET_AFFECTING,
+         "Can cancel normal mining handling and emit explicit start/stop/abort player-action packets while switching tools."
+      )),
+      Map.entry(AutoTemplateModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automatically performs smithing-menu quick-move and pickup slot actions."
+      )),
+      Map.entry(AutoWalkModule.class, assessed(
+         Classification.INPUT_MODIFYING,
+         "Automates forward movement input rather than directly rewriting movement packets."
+      )),
+      Map.entry(ChorusControlModule.class, assessed(
+         Classification.PACKET_AFFECTING,
+         "Queues/cancels movement and teleport-ack packets while controlling when a chorus teleport correction is accepted."
+      )),
+      Map.entry(EntityControlModule.class, assessed(
+         Classification.SERVER_SENSITIVE,
+         "Changes ridden-entity control/rotation behavior and reacts to server position corrections."
+      )),
+      Map.entry(FastFallModule.class, assessed(
+         Classification.SERVER_SENSITIVE,
+         "Directly accelerates downward velocity and can reposition the local player to descend faster."
+      )),
+      Map.entry(FastLatencyModule.class, assessed(
+         Classification.PACKET_AFFECTING,
+         "Sends latency probe packets and intercepts/cancels selected ping/keepalive-related responses to measure latency."
+      )),
+      Map.entry(FastStairsModule.class, assessed(
+         Classification.INPUT_MODIFYING,
+         "Requests jump input while traversing stairs based on local speed/terrain state."
+      )),
+      Map.entry(FastSwimModule.class, assessed(
+         Classification.SERVER_SENSITIVE,
+         "Directly rewrites local player vertical and horizontal velocity while swimming."
+      )),
+      Map.entry(FastWebModule.class, assessed(
+         Classification.PACKET_AFFECTING,
+         "Combines direct movement changes with explicit block-destroy action packets while in cobwebs."
+      )),
+      Map.entry(FeetPlaceModule.class, assessed(
+         Classification.SERVER_SENSITIVE,
+         "Automates surround placement and can center/reposition the local player while coordinating server corrections."
+      )),
+      Map.entry(FishTrapModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Inherits AutoTrap placement automation and targets crawling-player positions with predicted placement offsets."
+      )),
+      Map.entry(FlightModule.class, assessed(
+         Classification.SERVER_SENSITIVE,
+         "Directly rewrites local player velocity while flying and reacts to server position corrections."
+      )),
+      Map.entry(FreecamModule.class, assessed(
+         Classification.PACKET_AFFECTING,
+         "Separates camera/player interaction state and can cancel/rewrite use-item position handling while emitting explicit position/rotation packets."
+      )),
+      Map.entry(HeavenModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Only moves the local camera upward during the death screen and cancels the default camera setup."
+      )),
+      Map.entry(HighJumpModule.class, assessed(
+         Classification.SERVER_SENSITIVE,
+         "Changes jump power beyond vanilla values and can issue repeated shulker interactions for its shulker-based mode."
+      )),
+      Map.entry(HitboxDesyncModule.class, assessed(
+         Classification.SERVER_SENSITIVE,
+         "Directly repositions the local player to desynchronize hitbox/position behavior."
+      )),
+      Map.entry(HoleFillModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Placement-module automation that fills nearby eligible holes with configured blocks."
+      )),
+      Map.entry(HoleSnapModule.class, assessed(
+         Classification.INPUT_MODIFYING,
+         "Requests forward/sneak input and high-priority rotation to steer the local player toward holes."
+      )),
+      Map.entry(IllegalDisconnectModule.class, assessed(
+         Classification.PACKET_AFFECTING,
+         "Intentionally sends an invalid signed-command packet to force a disconnect; classification documents existing behavior only."
+      )),
+      Map.entry(InventoryTweaksModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Changes inventory click handling and can cancel/reissue container click actions."
+      )),
+      Map.entry(ItemSaverModule.class, assessed(
+         Classification.INPUT_MODIFYING,
+         "Cancels local item-use/attack actions when configured durability thresholds are reached."
+      )),
+      Map.entry(JesusModule.class, assessed(
+         Classification.PACKET_AFFECTING,
+         "Changes water-walking movement behavior and mutates outgoing movement packet position state."
+      )),
+      Map.entry(KeyPearlModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automatically selects and uses an ender pearl through the normal use-item path."
+      )),
+      Map.entry(LongJumpModule.class, assessed(
+         Classification.SERVER_SENSITIVE,
+         "Changes jump/movement behavior and can coordinate additional movement-sensitive actions."
+      )),
+      Map.entry(MainhandModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automatically manages main-hand/offhand inventory state and use-item interactions."
+      )),
+      Map.entry(MultiTaskModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Allows normally exclusive attack/use actions to be invoked together through client interaction hooks."
+      )),
+      Map.entry(NoPacketKickModule.class, assessed(
+         Classification.PACKET_AFFECTING,
+         "Changes the connection exception boundary so selected packet-processing failures are intercepted instead of disconnecting the client."
+      )),
+      Map.entry(NukerModule.class, assessed(
+         Classification.PACKET_AFFECTING,
+         "Automates block breaking and can cancel normal handling while emitting explicit start/stop destroy action packets."
+      )),
+      Map.entry(OffhandModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automatically performs inventory swaps, offhand use and discard actions based on combat state."
+      )),
+      Map.entry(PistonCrystalModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automates piston/crystal placement and use-item interactions with coordinated rotation."
+      )),
+      Map.entry(PusherModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automatically places pistons and power sources around selected targets using ordinary placement/swing helpers."
+      )),
+      Map.entry(ReplenishModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automatically performs container quick-move clicks to replenish configured hotbar stacks."
+      )),
+      Map.entry(RocketExtenderModule.class, assessed(
+         Classification.PACKET_AFFECTING,
+         "Holds/cancels selected ping and interaction packets and releases responses later while extending rocket-related state."
+      )),
+      Map.entry(RotationLockModule.class, assessed(
+         Classification.SERVER_SENSITIVE,
+         "Forces or requests locked yaw/pitch values that can become the player's reported server-side rotation."
+      )),
+      Map.entry(SafeWalkModule.class, assessed(
+         Classification.INPUT_MODIFYING,
+         "Requests sneak input or cancels local edge movement to prevent walking off blocks."
+      )),
+      Map.entry(ScaffoldModule.class, assessed(
+         Classification.SERVER_SENSITIVE,
+         "Automates block placement and can alter jump strength, velocity, tick rate and rotation while bridging/towering."
+      )),
+      Map.entry(SelfFillModule.class, assessed(
+         Classification.PACKET_AFFECTING,
+         "Automates self-placement while emitting explicit position/rotation and destroy-action packets around the fill sequence."
+      )),
+      Map.entry(SelfTrapModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Placement automation that covers the local player with configured blocks."
+      )),
+      Map.entry(SelfWebModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automatically places a cobweb at the local player's position with optional rotation."
+      )),
+      Map.entry(SourceFillModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automatically replaces nearby liquid source blocks with solid-block placements."
+      )),
+      Map.entry(SpeedModule.class, assessed(
+         Classification.SERVER_SENSITIVE,
+         "Changes movement physics, movement events and optional tick-rate behavior across multiple speed modes."
+      )),
+      Map.entry(SprintModule.class, assessed(
+         Classification.PACKET_AFFECTING,
+         "Automates sprint state and can emit explicit position/rotation plus start/stop sprint command packets."
+      )),
+      Map.entry(StepModule.class, assessed(
+         Classification.PACKET_AFFECTING,
+         "Changes step height and emits intermediate position packets for configured step behavior."
+      )),
+      Map.entry(SwingModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Changes local swing arm, duration and legacy animation/shake presentation; its packet observer does not rewrite the swing packet."
+      )),
+      Map.entry(TimerModule.class, assessed(
+         Classification.SERVER_SENSITIVE,
+         "Changes client/player tick-rate multipliers, altering the cadence of movement and gameplay simulation."
+      )),
+      Map.entry(TridentModule.class, assessed(
+         Classification.SERVER_SENSITIVE,
+         "Changes riptide eligibility, minimum charge time and riptide push strength through TridentItem mixins."
+      )),
+      Map.entry(VelocityModule.class, assessed(
+         Classification.PACKET_AFFECTING,
+         "Intercepts/cancels incoming push/explosion/entity-motion handling and has packet-aware velocity modes."
+      )),
+      Map.entry(WebAuraModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Placement automation that traps selected nearby targets with cobwebs."
+      )),
+      Map.entry(XCarryModule.class, assessed(
+         Classification.PACKET_AFFECTING,
+         "Cancels selected container-close packets so crafting slots can remain usable as extra carried inventory."
       )),
       Map.entry(AmbienceModule.class, assessed(
          Classification.VISUAL_ONLY,
@@ -291,6 +916,453 @@ public final class ModuleCompatibility {
       ))
    );
 
+   private static final Map<SettingKey, SettingReview> REVIEWED_SETTINGS = Map.ofEntries(
+      Map.entry(setting(TridentModule.class, "Always"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls whether the TridentItem mixin permits riptide use outside vanilla water/rain conditions."
+      )),
+      Map.entry(setting(TridentModule.class, "Boost"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Scales the riptide push vector applied by the TridentItem mixin."
+      )),
+      Map.entry(setting(TimerModule.class, "Mode"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Selects the tick-rate scheduling mode used by Timer."
+      )),
+      Map.entry(setting(TimerModule.class, "Physics"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Chooses whether Timer applies its multiplier to player-physics ticks instead of the broader client tick controller."
+      )),
+      Map.entry(setting(TimerModule.class, "Shift"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls the requested tick-rate multiplier in non-pulse Timer modes."
+      )),
+      Map.entry(setting(TimerModule.class, "PulseMin"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls one endpoint of Timer's alternating tick-rate multiplier."
+      )),
+      Map.entry(setting(TimerModule.class, "PulseMax"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls one endpoint of Timer's alternating tick-rate multiplier."
+      )),
+      Map.entry(setting(TimerModule.class, "MinDelay"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls the duration of one Timer pulse phase."
+      )),
+      Map.entry(setting(TimerModule.class, "MaxDelay"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls the duration of the alternate Timer pulse phase."
+      )),
+      Map.entry(setting(TimerModule.class, "DisableDelay"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls how long Timer keeps its configured multiplier before disabling in Disable mode."
+      )),
+      Map.entry(setting(SwingModule.class, "Hand"), settingAssessed(
+         Classification.VISUAL_ONLY,
+         "Selects the locally rendered swinging arm; the reviewed SwingModule path does not rewrite the outgoing swing packet."
+      )),
+      Map.entry(setting(SwingModule.class, "Type"), settingAssessed(
+         Classification.VISUAL_ONLY,
+         "Selects the local legacy swing-animation style."
+      )),
+      Map.entry(setting(SwingModule.class, "Shake"), settingAssessed(
+         Classification.VISUAL_ONLY,
+         "Enables local legacy swing shake animation state."
+      )),
+      Map.entry(setting(SwingModule.class, "Speed"), settingAssessed(
+         Classification.VISUAL_ONLY,
+         "Changes the local rendered swing duration."
+      )),
+      Map.entry(setting(NoPacketKickModule.class, "Message"), settingAssessed(
+         Classification.CLIENT_ONLY,
+         "Only controls whether intercepted connection exceptions are reported locally; it does not control interception itself."
+      )),
+      Map.entry(setting(dev.schizo.client.modules.movement.NoFallModule.class, "Mode"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Selects NoFall's behavior mode; reviewed modes can alter outgoing movement state or movement/action sequencing."
+      )),
+      Map.entry(setting(dev.schizo.client.modules.movement.NoFallModule.class, "GroundDistance"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls the local ground-distance threshold used by NoFall's MLG-style action logic."
+      )),
+      Map.entry(setting(PingSpoofModule.class, "Mode"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Selects which latency-related packet path PingSpoof delays or mutates."
+      )),
+      Map.entry(setting(PingSpoofModule.class, "Delay"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls how long selected latency-related packets are held before release."
+      )),
+      Map.entry(setting(PingSpoofModule.class, "Jitter"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Adds variation to the configured packet-delay interval."
+      )),
+      Map.entry(setting(FakeLagModule.class, "Mode"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Selects whether buffered outbound packets are held until disable or released on a timed pulse."
+      )),
+      Map.entry(setting(FakeLagModule.class, "Cancel"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Discards the current buffered packet set and rolls the local position back to the buffered position."
+      )),
+      Map.entry(setting(FakeLagModule.class, "Timeout"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls the timed release interval for buffered packets in pulse mode."
+      )),
+      Map.entry(setting(FakeLagModule.class, "AutoDisable"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls automatic termination of packet buffering in response to configured conditions."
+      )),
+      Map.entry(setting(FakeLagModule.class, "OnDamage"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls whether observed damage terminates the active packet-buffering session."
+      )),
+      Map.entry(setting(FakeLagModule.class, "OnRubberBand"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls whether a received server position correction terminates the active packet-buffering session."
+      )),
+      Map.entry(setting(FakeLagModule.class, "OnTime"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls the duration before an auto-disable condition ends packet buffering."
+      )),
+      Map.entry(setting(FakeLagModule.class, "Render"), settingAssessed(
+         Classification.VISUAL_ONLY,
+         "Controls only the local buffered-position rendering feature."
+      )),
+      Map.entry(setting(FakeLagModule.class, "Chams"), settingAssessed(
+         Classification.VISUAL_ONLY,
+         "Controls only local rendering of the buffered player representation."
+      )),
+      Map.entry(setting(FakeLagModule.class, "Fill"), settingAssessed(
+         Classification.VISUAL_ONLY,
+         "Changes only the local buffered-position fill color."
+      )),
+      Map.entry(setting(FakeLagModule.class, "Outline"), settingAssessed(
+         Classification.VISUAL_ONLY,
+         "Changes only the local buffered-position outline color."
+      )),
+      Map.entry(setting(FakeLagModule.class, "LineWidth"), settingAssessed(
+         Classification.VISUAL_ONLY,
+         "Changes only the local buffered-position outline width."
+      )),
+      Map.entry(setting(FakeLagModule.class, "Packets"), settingAssessed(
+         Classification.CLIENT_ONLY,
+         "Acts as the local settings group for packet-selection controls and is not itself read by the buffering logic."
+      )),
+      Map.entry(setting(FakeLagModule.class, "Movement"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls buffering of outgoing movement packets."
+      )),
+      Map.entry(setting(FakeLagModule.class, "Interact"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls buffering of outgoing block-use interaction packets."
+      )),
+      Map.entry(setting(FakeLagModule.class, "Swing"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls buffering of outgoing swing packets."
+      )),
+      Map.entry(setting(FakeLagModule.class, "Swap"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls buffering of outgoing carried-slot change packets."
+      )),
+      Map.entry(setting(FakeLagModule.class, "InteractEntity"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls buffering of outgoing entity-interaction packets."
+      )),
+      Map.entry(setting(FakeLagModule.class, "Digging"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls buffering of outgoing player-action packets."
+      )),
+      Map.entry(setting(FakeLagModule.class, "Ping"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls buffering of selected latency, keepalive and resource-pack response packets."
+      )),
+      Map.entry(setting(FakeLagModule.class, "All"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Causes every outgoing packet seen by FakeLag's send hook to be eligible for buffering."
+      )),
+      Map.entry(setting(ReachModule.class, "Modifier"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls the interaction/reach distance used by the Reach module."
+      )),
+      Map.entry(setting(ReachModule.class, "GhostHand"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Changes block-use targeting and can replace the normal interaction with an explicit use-item-on packet."
+      )),
+      Map.entry(setting(ReachModule.class, "Boats"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Changes handling of outgoing boat placement interactions."
+      )),
+      Map.entry(setting(ReachModule.class, "LiquidPlace"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Changes liquid-target placement handling and can emit replacement use-item-on interactions."
+      )),
+      Map.entry(setting(ReachModule.class, "AirPlace"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Enables placement handling without the normal block-target requirement."
+      )),
+      Map.entry(setting(ReachModule.class, "Grim"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Selects an alternate packet/hand sequencing path for reviewed Reach placement interactions."
+      )),
+      Map.entry(setting(ReachModule.class, "NoEntityTrace"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Changes whether entity hits are ignored when selecting an interaction target."
+      )),
+      Map.entry(setting(ReachModule.class, "Pickaxe"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls when NoEntityTrace applies while holding a pickaxe."
+      )),
+      Map.entry(setting(ReachModule.class, "Food"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls when NoEntityTrace applies while holding food."
+      )),
+      Map.entry(setting(ReachModule.class, "Crystals"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls when NoEntityTrace applies while holding end crystals."
+      )),
+      Map.entry(setting(ReachModule.class, "Totems"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls when NoEntityTrace applies while holding a totem."
+      )),
+      Map.entry(setting(ReachModule.class, "All"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Applies NoEntityTrace targeting behavior regardless of the held-item filter."
+      )),
+      Map.entry(setting(FreeLookModule.class, "Scroll"), settingAssessed(
+         Classification.INPUT_MODIFYING,
+         "Consumes mouse-wheel input to change local third-person camera distance while FreeLook is active."
+      )),
+      Map.entry(setting(NoRenderModule.class, "Chunks"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Cancels selected clientbound chunk-cache-radius packet handling."
+      )),
+      Map.entry(setting(NoRenderModule.class, "Fire"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Can cancel a matching clientbound fire block-update packet in the reviewed End-crystal fire path."
+      )),
+      Map.entry(setting(NoRenderModule.class, "FireBlock"), settingAssessed(
+         Classification.VISUAL_ONLY,
+         "Suppresses local fire/smoke particle presentation and is distinct from the packet-facing entity Fire setting."
+      )),
+      Map.entry(setting(AntiCheatModule.class, "2b2t"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Enables the module's server-profile-specific packet, inventory and movement coordination paths."
+      )),
+      Map.entry(setting(AntiCheatModule.class, "Limiter"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Enables the module's outbound packet-rate limiting path when the associated server profile and movement sync are active."
+      )),
+      Map.entry(setting(AntiCheatModule.class, "NoServerSlot"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Changes handling of server-selected hotbar slot updates and can resend the local held-slot state."
+      )),
+      Map.entry(setting(AntiCheatModule.class, "StrictDirection"), settingAssessed(
+         Classification.WORLD_INTERACTION,
+         "Changes which support directions are accepted by shared block-placement helpers."
+      )),
+      Map.entry(setting(AntiCheatModule.class, "Mining"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Selects the mining action sequencing policy used for outgoing destroy-block actions."
+      )),
+      Map.entry(setting(AntiCheatModule.class, "Placements"), settingAssessed(
+         Classification.WORLD_INTERACTION,
+         "Selects the shared placement-policy variant used by block interaction helpers."
+      )),
+      Map.entry(setting(AntiCheatModule.class, "MovementSync"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Enables shared movement/rotation synchronization used by multiple gameplay actions."
+      )),
+      Map.entry(setting(AntiCheatModule.class, "Rotations"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Selects how synchronized rotations are represented during movement and interaction actions."
+      )),
+      Map.entry(setting(AntiCheatModule.class, "Swing"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls whether shared interaction actions use transmitted swing behavior rather than client-only swing presentation."
+      )),
+      Map.entry(setting(AntiCheatModule.class, "Place"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls transmitted swing behavior for placement/interact actions."
+      )),
+      Map.entry(setting(AntiCheatModule.class, "Hit"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls transmitted swing behavior for hit actions."
+      )),
+      Map.entry(setting(AntiCheatModule.class, "MiningSwing"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls transmitted swing behavior for mining actions."
+      )),
+      Map.entry(setting(AntiCheatModule.class, "AssumeBlockBreaking"), settingAssessed(
+         Classification.WORLD_INTERACTION,
+         "Changes shared placement occupancy decisions for blocks currently tracked as being broken."
+      )),
+      Map.entry(setting(SprintModule.class, "Mode"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Selects the sprint behavior path, including variants that explicitly coordinate sprint command and position/rotation traffic."
+      )),
+      Map.entry(setting(SprintModule.class, "StopInLiquids"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Changes whether automated sprinting is suppressed while the player is in liquid."
+      )),
+      Map.entry(setting(SprintModule.class, "InBlocks"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Changes whether automated sprinting is permitted while collision state indicates the player is inside blocks."
+      )),
+      Map.entry(setting(SprintModule.class, "DirectionSpoof"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Changes the rotation/position state reported during reviewed sprint movement coordination."
+      )),
+      Map.entry(setting(SprintModule.class, "Keep"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls explicit stop/start sprint command handling around attacks."
+      )),
+      Map.entry(setting(SprintModule.class, "VanillaSlowdown"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Changes sprint speed calculation to include vanilla block slowdown factors."
+      )),
+      Map.entry(setting(SprintModule.class, "Adjust"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Enables a configurable multiplier in sprint movement-speed calculation."
+      )),
+      Map.entry(setting(SprintModule.class, "Factor"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls the sprint movement-speed multiplier when Adjust is enabled."
+      )),
+      Map.entry(setting(SprintModule.class, "Boost"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Enables reviewed explosion-impulse-based sprint movement boost handling."
+      )),
+      Map.entry(setting(SprintModule.class, "BoostSpeed"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls the multiplier applied by the reviewed sprint boost path."
+      )),
+      Map.entry(setting(StepModule.class, "Mode"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Selects the step implementation, including the reviewed path that emits intermediate position packets."
+      )),
+      Map.entry(setting(StepModule.class, "Height"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls the requested non-vanilla step height."
+      )),
+      Map.entry(setting(StepModule.class, "SafeDisable"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Changes when Step automatically disables based on local collision/ground safety state."
+      )),
+      Map.entry(setting(StepModule.class, "UseTimer"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Enables temporary client tick-rate adjustment during the reviewed step path."
+      )),
+      Map.entry(setting(StepModule.class, "TimerSpeed"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls the temporary tick-rate multiplier used by Step."
+      )),
+      Map.entry(setting(VelocityModule.class, "Mode"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Selects the velocity handler used for incoming motion/push packet and event processing."
+      )),
+      Map.entry(setting(VelocityModule.class, "Horizontal"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls the horizontal component retained from reviewed incoming velocity handling."
+      )),
+      Map.entry(setting(VelocityModule.class, "Vertical"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls the vertical component retained from reviewed incoming velocity handling."
+      )),
+      Map.entry(setting(VelocityModule.class, "Inverse"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Changes the direction applied to retained velocity in the plain velocity mode."
+      )),
+      Map.entry(setting(VelocityModule.class, "Reduce"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Enables additional reduction behavior in reviewed velocity handling."
+      )),
+      Map.entry(setting(VelocityModule.class, "Static"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Changes how the reviewed velocity reduction path derives its resulting motion."
+      )),
+      Map.entry(setting(VelocityModule.class, "Sources"), settingAssessed(
+         Classification.CLIENT_ONLY,
+         "Acts as the local settings group for velocity-source selectors and is not itself a packet/movement control."
+      )),
+      Map.entry(setting(VelocityModule.class, "Explosions"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls interception of explosion-derived velocity handling."
+      )),
+      Map.entry(setting(VelocityModule.class, "Push"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls interception of entity/player push handling."
+      )),
+      Map.entry(setting(VelocityModule.class, "Liquids"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls reviewed liquid-current motion suppression."
+      )),
+      Map.entry(setting(VelocityModule.class, "FishingBobber"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls interception of fishing-bobber pull motion handling."
+      )),
+      Map.entry(setting(NoGlitchBlocksModule.class, "Place"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Can replace normal placement handling with an explicit use-item-on interaction."
+      )),
+      Map.entry(setting(NoGlitchBlocksModule.class, "Break"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls cancellation of selected local block-break interaction handling."
+      )),
+      Map.entry(setting(SkinFlickerModule.class, "Mode"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls the sequence of player model-part option changes that are broadcast through client options."
+      )),
+      Map.entry(setting(SkinFlickerModule.class, "Cape"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls whether cape visibility participates in the transmitted model-part option changes."
+      )),
+      Map.entry(setting(SkinFlickerModule.class, "Delay"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls the cadence of transmitted model-part option changes."
+      )),
+      Map.entry(setting(IllegalDisconnectModule.class, "IgnoreProxy"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Changes whether the module permits its existing invalid-packet disconnect action for recognized proxy brands."
+      )),
+      Map.entry(setting(XCarryModule.class, "AutoPickup"), settingAssessed(
+         Classification.WORLD_INTERACTION,
+         "Enables automatic inventory slot pickup/movement into crafting slots; the module's close-packet interception is independent of this setting."
+      )),
+      Map.entry(setting(XCarryModule.class, "OnlyNearItems"), settingAssessed(
+         Classification.WORLD_INTERACTION,
+         "Restricts XCarry auto-pickup inventory actions to times when nearby pickup items are detected."
+      )),
+      Map.entry(setting(FastLatencyModule.class, "Mode"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Selects the latency probe and response-handling packet path."
+      )),
+      Map.entry(setting(FastLatencyModule.class, "Timeout"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls when an outstanding latency probe is considered expired."
+      )),
+      Map.entry(setting(FastLatencyModule.class, "Response"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls how selected server ping/keepalive/resource-pack response packets are answered by the reviewed fast-response path."
+      )),
+      Map.entry(setting(AntiCyrillicModule.class, "Mode"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Selects whether Cyrillic normalization applies to outgoing chat, commands or both."
+      )),
+      Map.entry(setting(RocketExtenderModule.class, "Timeout"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls how long the reviewed rocket-extension state remains active before it is released/reset."
+      )),
+      Map.entry(setting(RocketExtenderModule.class, "Hold"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls whether selected incoming ping packets are held while the reviewed rocket-extension state is active."
+      )),
+      Map.entry(setting(NoRotateModule.class, "InBlocks"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Selects how reviewed rotation-correction handling behaves while the player is inside blocks, including cancellation or reported-rotation handling."
+      ))
+   );
+
    private ModuleCompatibility() {}
 
    public static Assessment assess(Class<?> moduleType) {
@@ -300,13 +1372,22 @@ public final class ModuleCompatibility {
       return REVIEWED.getOrDefault(moduleType, UNVERIFIED);
    }
 
-   /**
-    * No setting has been individually certified yet. The parent module classification is
-    * included only as inherited context and is not a setting-level compatibility claim.
-    */
+   public static int reviewedSettingCount() {
+      return REVIEWED_SETTINGS.size();
+   }
+
    public static SettingAssessment assessSetting(Class<?> moduleType, String settingName) {
       Assessment module = assess(moduleType);
       String name = settingName == null || settingName.isBlank() ? "unnamed setting" : settingName;
+      SettingReview review = moduleType == null ? null : REVIEWED_SETTINGS.get(setting(moduleType, name));
+      if (review != null) {
+         return new SettingAssessment(
+            review.classification(),
+            module.classification(),
+            true,
+            review.reason()
+         );
+      }
       return new SettingAssessment(
          Classification.UNVERIFIED,
          module.classification(),
@@ -318,6 +1399,14 @@ public final class ModuleCompatibility {
 
    private static Assessment assessed(Classification classification, String reason) {
       return new Assessment(classification, true, reason);
+   }
+
+   private static SettingKey setting(Class<?> moduleType, String settingName) {
+      return new SettingKey(moduleType, settingName);
+   }
+
+   private static SettingReview settingAssessed(Classification classification, String reason) {
+      return new SettingReview(classification, reason);
    }
 
    public enum Classification {
@@ -340,6 +1429,12 @@ public final class ModuleCompatibility {
       }
    }
 
+   private record SettingKey(Class<?> moduleType, String settingName) {
+   }
+
+   private record SettingReview(Classification classification, String reason) {
+   }
+
    public record SettingAssessment(
       Classification classification,
       Classification inheritedModuleClassification,
@@ -347,7 +1442,9 @@ public final class ModuleCompatibility {
       String reason
    ) {
       public boolean requiresWarning() {
-         return this.inheritedModuleClassification().requiresMultiplayerWarning();
+         return this.individuallyReviewed()
+            ? this.classification().requiresMultiplayerWarning()
+            : this.inheritedModuleClassification().requiresMultiplayerWarning();
       }
    }
 }

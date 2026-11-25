@@ -173,18 +173,17 @@ public abstract class SettingComponent<T> extends AbstractComponent {
                parentModule.getModule().getClass(),
                this.setting.getConfigName()
             );
-            if (!assessment.individuallyReviewed()) {
-               String className = parentModule.getModule().getClass().getSimpleName();
-               String compatibilityWarning = "Multiplayer review: "
-                  + assessment.classification() + " setting '"
-                  + this.setting.getConfigName() + "'. Parent module: "
-                  + assessment.inheritedModuleClassification() + ". "
-                  + assessment.reason()
-                  + " See ;compat module " + className + ".";
-               tooltip = tooltip == null || tooltip.isBlank()
-                  ? compatibilityWarning
-                  : tooltip + "\n\n" + compatibilityWarning;
-            }
+            String className = parentModule.getModule().getClass().getSimpleName();
+            String reviewState = assessment.individuallyReviewed() ? "reviewed" : "UNVERIFIED";
+            String compatibilityReview = "Multiplayer review [" + reviewState + "]: "
+               + assessment.classification() + " setting '"
+               + this.setting.getConfigName() + "'. Parent module: "
+               + assessment.inheritedModuleClassification() + ". "
+               + assessment.reason()
+               + " See ;compat module " + className + ".";
+            tooltip = tooltip == null || tooltip.isBlank()
+               ? compatibilityReview
+               : tooltip + "\n\n" + compatibilityReview;
          }
 
          if (tooltip != null && !tooltip.isBlank()) {

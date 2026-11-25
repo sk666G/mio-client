@@ -1,7 +1,7 @@
 # Multiplayer compatibility review
 
 **Client target:** Minecraft Java Edition 1.21.11 / Fabric  
-**Audit basis:** source inspection of packet/event hooks and selected movement, combat, interaction and exploit modules; no server session was run.
+**Audit basis:** class-level source inspection of all 178 explicitly registered modules, their packet/event hooks and relevant mixin/manager consumers; no server session was run. Individual settings remain separately unverified unless documented otherwise.
 
 ## Protocol facts and boundaries
 
@@ -37,7 +37,7 @@ Use:
 - `;compat list <CLASSIFICATION>` to filter the inventory.
 - `;compat module <ModuleClass>` for the module rationale and each setting's current review state.
 
-The first-pass registry labels the modules listed above, including the render-only group. **Every other module defaults to `UNVERIFIED`**. Runtime warnings are shown when a module in one of the warning-required classes is enabled in multiplayer; warnings are deduplicated per module per connection and capped in chat. The inventory identifies every individual setting as `UNVERIFIED` until that setting has received its own source review. A module-level label is not a per-setting certification. In remote multiplayer, hover any ClickGUI setting to see its explicit `UNVERIFIED` review state and the parent module classification in the existing tooltip; local and single-player tooltips remain unchanged.
+The registry now contains an explicit source-reviewed assessment for **all 178 registered modules**. Current class-level distribution is: **32 `PACKET_AFFECTING`**, **28 `SERVER_SENSITIVE`**, **51 `WORLD_INTERACTION`**, **8 `INPUT_MODIFYING`**, **21 `CLIENT_ONLY`** and **38 `VISUAL_ONLY`**. CI compares `ModuleRegistry` directly with `ModuleCompatibility` so a newly registered module cannot silently fall back to an unreviewed class-level state. Runtime warnings are shown when a module in one of the warning-required classes is enabled in multiplayer; warnings are deduplicated per module per connection and capped in chat. The setting-level pass has begun separately: **111 settings currently have explicit individual assessments** across Timer, Trident, Swing, NoPacketKick, NoFall, PingSpoof, FakeLag, Reach, FreeLook and NoRender. Every other setting remains `UNVERIFIED` until it receives its own source review. A module-level label is not a per-setting certification. In remote multiplayer, hover any ClickGUI setting to see its explicit `UNVERIFIED` review state and the parent module classification in the existing tooltip; local and single-player tooltips remain unchanged.
 
 The report does not modify packets or attempt to evade server validation. The default policy is **WARN_ONLY** and leaves module activation unchanged.
 
@@ -56,7 +56,7 @@ When the conservative policy is active, already-enabled blocked modules are susp
 
 ## Tests and evidence
 
-- **Source inspected:** the removed validation-circumvention modules and their registration/rebuild paths, plus representative movement, combat, packet-delay and interaction modules listed above.
+- **Source inspected:** every explicitly registered module class (178/178), the removed validation-circumvention modules and their registration/rebuild paths, plus packet/mixin/manager consumers needed to classify indirect behavior.
 - **Build-tested:** the project compiles and tests pass in GitHub Actions. Compilation does not validate server behavior.
 - **Controlled multiplayer tested:** none.
 - **Public-server tested:** none.
@@ -65,4 +65,4 @@ When the conservative policy is active, already-enabled blocked modules are susp
 
 ## Remaining compatibility work
 
-A complete matrix still needs to inspect every relevant module and each setting, then run reproducible scenarios on a locally controlled 1.21.11 server with the exact server build and plugin configuration recorded. Movement corrections, interaction outcomes, teleport confirmation, inventory synchronization and packet order need separate assertions. Schizo makes no claim of universal server compatibility.
+The **class-level module matrix is complete**. Setting-level review is in progress (111 explicit setting assessments at this checkpoint). Remaining review work is: inspect settings that materially change networking, movement, interaction timing or compatibility policy, then run reproducible scenarios on a locally controlled 1.21.11 server with the exact server build and plugin configuration recorded. Movement corrections, interaction outcomes, teleport confirmation, inventory synchronization and packet order need separate assertions. Schizo makes no claim of universal server compatibility.

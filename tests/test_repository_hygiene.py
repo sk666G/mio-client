@@ -150,6 +150,23 @@ class RepositoryHygieneTest(unittest.TestCase):
         self.assertLess(bind_index, client_event_index)
         self.assertLess(bind_index, config_load_index)
 
+    def test_every_registered_module_has_explicit_compatibility_assessment(self):
+        registry = (ROOT / "src/main/java/dev/schizo/client/managers/ModuleRegistry.java").read_text(encoding="utf-8")
+        compatibility = (ROOT / "src/main/java/dev/schizo/client/integrations/ModuleCompatibility.java").read_text(encoding="utf-8")
+        registrations = {
+            name.split(".")[-1]
+            for name in re.findall(
+                r"registerModule\(new\s+(?:dev\.schizo\.client\.modules\.)?([A-Za-z0-9_\.]+)\(",
+                registry,
+            )
+        }
+        assessments = set(re.findall(r"Map\.entry\(([A-Za-z0-9_]+)\.class,\s*assessed\(", compatibility))
+        self.assertEqual(
+            registrations,
+            assessments,
+            f"Compatibility source review drift: missing={sorted(registrations - assessments)}, extra={sorted(assessments - registrations)}",
+        )
+
     def test_explicit_module_registrations_resolve_without_duplicates(self):
         registry_path = ROOT / "src/main/java/dev/schizo/client/managers/ModuleRegistry.java"
         registry = registry_path.read_text(encoding="utf-8")
