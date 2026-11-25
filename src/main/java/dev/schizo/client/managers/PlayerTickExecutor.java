@@ -87,6 +87,6 @@ public final class PlayerTickExecutor implements ClientAccess {
          player.zo = previousPosition.z;
          runningExtraTick = false;
       }
-   }}
+   }
 
 }
