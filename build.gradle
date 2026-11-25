@@ -108,14 +108,14 @@ processResources {
     from('THIRD_PARTY_NOTICES.md')
 }
 
-tasks.named('sourcesJar') {
-    from('LICENSES') { into 'LICENSES' }
-    from('THIRD_PARTY_NOTICES.md')
-}
-
 java {
     toolchain { languageVersion = JavaLanguageVersion.of(21) }
     withSourcesJar()
+}
+
+tasks.named('sourcesJar') {
+    from('LICENSES') { into 'LICENSES' }
+    from('THIRD_PARTY_NOTICES.md')
 }
 
 tasks.withType(Test).configureEach {
