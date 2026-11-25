@@ -287,6 +287,10 @@ public abstract class Setting<T> extends NamedFeature implements ValueProvider<T
    }
 
    public void setValue(T newValue) {
+      T previousCommitted = this.value;
+      T previousStaged = this.stagedValue;
+      T previousNotificationValue = this.previousValue;
+
       this.setStagedValue(newValue);
       if (this.numericBoundsEnabled) {
          double requested = ((Number)newValue).doubleValue();
@@ -300,7 +304,14 @@ public abstract class Setting<T> extends NamedFeature implements ValueProvider<T
       this.value = this.stagedValue;
       // Preserve reference-change notifications, including newly boxed numeric values.
       if (this.value != this.previousValue) {
-         this.runChangeCallback();
+         try {
+            this.runChangeCallback();
+         } catch (RuntimeException | Error callbackFailure) {
+            this.value = previousCommitted;
+            this.stagedValue = previousStaged;
+            this.previousValue = previousNotificationValue;
+            throw callbackFailure;
+         }
       }
 
       this.previousValue = this.value;
