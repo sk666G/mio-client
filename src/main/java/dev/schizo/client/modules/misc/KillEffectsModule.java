@@ -332,7 +332,11 @@ public class KillEffectsModule extends Module {
       PacketEvent.Receive event
    ) {
       if (event.getPacket() instanceof ClientboundPlayerCombatKillPacket) {
-         this.killStreak = -1;
+         ClientAccess.schizoMinecraft.executeIfPossible(() -> {
+            if (this.isToggled()) {
+               this.killStreak = -1;
+            }
+         });
       }
    }
 
