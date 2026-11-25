@@ -13,59 +13,66 @@ import dev.schizo.client.utils.world.HoleInfo;
 
 import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.BlockPos.MutableBlockPos;
 import net.minecraft.world.phys.AABB;
 
-/** One client-thread traversal. Only a completed traversal is published. */
-final class HoleScanTask {
-   private static final int RADIUS = 16;
-   private static final int WIDTH = 2 * RADIUS;
-   private static final int VOLUME = WIDTH * WIDTH * WIDTH;
-   private static final int CELLS_PER_TICK = 2048;
-   private static final long SLICE_NANOS = 2_000_000L;
-   private final BlockPos origin;
-   private final MutableBlockPos cursor = new MutableBlockPos();
-   private final List<HoleInfo> holes = new ArrayList<>();
-   private final Set<Long> coveredPositions = new HashSet<>();
-   private int index;
+public final class HoleScanTask implements Runnable {
+   private static final MutableBlockPos scanCursor;
+   private final HoleManager holeManager;
 
-   HoleScanTask(BlockPos origin) {
-      this.origin = origin.immutable();
-   }
+   private void scanNearbyHoles() {
+      Minecraft minecraft = Minecraft.getInstance();
+      if (minecraft == null || minecraft.player == null || minecraft.level == null) {
+         return;
+      }
 
-   boolean covers(BlockPos position) {
-      return Math.abs((long)position.getX() - this.origin.getX()) < RADIUS
-         && Math.abs((long)position.getY() - this.origin.getY()) < RADIUS
-         && Math.abs((long)position.getZ() - this.origin.getZ()) < RADIUS;
-   }
-
-   boolean advance() {
-      long start = System.nanoTime();
-      int stop = Math.min(this.index + CELLS_PER_TICK, VOLUME);
-      while (this.index < stop) {
-         int offset = this.index++;
-         this.cursor.set(this.origin.getX() - RADIUS + offset / (WIDTH * WIDTH),
-            this.origin.getY() - RADIUS + offset / WIDTH % WIDTH,
-            this.origin.getZ() - RADIUS + offset % WIDTH);
-         if (!this.coveredPositions.contains(this.cursor.asLong())) {
-            HoleInfo hole = HoleManager.classifyHole(this.cursor, null);
-            if (hole != null) {
-               this.holes.add(hole);
-               this.addCoveredPositions(this.coveredPositions, hole.bounds());
+      ArrayList<HoleInfo> holes = new ArrayList<>();
+      HashSet<Long> coveredPositions = new HashSet<>();
+      LocalPlayer player = minecraft.player;
+      BlockPos origin = player.blockPosition();
+      for (int xOffset = -16; xOffset < 16; xOffset++) {
+         for (int yOffset = -16; yOffset < 16; yOffset++) {
+            for (int zOffset = -16; zOffset < 16; zOffset++) {
+               MutableBlockPos cursor = scanCursor;
+               int x = origin.getX() + xOffset;
+               int y = origin.getY() + yOffset;
+               int z = origin.getZ() + zOffset;
+               cursor.set(x, y, z);
+               long positionKey = scanCursor.asLong();
+               if (!coveredPositions.contains(positionKey)) {
+                  MutableBlockPos cursorForClassification = scanCursor;
+                  HoleInfo hole = HoleManager.classifyHole(cursorForClassification, null);
+                  if (hole != null) {
+                     holes.add(hole);
+                     AABB bounds = hole.bounds();
+                     this.addCoveredPositions(coveredPositions, bounds);
+                  }
+               }
             }
          }
-         if ((this.index & 31) == 0 && System.nanoTime() - start >= SLICE_NANOS) {
-            break;
-         }
       }
-      return this.index == VOLUME;
+
+      this.holeManager.setHoles(holes);
    }
 
-   List<HoleInfo> result() {
-      return List.copyOf(this.holes);
+   public HoleScanTask(HoleManager holeManager) {
+      this.holeManager = holeManager;
+   }
+
+   static {
+      scanCursor = new MutableBlockPos();
+   }
+
+   @Override
+   public void run() {
+      try {
+         this.scanNearbyHoles();
+      } catch (Throwable ignored) {
+      }
    }
 
    private void addCoveredPositions(Set<Long> positions, AABB bounds) {
