@@ -20,7 +20,9 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
 
 public final class HudMarginController implements ClientAccess {
-   private static final HUDModule hud;
+   private static HUDModule hud() {
+      return ClientContext.requireModule(HUDModule.class);
+   }
    private boolean draggingFromRight;
    private boolean draggingFromBottom;
    private boolean draggingHorizontalMargin;
@@ -28,17 +30,13 @@ public final class HudMarginController implements ClientAccess {
    private final FloatAnimation horizontalOverlayOpacity = new FloatAnimation();
    private final FloatAnimation verticalOverlayOpacity = new FloatAnimation();
 
-   static {
-      hud = (HUDModule)ClientContext.getModule(HUDModule.class);
-   }
-
    private boolean isOverHorizontalMargin(double mouseX) {
       return mouseX
-            < hud.getSafeX()
+            < hud().getSafeX()
                + 1
          || mouseX
             > ClientAccess.schizoMinecraft.getWindow().getGuiScaledWidth()
-               - hud.getSafeX()
+               - hud().getSafeX()
                - 1;
    }
 
@@ -72,7 +70,7 @@ public final class HudMarginController implements ClientAccess {
             .getValue()
          > 0.0F) {
          if (this.draggingHorizontalMargin) {
-            hud.setSafeX(this.draggingFromRight ? Math.abs(mouseX - screenWidth) : mouseX);
+            hud().setSafeX(this.draggingFromRight ? Math.abs(mouseX - screenWidth) : mouseX);
          }
 
          int horizontalOverlayColor = ColorUtils.toArgb(
@@ -84,14 +82,14 @@ public final class HudMarginController implements ClientAccess {
             poseStack,
             0.0F,
             0.0F,
-            hud.getSafeX(),
+            hud().getSafeX(),
             screenHeight,
             horizontalOverlayColor
          );
          GuiDrawUtils.fillRect(
             poseStack,
             screenWidth
-               - hud.getSafeX(),
+               - hud().getSafeX(),
             0.0F,
             screenWidth,
             screenHeight,
@@ -101,7 +99,7 @@ public final class HudMarginController implements ClientAccess {
             .getValue()
          > 0.0F) {
          if (this.draggingVerticalMargin) {
-            hud.setSafeY(
+            hud().setSafeY(
                this.draggingFromBottom ? Math.abs(mouseY - screenHeight) : mouseY
             );
          }
@@ -116,14 +114,14 @@ public final class HudMarginController implements ClientAccess {
             0.0F,
             0.0F,
             screenWidth,
-            hud.getSafeY(),
+            hud().getSafeY(),
             verticalOverlayColor
          );
          GuiDrawUtils.fillRect(
             poseStack,
             0.0F,
             screenHeight
-               - hud.getSafeY(),
+               - hud().getSafeY(),
             screenWidth,
             screenHeight,
             verticalOverlayColor
@@ -158,11 +156,11 @@ public final class HudMarginController implements ClientAccess {
 
    private boolean isOverVerticalMargin(double mouseY) {
       return mouseY
-            < hud.getSafeY()
+            < hud().getSafeY()
                + 1
          || mouseY
             > ClientAccess.schizoMinecraft.getWindow().getGuiScaledHeight()
-               - hud.getSafeY()
+               - hud().getSafeY()
                - 1;
    }
 
