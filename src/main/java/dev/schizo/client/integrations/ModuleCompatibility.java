@@ -1784,6 +1784,178 @@ public final class ModuleCompatibility {
       Map.entry(setting(NoSlowModule.class, "NoSlimeBounce"), settingAssessed(
          Classification.SERVER_SENSITIVE,
          "Controls suppression of local slime-block bounce behavior."
+      )),
+      Map.entry(setting(ElytraFlyModule.class, "Mode"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Selects the reviewed elytra movement mode, including modes with explicit flight-state or movement packet handling."
+      )),
+      Map.entry(setting(ElytraFlyModule.class, "Takeoff"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Selects the reviewed takeoff path, which can transmit start-fall-flying state."
+      )),
+      Map.entry(setting(ElytraFlyModule.class, "Responsive"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Changes how quickly reviewed elytra movement responds to player input."
+      )),
+      Map.entry(setting(ElytraFlyModule.class, "Factorize"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Changes reviewed elytra movement scaling behavior."
+      )),
+      Map.entry(setting(ElytraFlyModule.class, "Always"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Changes when reviewed boost/movement handling remains active."
+      )),
+      Map.entry(setting(ElytraFlyModule.class, "NCPBoost"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Selects an alternate reviewed elytra boost calculation."
+      )),
+      Map.entry(setting(ElytraFlyModule.class, "MinBoost"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls the minimum reviewed elytra movement boost."
+      )),
+      Map.entry(setting(ElytraFlyModule.class, "Limit"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Caps reviewed elytra movement speed."
+      )),
+      Map.entry(setting(ElytraFlyModule.class, "AutoJump"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Automates jump/takeoff input used by reviewed elytra movement."
+      )),
+      Map.entry(setting(ElytraFlyModule.class, "InLava"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls whether reviewed elytra movement handling remains active in lava."
+      )),
+      Map.entry(setting(ElytraFlyModule.class, "LavaSpeed"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls reviewed movement speed while the lava-specific path is active."
+      )),
+      Map.entry(setting(ElytraFlyModule.class, "MinY"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls the minimum altitude used by reviewed vanilla-style elytra movement."
+      )),
+      Map.entry(setting(ElytraFlyModule.class, "Height"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls the target altitude window used by reviewed vanilla-style elytra movement."
+      )),
+      Map.entry(setting(ElytraFlyModule.class, "UseFirework"), settingAssessed(
+         Classification.WORLD_INTERACTION,
+         "Enables ordinary firework-rocket use as part of reviewed elytra flight automation."
+      )),
+      Map.entry(setting(ElytraFlyModule.class, "Speed"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls reviewed horizontal elytra flight speed."
+      )),
+      Map.entry(setting(ElytraFlyModule.class, "Vertical"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Selects reviewed vertical-movement handling in control mode."
+      )),
+      Map.entry(setting(ElytraFlyModule.class, "VSpeed"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls reviewed vertical elytra movement speed."
+      )),
+      Map.entry(setting(ElytraFlyModule.class, "VPitch"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls the pitch threshold used by reviewed vertical elytra movement."
+      )),
+      Map.entry(setting(ElytraFlyModule.class, "Glide"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls reviewed passive vertical glide adjustment."
+      )),
+      Map.entry(setting(ElytraFlyModule.class, "SpoofPitch"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Enables reviewed reported-pitch substitution while elytra movement is active."
+      )),
+      Map.entry(setting(ElytraFlyModule.class, "Pitch"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls the reported pitch used by the reviewed pitch-substitution path."
+      )),
+      Map.entry(setting(ElytraFlyModule.class, "AntiAfk"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Enables reviewed periodic movement/flight-state activity in packet-oriented flight mode."
+      )),
+      Map.entry(setting(ElytraFlyModule.class, "VerticalPacket"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Enables reviewed vertical movement handling in the packet-oriented elytra mode."
+      )),
+      Map.entry(setting(ElytraFlyModule.class, "Accelerate"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Enables gradual reviewed elytra movement acceleration."
+      )),
+      Map.entry(setting(ElytraFlyModule.class, "VerAccelMin"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls the starting vertical acceleration value for reviewed elytra movement."
+      )),
+      Map.entry(setting(ElytraFlyModule.class, "AccelMin"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls the starting horizontal acceleration value for reviewed elytra movement."
+      )),
+      Map.entry(setting(ElytraFlyModule.class, "AccelTime"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls the time window over which reviewed elytra acceleration changes."
+      )),
+      Map.entry(setting(ElytraFlyModule.class, "Start"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls the initial movement value used by the reviewed strict elytra mode."
+      )),
+      Map.entry(setting(ElytraFlyModule.class, "StrictSpeed"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls movement speed in the reviewed strict elytra mode."
+      )),
+      Map.entry(setting(ElytraFlyModule.class, "DeployTime"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls the timing of reviewed fall-flying state deployment."
+      )),
+      Map.entry(setting(ElytraFlyModule.class, "PitchLock"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Enables reviewed pitch locking in bounce-style elytra movement."
+      )),
+      Map.entry(setting(ElytraFlyModule.class, "Silent"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls whether reviewed pitch/rotation handling is represented without matching local camera presentation."
+      )),
+      Map.entry(setting(ElytraFlyModule.class, "Auto"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Enables automatic reviewed pitch selection for bounce-style flight."
+      )),
+      Map.entry(setting(ElytraFlyModule.class, "BouncePitch"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls the reviewed bounce-flight pitch when automatic pitch selection is disabled."
+      )),
+      Map.entry(setting(ElytraFlyModule.class, "BounceBoost"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Enables the reviewed packet-oriented boost path for bounce flight."
+      )),
+      Map.entry(setting(ElytraFlyModule.class, "Diagonal"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Changes reviewed bounce-flight movement for diagonal input."
+      )),
+      Map.entry(setting(ElytraFlyModule.class, "BounceMaxBoost"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Caps reviewed bounce-flight boost speed."
+      )),
+      Map.entry(setting(ElytraFlyModule.class, "Compensate"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Enables reviewed movement compensation in bounce flight."
+      )),
+      Map.entry(setting(ElytraFlyModule.class, "StopMotion"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Selects how reviewed elytra movement is reduced or stopped in the associated mode."
+      )),
+      Map.entry(setting(ElytraFlyModule.class, "FallChestplate"), settingAssessed(
+         Classification.WORLD_INTERACTION,
+         "Enables automatic chest-slot inventory management during reviewed elytra state changes."
+      )),
+      Map.entry(setting(ElytraFlyModule.class, "ResponsiveDescend"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Changes reviewed descend responsiveness in the associated elytra mode."
+      )),
+      Map.entry(setting(ElytraFlyModule.class, "MuteElytra"), settingAssessed(
+         Classification.CLIENT_ONLY,
+         "Suppresses only local elytra sound presentation."
+      )),
+      Map.entry(setting(ElytraFlyModule.class, "InfDurability"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Selects the reviewed durability-management path, which coordinates inventory and fall-flying state actions."
       ))
    );
 
