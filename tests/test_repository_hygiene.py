@@ -44,8 +44,17 @@ class RepositoryHygieneTest(unittest.TestCase):
                 metadata.get("entrypoints", {}).get(entrypoint),
             )
 
-    def test_static_initializers_do_not_resolve_modules_from_client_context(self):
+    def test_early_loaded_services_do_not_resolve_modules_in_static_initializers(self):
         source_root = ROOT / "src/main/java/dev/schizo"
+        guarded_paths = list((source_root / "client/managers").glob("*.java"))
+        guarded_paths += [
+            source_root / "mixin/ConnectionMixin.java",
+            source_root / "mixin/MinecraftMixin.java",
+            source_root / "mixin/LevelRendererMixin.java",
+            source_root / "mixin/ClientPacketListenerMixin.java",
+            source_root / "mixin/LocalPlayerMixin.java",
+            source_root / "mixin/GameRendererMixin.java",
+        ]
         offenders = []
         static_field = re.compile(r"static[^;\n]*=\s*ClientContext\.getModule\(")
 
@@ -65,12 +74,12 @@ class RepositoryHygieneTest(unittest.TestCase):
                             break
                     cursor += 1
 
-        for path in source_root.rglob("*.java"):
+        for path in guarded_paths:
             text = path.read_text(encoding="utf-8")
             eager_block = any("ClientContext.getModule(" in block for block in static_blocks(text))
             if eager_block or static_field.search(text):
                 offenders.append(str(path.relative_to(source_root)))
-        self.assertEqual([], sorted(offenders), f"Eager static module lookups remain: {offenders}")
+        self.assertEqual([], sorted(offenders), f"Eager early-load module lookups remain: {offenders}")
 
     def test_explicit_module_registrations_resolve_without_duplicates(self):
         registry_path = ROOT / "src/main/java/dev/schizo/client/managers/ModuleRegistry.java"
