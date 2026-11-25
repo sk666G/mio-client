@@ -9,6 +9,7 @@
 
 package dev.schizo.client.commands;
 
+import dev.schizo.client.diagnostics.RuntimeDiagnostics;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.utils.chat.ChatUtils;
 import dev.schizo.client.utils.world.WorldUtils;
@@ -77,7 +78,12 @@ public final class CoordsCommand extends Command {
 
                MessageSignature signature = ChatUtils.createSignature(-1);
                ChatUtils.printChat(confirmation, signature);
-            } catch (Exception ignoredFailure) {
+            } catch (RuntimeException clipboardFailure) {
+               RuntimeDiagnostics.record(
+                  RuntimeDiagnostics.Area.COMMAND,
+                  "Coordinate clipboard copy",
+                  clipboardFailure
+               );
             }
 
             return 1;
