@@ -44,6 +44,17 @@ class RepositoryHygieneTest(unittest.TestCase):
                 metadata.get("entrypoints", {}).get(entrypoint),
             )
 
+    def test_manager_static_initializers_do_not_resolve_modules_from_client_context(self):
+        manager_root = ROOT / "src/main/java/dev/schizo/client/managers"
+        offenders = []
+        static_block = re.compile(r"static\s*\{.*?ClientContext\.getModule\(", re.S)
+        static_field = re.compile(r"static[^;\n]*=\s*ClientContext\.getModule\(")
+        for path in manager_root.glob("*.java"):
+            text = path.read_text(encoding="utf-8")
+            if static_block.search(text) or static_field.search(text):
+                offenders.append(path.name)
+        self.assertEqual([], sorted(offenders), f"Eager manager module lookups remain: {offenders}")
+
     def test_explicit_module_registrations_resolve_without_duplicates(self):
         registry_path = ROOT / "src/main/java/dev/schizo/client/managers/ModuleRegistry.java"
         registry = registry_path.read_text(encoding="utf-8")
