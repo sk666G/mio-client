@@ -29,7 +29,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(ClientLevel.class)
 public abstract class ClientLevelMixin {
-   private static final NoRenderModule noRenderModule = ClientContext.getModule(NoRenderModule.class);
+   private static NoRenderModule noRenderModule() {
+      return ClientContext.requireModule(NoRenderModule.class);
+   }
 
    @Inject(method = "removeEntity", at = @At(value = "JUMP", shift = Shift.BEFORE, ordinal = 0), cancellable = true)
    private void postRemoveEntityEvent(
@@ -57,7 +59,7 @@ public abstract class ClientLevelMixin {
    private void suppressBreakingBlockEffect(
       BlockPos blockPos, Direction face, CallbackInfo callback
    ) {
-      if (noRenderModule.shouldHideBlockBreakingParticles()) {
+      if (noRenderModule().shouldHideBlockBreakingParticles()) {
          callback.cancel();
       }
    }
@@ -66,7 +68,7 @@ public abstract class ClientLevelMixin {
    private void suppressDestroyBlockEffect(
       BlockPos blockPos, BlockState blockState, CallbackInfo callback
    ) {
-      if (noRenderModule.shouldHideBlockBreakingParticles()) {
+      if (noRenderModule().shouldHideBlockBreakingParticles()) {
          callback.cancel();
       }
    }
