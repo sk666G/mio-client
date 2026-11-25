@@ -38,6 +38,7 @@ import java.util.Random;
 import java.util.function.Predicate;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.OptionInstance;
 import net.minecraft.client.Options;
@@ -48,6 +49,7 @@ import net.minecraft.world.entity.player.ChatVisiblity;
 
 public class NotificationsModule extends Module {
    private static final int MAX_TOTEM_MESSAGE_FILE_BYTES = 262_144;
+   private static final int MAX_PENDING_TOTEM_CHATS = 64;
    public final Setting<Color> watermarkSetting;
    public final Setting<Color> bracketsSetting;
    private final Setting<Boolean> commandsSetting;
@@ -66,6 +68,7 @@ public class NotificationsModule extends Module {
    private int totemMessageIndex;
    private final List<String> totemMessages;
    private final Random totemRandom;
+   private final AtomicInteger pendingTotemChats = new AtomicInteger();
    private long totemGeneration;
 
    @Override
@@ -198,9 +201,12 @@ public class NotificationsModule extends Module {
       String moduleName = AliasRegistry.getModuleAlias(aliasRegistry, aliasModule);
       message.append(Component.literal(moduleName));
       ClientContext.taskScheduler.scheduleRunTickTask(() -> {
-            Module lambdaSignatureModule = event.getModule();
-            ChatUtils.printChat(message, ChatUtils.moduleSignature(lambdaSignatureModule));
-         });
+         if (!this.isToggled()) {
+            return;
+         }
+         Module signatureModule = event.getModule();
+         ChatUtils.printChat(message, ChatUtils.moduleSignature(signatureModule));
+      });
    }
 
    @EventHandler
@@ -246,10 +252,17 @@ public class NotificationsModule extends Module {
       if (delayMillis <= 0L) {
          dispatch.run();
       } else {
+         int pending = this.pendingTotemChats.incrementAndGet();
+         if (pending > MAX_PENDING_TOTEM_CHATS) {
+            this.pendingTotemChats.decrementAndGet();
+            ClientAccess.logger.warn("Dropping delayed totem chat because the pending queue is full");
+            return;
+         }
+
          CompletableFuture.runAsync(
             dispatch,
             CompletableFuture.delayedExecutor(delayMillis, TimeUnit.MILLISECONDS)
-         );
+         ).whenComplete((ignored, failure) -> this.pendingTotemChats.decrementAndGet());
       }
    }
 
