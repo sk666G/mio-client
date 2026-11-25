@@ -31,24 +31,10 @@ public final class RenderTargetUtils implements ClientAccess {
 
    public static void restoreRenderTargets() {
       TargetState previous = savedTargets.pop();
-      Throwable cleanupFailure = null;
-
-      try {
-         popFramebuffer();
-      } catch (RuntimeException | Error failure) {
-         cleanupFailure = failure;
-      }
-
-      try {
-         setMainRenderTarget(previous.mainTarget());
-      } catch (RuntimeException | Error failure) {
-         cleanupFailure = combineFailures(cleanupFailure, failure);
-      }
-
+      popFramebuffer();
+      setMainRenderTarget(previous.mainTarget());
       RenderSystem.outputColorTextureOverride = previous.colorOverride();
       RenderSystem.outputDepthTextureOverride = previous.depthOverride();
-
-      rethrow(cleanupFailure);
    }
 
    private RenderTargetUtils() {
@@ -68,48 +54,10 @@ public final class RenderTargetUtils implements ClientAccess {
       );
       pushFramebuffer(target);
       savedTargets.push(previous);
-      try {
-         setMainRenderTarget(target);
-         // RenderType prefers these overrides over its render target.
-         RenderSystem.outputColorTextureOverride = null;
-         RenderSystem.outputDepthTextureOverride = null;
-      } catch (RuntimeException | Error failure) {
-         savedTargets.pop();
-         Throwable rollbackFailure = null;
-         try {
-            popFramebuffer();
-         } catch (RuntimeException | Error cleanupFailure) {
-            rollbackFailure = cleanupFailure;
-         }
-         try {
-            setMainRenderTarget(previous.mainTarget());
-         } catch (RuntimeException | Error cleanupFailure) {
-            rollbackFailure = combineFailures(rollbackFailure, cleanupFailure);
-         }
-         RenderSystem.outputColorTextureOverride = previous.colorOverride();
-         RenderSystem.outputDepthTextureOverride = previous.depthOverride();
-         if (rollbackFailure != null) {
-            failure.addSuppressed(rollbackFailure);
-         }
-         throw failure;
-      }
-   }
-
-   private static Throwable combineFailures(Throwable existing, Throwable additional) {
-      if (existing == null) {
-         return additional;
-      }
-      existing.addSuppressed(additional);
-      return existing;
-   }
-
-   private static void rethrow(Throwable failure) {
-      if (failure instanceof RuntimeException runtimeFailure) {
-         throw runtimeFailure;
-      }
-      if (failure instanceof Error error) {
-         throw error;
-      }
+      setMainRenderTarget(target);
+      // RenderType prefers these overrides over its render target.
+      RenderSystem.outputColorTextureOverride = null;
+      RenderSystem.outputDepthTextureOverride = null;
    }
 
    private record TargetState(RenderTarget mainTarget, GpuTextureView colorOverride, GpuTextureView depthOverride) {}
@@ -119,14 +67,12 @@ public final class RenderTargetUtils implements ClientAccess {
    }
 
    public static String readShaderSource(String resourcePath) {
-      try (InputStream stream = BaseShaderPass.class.getResourceAsStream("/assets/schizo/shaders/" + resourcePath)) {
-         if (stream == null) {
-            dev.schizo.client.ClientAccess.logger.error("Bundled shader source is missing: {}", resourcePath);
-            return "";
-         }
+      try {
+         InputStream stream = BaseShaderPass.class.getResourceAsStream("/assets/schizo/shaders/" + resourcePath);
+         assert stream != null;
          return IOUtils.toString(stream, StandardCharsets.UTF_8);
-      } catch (IOException failure) {
-         dev.schizo.client.ClientAccess.logger.error("Could not read bundled shader source {}", resourcePath, failure);
+      } catch (IOException | AssertionError failure) {
+         failure.printStackTrace();
          return "";
       }
    }

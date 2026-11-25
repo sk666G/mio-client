@@ -44,9 +44,6 @@ public final class CrystalPlacementValidator implements ClientAccess {
    }
 
    public boolean canPlace(BlockPos base) {
-      if (Thread.currentThread().isInterrupted()) {
-         return false;
-      }
       if (!this.ignoreBaseBlock) {
          if (!WorldUtils.isBedrockOrObsidian(base)) {
             return false;
@@ -101,9 +98,6 @@ public final class CrystalPlacementValidator implements ClientAccess {
 
       Iterator<?> entities = ClientAccess.schizoMinecraft.level.entitiesForRendering().iterator();
       while (entities.hasNext()) {
-         if (Thread.currentThread().isInterrupted()) {
-            return false;
-         }
          Entity entity = (Entity)entities.next();
          if (entity == null) {
             continue;
@@ -123,9 +117,6 @@ public final class CrystalPlacementValidator implements ClientAccess {
             }
 
             for (int predictionTick = 1; predictionTick <= this.predictionTicks; predictionTick++) {
-               if (Thread.currentThread().isInterrupted()) {
-                  return false;
-               }
                Player predictionPlayer = (Player)entity;
 
                AABB predictedBox = ClientContext.movementPredictionManager.getPredictedBoundingBox(predictionPlayer, predictionTick);
@@ -158,8 +149,7 @@ public final class CrystalPlacementValidator implements ClientAccess {
          }
       }
 
-      return !Thread.currentThread().isInterrupted()
-         && !(this.checkEntityCollisions && collisionCount != 0);
+      return !(this.checkEntityCollisions && collisionCount != 0);
    }
 
    public CrystalPlacementValidator requireUpperAir(boolean enabled) {

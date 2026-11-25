@@ -12,7 +12,7 @@ package dev.schizo.mixin;
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import com.llamalad7.mixinextras.sugar.Local;
 import dev.schizo.client.ClientAccess;
-import dev.schizo.client.bootstrap.MixinModuleRegistry;
+import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.ClientPacketListenerHandleExplosionEvent;
 import dev.schizo.client.events.ClientPacketListenerHandleOpenSignEditorEvent;
 import dev.schizo.client.events.ClientPacketListenerHandleSetEntityMotionEvent;
@@ -37,6 +37,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(ClientPacketListener.class)
 public class ClientPacketListenerMixin {
+   private static final FastLatencyModule vanillaPingModule = ClientContext.getModule(FastLatencyModule.class);
+   private static final NoRenderModule noRenderModule = ClientContext.getModule(NoRenderModule.class);
+
    @Inject(
       method = "handleExplosion",
       at = @At(
@@ -92,13 +95,13 @@ public class ClientPacketListenerMixin {
 
    @Inject(method = "handleAddEntity", at = @At("HEAD"), cancellable = true)
    private void suppressRemovedEntitySpawn(ClientboundAddEntityPacket packet, CallbackInfo callback) {
-      if (MixinModuleRegistry.clientPacketNoRender.isToggled()) {
+      if (noRenderModule.isToggled()) {
          if (packet != null
             && packet.getType() != null
-            && MixinModuleRegistry.clientPacketNoRender.shouldHideEntityType(
+            && noRenderModule.shouldHideEntityType(
                packet.getType()
             )
-            && MixinModuleRegistry.clientPacketNoRender.removalSetting.getValue()
+            && noRenderModule.removalSetting.getValue()
                == NoRenderModule.RemovalChoice.FULL) {
             callback.cancel();
          }
@@ -147,7 +150,7 @@ public class ClientPacketListenerMixin {
 
    @ModifyExpressionValue(method = "tick", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/components/DebugScreenOverlay;showNetworkCharts()Z"))
    private boolean shouldShowNetworkCharts(boolean originalVisible) {
-      return MixinModuleRegistry.clientPacketFastLatency.isVanillaPingEnabled()
+      return vanillaPingModule.isVanillaPingEnabled()
          ? false
          : originalVisible;
    }

@@ -9,10 +9,10 @@
 
 package dev.schizo.client.managers;
 
+import dev.schizo.client.utils.inventory.Kit;
+
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.settings.JsonConfigurable;
-import dev.schizo.client.settings.NamedEntry;
-import dev.schizo.client.utils.inventory.Kit;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -21,10 +21,9 @@ import com.google.gson.JsonPrimitive;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.Map.Entry;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -37,14 +36,13 @@ import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.alchemy.PotionContents;
 
-public final class KitRegistry extends Registry<Kit> implements ClientAccess, JsonConfigurable {
-   private static final String CURRENT_KEY = "current";
-   private static final int PLAYER_INVENTORY_SLOTS = 36;
+public final class KitRegistry extends dev.schizo.client.managers.Registry<Kit> implements ClientAccess, JsonConfigurable {
    private String currentKitName;
 
    public void setCurrentKitName(String name) {
@@ -71,248 +69,105 @@ public final class KitRegistry extends Registry<Kit> implements ClientAccess, Js
    }
 
    public static Kit getCurrentKit(KitRegistry registry) {
-      if (registry == null || registry.currentKitName == null) {
+      if (registry.currentKitName == null) {
          return null;
       }
-      return registry.findByName(registry.currentKitName).orElse(null);
-   }
 
-   @Override
-   public boolean registerEntry(NamedEntry entry) {
-      if (!(entry instanceof Kit kit) || !isValidName(kit.getName())) {
-         return false;
-      }
-      if (this.findByName(kit.getName()).isPresent()) {
-         return false;
-      }
-      return this.entries.add(kit);
-   }
-
-   public Optional<Kit> findByName(String name) {
-      if (!isValidName(name)) {
-         return Optional.empty();
-      }
-      return this.entries.stream()
-         .filter(kit -> kit != null && kit.getName() != null && kit.getName().equalsIgnoreCase(name))
-         .findFirst();
-   }
-
-   public boolean unregisterKit(Kit kit) {
-      if (kit == null) {
-         return false;
-      }
-      boolean removed = this.entries.removeIf(candidate -> hasSameName(candidate, kit));
-      if (removed && this.currentKitName != null && this.currentKitName.equalsIgnoreCase(kit.getName())) {
-         this.currentKitName = null;
-      }
-      return removed;
-   }
-
-   public boolean replaceKit(Kit previous, Kit replacement) {
-      if (previous == null
-         || replacement == null
-         || !isValidName(replacement.getName())
-         || !this.entries.contains(previous)) {
-         return false;
-      }
-
-      for (Kit existing : this.entries) {
-         if (existing != previous && hasSameName(existing, replacement)) {
-            return false;
-         }
-      }
-
-      boolean wasCurrent = this.currentKitName != null
-         && previous.getName() != null
-         && this.currentKitName.equalsIgnoreCase(previous.getName());
-
-      if (this.entries instanceof List<?> rawList) {
-         @SuppressWarnings("unchecked")
-         List<Kit> kits = (List<Kit>)rawList;
-         int previousIndex = kits.indexOf(previous);
-         if (previousIndex < 0) {
-            return false;
-         }
-         kits.set(previousIndex, replacement);
-      } else {
-         if (!this.entries.remove(previous)) {
-            return false;
-         }
-         if (!this.registerEntry(replacement)) {
-            this.entries.add(previous);
-            return false;
-         }
-      }
-
-      if (wasCurrent) {
-         this.currentKitName = replacement.getName();
-      }
-      return true;
-   }
-
-   public boolean renameKit(Kit kit, String targetName) {
-      if (kit == null || !isValidName(targetName)) {
-         return false;
-      }
-
-      Kit renamed = new Kit(targetName);
-      renamed.getItemsBySlot().putAll(kit.getItemsBySlot());
-      return this.replaceKit(kit, renamed);
-   }
-
-   public boolean upsertKit(Kit kit) {
-      if (kit == null || !isValidName(kit.getName())) {
-         return false;
-      }
-
-      Optional<Kit> existing = this.findByName(kit.getName());
-      return existing.isPresent()
-         ? this.replaceKit(existing.get(), kit)
-         : this.registerEntry(kit);
-   }
-
-   static boolean hasSameName(Kit first, Kit second) {
-      return first != null
-         && second != null
-         && first.getName() != null
-         && second.getName() != null
-         && first.getName().equalsIgnoreCase(second.getName());
-   }
-
-   static boolean isValidName(String name) {
-      return name != null
-         && !name.isBlank()
-         && !CURRENT_KEY.equalsIgnoreCase(name);
+      Predicate<Kit> currentKitFilter = kit -> kit.getName().equalsIgnoreCase(registry.currentKitName);
+      Optional<Kit> matchingKit = registry.findFirst(currentKitFilter);
+      return matchingKit.orElse(null);
    }
 
    @Override
    public void fromJson(JsonElement json) {
-      if (!(json instanceof JsonObject root)) {
-         throw new IllegalArgumentException("Kit configuration must be a JSON object");
+      if (!json.isJsonObject()) {
+         return;
+      }
+      JsonObject root = json.getAsJsonObject();
+      if (root.has("current")) {
+         this.setCurrentKitName(root.get("current").getAsString());
       }
 
-      String requestedCurrent = null;
-      JsonElement currentElement = root.get(CURRENT_KEY);
-      if (currentElement != null
-         && currentElement.isJsonPrimitive()
-         && currentElement.getAsJsonPrimitive().isString()) {
-         requestedCurrent = currentElement.getAsString();
-      }
-
-      List<Kit> loaded = new ArrayList<>();
-      for (Entry<String, JsonElement> kitEntry : root.entrySet()) {
-         String kitName = kitEntry.getKey();
-         if (CURRENT_KEY.equalsIgnoreCase(kitName)
-            || !isValidName(kitName)
-            || !(kitEntry.getValue() instanceof JsonArray itemArray)) {
+      Iterator kitEntries = root.entrySet().iterator();
+      while (kitEntries.hasNext()) {
+         Entry kitEntry = (Entry)kitEntries.next();
+         JsonElement kitJsonForCheck = (JsonElement)kitEntry.getValue();
+         if (!kitJsonForCheck.isJsonArray()) {
             continue;
          }
-
-         Kit kit = new Kit(kitName);
-         for (JsonElement itemJson : itemArray) {
-            if (!(itemJson instanceof JsonObject slotObject)
-               || !slotObject.has("slot")
-               || !slotObject.has("item")) {
+         Kit kit = new Kit((String)kitEntry.getKey());
+         JsonElement kitJson = (JsonElement)kitEntry.getValue();
+         JsonArray itemArray = kitJson.getAsJsonArray();
+         Iterator items = itemArray.iterator();
+         while (items.hasNext()) {
+            JsonElement itemJson = (JsonElement)items.next();
+            if (!itemJson.isJsonObject()) {
                continue;
             }
-
-            try {
+            JsonObject slotObject = itemJson.getAsJsonObject();
+            if (!slotObject.has("slot") || !slotObject.has("item")) {
+               continue;
+            }
+            Kit.ItemDescriptor descriptor = null;
+            if (slotObject.get("item") instanceof JsonObject itemObject) {
+               if (itemObject.has("id")) {
+                  int loadedItemId;
+                  try {
+                     loadedItemId = itemObject.get("id").getAsInt();
+                  } catch (NumberFormatException nonNumericItemId) {
+                     String itemIdentifier = itemObject.get("id").getAsString();
+                     DefaultedRegistry itemRegistry = BuiltInRegistries.ITEM;
+                     Identifier parsedIdentifier = Identifier.parse(itemIdentifier);
+                     Item resolvedItem = (Item)itemRegistry.getValue(parsedIdentifier);
+                     loadedItemId = Item.getId(resolvedItem);
+                  }
+                  String potionSignature = null;
+                  if (itemObject.has("data")) {
+                     potionSignature = itemObject.get("data").getAsString();
+                  }
+                  descriptor = new Kit.ItemDescriptor(loadedItemId, potionSignature);
+               }
+            }
+            if (slotObject.get("item") instanceof JsonPrimitive primitiveItem) {
+               if (primitiveItem.isNumber()) {
+                  descriptor = new Kit.ItemDescriptor(primitiveItem.getAsInt(), null);
+               }
+            }
+            if (descriptor != null) {
+               Map itemsBySlot = kit.getItemsBySlot();
                int slot = slotObject.get("slot").getAsInt();
-               if (slot < 0 || slot >= PLAYER_INVENTORY_SLOTS) {
-                  continue;
-               }
-               Kit.ItemDescriptor descriptor = parseDescriptor(slotObject.get("item"));
-               if (descriptor != null) {
-                  kit.getItemsBySlot().put(slot, descriptor);
-               }
-            } catch (RuntimeException invalidItem) {
-               ClientAccess.logger.warn("Skipping invalid item in kit {}", kitName, invalidItem);
+               itemsBySlot.put(slot, descriptor);
             }
          }
-
-         if (loaded.stream().noneMatch(existing -> hasSameName(existing, kit))) {
-            loaded.add(kit);
-         }
+         this.registerEntry(kit);
       }
-
-      this.entries.clear();
-      this.entries.addAll(loaded);
-      String selectedName = requestedCurrent;
-      this.currentKitName = selectedName == null
-         ? null
-         : this.findByName(selectedName).map(Kit::getName).orElse(null);
-   }
-
-   private static Kit.ItemDescriptor parseDescriptor(JsonElement itemElement) {
-      int loadedItemId;
-      String potionSignature = null;
-
-      if (itemElement instanceof JsonObject itemObject) {
-         JsonElement idElement = itemObject.get("id");
-         if (idElement == null || !idElement.isJsonPrimitive()) {
-            return null;
-         }
-
-         JsonPrimitive idPrimitive = idElement.getAsJsonPrimitive();
-         if (idPrimitive.isNumber()) {
-            loadedItemId = idPrimitive.getAsInt();
-            Item resolved = Item.byId(loadedItemId);
-            if (Item.getId(resolved) != loadedItemId) {
-               return null;
-            }
-         } else if (idPrimitive.isString()) {
-            Identifier identifier = Identifier.parse(idPrimitive.getAsString());
-            DefaultedRegistry<Item> itemRegistry = BuiltInRegistries.ITEM;
-            Item resolved = itemRegistry.getValue(identifier);
-            Optional<ResourceKey<Item>> resourceKey = itemRegistry.getResourceKey(resolved);
-            if (resourceKey.isEmpty() || !resourceKey.get().identifier().equals(identifier)) {
-               return null;
-            }
-            loadedItemId = Item.getId(resolved);
-         } else {
-            return null;
-         }
-
-         JsonElement dataElement = itemObject.get("data");
-         if (dataElement != null) {
-            if (!dataElement.isJsonPrimitive() || !dataElement.getAsJsonPrimitive().isString()) {
-               return null;
-            }
-            potionSignature = dataElement.getAsString();
-         }
-      } else if (itemElement instanceof JsonPrimitive primitiveItem && primitiveItem.isNumber()) {
-         loadedItemId = primitiveItem.getAsInt();
-         Item resolved = Item.byId(loadedItemId);
-         if (Item.getId(resolved) != loadedItemId) {
-            return null;
-         }
-      } else {
-         return null;
-      }
-
-      return new Kit.ItemDescriptor(loadedItemId, potionSignature);
    }
 
    @Override
    public JsonElement toJson() {
       JsonObject root = new JsonObject();
       if (this.currentKitName != null) {
-         root.addProperty(CURRENT_KEY, this.currentKitName);
+         String currentName = this.currentKitName;
+         root.addProperty("current", currentName);
       }
 
-      for (Kit kit : this.entries) {
+      Iterator<Kit> kits = this.getRegistry().iterator();
+      while (kits.hasNext()) {
+         Kit kit = kits.next();
          JsonArray items = new JsonArray();
          kit.getItemsBySlot().forEach((BiConsumer<Integer, Kit.ItemDescriptor>)(slot, descriptor) -> {
             JsonObject itemObject = new JsonObject();
             int itemId = descriptor.itemId();
             Item item = Item.byId(itemId);
-            Optional<ResourceKey<Item>> itemResourceKey = BuiltInRegistries.ITEM.getResourceKey(item);
-            itemResourceKey.ifPresent(resourceKey -> {
+            Optional itemResourceKey = BuiltInRegistries.ITEM.getResourceKey(item);
+            itemResourceKey.ifPresent((Consumer<ResourceKey>)resourceKey -> {
                Identifier identifier = resourceKey.identifier();
-               itemObject.addProperty("id", identifier.toString());
+               String identifierText = identifier.toString();
+               itemObject.addProperty("id", identifierText);
             });
             if (descriptor.potionSignature() != null) {
-               itemObject.addProperty("data", descriptor.potionSignature());
+               String potionSignature = descriptor.potionSignature();
+               itemObject.addProperty("data", potionSignature);
             }
 
             JsonObject slotObject = new JsonObject();
@@ -320,7 +175,8 @@ public final class KitRegistry extends Registry<Kit> implements ClientAccess, Js
             slotObject.add("item", itemObject);
             items.add(slotObject);
          });
-         root.add(kit.getName(), items);
+         String kitName = kit.getName();
+         root.add(kitName, items);
       }
       return root;
    }
@@ -335,11 +191,8 @@ public final class KitRegistry extends Registry<Kit> implements ClientAccess, Js
       return Item.getId(item);
    }
 
-   public boolean captureInventory(String name) {
-      if (!isValidName(name) || this.isWorldUnavailable()) {
-         return false;
-      }
-
+   public void captureInventory(String name) {
+      this.getRegistry().removeIf((Predicate<Kit>)existingKit -> existingKit.getName().equalsIgnoreCase(name));
       Kit kit = new Kit(name);
       int slot = 0;
       LocalPlayer player = ClientAccess.schizoMinecraft.player;
@@ -348,16 +201,17 @@ public final class KitRegistry extends Registry<Kit> implements ClientAccess, Js
 
       for (Iterator stacks = inventoryItems.iterator(); stacks.hasNext(); slot++) {
          ItemStack stack = (ItemStack)stacks.next();
-         kit.getItemsBySlot().put(
-            slot,
+
+         Map itemsBySlot = kit.getItemsBySlot();
+         Integer boxedSlot = slot;
+         itemsBySlot.put(
+            boxedSlot,
             new Kit.ItemDescriptor(capturedItemId(stack), getPotionSignature(stack))
          );
       }
 
-      if (!this.upsertKit(kit)) {
-         return false;
-      }
-      this.setCurrentKitName(kit.getName());
-      return true;
+      this.getRegistry().add(kit);
+      this.setCurrentKitName(name);
    }
+
 }

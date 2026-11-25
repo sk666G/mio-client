@@ -120,7 +120,7 @@ public class TradeEditorPanel extends Panel implements ClientAccess {
          enchantments
       );
       ClientContext.tradeRegistry
-         .unregisterByName(
+         .reregisterByName(
             this.tradeName
          );
       ClientContext.tradeRegistry

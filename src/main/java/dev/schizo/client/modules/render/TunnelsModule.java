@@ -10,14 +10,12 @@
 package dev.schizo.client.modules.render;
 
 import dev.schizo.client.ClientAccess;
-import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.WorldRenderEvent;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.LocalPlayerTickEvent;
 import dev.schizo.client.render.WorldBoxRenderer;
 import dev.schizo.client.managers.RotationManager;
 import dev.schizo.client.utils.ElapsedTimer;
-import dev.schizo.client.utils.AdaptiveScanBudget;
 import dev.schizo.client.utils.world.ChunkScanner;
 import dev.schizo.client.utils.world.WorldUtils;
 import dev.schizo.client.modules.Module;
@@ -36,7 +34,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Queue;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
@@ -66,17 +63,10 @@ public class TunnelsModule extends Module {
    private final Setting<Color> outlineSetting;
    private static final MutableBlockPos scanPosition;
    private final ElapsedTimer mergeTimer;
-   private volatile Queue<Tunnel> pendingTunnels;
+   private final Queue<Tunnel> pendingTunnels;
    private volatile List<Tunnel> tunnels;
    private final AtomicBoolean mergeInProgress;
-   private static final int CHUNK_SCAN_BUDGET_PER_TICK = 2048;
    private final ChunkScanner chunkScanner;
-   private final Queue<ChunkPos> pendingChunkScans;
-   private final Set<Long> queuedChunkScans;
-   private TunnelsChunkScanCursor activeChunkScan;
-   private ChunkPos activeChunkPosition;
-   private ClientLevel scanLevel;
-   private volatile long runtimeGeneration;
 
    private boolean isNonSolid(BlockPos position) {
       ClientLevel level = ClientAccess.schizoMinecraft.level;
@@ -117,19 +107,21 @@ public class TunnelsModule extends Module {
 
    @Override
    public void onEnable() {
-      this.resetChunkScanState(true);
-      this.scanLevel = ClientAccess.schizoMinecraft.level;
       ChunkScanner capturedScanner = this.chunkScanner;
+
       capturedScanner.start();
       if (!this.isWorldUnavailable()) {
+         capturedScanner = this.chunkScanner;
+
          capturedScanner.scanLoadedChunks();
       }
    }
 
    @Override
    public void onDisable() {
-      this.resetChunkScanState(true);
+      this.tunnels.clear();
       ChunkScanner scanner = this.chunkScanner;
+
       scanner.stop();
    }
 
@@ -197,8 +189,6 @@ public class TunnelsModule extends Module {
    @EventHandler
    private void onLocalPlayerTickEvent(LocalPlayerTickEvent event) {
       if (!this.isWorldUnavailable()) {
-         this.syncScanLevel();
-         this.scanChunkSlice();
          AtomicBoolean mergeFlag = this.mergeInProgress;
          if (!mergeFlag.get()) {
             ElapsedTimer capturedTimer = this.mergeTimer;
@@ -211,25 +201,9 @@ public class TunnelsModule extends Module {
                boolean busy = true;
                AtomicBoolean busyFlag = this.mergeInProgress;
                busyFlag.set(busy);
-               List<Tunnel> currentTunnels = this.tunnels;
-               ArrayList<Tunnel> snapshot = new ArrayList<>(currentTunnels.size());
-               for (Tunnel tunnel : currentTunnels) {
-                  snapshot.add(tunnel.copy());
-               }
-               ClientLevel expectedLevel = ClientAccess.schizoMinecraft.level;
-               LocalPlayer expectedPlayer = ClientAccess.schizoMinecraft.player;
-               Vec3 eyePosition = expectedPlayer.getEyePosition();
-               long expectedGeneration = this.runtimeGeneration;
-               Queue<Tunnel> pendingSnapshot = this.pendingTunnels;
+               ArrayList<Tunnel> snapshot = new ArrayList<>(this.tunnels);
                ClientAccess.executorService.submit(
-                  (Runnable)() -> this.mergePendingTunnels(
-                     snapshot,
-                     pendingSnapshot,
-                     eyePosition,
-                     expectedLevel,
-                     expectedPlayer,
-                     expectedGeneration
-                  )
+                  (Runnable)() -> this.mergePendingTunnels(snapshot)
                );
             }
          }
@@ -273,104 +247,73 @@ public class TunnelsModule extends Module {
       }
    }
 
-   private void enqueueChunkScan(ChunkPos chunkPosition, LevelChunk unusedChunk) {
-      ChunkPos copiedPosition = new ChunkPos(chunkPosition.x, chunkPosition.z);
-      long key = copiedPosition.toLong();
-      if (this.queuedChunkScans.add(key)) {
-         this.pendingChunkScans.add(copiedPosition);
-      }
-   }
-
-   private void syncScanLevel() {
-      ClientLevel currentLevel = ClientAccess.schizoMinecraft.level;
-      if (this.scanLevel != currentLevel) {
-         this.resetChunkScanState(true);
-         this.scanLevel = currentLevel;
-         if (currentLevel != null) {
-            this.chunkScanner.scanLoadedChunks();
-         }
-      }
-   }
-
-   private void scanChunkSlice() {
+   private void scanChunk(ChunkPos chunkPosition, LevelChunk unusedChunk) {
       ClientLevel level = ClientAccess.schizoMinecraft.level;
-      if (level == null) {
-         return;
-      }
+      int firstY = level.getMinY() + 1;
 
-      int processed = 0;
-      int scanBudget = AdaptiveScanBudget.limit(CHUNK_SCAN_BUDGET_PER_TICK, ClientContext.frameTiming);
-      while (processed < scanBudget) {
-         if (this.activeChunkScan == null) {
-            ChunkPos nextChunk = this.pendingChunkScans.poll();
-            if (nextChunk == null) {
-               return;
+      int topY = (int)WorldUtils.getTopY();
+      int endY = topY - 2;
+      int localX = 0;
+
+      while (true) {
+
+         if (localX >= 16) {
+            return;
+         }
+
+         int localZ = 0;
+
+         while (true) {
+
+            if (localZ >= 16) {
+               localX++;
+               break;
             }
-            this.activeChunkPosition = nextChunk;
-            this.activeChunkScan = new TunnelsChunkScanCursor(
-               nextChunk.getMinBlockX(),
-               nextChunk.getMinBlockZ(),
-               level.getMinY() + 1,
-               (int)WorldUtils.getTopY() - 2
-            );
-         }
 
-         TunnelsChunkScanCursor.Cell cell = this.activeChunkScan.next();
-         if (cell == null) {
-            this.queuedChunkScans.remove(this.activeChunkPosition.toLong());
-            this.activeChunkScan = null;
-            this.activeChunkPosition = null;
-            continue;
-         }
+            int x = chunkPosition.getMinBlockX() + localX;
+            int z = chunkPosition.getMinBlockZ() + localZ;
 
-         int x = cell.x();
-         int y = cell.y();
-         int z = cell.z();
-         this.scanPosition.set(x, y, z);
-         if (this.isNonSolid(this.scanPosition)) {
-            if (this.isVerticalTunnelCell(this.scanPosition)) {
-               this.pendingTunnels.add(
-                  new Tunnel(x, y, z, x + 1, y + 1, z + 1, true)
-               );
-            } else if (this.isHorizontalTunnelCell(this.scanPosition)) {
-               this.pendingTunnels.add(
-                  new Tunnel(x, y, z, x + 1, y + 1, z + 1, false)
-               );
+            for (int y = firstY; y < endY; y++) {
+               int blockY = y;
+               MutableBlockPos positionToSet = scanPosition;
+               positionToSet.set(x, blockY, z);
+               MutableBlockPos nonSolidPosition = scanPosition;
+
+               if (this.isNonSolid(nonSolidPosition)) {
+                  MutableBlockPos verticalPosition = scanPosition;
+
+                  if (!this.isVerticalTunnelCell(verticalPosition)) {
+                     MutableBlockPos horizontalPosition = scanPosition;
+
+                     if (this.isHorizontalTunnelCell(horizontalPosition)) {
+                        this.pendingTunnels.add(
+                           new TunnelsModule.Tunnel(x, y, z, x + 1, y + 1, z + 1, false)
+                        );
+                     }
+                  } else {
+                     int verticalStartY = y;
+
+                     while (y < endY) {
+                        int nextY = y + 1;
+                        MutableBlockPos verticalPositionToSet = scanPosition;
+                        MutableBlockPos nextVerticalPosition = verticalPositionToSet.set(x, nextY, z);
+
+                        if (!this.isVerticalTunnelCell(nextVerticalPosition)) {
+                           break;
+                        }
+
+                        y++;
+                     }
+
+                     this.pendingTunnels.add(
+                        new TunnelsModule.Tunnel(x, verticalStartY, z, x + 1, y + 1, z + 1, true)
+                     );
+                  }
+               }
             }
+
+            localZ++;
          }
-         processed++;
-      }
-   }
-
-   private void removeChunkState(ChunkPos chunkPosition) {
-      long key = chunkPosition.toLong();
-      this.queuedChunkScans.remove(key);
-      this.pendingChunkScans.removeIf(queued -> queued.toLong() == key);
-      if (this.activeChunkPosition != null && this.activeChunkPosition.toLong() == key) {
-         this.activeChunkScan = null;
-         this.activeChunkPosition = null;
-      }
-
-      List<Tunnel> current = this.tunnels;
-      ArrayList<Tunnel> retained = new ArrayList<>(current.size());
-      for (Tunnel tunnel : current) {
-         if (!this.isTunnelCenterInChunk(tunnel, chunkPosition)) {
-            retained.add(tunnel);
-         }
-      }
-      this.tunnels = retained;
-   }
-
-   private void resetChunkScanState(boolean clearTunnels) {
-      this.runtimeGeneration++;
-      this.pendingChunkScans.clear();
-      this.queuedChunkScans.clear();
-      this.activeChunkScan = null;
-      this.activeChunkPosition = null;
-      this.pendingTunnels = new ConcurrentLinkedQueue<>();
-      this.mergeInProgress.set(false);
-      if (clearTunnels) {
-         this.tunnels = Collections.emptyList();
       }
    }
 
@@ -396,19 +339,12 @@ public class TunnelsModule extends Module {
       return merged;
    }
 
-   private void mergePendingTunnels(
-      List<Tunnel> snapshot,
-      Queue<Tunnel> pendingSnapshot,
-      Vec3 eyePosition,
-      ClientLevel expectedLevel,
-      LocalPlayer expectedPlayer,
-      long expectedGeneration
-   ) {
+   private void mergePendingTunnels(List<Tunnel> snapshot) {
       try {
          boolean changed = false;
 
          TunnelsModule.Tunnel pending;
-         while ((pending = pendingSnapshot.poll()) != null) {
+         while ((pending = this.pendingTunnels.poll()) != null) {
             boolean mergedPending = false;
             Iterator<Tunnel> iterator = snapshot.iterator();
 
@@ -434,25 +370,19 @@ public class TunnelsModule extends Module {
             snapshot.removeAll(merged);
          }
 
+         LocalPlayer player = ClientAccess.schizoMinecraft.player;
+         Vec3 eyePosition = player.getEyePosition();
          snapshot.removeIf((Predicate<TunnelsModule.Tunnel>)tunnel -> {
             double distanceSquared = tunnel.distanceToCenterSquared(eyePosition);
 
             return distanceSquared > 65536.0D;
          });
-         BlockableEventLoop<?> client = ClientAccess.schizoMinecraft;
-         client.executeIfPossible(() -> {
-            if (this.isToggled()
-               && this.runtimeGeneration == expectedGeneration
-               && ClientAccess.schizoMinecraft.level == expectedLevel
-               && ClientAccess.schizoMinecraft.player == expectedPlayer) {
-               this.tunnels = snapshot;
-            }
-         });
+         this.tunnels = snapshot;
       } catch (Exception ignoredFailure) {
       } finally {
-         if (this.runtimeGeneration == expectedGeneration) {
-            this.mergeInProgress.set(false);
-         }
+         boolean idle = false;
+         AtomicBoolean busyFlag = this.mergeInProgress;
+         busyFlag.set(idle);
       }
    }
 
@@ -468,17 +398,19 @@ public class TunnelsModule extends Module {
       this.outlineSetting = this.add(new ColorSetting(new String("Outline"), new Color(-65536, true)));
       this.mergeTimer = new ElapsedTimer();
       this.pendingTunnels = new ConcurrentLinkedQueue<>();
-      this.pendingChunkScans = new ConcurrentLinkedQueue<>();
-      this.queuedChunkScans = ConcurrentHashMap.newKeySet();
       this.tunnels = Collections.emptyList();
       this.mergeInProgress = new AtomicBoolean(false);
       this.chunkScanner = new ChunkScanner(
-         0,
-         (java.util.function.BiConsumer<net.minecraft.world.level.ChunkPos, net.minecraft.world.level.chunk.LevelChunk>)this::enqueueChunkScan,
+         1,
+         (java.util.function.BiConsumer<net.minecraft.world.level.ChunkPos, net.minecraft.world.level.chunk.LevelChunk>)this::scanChunk,
          (java.util.function.BiConsumer<net.minecraft.world.level.ChunkPos, net.minecraft.world.level.chunk.LevelChunk>)((unloadedChunkPosition, unusedChunk) -> {
             BlockableEventLoop<?> client = ClientAccess.schizoMinecraft;
-            ChunkPos copiedPosition = new ChunkPos(unloadedChunkPosition.x, unloadedChunkPosition.z);
-            client.executeIfPossible(() -> this.removeChunkState(copiedPosition));
+            Runnable removeUnloadedTunnels = () -> this.tunnels.removeIf(
+               (Predicate<TunnelsModule.Tunnel>)tunnel -> {
+                  return this.isTunnelCenterInChunk(tunnel, unloadedChunkPosition);
+               }
+            );
+            client.executeIfPossible(removeUnloadedTunnels);
          }),
          null
       );
@@ -502,10 +434,6 @@ public class TunnelsModule extends Module {
          this.maxY = maxY;
          this.maxZ = maxZ;
          this.vertical = vertical;
-      }
-
-      private Tunnel copy() {
-         return new Tunnel(this.minX, this.minY, this.minZ, this.maxX, this.maxY, this.maxZ, this.vertical);
       }
 
       public AABB getBounds() {

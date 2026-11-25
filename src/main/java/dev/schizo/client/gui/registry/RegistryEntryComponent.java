@@ -141,25 +141,22 @@ class RegistryEntryComponent<E> extends ButtonComponent {
          }
 
          poseStack.pushPose();
-         try {
-            poseStack.translate(
-               iconOffset,
-               1.5F,
-               0.0F
-            );
-            boolean hovered = this.isMouseOver(mouseX, mouseY);
-            this.hoverScrollAnimation
-               .setTarget(hovered, 500L);
-            this.renderClippedLabel(
-               poseStack,
-               iconOffset
-                  + 3.0F,
-               mouseX,
-               mouseY
-            );
-         } finally {
-            poseStack.popPose();
-         }
+         poseStack.translate(
+            iconOffset,
+            1.5F,
+            0.0F
+         );
+         boolean hovered = this.isMouseOver(mouseX, mouseY);
+         this.hoverScrollAnimation
+            .setTarget(hovered, 500L);
+         this.renderClippedLabel(
+            poseStack,
+            iconOffset
+               + 3.0F,
+            mouseX,
+            mouseY
+         );
+         poseStack.popPose();
       }
    }
 
@@ -208,25 +205,19 @@ class RegistryEntryComponent<E> extends ButtonComponent {
             ),
             this.getHeight()
          );
-         try {
-            poseStack.translate(
-               -(
-                     textWidth
-                        - this.panel
-                           .getWidth()
-                  )
-                  * scrollProgress,
-               0.0F,
-               0.0F
-            );
-            super.render(poseStack, mouseX, mouseY);
-         } finally {
-            try {
-               GuiDrawUtils.flush();
-            } finally {
-               ScissorStack.pop();
-            }
-         }
+         poseStack.translate(
+            -(
+                  textWidth
+                     - this.panel
+                        .getWidth()
+               )
+               * scrollProgress,
+            0.0F,
+            0.0F
+         );
+         super.render(poseStack, mouseX, mouseY);
+         GuiDrawUtils.flush();
+         ScissorStack.pop();
       } else {
          super.render(poseStack, mouseX, mouseY);
       }

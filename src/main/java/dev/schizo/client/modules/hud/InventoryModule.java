@@ -196,10 +196,19 @@ public class InventoryModule extends HudWidgetModule {
 
          float rowCount = (float)Math.max(roundedRows, 1.0D);
 
-         return this.dimensions(slotSize * columnCount, slotSize * rowCount);
+         int dimensionCount = 2;
+         float[] selectedDimensions = new float[dimensionCount];
+         selectedDimensions[0] = slotSize * columnCount;
+         selectedDimensions[1] = slotSize * rowCount;
+         return selectedDimensions;
       } else {
 
-         return this.dimensions(slotSize * 9.0F, slotSize * 3.0F);
+         int dimensionCount = 2;
+         float[] slotDimensions = new float[dimensionCount];
+         slotDimensions[0] = slotSize * 9.0F;
+
+         slotDimensions[1] = slotSize * 3.0F;
+         return slotDimensions;
       }
    }
 
@@ -282,31 +291,26 @@ public class InventoryModule extends HudWidgetModule {
       RenderTargetUtils.overrideRenderTargets(
          PostProcessShaderPass.POST_TARGET
       );
-      try {
-         poses.pushPose();
-         try {
-            float contentDepth = 0.0F;
-            poses.translate(contentPadding, contentPadding, contentDepth);
-            int displayIndex = 0;
+      poses.pushPose();
+      float contentDepth = 0.0F;
+      poses.translate(contentPadding, contentPadding, contentDepth);
+      int displayIndex = 0;
 
-            for (Iterator stacks = this.getDisplayedStacks().iterator();
-               stacks.hasNext();
-               displayIndex++
-            ) {
-               ItemStack stack = (ItemStack)stacks.next();
-               int x = displayIndex % columns * slotStride;
-               int y = displayIndex / columns * slotStride;
+      for (Iterator stacks = this.getDisplayedStacks().iterator();
+         stacks.hasNext();
+         displayIndex++
+      ) {
+         ItemStack stack = (ItemStack)stacks.next();
+         int x = displayIndex % columns * slotStride;
+         int y = displayIndex / columns * slotStride;
 
-               String countText = this.formatStackCount(stack);
-               this.renderStack(poses, stack, countText, x, y);
-            }
-         } finally {
-            poses.popPose();
-         }
-         RenderUtils.INSTANCE.flushEntities();
-      } finally {
-         RenderTargetUtils.restoreRenderTargets();
+         String countText = this.formatStackCount(stack);
+         this.renderStack(poses, stack, countText, x, y);
       }
+      poses.popPose();
+      RenderUtils.INSTANCE
+         .flushEntities();
+      RenderTargetUtils.restoreRenderTargets();
       RenderUtils.clearDepth(
          PostProcessShaderPass.POST_TARGET
       );
@@ -326,28 +330,25 @@ public class InventoryModule extends HudWidgetModule {
 
       this.lastStackWasBlockItem = blockItem;
       poses.pushPose();
-      try {
-         GuiDrawUtils.drawItem(poses, stack, x, y, 0.0F, false);
-         Setting<ListFilterMode> selectionOption = this.selectionSetting;
-         if (selectionOption.getValue() == ListFilterMode.ANY) {
-            GuiDrawUtils.drawDurabilityBar(poses, stack, x, y);
-         }
-         if (stack.getCount() > 1) {
-            FontRenderer textRenderer = FontRenderer.INSTANCE;
-
-            float countX = x + 17
-               - FontRenderer.INSTANCE
-                  .getWidth(countText);
-
-            textRenderer.drawWithShadow(
-               poses, countText, countX, y + 9, Color.white
-            );
-         }
-
-         GuiDrawUtils.drawItemCooldown(poses, stack, x, y);
-      } finally {
-         poses.popPose();
+      GuiDrawUtils.drawItem(poses, stack, x, y, 0.0F, false);
+      Setting<ListFilterMode> selectionOption = this.selectionSetting;
+      if (selectionOption.getValue() == ListFilterMode.ANY) {
+         GuiDrawUtils.drawDurabilityBar(poses, stack, x, y);
       }
+      if (stack.getCount() > 1) {
+         FontRenderer textRenderer = FontRenderer.INSTANCE;
+
+         float countX = x + 17
+            - FontRenderer.INSTANCE
+               .getWidth(countText);
+
+         textRenderer.drawWithShadow(
+            poses, countText, countX, y + 9, Color.white
+         );
+      }
+
+      GuiDrawUtils.drawItemCooldown(poses, stack, x, y);
+      poses.popPose();
    }
 
    public InventoryModule() {

@@ -10,7 +10,7 @@
 package dev.schizo.client.gui.components;
 
 import dev.schizo.client.ClientAccess;
-import dev.schizo.client.render.GuiScaleUtils;
+import dev.schizo.client.gui.screens.ClientScreen;
 import dev.schizo.client.gui.screens.TradeEditorScreen;
 import dev.schizo.client.render.GuiDrawUtils;
 import dev.schizo.client.utils.math.FloatBounds;
@@ -41,7 +41,7 @@ public class TradeItemsComponent extends AbstractComponent {
       false
    );
    private final TradeEditorScreen screen;
-   private TradeSelectorPanel<?> activeSelector;
+   private boolean selectorOpen;
    private ItemStack fromStack;
    private ItemStack toStack;
 
@@ -65,141 +65,138 @@ public class TradeItemsComponent extends AbstractComponent {
       super.render(poses, mouseX, mouseY);
       GuiDrawUtils.flush();
       poses.pushPose();
-      try {
-         poses.translate(
-            this.panel
-                  .getX()
-               + 1,
-            this.panel
-                  .getY()
-               + this.yOffset,
-            0.0F
-         );
-         GuiDrawUtils.drawItem(
+      poses.translate(
+         this.panel
+               .getX()
+            + 1,
+         this.panel
+               .getY()
+            + this.yOffset,
+         0.0F
+      );
+      GuiDrawUtils.drawItem(
+         poses,
+         this.fromStack,
+         1.0F,
+         -Math.round(
+            this.fromHoverAnimation
+               .getValue()
+         ),
+         0.0F
+      );
+      GuiDrawUtils.drawItem(
+         poses,
+         this.toStack,
+         this.panel
+               .getWidth()
+            - (4)
+            - (16),
+         -Math.round(
+            this.toHoverAnimation
+               .getValue()
+         ),
+         0.0F
+      );
+      float arrowWidth = FontRenderer.INSTANCE
+         .getWidth(">");
+      FontRenderer.INSTANCE
+         .drawWithoutShadow(
             poses,
-            this.fromStack,
-            1.0F,
-            -Math.round(
-               this.fromHoverAnimation
-                  .getValue()
-            ),
-            0.0F
+            ">",
+            (
+                  this.panel
+                        .getWidth()
+                     - arrowWidth
+               )
+               / 2.0F,
+            4.0F,
+            Color.white
          );
-         GuiDrawUtils.drawItem(
-            poses,
-            this.toStack,
-            this.panel
-                  .getWidth()
-               - (4)
-               - (16),
-            -Math.round(
-               this.toHoverAnimation
-                  .getValue()
-            ),
-            0.0F
-         );
-         float arrowWidth = FontRenderer.INSTANCE
-            .getWidth(">");
-         FontRenderer.INSTANCE
-            .drawWithoutShadow(
-               poses,
-               ">",
-               (
-                     this.panel
-                           .getWidth()
-                        - arrowWidth
-                  )
-                  / 2.0F,
-               4.0F,
-               Color.white
+      FloatBounds fromHoverBounds = FloatBounds.fromPositionAndSize(
+         this.panel
+               .getX()
+            + (2),
+         this.panel
+               .getY()
+            + this.yOffset,
+         16.0F,
+         16.0F
+      );
+      if (fromHoverBounds.contains(mouseX, mouseY)) {
+         this.screen
+            .setTooltipStack(
+               this.fromStack
             );
-         FloatBounds fromHoverBounds = FloatBounds.fromPositionAndSize(
-            this.panel
-                  .getX()
-               + (2),
-            this.panel
-                  .getY()
-               + this.yOffset,
-            16.0F,
-            16.0F
-         );
-         if (fromHoverBounds.contains(mouseX, mouseY)) {
-            this.screen
-               .setTooltipStack(
-                  this.fromStack
-               );
-            this.fromHoverAnimation
-               .setTarget(true);
-         } else {
-            this.fromHoverAnimation
-               .setTarget(false);
-         }
-
-         FloatBounds toHoverBounds = FloatBounds.fromPositionAndSize(
-            this.panel
-                  .getX()
-               + this.panel
-                  .getWidth()
-               - (2)
-               - (16),
-            this.panel
-                  .getY()
-               + this.yOffset,
-            16.0F,
-            16.0F
-         );
-         if (toHoverBounds.contains(mouseX, mouseY)) {
-            this.screen
-               .setTooltipStack(
-                  this.toStack
-               );
-            this.toHoverAnimation
-               .setTarget(true);
-         } else {
-            this.toHoverAnimation
-               .setTarget(false);
-         }
-
          this.fromHoverAnimation
-            .updateAndGet();
-         this.toHoverAnimation
-            .updateAndGet();
-         this.drawHoverGradient(
-            poses,
-            0.0F,
-            0.0F,
-            32.0F,
-            this.getBaseHeight()
-               - 0.5F,
-            true
-         );
-         poses.translate(
-            this.panel
-                  .getWidth()
-               - (34),
-            0.0F,
-            0.0F
-         );
-         this.drawHoverGradient(
-            poses,
-            0.0F,
-            0.0F,
-            32.0F,
-            this.getBaseHeight()
-               - 0.5F,
-            false
-         );
-      } finally {
-         poses.popPose();
+            .setTarget(true);
+      } else {
+         this.fromHoverAnimation
+            .setTarget(false);
       }
+
+      FloatBounds toHoverBounds = FloatBounds.fromPositionAndSize(
+         this.panel
+               .getX()
+            + this.panel
+               .getWidth()
+            - (2)
+            - (16),
+         this.panel
+               .getY()
+            + this.yOffset,
+         16.0F,
+         16.0F
+      );
+      if (toHoverBounds.contains(mouseX, mouseY)) {
+         this.screen
+            .setTooltipStack(
+               this.toStack
+            );
+         this.toHoverAnimation
+            .setTarget(true);
+      } else {
+         this.toHoverAnimation
+            .setTarget(false);
+      }
+
+      this.fromHoverAnimation
+         .updateAndGet();
+      this.toHoverAnimation
+         .updateAndGet();
+      this.drawHoverGradient(
+         poses,
+         0.0F,
+         0.0F,
+         32.0F,
+         this.getBaseHeight()
+            - 0.5F,
+         true
+      );
+      poses.translate(
+         this.panel
+               .getWidth()
+            - (34),
+         0.0F,
+         0.0F
+      );
+      this.drawHoverGradient(
+         poses,
+         0.0F,
+         0.0F,
+         32.0F,
+         this.getBaseHeight()
+            - 0.5F,
+         false
+      );
+      poses.popPose();
    }
 
    @Override
    public void mouseClicked(double mouseX, double mouseY, int button) {
       super.mouseClicked(mouseX, mouseY, button);
       if (this.isMouseOver(mouseX, mouseY) && (button == 0 || button == 1)) {
-         if (this.isSelectorOpen()) {
-            this.closeSelector();
+         if (this.selectorOpen) {
+            this.selectorOpen = false;
          } else {
             int relativeMouseX = (int)(
                mouseX
@@ -237,13 +234,10 @@ public class TradeItemsComponent extends AbstractComponent {
                );
             }
 
-            selector.updateLayout();
-            double scale = GuiScaleUtils.calculateScaleMultiplier(this.screen.getGuiScale());
-            selector.placeWithinViewport(selector.getX(), selector.getY(),
-               ClientAccess.schizoMinecraft.getWindow().getGuiScaledWidth() / scale,
-               ClientAccess.schizoMinecraft.getWindow().getGuiScaledHeight() / scale);
-            this.activeSelector = selector;
-            this.screen.getPanels().add(selector);
+            this.selectorOpen = true;
+            ((ClientScreen)ClientAccess.schizoMinecraft.screen)
+               .getPanels()
+               .add(selector);
          }
       }
    }
@@ -314,14 +308,11 @@ public class TradeItemsComponent extends AbstractComponent {
    }
 
    public void closeSelector() {
-      if (this.activeSelector != null) {
-         this.screen.getPanels().remove(this.activeSelector);
-      }
-      this.activeSelector = null;
+      this.selectorOpen = false;
    }
 
    public boolean isSelectorOpen() {
-      return this.activeSelector != null;
+      return this.selectorOpen;
    }
 
 }

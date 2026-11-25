@@ -116,13 +116,12 @@ public final class MacroCommand extends Command {
             Keybind createdKeybind = (Keybind)(createContext.getArgument("key", Keybind.class));
             Macro createdMacro = createdType.create(createdName, createdKeybind);
             createdMacro.getCommands().add(createdCommand);
-            if (!ClientContext.macroRegistry.registerEntry(createdMacro)) {
-               ChatUtils.printChat(Component.literal("A macro with that name already exists"), ChatUtils.DEFAULT_SIGNATURE);
-               return 0;
-            }
+            ClientContext.macroRegistry.registerEntry(createdMacro);
 
             MutableComponent createNamedMessage = Component.literal("Macro ").append(createdMacro.getDisplayComponent());
+
             MutableComponent createdMessage = createNamedMessage.append(" has been created");
+
             ChatUtils.printChat(createdMessage, ChatUtils.DEFAULT_SIGNATURE);
             return 1;
          });
@@ -134,13 +133,12 @@ public final class MacroCommand extends Command {
 
             Keybind emptyMacroKeybind = (Keybind)(emptyCreateContext.getArgument("key", Keybind.class));
             Macro emptyMacro = emptyMacroType.create(emptyMacroName, emptyMacroKeybind);
-            if (!ClientContext.macroRegistry.registerEntry(emptyMacro)) {
-               ChatUtils.printChat(Component.literal("A macro with that name already exists"), ChatUtils.DEFAULT_SIGNATURE);
-               return 0;
-            }
+            ClientContext.macroRegistry.registerEntry(emptyMacro);
 
             MutableComponent emptyNamedMessage = Component.literal("Macro ").append(emptyMacro.getDisplayComponent());
+
             MutableComponent emptyCreatedMessage = emptyNamedMessage.append(" has been created");
+
             ChatUtils.printChat(emptyCreatedMessage, ChatUtils.DEFAULT_SIGNATURE);
             return 1;
          });
@@ -511,16 +509,14 @@ public final class MacroCommand extends Command {
             event.getCode(), Keybind.Mode.TOGGLE, event.isMouse()
          );
          Macro macro = capturedType.create(capturedName, keybind);
-         if (ClientContext.macroRegistry.registerEntry(macro)) {
-            MutableComponent namedMessage = Component.literal("Macro ").append(macro.getDisplayComponent());
-            MutableComponent createdMessage = namedMessage.append(" has been created");
-            ChatUtils.printChat(createdMessage, ChatUtils.DEFAULT_SIGNATURE);
-         } else {
-            ChatUtils.printChat(Component.literal("A macro with that name already exists"), ChatUtils.DEFAULT_SIGNATURE);
-         }
+         ClientContext.macroRegistry.registerEntry(macro);
+
+         MutableComponent namedMessage = Component.literal("Macro ").append(macro.getDisplayComponent());
+
+         MutableComponent createdMessage = namedMessage.append(" has been created");
+
+         ChatUtils.printChat(createdMessage, ChatUtils.DEFAULT_SIGNATURE);
          this.waitingForKey = false;
-         this.pendingMacroName = null;
-         this.pendingMacroType = null;
       }
    }
 
@@ -556,10 +552,8 @@ public final class MacroCommand extends Command {
             previousMacro.getCommands().forEach((Consumer<String>)copiedCommand -> {
                   replacementMacro.getCommands().add(copiedCommand);
                });
-            if (!ClientContext.macroRegistry.replaceMacro(previousMacro, replacementMacro)) {
-               ChatUtils.printChat(Component.literal("Macro key could not be changed"), ChatUtils.DEFAULT_SIGNATURE);
-               return 0;
-            }
+            ClientContext.macroRegistry.unregisterEntry(previousMacro);
+            ClientContext.macroRegistry.registerEntry(replacementMacro);
 
             Object[] bindMessageArguments = new Object[2];
             bindMessageArguments[0] = previousMacro.getName();
@@ -653,9 +647,14 @@ public final class MacroCommand extends Command {
             }
          }
 
-         if (!ClientContext.macroRegistry.upsertMacro(macro)) {
-            throw new IllegalStateException("Macro import could not be applied");
-         }
+         Optional existingMacro = ClientContext.macroRegistry.findFirst((Predicate<Macro>)candidateMacro -> {
+               String candidateName = candidateMacro.getName();
+               String importedName = macro.getName();
+               return candidateName.equalsIgnoreCase(importedName);
+            });
+         MacroRegistry registryForRemoval = ClientContext.macroRegistry;
+         existingMacro.ifPresent((Consumer<Macro>)registryForRemoval::unregisterEntry);
+         ClientContext.macroRegistry.registerEntry(macro);
 
          MutableComponent message = Component.literal("Successfully loaded ");
          String nameForMessage = macro.getName();

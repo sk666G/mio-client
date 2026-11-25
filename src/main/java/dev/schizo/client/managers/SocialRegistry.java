@@ -14,6 +14,7 @@ import dev.schizo.client.modules.misc.SocialEntry;
 import dev.schizo.client.utils.entity.PlayerState;
 
 import dev.schizo.client.ClientAccess;
+import dev.schizo.client.ClientContext;
 import dev.schizo.client.managers.Registry;
 import dev.schizo.client.modules.client.ColorsModule;
 import dev.schizo.client.settings.JsonConfigurable;
@@ -26,8 +27,6 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.mojang.authlib.GameProfile;
 import java.awt.Color;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Iterator;
 import java.util.Optional;
 import java.util.function.Predicate;
@@ -37,18 +36,12 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 
 public final class SocialRegistry extends Registry<SocialEntry> implements ClientAccess, JsonConfigurable {
-   private static volatile ColorsModule colorsModule;
+   private static final ColorsModule colorsModule;
    private static final EnumJsonConverter<SocialRole> roleConverter;
 
    static {
+      colorsModule = ClientContext.getModule(ColorsModule.class);
       roleConverter = new EnumJsonConverter<>(SocialRole.class);
-   }
-
-   public static void bindModules(ModuleRegistry registry) {
-      colorsModule = (ColorsModule)java.util.Objects.requireNonNull(
-         registry.getModule(ColorsModule.class),
-         "Required module is not registered: ColorsModule"
-      );
    }
 
    public boolean isFriendName(String name) {
@@ -84,82 +77,43 @@ public final class SocialRegistry extends Registry<SocialEntry> implements Clien
    }
 
    public boolean registerSocial(SocialEntry entry) {
-      if (entry == null || entry.getName() == null) {
-         return false;
-      }
-
-      boolean duplicateName = this.entries.stream().anyMatch(existing -> hasSameName(existing, entry));
-      if (duplicateName || !super.registerEntry(entry)) {
-         return false;
-      }
-
-      this.updatePlayerRole(entry.getName(), entry.role());
-      return true;
-   }
-
-   static boolean hasSameName(SocialEntry first, SocialEntry second) {
-      return first != null
-         && second != null
-         && first.getName() != null
-         && second.getName() != null
-         && first.getName().equalsIgnoreCase(second.getName());
+      String capturedName = entry.getName();
+      SocialRole role = entry.role();
+      this.updatePlayerRole(capturedName, role);
+      return super.registerEntry(entry);
    }
 
    @Override
    public void fromJson(JsonElement json) {
-      if (!(json instanceof JsonObject root)
-         || !(root.get("socials") instanceof JsonArray socials)) {
-         throw new IllegalArgumentException("Social configuration must contain a socials array");
-      }
+      JsonObject root = json.getAsJsonObject();
 
-      List<SocialEntry> loaded = new ArrayList<>();
-      for (JsonElement entryElement : socials) {
-         if (!(entryElement instanceof JsonObject entryObject)
-            || !entryObject.has("name")
-            || !entryObject.has("role")) {
-            continue;
-         }
+      if (root.has("socials")) {
+         root = json.getAsJsonObject();
 
-         try {
-            String name = entryObject.get("name").getAsString();
-            SocialRole role = parseRole(entryObject.get("role"));
-            if (name == null || name.isBlank() || role == null) {
-               continue;
+         JsonArray socials = root.getAsJsonArray("socials");
+         Iterator socialsIterator = socials.iterator();
+
+         while (socialsIterator.hasNext()) {
+            JsonElement entryElement = (JsonElement)socialsIterator.next();
+            JsonObject entryObject = entryElement.getAsJsonObject();
+
+            if (entryObject.has("name")) {
+               if (entryObject.has("role")) {
+                  JsonElement nameElement = entryObject.get("name");
+                  String name = nameElement.getAsString();
+                  EnumJsonConverter<SocialRole> capturedConverter = roleConverter;
+
+                  JsonElement roleElement = entryObject.get("role");
+                  SocialRole role = (SocialRole)capturedConverter.fromJson(
+                     roleElement
+                  );
+                  SocialEntry allocatedSocial = new SocialEntry(name, role);
+
+                  this.registerSocial(allocatedSocial);
+               }
             }
-
-            SocialEntry entry = new SocialEntry(name, role);
-            if (loaded.stream().noneMatch(existing -> hasSameName(existing, entry))) {
-               loaded.add(entry);
-            }
-         } catch (RuntimeException invalidEntry) {
-            ClientAccess.logger.warn("Skipping invalid social entry", invalidEntry);
          }
       }
-
-      for (SocialEntry existing : this.entries) {
-         this.updatePlayerRole(existing.getName(), null);
-      }
-      this.entries.clear();
-      this.entries.addAll(loaded);
-      for (SocialEntry entry : loaded) {
-         this.updatePlayerRole(entry.getName(), entry.role());
-      }
-   }
-
-   static SocialRole parseRole(JsonElement value) {
-      if (value == null
-         || !value.isJsonPrimitive()
-         || !value.getAsJsonPrimitive().isString()) {
-         return null;
-      }
-
-      String requested = value.getAsString();
-      for (SocialRole role : SocialRole.values()) {
-         if (role.getName().equalsIgnoreCase(requested)) {
-            return role;
-         }
-      }
-      return null;
    }
 
    @Override
@@ -228,21 +182,18 @@ public final class SocialRegistry extends Registry<SocialEntry> implements Clien
    }
 
    private void updatePlayerRole(String name, SocialRole role) {
-      if (ClientAccess.schizoMinecraft == null
-         || ClientAccess.schizoMinecraft.player == null
-         || ClientAccess.schizoMinecraft.level == null) {
-         return;
-      }
-      ClientLevel level = ClientAccess.schizoMinecraft.level;
-      Iterator playersIterator = level.players().iterator();
+      if (!this.isWorldUnavailable()) {
+         ClientLevel level = ClientAccess.schizoMinecraft.level;
+         Iterator playersIterator = level.players().iterator();
 
-      while (playersIterator.hasNext()) {
-         AbstractClientPlayer player = (AbstractClientPlayer)playersIterator.next();
-         GameProfile profile = player.getGameProfile();
-         String capturedPlayerName = profile.name();
-         if (capturedPlayerName.equalsIgnoreCase(name) && player instanceof PlayerState roleHolder) {
-            roleHolder.schizo$setRole(role);
-            return;
+         while (playersIterator.hasNext()) {
+            AbstractClientPlayer player = (AbstractClientPlayer)playersIterator.next();
+            GameProfile profile = player.getGameProfile();
+            String capturedPlayerName = profile.name();
+            if (capturedPlayerName.equalsIgnoreCase(name) && player instanceof PlayerState roleHolder) {
+               roleHolder.schizo$setRole(role);
+               return;
+            }
          }
       }
    }

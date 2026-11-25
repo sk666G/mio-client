@@ -73,7 +73,7 @@ public class TradeActionsPanel extends Panel implements ClientAccess {
       if (!this.deleteConfirmationTimer
          .hasElapsedAndReset(1000L)) {
          ClientContext.tradeRegistry
-            .unregisterByName(
+            .reregisterByName(
                this.trade
                   .name()
             );

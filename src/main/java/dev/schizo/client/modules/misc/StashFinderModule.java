@@ -40,7 +40,6 @@ import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.multiplayer.ClientPacketListener;
-import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.ClickEvent.SuggestCommand;
@@ -80,7 +79,6 @@ public class StashFinderModule extends Module {
    private final Setting<Boolean> stackedCartsSetting;
    private final Setting<Integer> minimumSetting;
    private final ElapsedTimer soundTimer;
-   private long deferredScanGeneration;
 
    private boolean isNaturalStorage(BlockPos position) {
       ChunkAccess chunkSnapshot = ClientAccess.schizoMinecraft.level.getChunk(position);
@@ -190,35 +188,32 @@ public class StashFinderModule extends Module {
       Boolean findStackedCarts = stackedCartsOption.getValue();
       if (findStackedCarts) {
          TaskScheduler deferredExecutor = ClientContext.taskScheduler;
-         ClientLevel expectedLevel = ClientAccess.schizoMinecraft.level;
-         LocalPlayer expectedPlayer = ClientAccess.schizoMinecraft.player;
-         ChunkPos expectedChunk = new ChunkPos(chunkPosition.x, chunkPosition.z);
-         long expectedGeneration = this.deferredScanGeneration;
          Runnable scanEntities = () -> {
-            if (!this.isToggled()
-               || this.deferredScanGeneration != expectedGeneration
-               || ClientAccess.schizoMinecraft.level != expectedLevel
-               || ClientAccess.schizoMinecraft.player != expectedPlayer
-               || expectedLevel == null
-               || !expectedLevel.getChunkSource().hasChunk(expectedChunk.x, expectedChunk.z)) {
-               return;
-            }
-
-            int stackedMinecartCount = this.countStackedMinecarts(expectedChunk);
+            int stackedMinecartCount = this.countStackedMinecarts(chunkPosition);
             Setting<Integer> minimumOption = this.minimumSetting;
             Integer requiredMinecarts = minimumOption.getValue();
             if (stackedMinecartCount >= requiredMinecarts) {
-               String minecartTimestamp = this.appendTimestamp("Stacked minecarts");
-               StashEntry minecartStash = this.createStash(minecartTimestamp, expectedChunk);
-               this.registerStash(minecartStash, "Stacked minecarts");
+
+               String minecartTimestamp = this.appendTimestamp(("Stacked minecarts"));
+               StashEntry minecartStash = this.createStash(
+                  minecartTimestamp, chunkPosition
+               );
+
+               this.registerStash(minecartStash, ("Stacked minecarts"));
             }
 
             Setting<Boolean> chestEntitiesOption = this.chestEntitiesSetting;
             Boolean findChestEntities = chestEntitiesOption.getValue();
-            if (findChestEntities && this.hasChestEntity(expectedChunk)) {
-               String entityTimestamp = this.appendTimestamp("Entity with chest");
-               StashEntry entityStash = this.createStash(entityTimestamp, expectedChunk);
-               this.registerStash(entityStash, "Entity with chest");
+            if (findChestEntities) {
+               if (this.hasChestEntity(chunkPosition)) {
+
+                  String entityTimestamp = this.appendTimestamp(("Entity with chest"));
+                  StashEntry entityStash = this.createStash(
+                     entityTimestamp, chunkPosition
+                  );
+
+                  this.registerStash(entityStash, ("Entity with chest"));
+               }
             }
          };
 
@@ -247,7 +242,21 @@ public class StashFinderModule extends Module {
 
    protected boolean registerStash(StashEntry stash, String description) {
       Optional existingStash = ClientContext.stashRegistry.findFirst(
-         (Predicate<StashEntry>)candidate -> candidate.hasSameLocation(stash)
+         (Predicate<StashEntry>)candidate -> {
+
+            double candidateCoordinate = candidate.getX();
+
+            if (candidateCoordinate == stash.getX()) {
+
+               candidateCoordinate = candidate.getZ();
+
+               if (candidateCoordinate == stash.getZ()) {
+                  return true;
+               }
+            }
+
+            return false;
+         }
       );
       if (existingStash.isEmpty()
          && ClientContext.stashRegistry.registerEntry(stash)) {
@@ -354,16 +363,6 @@ public class StashFinderModule extends Module {
       }
 
       return overlappingCount;
-   }
-
-   @Override
-   public void onEnable() {
-      this.deferredScanGeneration++;
-   }
-
-   @Override
-   public void onDisable() {
-      this.deferredScanGeneration++;
    }
 
    public StashFinderModule() {

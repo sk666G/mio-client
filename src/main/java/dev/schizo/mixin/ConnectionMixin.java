@@ -10,15 +10,15 @@
 package dev.schizo.mixin;
 
 import dev.schizo.client.ClientAccess;
-import dev.schizo.client.bootstrap.MixinModuleRegistry;
+import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.PacketEvent;
+import dev.schizo.client.modules.exploit.PingSpoofModule;
+import dev.schizo.client.modules.misc.NoPacketKickModule;
 import dev.schizo.client.utils.network.PingSpoofDelayHandler;
-import dev.schizo.client.utils.FailureLogGate;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPipeline;
-import java.util.concurrent.TimeUnit;
 import net.minecraft.network.Connection;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.PacketFlow;
@@ -32,27 +32,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(Connection.class)
 public class ConnectionMixin {
-   private static final long FAILURE_LOG_INTERVAL_NANOS = TimeUnit.SECONDS.toNanos(2L);
-   private static final FailureLogGate RECEIVE_FAILURE_LOG = new FailureLogGate(FAILURE_LOG_INTERVAL_NANOS);
-   private static final FailureLogGate SEND_FAILURE_LOG = new FailureLogGate(FAILURE_LOG_INTERVAL_NANOS);
-   private static final FailureLogGate POST_SEND_FAILURE_LOG = new FailureLogGate(FAILURE_LOG_INTERVAL_NANOS);
-
-   private static void logEventFailure(String phase, Exception failure, FailureLogGate gate) {
-      FailureLogGate.Decision decision = gate.acquire(System.nanoTime());
-      if (!decision.shouldLog()) {
-         return;
-      }
-      long suppressed = decision.suppressedSinceLastLog();
-      if (suppressed == 0L) {
-         ClientAccess.logger.warn("Packet {} event handler failed", phase, failure);
-      } else {
-         ClientAccess.logger.warn(
-            "Packet {} event handler failed ({} similar failures suppressed since the last log)",
-            phase, suppressed, failure
-         );
-      }
-   }
-
+   private static NoPacketKickModule noPacketKickModule = ClientContext.getModule(NoPacketKickModule.class);
+   private static final PingSpoofModule pingSpoofModule = ClientContext.getModule(PingSpoofModule.class);
    @Shadow
    private Channel channel;
    @Shadow
@@ -67,12 +48,12 @@ public class ConnectionMixin {
       ChannelPipeline pipeline = context.pipeline();
       if (pipeline.get(PingSpoofDelayHandler.NAME) == null) {
          pipeline.addFirst(PingSpoofDelayHandler.NAME, new PingSpoofDelayHandler(
-            MixinModuleRegistry.connectionPingSpoofModule, () -> ((Connection)(Object)this).getPacketListener() instanceof ClientGamePacketListener
+            pingSpoofModule, () -> ((Connection)(Object)this).getPacketListener() instanceof ClientGamePacketListener
          ));
       }
    }
 
-   @Inject(method = "channelRead0*", at = @At("HEAD"), cancellable = true, require = 1)
+   @Inject(method = "channelRead0*", at = @At("HEAD"), cancellable = true)
    public void onPacketReceive(
       ChannelHandlerContext context, Packet packet, CallbackInfo callback
    ) {
@@ -84,13 +65,12 @@ public class ConnectionMixin {
             if (event.isCancelled()) {
                callback.cancel();
             }
-         } catch (Exception eventFailure) {
-            logEventFailure("receive", eventFailure, RECEIVE_FAILURE_LOG);
+         } catch (Exception ignoredException) {
          }
       }
    }
 
-   @Inject(method = "sendPacket", at = @At("HEAD"), cancellable = true, require = 1)
+   @Inject(method = "sendPacket", at = @At("HEAD"), cancellable = true)
    private void onPacketSend(
       Packet packet, ChannelFutureListener listener, boolean flush, CallbackInfo callback
    ) {
@@ -102,13 +82,12 @@ public class ConnectionMixin {
             if (event.isCancelled()) {
                callback.cancel();
             }
-         } catch (Exception eventFailure) {
-            logEventFailure("send", eventFailure, SEND_FAILURE_LOG);
+         } catch (Exception ignoredException) {
          }
       }
    }
 
-   @Inject(method = "doSendPacket", at = @At("TAIL"), require = 1)
+   @Inject(method = "doSendPacket", at = @At("TAIL"))
    private void onPacketPostSend(
       Packet packet, ChannelFutureListener listener, boolean flush, CallbackInfo callback
    ) {
@@ -117,8 +96,7 @@ public class ConnectionMixin {
             PacketEvent.PostSend event = new PacketEvent.PostSend(packet);
             ClientAccess.eventBus
                .post(event);
-         } catch (Exception eventFailure) {
-            logEventFailure("post-send", eventFailure, POST_SEND_FAILURE_LOG);
+         } catch (Exception ignoredException) {
          }
       }
    }
@@ -127,8 +105,8 @@ public class ConnectionMixin {
    private void onConnectionException(
       ChannelHandlerContext context, Throwable failure, CallbackInfo callback
    ) {
-      if (MixinModuleRegistry.connectionNoPacketKickModule.isToggled()) {
-         MixinModuleRegistry.connectionNoPacketKickModule.logInterceptedException(failure);
+      if (noPacketKickModule.isToggled()) {
+         noPacketKickModule.logInterceptedException(failure);
          callback.cancel();
       }
    }

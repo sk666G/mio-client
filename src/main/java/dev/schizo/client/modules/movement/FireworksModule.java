@@ -15,7 +15,6 @@ import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.LocalPlayerMoveEvent;
 import dev.schizo.client.events.LocalPlayerPreTickEvent;
-import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.events.MultiPlayerGameModeUseItemEvent;
 import dev.schizo.client.events.MultiPlayerGameModeUseItemOnEvent;
 import dev.schizo.client.events.SoundEnginePlayEvent;
@@ -104,29 +103,10 @@ public final class FireworksModule extends Module {
    private int swappedElytraSlot;
    private int fakeRocketLifetimeTicks;
    private int fakeRocketEntityId;
-   private long temporaryElytraGeneration;
-   private ClientLevel temporaryElytraLevel;
-   private LocalPlayer temporaryElytraPlayer;
-   private int temporaryElytraSlot = -1;
    @Override
    public void onToggle() {
       this.removeFakeRocket();
       ClientContext.tickRateController.releaseMultiplier(this);
-   }
-
-   @Override
-   public void onEnable() {
-      this.clearTemporaryElytraOwnership();
-   }
-
-   @Override
-   public void onDisable() {
-      this.rollbackTemporaryElytra(true);
-   }
-
-   @EventHandler
-   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
-      this.rollbackTemporaryElytra(false);
    }
 
    public boolean canFastLaunch(boolean requireAirborne) {
@@ -561,66 +541,16 @@ public final class FireworksModule extends Module {
       if (elytraSlot == -1 || !temporaryElytraSwapActive.compareAndSet(false, true)) {
          return;
       }
-
-      ClientLevel expectedLevel = ClientAccess.schizoMinecraft.level;
-      LocalPlayer expectedPlayer = ClientAccess.schizoMinecraft.player;
-      long generation = ++this.temporaryElytraGeneration;
-      this.temporaryElytraLevel = expectedLevel;
-      this.temporaryElytraPlayer = expectedPlayer;
-      this.temporaryElytraSlot = elytraSlot;
-
-      boolean equipped = false;
-      try {
-         InventoryUtils.clickSlot(6, elytraSlot, ClickType.SWAP);
-         equipped = true;
-         PacketSender.sendStartFallFlying();
-         expectedPlayer.startFallFlying();
-      } finally {
-         if (!equipped) {
-            this.clearTemporaryElytraOwnership();
-         }
-      }
-
-      if (!ClientContext.taskScheduler.scheduleRotationTask(
-         () -> this.completeTemporaryElytraSwap(generation), 2
-      )) {
-         this.completeTemporaryElytraSwap(generation);
-      }
-   }
-
-   private void completeTemporaryElytraSwap(long generation) {
-      if (generation != this.temporaryElytraGeneration) {
-         return;
-      }
-      this.rollbackTemporaryElytra(true);
-   }
-
-   private void rollbackTemporaryElytra(boolean restoreInventory) {
-      long generation = ++this.temporaryElytraGeneration;
-      ClientLevel expectedLevel = this.temporaryElytraLevel;
-      LocalPlayer expectedPlayer = this.temporaryElytraPlayer;
-      int elytraSlot = this.temporaryElytraSlot;
-      try {
-         if (restoreInventory
-            && temporaryElytraSwapActive.get()
-            && elytraSlot >= 0
-            && ClientAccess.schizoMinecraft.level == expectedLevel
-            && ClientAccess.schizoMinecraft.player == expectedPlayer
-            && expectedPlayer != null) {
+      InventoryUtils.clickSlot(6, elytraSlot, ClickType.SWAP);
+      PacketSender.sendStartFallFlying();
+      ClientAccess.schizoMinecraft.player.startFallFlying();
+      ClientContext.taskScheduler.scheduleRotationTask(() -> {
+         try {
             InventoryUtils.clickSlot(6, elytraSlot, ClickType.SWAP);
+         } finally {
+            temporaryElytraSwapActive.set(false);
          }
-      } finally {
-         if (generation == this.temporaryElytraGeneration) {
-            this.clearTemporaryElytraOwnership();
-         }
-      }
-   }
-
-   private void clearTemporaryElytraOwnership() {
-      this.temporaryElytraLevel = null;
-      this.temporaryElytraPlayer = null;
-      this.temporaryElytraSlot = -1;
-      temporaryElytraSwapActive.set(false);
+      }, 2);
    }
 
    public static void bindModules(ModuleRegistry modules) {

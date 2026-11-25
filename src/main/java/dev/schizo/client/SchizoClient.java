@@ -19,7 +19,7 @@ import org.slf4j.LoggerFactory;
 public final class SchizoClient implements ModInitializer, ClientModInitializer {
    public static final String MOD_ID = "schizo";
    public static final String NAME = "Schizo";
-   public static final String PROJECT_URL = "https://github.com/sk666G/mio-client";
+   public static final String PROJECT_URL = "https://github.com/Cypphi/open-zio";
    public static final String VERSION = FabricLoader.getInstance().getModContainer(MOD_ID)
       .orElseThrow(() -> new IllegalStateException("Schizo mod metadata is missing"))
       .getMetadata().getVersion().getFriendlyString();

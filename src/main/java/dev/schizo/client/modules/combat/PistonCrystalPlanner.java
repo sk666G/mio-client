@@ -28,7 +28,6 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.AirBlock;
 import net.minecraft.world.level.block.Block;
@@ -60,29 +59,21 @@ final class PistonCrystalPlanner {
       return null;
    }
 
-   static boolean isCloserCandidate(double candidateDistance, double selectedDistance) {
-      return candidateDistance < selectedDistance;
-   }
-
-   static boolean hasPowerSource(boolean redstoneBlockAvailable, boolean redstoneTorchAvailable) {
-      return redstoneBlockAvailable || redstoneTorchAvailable;
-   }
-
    private PistonCrystalPlan findPlan(Player target, int height) {
       PistonCrystalPlan selected = null;
       double score = Double.MAX_VALUE;
       for (Candidate candidate : this.candidates(target)) {
          BlockPos position = candidate.position().offset(0, height, 0);
          Direction outward = candidate.outward();
-         double candidateDistance = ClientAccess.schizoMinecraft.player.getEyePosition().distanceTo(position.getCenter());
-         if (isCloserCandidate(candidateDistance, score)) {
+         double candidateScore = -ClientAccess.schizoMinecraft.player.getEyePosition().distanceTo(position.getCenter());
+         if (candidateScore < score) {
             if (!this.hasVerticalClearance(position, outward.getOpposite(), height)) {
-               continue;
+               return null;
             }
             PistonCrystalPlan plan = this.buildPlan(position, outward);
             if (plan != null) {
                selected = plan;
-               score = candidateDistance;
+               score = candidateScore;
             }
          }
       }

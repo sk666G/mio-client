@@ -9,10 +9,9 @@
 
 package dev.schizo.client.managers;
 
-import dev.schizo.client.ClientAccess;
 import dev.schizo.client.config.ColorJsonConverter;
-import dev.schizo.client.settings.JsonConfigurable;
 
+import dev.schizo.client.settings.JsonConfigurable;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import java.awt.Color;
@@ -44,35 +43,21 @@ public final class BlockColorRegistry implements JsonConfigurable {
 
    @Override
    public void fromJson(JsonElement json) {
-      if (!(json instanceof JsonObject root)) {
-         throw new IllegalArgumentException("Block-color configuration must be a JSON object");
-      }
-
-      JsonElement blocksElement = root.get("blocks");
-      if (!(blocksElement instanceof JsonObject blocksJson)) {
-         throw new IllegalArgumentException("Block-color configuration must contain a blocks object");
-      }
-
-      Map<Block, Color> loaded = new HashMap<>();
-      blocksJson.asMap().forEach((blockId, colorJson) -> {
-         try {
-            Color color = COLOR_CODEC.fromJson(colorJson);
-            DefaultedRegistry<Block> blockRegistry = BuiltInRegistries.BLOCK;
-            Identifier identifier = Identifier.parse(blockId);
-            Block block = blockRegistry.getValue(identifier);
-            Optional<ResourceKey<Block>> resolvedKey = blockRegistry.getResourceKey(block);
-            if (resolvedKey.isEmpty() || !resolvedKey.get().identifier().equals(identifier)) {
-               ClientAccess.logger.warn("Ignoring block color for unknown block {}", blockId);
-               return;
+      if (json instanceof JsonObject root) {
+         JsonObject blocksJson = root.getAsJsonObject("blocks");
+         blocksJson.asMap().forEach((blockId, colorJson) -> {
+            try {
+               ColorJsonConverter codec = COLOR_CODEC;
+               Color color = codec.fromJson(colorJson);
+               DefaultedRegistry<Block> blockRegistry = BuiltInRegistries.BLOCK;
+               Identifier identifier = Identifier.parse(blockId);
+               Block block = blockRegistry.getValue(identifier);
+               this.colors.put(block, color);
+            } catch (Exception exception) {
+               exception.printStackTrace();
             }
-            loaded.put(block, color);
-         } catch (RuntimeException invalidEntry) {
-            ClientAccess.logger.warn("Ignoring invalid block color entry {}", blockId, invalidEntry);
-         }
-      });
-
-      this.colors.clear();
-      this.colors.putAll(loaded);
+         });
+      }
    }
 
    @Override
@@ -85,7 +70,8 @@ public final class BlockColorRegistry implements JsonConfigurable {
          resourceKeyOption.ifPresent(resourceKey -> {
             Identifier identifier = resourceKey.identifier();
             String blockId = identifier.toString();
-            JsonElement encodedColor = COLOR_CODEC.toJson(color);
+            ColorJsonConverter codec = COLOR_CODEC;
+            JsonElement encodedColor = codec.toJson(color);
             blocksJson.add(blockId, encodedColor);
          });
       });

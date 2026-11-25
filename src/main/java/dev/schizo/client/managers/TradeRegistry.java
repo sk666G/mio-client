@@ -23,6 +23,8 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.Optional;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 import net.minecraft.world.item.Items;
 
@@ -38,27 +40,18 @@ public final class TradeRegistry extends Registry<TradeDefinition> implements Cl
 
    @Override
    public void fromJson(JsonElement json) {
-      if (!(json instanceof JsonObject root)
-         || !(root.get("trades") instanceof JsonArray trades)) {
-         throw new IllegalArgumentException("Trade configuration must contain a trades array");
-      }
-
-      ArrayList<TradeDefinition> loaded = new ArrayList<>();
-      for (JsonElement element : trades) {
+      Iterator<JsonElement> iterator = json.getAsJsonObject().getAsJsonArray("trades").iterator();
+      while (iterator.hasNext()) {
+         JsonElement element = iterator.next();
          try {
-            TradeDefinition trade = ClientAccess.gson.fromJson(element, TradeDefinition.class);
-            if (!isValidTrade(trade)
-               || loaded.stream().anyMatch(existing -> hasSameName(existing, trade))) {
-               continue;
-            }
-            loaded.add(trade);
-         } catch (RuntimeException invalidTrade) {
-            ClientAccess.logger.warn("Skipping invalid trade entry", invalidTrade);
+            Gson gson = ClientAccess.gson;
+            Class<TradeDefinition> tradeType = TradeDefinition.class;
+            TradeDefinition trade = gson.fromJson(element, tradeType);
+            this.registerTrade(trade);
+         } catch (Throwable failure) {
+            failure.printStackTrace();
          }
       }
-
-      this.entries.clear();
-      this.entries.addAll(loaded);
    }
 
    @Override
@@ -68,23 +61,19 @@ public final class TradeRegistry extends Registry<TradeDefinition> implements Cl
       Iterator<TradeDefinition> iterator = this.getRegistry().iterator();
       while (iterator.hasNext()) {
          TradeDefinition trade = iterator.next();
-         JsonElement tradeJson = ClientAccess.gson.toJsonTree(trade);
+         Gson gson = ClientAccess.gson;
+         JsonElement tradeJson = gson.toJsonTree(trade);
          trades.add(tradeJson);
       }
       root.add("trades", trades);
       return root;
    }
 
-   public boolean unregisterByName(String name) {
-      if (name == null) {
-         return false;
-      }
-
-      return this.entries.removeIf(trade ->
-         trade != null
-            && trade.getName() != null
-            && trade.getName().equalsIgnoreCase(name)
-      );
+   public void reregisterByName(String name) {
+      Predicate<TradeDefinition> predicate = trade -> trade.getName().equalsIgnoreCase(name);
+      Optional<TradeDefinition> match = this.findFirst(predicate);
+      Consumer<TradeDefinition> consumer = this::registerTrade;
+      match.ifPresent(consumer);
    }
 
    @Override
@@ -103,34 +92,11 @@ public final class TradeRegistry extends Registry<TradeDefinition> implements Cl
    }
 
    public boolean registerTrade(TradeDefinition trade) {
-      if (!isValidTrade(trade)) {
-         return false;
-      }
-      if (this.entries.stream().anyMatch(existing -> hasSameName(existing, trade))) {
+      if (trade.from() != Items.EMERALD && trade.to() != Items.EMERALD) {
          return false;
       }
 
-      return this.entries.add(trade);
-   }
-
-   static boolean isValidTrade(TradeDefinition trade) {
-      return trade != null
-         && trade.getName() != null
-         && !trade.getName().isBlank()
-         && trade.from() != null
-         && trade.to() != null
-         && trade.enchants() != null
-         && trade.maxPrice() >= 1
-         && trade.maxPrice() <= 64
-         && (trade.from() == Items.EMERALD || trade.to() == Items.EMERALD);
-   }
-
-   static boolean hasSameName(TradeDefinition first, TradeDefinition second) {
-      return first != null
-         && second != null
-         && first.getName() != null
-         && second.getName() != null
-         && first.getName().equalsIgnoreCase(second.getName());
+      return super.registerEntry(trade);
    }
 
 }

@@ -11,7 +11,6 @@ package dev.schizo.client.settings;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
-import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import java.util.Collection;
 import java.util.Optional;
 import java.util.Set;
@@ -51,31 +50,17 @@ public final class RegistrySetSetting<E> extends SetSetting<E> {
 
    @Override
    public void fromJson(JsonElement json) {
-      if (json == null || !json.isJsonArray()) {
-         throw new IllegalArgumentException("Registry-set configuration must be a JSON array");
-      }
-
-      Set<E> loaded = new ObjectOpenHashSet<>();
-      JsonArray array = json.getAsJsonArray();
-      for (JsonElement element : array) {
-         if (element == null
-            || !element.isJsonPrimitive()
-            || !element.getAsJsonPrimitive().isString()) {
-            continue;
-         }
-
-         try {
-            Identifier identifier = Identifier.parse(element.getAsString());
-            Optional<Reference<E>> holder = this.registry.get(identifier);
-            holder.map(Reference::value).ifPresent(loaded::add);
-         } catch (RuntimeException invalidIdentifier) {
-            // Skip only the malformed entry; publish the remaining valid set atomically.
+      if (json.isJsonArray()) {
+         this.getValue().clear();
+         JsonArray array = json.getAsJsonArray();
+         for (JsonElement element : array) {
+            Registry<E> lookupRegistry = this.registry;
+            String identifierText = element.getAsString();
+            Identifier identifier = Identifier.parse(identifierText);
+            E entry = lookupRegistry.getValue(identifier);
+            this.getValue().add(entry);
          }
       }
-
-      Set<E> values = this.getValue();
-      values.clear();
-      values.addAll(loaded);
    }
 
    public void modifyEntries(Consumer<Set<E>> editor) {

@@ -14,6 +14,7 @@ import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.PacketEvent;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.utils.collections.IntPair;
+import dev.schizo.client.managers.TaskScheduler;
 import dev.schizo.client.utils.ElapsedTimer;
 import dev.schizo.client.settings.SettingLabelCondition;
 import dev.schizo.client.utils.world.WorldUtils;
@@ -122,37 +123,41 @@ public class PositionModule extends HudWidgetModule {
       safeRangeForDisplay.setBoundaryLabel(minimumDisplayText, minimumDisplayBound);
       Setting<Boolean> fakeCallbackOption = this.fakeSetting;
       Runnable fakeCallback = () -> {
-         if (!this.fakeSetting.getValue()) {
-            this.fakeOffset = null;
-            return;
-         }
-
-         ClientAccess.schizoMinecraft.executeIfPossible(() -> {
-            if (!this.fakeSetting.getValue()) {
-               this.fakeOffset = null;
-               return;
-            }
-
-            LocalPlayer player = ClientAccess.schizoMinecraft.player;
-            if (player == null) {
-               this.fakeOffset = null;
-               return;
-            }
-
+         TaskScheduler scheduler = ClientContext.taskScheduler;
+         Runnable offsetTask = () -> {
             boolean negateX = MathUtils.passesRandomThreshold(50);
             boolean negateZ = MathUtils.passesRandomThreshold(50);
-            double playerX = player.getX();
-            double playerZ = player.getZ();
-            int fakeX = (int)(-playerX * 2.0D + Math.random() * playerX * 4.0D) + 13;
-            int fakeZ = (int)(-playerZ * 2.0D + Math.random() * playerZ * 4.0D) - 37;
+            LocalPlayer playerForBaseX = ClientAccess.schizoMinecraft.player;
+            double negatedPlayerX = -playerForBaseX.getX();
+
+            double xBase = negatedPlayerX * 2.0D;
+            double randomX = Math.random();
+            LocalPlayer playerForRandomX = ClientAccess.schizoMinecraft.player;
+            double scaledRandomX = randomX * playerForRandomX.getX();
+
+            int fakeX = (int)(xBase + scaledRandomX * 4.0D);
+            LocalPlayer playerForBaseZ = ClientAccess.schizoMinecraft.player;
+            double negatedPlayerZ = -playerForBaseZ.getZ();
+
+            double zBase = negatedPlayerZ * 2.0D;
+            double randomZ = Math.random();
+            LocalPlayer playerForRandomZ = ClientAccess.schizoMinecraft.player;
+            double scaledRandomZ = randomZ * playerForRandomZ.getZ();
+
+            int fakeZ = (int)(zBase + scaledRandomZ * 4.0D);
+            fakeX += 13;
+            fakeZ -= 37;
             if (negateX) {
                fakeX = -fakeX;
             }
+
             if (negateZ) {
                fakeZ = -fakeZ;
             }
+
             this.fakeOffset = new IntPair(fakeX, fakeZ);
-         });
+         };
+         scheduler.scheduleRotationTask(offsetTask, 0);
       };
       fakeCallbackOption.setChangeCallback(fakeCallback);
       HudTextRow coordinateRow = new HudTextRow(

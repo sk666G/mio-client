@@ -12,7 +12,7 @@ package dev.schizo.client.utils;
 import java.util.concurrent.TimeUnit;
 
 public final class ElapsedTimer {
-    volatile long lastResetMillis;
+    long lastResetMillis;
 
     public ElapsedTimer() {
         lastResetMillis = -1L;

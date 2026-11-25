@@ -16,8 +16,7 @@ import dev.schizo.client.managers.ServerStateManager;
 import dev.schizo.client.utils.ElapsedTimer;
 import dev.schizo.client.utils.world.WorldUtils;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.function.BiConsumer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.protocol.game.ClientboundAddEntityPacket;
 import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket;
@@ -33,7 +32,6 @@ public final class SpeedMineRebreakTracker implements ClientAccess {
    private final ElapsedTimer rebreakTimer = new ElapsedTimer();
    private boolean tracking;
    private BlockPos pos;
-   private volatile long generation;
 
    public void validateTarget() {
       if (this.tracking && this.pos != null) {
@@ -85,71 +83,58 @@ public final class SpeedMineRebreakTracker implements ClientAccess {
    }
 
    public void reset() {
-      this.generation++;
       this.tracking = false;
       this.pos = null;
-      this.rebreakTimer.clear();
    }
 
    public void handleBlockUpdates(
       PacketEvent.Receive event) {
-      long expectedGeneration = this.generation;
-
-      if (event.getPacket() instanceof ClientboundBlockUpdatePacket blockUpdate
-         && blockUpdate.getBlockState().isAir()) {
-         BlockPos updatedPosition = blockUpdate.getPos().immutable();
-         ClientAccess.schizoMinecraft.executeIfPossible(() -> {
-            if (this.generation == expectedGeneration
-               && this.tracking
-               && updatedPosition.equals(this.pos)) {
-               this.reset();
+      if (event.getPacket() instanceof ClientboundBlockUpdatePacket blockUpdate) {
+         if (blockUpdate.getBlockState().isAir()) {
+            if (blockUpdate.getPos().equals(this.pos)) {
+               Minecraft minecraft = ClientAccess.schizoMinecraft;
+               Runnable resetTask = this::reset;
+               minecraft.executeIfPossible(resetTask);
             }
-         });
-      }
-
-      if (event.getPacket() instanceof ClientboundSectionBlocksUpdatePacket sectionUpdate) {
-         ArrayList<BlockPos> airPositions = new ArrayList<>();
-         sectionUpdate.runUpdates((updatedPos, updatedState) -> {
-            if (updatedState.isAir()) {
-               airPositions.add(updatedPos.immutable());
-            }
-         });
-         if (!airPositions.isEmpty()) {
-            List<BlockPos> airSnapshot = List.copyOf(airPositions);
-            ClientAccess.schizoMinecraft.executeIfPossible(() -> {
-               BlockPos currentPosition = this.pos;
-               if (this.generation == expectedGeneration
-                  && this.tracking
-                  && currentPosition != null
-                  && airSnapshot.contains(currentPosition)) {
-                  this.reset();
-               }
-            });
          }
       }
 
-      if (event.getPacket() instanceof ClientboundAddEntityPacket entitySpawn) {
-         Vec3 spawnPosition = new Vec3(entitySpawn.getX(), entitySpawn.getY(), entitySpawn.getZ());
-         ClientAccess.schizoMinecraft.executeIfPossible(() -> {
-            BlockPos currentPosition = this.pos;
-            if (this.generation != expectedGeneration
-               || !this.tracking
-               || currentPosition == null) {
-               return;
+      if (event.getPacket() instanceof ClientboundSectionBlocksUpdatePacket sectionUpdate) {
+         BiConsumer<BlockPos, BlockState> resetOnAirUpdate = (updatedPos, updatedState) -> {
+            if (updatedPos.equals(this.pos)) {
+               if (updatedState.isAir()) {
+                  Minecraft minecraft = ClientAccess.schizoMinecraft;
+                  Runnable resetTask = this::reset;
+                  minecraft.executeIfPossible(resetTask);
+               }
             }
+         };
+         sectionUpdate.runUpdates(resetOnAirUpdate);
+      }
 
-            if (new AABB(currentPosition).contains(spawnPosition)) {
-               this.reset();
-            }
-         });
+      if (event.getPacket() instanceof ClientboundAddEntityPacket entitySpawn) {
+         BlockPos spawnCheckPosition = this.pos;
+         if (spawnCheckPosition == null) {
+            return;
+         }
+
+         AABB trackedBounds = new AABB(spawnCheckPosition);
+         Vec3 spawnPosition = new Vec3(entitySpawn.getX(), entitySpawn.getY(), entitySpawn.getZ());
+         if (!trackedBounds.contains(spawnPosition)) {
+            return;
+         }
+
+         Minecraft minecraft = ClientAccess.schizoMinecraft;
+         Runnable resetTask = this::reset;
+         minecraft.execute(resetTask);
       }
    }
 
    public void startTracking(BlockPos blockPos) {
       if (!this.tracking) {
-         this.generation++;
          this.tracking = true;
-         this.pos = blockPos.immutable();
+         this.pos = blockPos;
+
          this.rebreakTimer.reset();
       }
    }

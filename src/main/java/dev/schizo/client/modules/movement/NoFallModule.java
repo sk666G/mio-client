@@ -15,7 +15,6 @@ import dev.schizo.client.utils.math.MathConstants;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.PacketEvent;
 import dev.schizo.client.events.EventHandler;
-import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.events.LocalPlayerSendPositionEvent;
 import dev.schizo.client.events.LocalPlayerTickEvent;
 import dev.schizo.client.events.LocalPlayerPreTickEvent;
@@ -61,24 +60,6 @@ public class NoFallModule extends Module {
    @Override
    public String getInfo() {
       return (this.modeSetting.getValue()).getName();
-   }
-
-   @Override
-   public void onDisable() {
-      this.resetModeState();
-   }
-
-   private void resetModeState() {
-      for (ModeChoice choice : ModeChoice.values()) {
-         choice.reset();
-      }
-      this.previousFallDistance = 0.0;
-      this.predictedTopFaceCollision = false;
-   }
-
-   @EventHandler
-   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
-      this.resetModeState();
    }
 
    @EventHandler
@@ -148,7 +129,6 @@ public class NoFallModule extends Module {
       for (NoFallModule.ModeChoice choice : NoFallModule.ModeChoice.values()) {
          choice.module = this;
       }
-      this.modeSetting.setChangeCallback(this::resetModeState);
    }
 
    public enum ModeChoice implements NamedEntry {
@@ -200,12 +180,9 @@ public class NoFallModule extends Module {
 
          @Override
          public void afterPlayerTick() {
-            this.teleportPending = PlayerStateUtils.getTrackedFallDistance() > 3.0F;
-         }
-
-         @Override
-         public void reset() {
-            this.teleportPending = false;
+            if (PlayerStateUtils.getTrackedFallDistance() > 3.0F) {
+               this.teleportPending = true;
+            }
          }
 
          @Override
@@ -234,11 +211,6 @@ public class NoFallModule extends Module {
       },
       MLG("MLG") {
          private boolean skipNextMlgTick;
-
-         @Override
-         public void reset() {
-            this.skipNextMlgTick = false;
-         }
 
          @Override
          public void afterPlayerTick() {
@@ -276,15 +248,15 @@ public class NoFallModule extends Module {
                      LocalPlayer pitchPlayer = ClientAccess.schizoMinecraft.player;
                      float pitch = MathConstants.NINETY_DEGREES;
                      pitchPlayer.setXRot(pitch);
+                     InventoryUtils.swapTo(bucket);
                      MultiPlayerGameMode gameMode = ClientAccess.schizoMinecraft.gameMode;
                      LocalPlayer usePlayer = ClientAccess.schizoMinecraft.player;
                      InteractionHand hand = bucket.hand();
+                     gameMode.useItem(usePlayer, hand);
                      LocalPlayer swingPlayer = ClientAccess.schizoMinecraft.player;
                      InteractionHand swingHand = bucket.hand();
-                     InventoryUtils.runWithSwap(selectedSlot, bucket, () -> {
-                        gameMode.useItem(usePlayer, hand);
-                        swingPlayer.swing(swingHand);
-                     });
+                     swingPlayer.swing(swingHand);
+                     InventoryUtils.swapBack(selectedSlot, bucket);
                      this.skipNextMlgTick = true;
                      return;
                   }
@@ -316,11 +288,6 @@ public class NoFallModule extends Module {
          private boolean jumpPending;
 
          @Override
-         public void reset() {
-            this.jumpPending = false;
-         }
-
-         @Override
          public void handleOutgoingPacket(
             PacketEvent.Send event
          ) {
@@ -350,9 +317,6 @@ public class NoFallModule extends Module {
       protected NoFallModule module;
 
       public void afterPlayerTick() {
-      }
-
-      public void reset() {
       }
 
       @Override

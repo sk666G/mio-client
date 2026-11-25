@@ -20,7 +20,6 @@ import com.llamalad7.mixinextras.sugar.ref.LocalRef;
 import com.mojang.blaze3d.vertex.PoseStack;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
-import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.gui.screens.ClientScreen;
 import dev.schizo.client.render.GuiDrawUtils;
 import dev.schizo.client.utils.math.Vec3Utils;
@@ -70,6 +69,14 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(GameRenderer.class)
 public abstract class GameRendererMixin {
+   private static ZoomModule zoom = ClientContext.getModule(ZoomModule.class);
+   private static NoRenderModule noRenderModule = ClientContext.getModule(NoRenderModule.class);
+   private static ShaderModule shader = ClientContext.getModule(ShaderModule.class);
+   private static FreecamModule freecam = ClientContext.getModule(FreecamModule.class);
+   private static FreeLookModule freelook = ClientContext.getModule(FreeLookModule.class);
+   private static ViewModelModule viewmodel = ClientContext.getModule(ViewModelModule.class);
+   private static NoBobModule noBob = ClientContext.getModule(NoBobModule.class);
+   private static HUDModule hud = ClientContext.getModule(HUDModule.class);
    @Unique
    private GuiGraphics hudGraphics;
    @Final
@@ -107,14 +114,14 @@ public abstract class GameRendererMixin {
    private void suppressHurtCamera(
       PoseStack poses, float partialTick, CallbackInfo callback
    ) {
-      if (MixinModuleRegistry.gameNoRender.isToggled() && MixinModuleRegistry.gameNoRender.hurtCamSetting.getValue()) {
+      if (noRenderModule.isToggled() && noRenderModule.hurtCamSetting.getValue()) {
          callback.cancel();
       }
    }
 
    @Inject(method = "displayItemActivation", at = @At("HEAD"), cancellable = true)
    private void suppressTotemActivation(ItemStack stack, CallbackInfo callback) {
-      if (stack.getItem() == Items.TOTEM_OF_UNDYING && MixinModuleRegistry.gameNoRender.isToggled() && MixinModuleRegistry.gameNoRender.totemOverlaySetting.getValue()) {
+      if (stack.getItem() == Items.TOTEM_OF_UNDYING && noRenderModule.isToggled() && noRenderModule.totemOverlaySetting.getValue()) {
          callback.cancel();
       }
    }
@@ -123,7 +130,7 @@ public abstract class GameRendererMixin {
    private float suppressBlindnessInterpolation(
       float fraction, float start, float end, Operation original
    ) {
-      return MixinModuleRegistry.gameNoRender.isToggled() && MixinModuleRegistry.gameNoRender.blindnessSetting.getValue() ? 0.0F : Mth.lerp(fraction, start, end);
+      return noRenderModule.isToggled() && noRenderModule.blindnessSetting.getValue() ? 0.0F : Mth.lerp(fraction, start, end);
    }
 
    @Inject(
@@ -145,18 +152,18 @@ public abstract class GameRendererMixin {
    private boolean shouldRenderHands(
       GameRenderer renderer, float partialTick, boolean ignoredHandFlag, Matrix4f projectionMatrix
    ) {
-      return !MixinModuleRegistry.gameShader.isToggled() || !MixinModuleRegistry.gameShader.handsSetting.getValue();
+      return !shader.isToggled() || !shader.handsSetting.getValue();
    }
 
    @WrapWithCondition(method = "bobView", at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/vertex/PoseStack;translate(FFF)V"))
    private boolean applyNoBobTranslation(
       PoseStack poseStack, float x, float y, float z
    ) {
-      if (!MixinModuleRegistry.gameNoBob.isToggled()) {
+      if (!noBob.isToggled()) {
          return true;
       }
 
-      float multiplier = MixinModuleRegistry.gameNoBob.multiplierSetting.getValue();
+      float multiplier = noBob.multiplierSetting.getValue();
       if (multiplier == 0.0F) {
          return true;
       }
@@ -173,9 +180,9 @@ public abstract class GameRendererMixin {
          return originalFov;
       }
 
-      float zoomScale = 1.0F - MixinModuleRegistry.gameZoom.getZoomBlend();
-      return MixinModuleRegistry.gameViewModel.isToggled() && MixinModuleRegistry.gameViewModel.viewModelFovSetting.getValue()
-         ? (MixinModuleRegistry.gameViewModel.fovAmountSetting.getValue()).intValue() * zoomScale
+      float zoomScale = 1.0F - zoom.getZoomBlend();
+      return viewmodel.isToggled() && viewmodel.viewModelFovSetting.getValue()
+         ? (viewmodel.fovAmountSetting.getValue()).intValue() * zoomScale
          : originalFov * zoomScale;
    }
 
@@ -188,16 +195,16 @@ public abstract class GameRendererMixin {
          1.0F,
          1.0F,
          1.0F,
-         MixinModuleRegistry.gameNoRender.getHandOpacity()
+         noRenderModule.getHandOpacity()
       );
-      if (MixinModuleRegistry.gameViewModel.isToggled() && MixinModuleRegistry.gameViewModel.lighterSetting.getValue()) {
+      if (viewmodel.isToggled() && viewmodel.lighterSetting.getValue()) {
          float handYaw = -95.0F;
          float handPitch = 45.0F;
          Quaternionf handRotation = new Quaternionf().rotationYXZ((float)Math.toRadians(180.0F - handYaw), (float)Math.toRadians(-handPitch), 0.0F).conjugate();
          projectionMatrix.set(new Matrix4f().rotation(handRotation));
       }
 
-      if (MixinModuleRegistry.gameFreecam.shouldHideHands()) {
+      if (freecam.shouldHideHands()) {
          callback.cancel();
       }
    }
@@ -207,14 +214,14 @@ public abstract class GameRendererMixin {
       float partialTick, boolean ignoredHandFlag, Matrix4f projectionMatrix, CallbackInfo callback, @Share("backupMatrix") LocalRef backupMatrix
    ) {
       RenderUtils.setRenderColor(1.0F, 1.0F, 1.0F, 1.0F);
-      if (MixinModuleRegistry.gameViewModel.isToggled() && MixinModuleRegistry.gameViewModel.lighterSetting.getValue()) {
+      if (viewmodel.isToggled() && viewmodel.lighterSetting.getValue()) {
          projectionMatrix.set((Matrix4fc)backupMatrix.get());
       }
    }
 
    @ModifyExpressionValue(method = "renderItemInHand", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/entity/EntityRenderDispatcher;getPackedLightCoords(Lnet/minecraft/world/entity/Entity;F)I"))
    private int applyViewModelHandLight(int originalLight) {
-      return MixinModuleRegistry.gameViewModel.isToggled() && MixinModuleRegistry.gameViewModel.lighterSetting.getValue()
+      return viewmodel.isToggled() && viewmodel.lighterSetting.getValue()
          ? 15728864
          : originalLight;
    }
@@ -228,7 +235,7 @@ public abstract class GameRendererMixin {
 
    @Inject(method = "pick", at = @At("HEAD"), cancellable = true)
    private void applyCameraPicking(float partialTick, CallbackInfo callback) {
-      if (MixinModuleRegistry.gameFreecam.isToggled()
+      if (freecam.isToggled()
          && this.minecraft.getCameraEntity() != null
          && !this.pickingFromFreecam) {
          callback.cancel();
@@ -243,24 +250,24 @@ public abstract class GameRendererMixin {
          float savedPitch = cameraEntity.getXRot();
          float savedPreviousYaw = cameraEntity.yRotO;
          float savedPreviousPitch = cameraEntity.xRotO;
-         cameraEntity.xo = MixinModuleRegistry.gameFreecam.previousCameraPosition.x;
-         cameraEntity.yo = MixinModuleRegistry.gameFreecam.previousCameraPosition.y
+         cameraEntity.xo = freecam.previousCameraPosition.x;
+         cameraEntity.yo = freecam.previousCameraPosition.y
             - cameraEntity.getEyeHeight(cameraEntity.getPose());
-         cameraEntity.zo = MixinModuleRegistry.gameFreecam.previousCameraPosition.z;
-         cameraEntity.setYRot(MixinModuleRegistry.gameFreecam.cameraYaw);
-         cameraEntity.setYHeadRot(MixinModuleRegistry.gameFreecam.cameraYaw);
-         cameraEntity.setXRot(MixinModuleRegistry.gameFreecam.cameraPitch);
-         cameraEntity.yRotO = MixinModuleRegistry.gameFreecam.previousCameraYaw;
-         cameraEntity.xRotO = MixinModuleRegistry.gameFreecam.previousCameraPitch;
+         cameraEntity.zo = freecam.previousCameraPosition.z;
+         cameraEntity.setYRot(freecam.cameraYaw);
+         cameraEntity.setYHeadRot(freecam.cameraYaw);
+         cameraEntity.setXRot(freecam.cameraPitch);
+         cameraEntity.yRotO = freecam.previousCameraYaw;
+         cameraEntity.xRotO = freecam.previousCameraPitch;
          this.pickingFromFreecam = true;
          LockUtils.runWithSharedLock(
             () -> {
                Vec3Utils.setComponents(
                   cameraEntity.position(),
-                  MixinModuleRegistry.gameFreecam.cameraPosition.x,
-                  MixinModuleRegistry.gameFreecam.cameraPosition.y
+                  freecam.cameraPosition.x,
+                  freecam.cameraPosition.y
                      - cameraEntity.getEyeHeight(cameraEntity.getPose()),
-                  MixinModuleRegistry.gameFreecam.cameraPosition.z
+                  freecam.cameraPosition.z
                );
                this.pick(partialTick);
                Vec3Utils.setComponents(
@@ -277,7 +284,7 @@ public abstract class GameRendererMixin {
          cameraEntity.xRotO = savedPreviousPitch;
       }
 
-      if (MixinModuleRegistry.gameFreeLook.isToggled() && !MixinModuleRegistry.gameFreecam.isToggled()) {
+      if (freelook.isToggled() && !freecam.isToggled()) {
          callback.cancel();
       }
    }
@@ -368,7 +375,7 @@ public abstract class GameRendererMixin {
    private void updateFrameTimingAndChatHeight(
       DeltaTracker deltaTracker, boolean renderLevel, CallbackInfo callback
    ) {
-      MixinModuleRegistry.gameHud.updateChatInputHeight(
+      hud.updateChatInputHeight(
          ClientAccess.schizoMinecraft.screen instanceof ChatScreen
             ? 12.0F
             : 0.0F

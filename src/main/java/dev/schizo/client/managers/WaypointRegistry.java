@@ -21,6 +21,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
@@ -83,29 +84,27 @@ public final class WaypointRegistry extends AbstractRegistry<Waypoint> implement
 
    @Override
    public void fromJson(JsonElement json) {
-      if (!(json instanceof JsonObject configObject)
-         || !(configObject.get("waypoints") instanceof JsonArray waypointArray)) {
-         throw new IllegalArgumentException("Waypoint configuration must contain a waypoints array");
+      if (!json.isJsonObject()) {
+         return;
       }
-
-      List<Waypoint> loaded = new ArrayList<>();
-      for (JsonElement element : waypointArray) {
+      JsonObject configObject = json.getAsJsonObject();
+      if (!configObject.has("waypoints")) {
+         return;
+      }
+      configObject = json.getAsJsonObject();
+      JsonArray waypointArray = configObject.getAsJsonArray("waypoints");
+      Iterator<JsonElement> iterator = waypointArray.iterator();
+      while (iterator.hasNext()) {
+         JsonElement element = iterator.next();
          try {
-            Waypoint waypoint = ClientAccess.gson.fromJson(element, Waypoint.class);
-            if (waypoint == null
-               || waypoint.getName() == null
-               || waypoint.getServer() == null
-               || loaded.stream().anyMatch(existing -> hasSameIdentity(existing, waypoint))) {
-               continue;
-            }
-            loaded.add(waypoint);
-         } catch (RuntimeException invalidWaypoint) {
-            ClientAccess.logger.warn("Skipping invalid waypoint entry", invalidWaypoint);
+            Collection destination = this.entries;
+            Gson gson = ClientAccess.gson;
+            Class<Waypoint> waypointClass = Waypoint.class;
+            destination.add((Waypoint)gson.fromJson(element, waypointClass));
+         } catch (Exception loadFailure) {
+            loadFailure.printStackTrace();
          }
       }
-
-      this.entries.clear();
-      this.entries.addAll(loaded);
    }
 
    @Override
@@ -129,66 +128,36 @@ public final class WaypointRegistry extends AbstractRegistry<Waypoint> implement
    }
 
    public boolean registerWaypoint(Waypoint waypoint) {
-      if (waypoint == null) {
-         return false;
-      }
-
-      for (Waypoint existingWaypoint : this.entries) {
-         if (hasSameIdentity(existingWaypoint, waypoint)) {
-            return false;
+      Iterator<Waypoint> iterator = this.getRegistry().iterator();
+      while (iterator.hasNext()) {
+         Waypoint existingWaypoint = iterator.next();
+         String existingName = existingWaypoint.getName();
+         String requestedName = waypoint.getName();
+         if (existingName.equalsIgnoreCase(requestedName)) {
+            String existingServer = existingWaypoint.getServer();
+            String requestedServer = waypoint.getServer();
+            if (existingServer.equalsIgnoreCase(requestedServer)) {
+               return false;
+            }
          }
       }
       return this.getRegistry().add(waypoint);
    }
 
    public boolean unregisterWaypoint(Waypoint waypoint) {
-      return waypoint != null && this.entries.removeIf(candidate -> hasSameIdentity(candidate, waypoint));
-   }
-
-   public boolean renameWaypoint(Waypoint waypoint, String targetName) {
-      if (waypoint == null || targetName == null || targetName.isBlank() || !this.entries.contains(waypoint)) {
-         return false;
-      }
-
-      Waypoint replacement = new Waypoint(
-         targetName,
-         waypoint.getPosition(),
-         waypoint.getDimension(),
-         waypoint.getServer()
-      );
-      replacement.setToggled(waypoint.isToggled());
-
-      for (Waypoint existing : this.entries) {
-         if (existing != waypoint && hasSameIdentity(existing, replacement)) {
-            return false;
+      return this.getRegistry().removeIf((java.util.function.Predicate<Waypoint>)candidate -> {
+         if (candidate != null && waypoint != null) {
+            String candidateName = candidate.getName();
+            String requestedName = waypoint.getName();
+            if (candidateName.equalsIgnoreCase(requestedName)) {
+               String candidateServer = candidate.getServer();
+               String requestedNameComparison = waypoint.getName();
+               if (candidateServer.equalsIgnoreCase(requestedNameComparison)) {
+                  return true;
+               }
+            }
          }
-      }
-
-      if (!this.entries.remove(waypoint)) {
          return false;
-      }
-      if (this.registerWaypoint(replacement)) {
-         return true;
-      }
-
-      this.entries.add(waypoint);
-      return false;
-   }
-
-   static boolean hasSameIdentity(Waypoint first, Waypoint second) {
-      if (first == null || second == null) {
-         return false;
-      }
-
-      String firstName = first.getName();
-      String secondName = second.getName();
-      String firstServer = first.getServer();
-      String secondServer = second.getServer();
-      return firstName != null
-         && secondName != null
-         && firstServer != null
-         && secondServer != null
-         && firstName.equalsIgnoreCase(secondName)
-         && firstServer.equalsIgnoreCase(secondServer);
+      });
    }
 }

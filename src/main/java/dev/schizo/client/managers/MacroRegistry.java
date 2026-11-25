@@ -9,27 +9,25 @@
 
 package dev.schizo.client.managers;
 
-import dev.schizo.client.ClientAccess;
 import dev.schizo.client.config.JsonUtils;
-import dev.schizo.client.events.EventHandler;
+import dev.schizo.client.modules.misc.HoldMacro;
+import dev.schizo.client.modules.misc.Macro;
+
+import dev.schizo.client.utils.KeyUtils;
+import dev.schizo.client.ClientAccess;
 import dev.schizo.client.events.InputPressEvent;
 import dev.schizo.client.events.MacroTriggerEvent;
 import dev.schizo.client.events.WorldRenderEvent;
+import dev.schizo.client.events.EventHandler;
+import dev.schizo.client.managers.Registry;
 import dev.schizo.client.modules.Keybind;
-import dev.schizo.client.modules.misc.HoldMacro;
-import dev.schizo.client.modules.misc.Macro;
 import dev.schizo.client.settings.JsonConfigurable;
-import dev.schizo.client.settings.NamedEntry;
 import dev.schizo.client.settings.options.MacroType;
-import dev.schizo.client.utils.KeyUtils;
-
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Optional;
 
 public final class MacroRegistry extends Registry<Macro> implements ClientAccess, JsonConfigurable {
 
@@ -38,155 +36,71 @@ public final class MacroRegistry extends Registry<Macro> implements ClientAccess
    }
 
    @Override
-   public boolean registerEntry(NamedEntry entry) {
-      if (!(entry instanceof Macro macro) || !isValidName(macro.getName())) {
-         return false;
-      }
-
-      if (this.entries.stream().anyMatch(existing -> hasSameName(existing, macro))) {
-         return false;
-      }
-
-      return this.entries.add(macro);
-   }
-
-   public Optional<Macro> findByName(String name) {
-      if (!isValidName(name)) {
-         return Optional.empty();
-      }
-
-      return this.entries.stream()
-         .filter(macro -> macro != null && macro.getName() != null && macro.getName().equalsIgnoreCase(name))
-         .findFirst();
-   }
-
-   public boolean replaceMacro(Macro previous, Macro replacement) {
-      if (previous == null
-         || replacement == null
-         || !isValidName(replacement.getName())
-         || !this.entries.contains(previous)) {
-         return false;
-      }
-
-      for (Macro existing : this.entries) {
-         if (existing != previous && hasSameName(existing, replacement)) {
-            return false;
-         }
-      }
-
-      if (!this.entries.remove(previous)) {
-         return false;
-      }
-      if (this.registerEntry(replacement)) {
-         return true;
-      }
-
-      this.entries.add(previous);
-      return false;
-   }
-
-   public boolean upsertMacro(Macro macro) {
-      if (macro == null || !isValidName(macro.getName())) {
-         return false;
-      }
-
-      Optional<Macro> existing = this.findByName(macro.getName());
-      return existing.isPresent()
-         ? this.replaceMacro(existing.get(), macro)
-         : this.registerEntry(macro);
-   }
-
-   static boolean hasSameName(Macro first, Macro second) {
-      return first != null
-         && second != null
-         && first.getName() != null
-         && second.getName() != null
-         && first.getName().equalsIgnoreCase(second.getName());
-   }
-
-   static boolean isValidName(String name) {
-      return name != null && !name.isBlank();
-   }
-
-   @Override
    public void fromJson(JsonElement json) {
-      if (!(json instanceof JsonObject rootObject)
-         || !(rootObject.get("macros") instanceof JsonArray macroArray)) {
-         throw new IllegalArgumentException("Macro configuration must contain a macros array");
+      if (!json.isJsonObject()) {
+         return;
       }
-
-      List<Macro> loaded = new ArrayList<>();
-      for (JsonElement macroElement : macroArray) {
-         Macro macro = parseMacro(macroElement);
-         if (macro == null) {
+      JsonObject rootObject = json.getAsJsonObject();
+      if (!rootObject.has("macros")) {
+         return;
+      }
+      rootObject = json.getAsJsonObject();
+      JsonArray macroArray = rootObject.getAsJsonArray("macros");
+      Iterator macroIterator = macroArray.iterator();
+      while (macroIterator.hasNext()) {
+         JsonElement macroElement = (JsonElement)macroIterator.next();
+         if (!macroElement.isJsonObject()) {
             continue;
          }
-         if (loaded.stream().noneMatch(existing -> hasSameName(existing, macro))) {
-            loaded.add(macro);
+         JsonObject macroJson = macroElement.getAsJsonObject();
+         String[] propertyNames = new String[5];
+         propertyNames[0] = "name";
+         propertyNames[1] = "type";
+         propertyNames[2] = "key";
+         propertyNames[3] = "mouse";
+         propertyNames[4] = "commands";
+         if (!JsonUtils.hasProperties(macroJson, propertyNames)) {
+            continue;
          }
-      }
-
-      this.entries.clear();
-      this.entries.addAll(loaded);
-   }
-
-   static Macro parseMacro(JsonElement macroElement) {
-      if (!(macroElement instanceof JsonObject macroJson)) {
-         return null;
-      }
-      String[] propertyNames = {"name", "type", "key", "mouse", "commands"};
-      if (!JsonUtils.hasProperties(macroJson, propertyNames)) {
-         return null;
-      }
-
-      try {
-         JsonElement nameElement = macroJson.get("name");
-         JsonElement typeElement = macroJson.get("type");
-         JsonElement commandsElement = macroJson.get("commands");
-         if (!nameElement.isJsonPrimitive()
-            || !nameElement.getAsJsonPrimitive().isString()
-            || !typeElement.isJsonPrimitive()
-            || !typeElement.getAsJsonPrimitive().isString()
-            || !(commandsElement instanceof JsonArray commandsArray)) {
-            return null;
-         }
-
-         String name = nameElement.getAsString();
-         if (!isValidName(name)) {
-            return null;
-         }
-         MacroType type = MacroType.fromName(typeElement.getAsString());
-         if (type == null) {
-            return null;
-         }
-
-         Keybind keybind = new Keybind(
-            macroJson.get("key").getAsInt(),
-            Keybind.Mode.TOGGLE,
-            macroJson.get("mouse").getAsBoolean()
-         );
-         Macro macro = type.create(name, keybind);
-         if (macroJson.has("toggled")) {
-            macro.setToggled(macroJson.get("toggled").getAsBoolean());
-         }
-
-         List commands = macro.getCommands();
-         for (JsonElement commandElement : commandsArray) {
-            if (!commandElement.isJsonPrimitive()
-               || !commandElement.getAsJsonPrimitive().isString()) {
-               return null;
+         try {
+            JsonElement typeElement = macroJson.get("type");
+            String typeName = typeElement.getAsString();
+            MacroType type = MacroType.fromName(
+               typeName
+            );
+            JsonElement nameElement = macroJson.get("name");
+            String name = nameElement.getAsString();
+            Keybind keybind = new Keybind(
+               macroJson.get("key").getAsInt(), Keybind.Mode.TOGGLE, macroJson.get("mouse").getAsBoolean()
+            );
+            Macro macro = type.create(
+               name, keybind
+            );
+            if (macroJson.has("toggled")) {
+               JsonElement toggleElement = macroJson.get("toggled");
+               boolean toggled = toggleElement.getAsBoolean();
+               macro.setToggled(toggled);
             }
-            commands.add(commandElement.getAsString());
-         }
-
-         if (type == MacroType.HOLD) {
-            while (commands.size() > 2) {
-               commands.removeLast();
+            JsonElement commandsElement = macroJson.get("commands");
+            JsonArray commandsArray = commandsElement.getAsJsonArray();
+            Iterator commandIterator = commandsArray.iterator();
+            while (commandIterator.hasNext()) {
+               JsonElement commandElement = (JsonElement)commandIterator.next();
+               List commandsList = macro.getCommands();
+               commandsList.add(commandElement.getAsString());
             }
+            if (type == MacroType.HOLD) {
+               while (true) {
+                  int commandCount = macro.getCommands().size();
+                  if (commandCount <= 2) {
+                     break;
+                  }
+                  macro.getCommands().removeLast();
+               }
+            }
+            this.registerEntry(macro);
+         } catch (Exception ignoredException) {
          }
-         return macro;
-      } catch (RuntimeException invalidMacro) {
-         return null;
       }
    }
 
