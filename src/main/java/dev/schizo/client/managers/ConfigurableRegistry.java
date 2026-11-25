@@ -15,6 +15,7 @@ import dev.schizo.client.integrations.MultiplayerCompatibilityPolicy;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.nio.file.Path;
 
 public final class ConfigurableRegistry implements Iterable<JsonConfigurable> {
    private final List<JsonConfigurable> configurables = new ArrayList<>();
@@ -46,6 +47,25 @@ public final class ConfigurableRegistry implements Iterable<JsonConfigurable> {
    }
 
    private void register(JsonConfigurable configurable) {
+      if (configurable == null) {
+         throw new IllegalArgumentException("Configurable must not be null");
+      }
+      String configName = configurable.getConfigName();
+      if (configName == null || configName.isBlank()) {
+         throw new IllegalStateException(
+            "Configurable " + configurable.getClass().getName() + " has no configuration file name"
+         );
+      }
+      Path relative = Path.of(configName);
+      if (relative.isAbsolute()
+         || !relative.equals(relative.normalize())
+         || relative.getNameCount() < 1
+         || !relative.getFileName().toString().endsWith(".json")) {
+         throw new IllegalStateException(
+            "Configurable " + configurable.getClass().getName()
+               + " has an unsafe configuration file name: " + configName
+         );
+      }
       this.configurables.add(configurable);
    }
 }
