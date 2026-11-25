@@ -453,7 +453,20 @@ class ModuleCompatibilityTest {
 
    @Test
    void settingReviewCountIncludesExplicitReviewsOnly() {
-      assertTrue(ModuleCompatibility.reviewedSettingCount() >= 70);
+      assertTrue(ModuleCompatibility.reviewedSettingCount() >= 108);
+   }
+
+   @Test
+   void fastLatencyUsesItsActualResponseConfigKey() {
+      ModuleCompatibility.SettingAssessment response =
+         ModuleCompatibility.assessSetting(FastLatencyModule.class, "Response");
+      ModuleCompatibility.SettingAssessment proseOnlyAlias =
+         ModuleCompatibility.assessSetting(FastLatencyModule.class, "FastResponse");
+
+      assertEquals(ModuleCompatibility.Classification.PACKET_AFFECTING, response.classification());
+      assertTrue(response.individuallyReviewed());
+      assertEquals(ModuleCompatibility.Classification.UNVERIFIED, proseOnlyAlias.classification());
+      assertFalse(proseOnlyAlias.individuallyReviewed());
    }
 
    @Test
