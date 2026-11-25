@@ -23,6 +23,7 @@ import net.minecraft.util.thread.BlockableEventLoop;
 public final class TaskScheduler implements ClientAccess {
    private final ClientThreadTaskQueue rotationTasks = new ClientThreadTaskQueue("rotation");
    private final ClientThreadTaskQueue runTickTasks = new ClientThreadTaskQueue("run-tick");
+   private final AtomicBoolean shutdown = new AtomicBoolean();
 
    public TaskScheduler() {
       EventBus eventBus = ClientAccess.eventBus;
@@ -30,19 +31,19 @@ public final class TaskScheduler implements ClientAccess {
    }
 
    public boolean scheduleRotationTask(Runnable task, int delay) {
-      return this.rotationTasks.enqueue(null, task, delay);
+      return !this.shutdown.get() && this.rotationTasks.enqueue(null, task, delay);
    }
 
    public boolean scheduleRotationTask(Object owner, Runnable task, int delay) {
-      return this.rotationTasks.enqueue(owner, task, delay);
+      return !this.shutdown.get() && this.rotationTasks.enqueue(owner, task, delay);
    }
 
    public boolean scheduleRunTickTask(Runnable task) {
-      return this.runTickTasks.enqueue(null, task, 1);
+      return !this.shutdown.get() && this.runTickTasks.enqueue(null, task, 1);
    }
 
    public boolean scheduleRunTickTask(Object owner, Runnable task) {
-      return this.runTickTasks.enqueue(owner, task, 1);
+      return !this.shutdown.get() && this.runTickTasks.enqueue(owner, task, 1);
    }
 
    public int cancelOwnedTasks(Object owner) {
@@ -83,8 +84,14 @@ public final class TaskScheduler implements ClientAccess {
 
    /** Stops accepting work and discards tasks that have not started. Running tasks are not interrupted. */
    public void shutdown() {
-      this.rotationTasks.shutdown();
-      this.runTickTasks.shutdown();
+      if (this.shutdown.compareAndSet(false, true)) {
+         this.rotationTasks.shutdown();
+         this.runTickTasks.shutdown();
+      }
+   }
+
+   boolean isShutdown() {
+      return this.shutdown.get();
    }
 
    private static final class ClientThreadTaskQueue {
@@ -102,7 +109,9 @@ public final class TaskScheduler implements ClientAccess {
       private boolean enqueue(Object owner, Runnable task, int delay) {
          BoundedCountdownTaskQueue.Reservation reservation = this.tasks.reserve(owner, task, delay);
          if (reservation == null) {
-            this.warnCapacity();
+            if (!this.tasks.isClosed()) {
+               this.warnCapacity();
+            }
             return false;
          }
 
@@ -113,13 +122,6 @@ public final class TaskScheduler implements ClientAccess {
                this.capacityWarningLogged.set(false);
             }
             return accepted;
-         }
-
-         if (!minecraft.isRunning()) {
-            this.tasks.cancel(reservation);
-            this.shutdown();
-            ClientAccess.logger.warn("Rejected {} task because the Minecraft client is stopping", this.name);
-            return false;
          }
 
          try {
