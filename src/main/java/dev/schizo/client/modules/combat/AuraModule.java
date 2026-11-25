@@ -207,9 +207,9 @@ public final class AuraModule extends Module {
    }
 
    static {
-      antiCheat = (AntiCheatModule)ClientContext.getModule(AntiCheatModule.class);
-      multiTask = (MultiTaskModule)ClientContext.getModule(MultiTaskModule.class);
-      autoMace = (AutoMaceModule)ClientContext.getModule(AutoMaceModule.class);
+
+
+
    }
 
    @Override
