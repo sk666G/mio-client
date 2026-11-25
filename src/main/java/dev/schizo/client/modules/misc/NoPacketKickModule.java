@@ -9,6 +9,7 @@
 
 package dev.schizo.client.modules.misc;
 
+import dev.schizo.client.diagnostics.RuntimeDiagnostics;
 import dev.schizo.client.modules.Module;
 import dev.schizo.client.modules.ModuleCategory;
 import dev.schizo.client.settings.BooleanSetting;
@@ -30,7 +31,12 @@ public class NoPacketKickModule extends Module {
             Logger logger = dev.schizo.client.ClientAccess.logger;
             String message = exception.getLocalizedMessage();
             logger.warn("Intercepted exception: {}", message);
-         } catch (Throwable ignored) {
+         } catch (RuntimeException logFailure) {
+            RuntimeDiagnostics.record(
+               RuntimeDiagnostics.Area.EVENT,
+               "NoPacketKick intercepted-exception logging",
+               logFailure
+            );
          }
       }
    }
