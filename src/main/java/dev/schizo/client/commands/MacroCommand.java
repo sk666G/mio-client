@@ -116,12 +116,13 @@ public final class MacroCommand extends Command {
             Keybind createdKeybind = (Keybind)(createContext.getArgument("key", Keybind.class));
             Macro createdMacro = createdType.create(createdName, createdKeybind);
             createdMacro.getCommands().add(createdCommand);
-            ClientContext.macroRegistry.registerEntry(createdMacro);
+            if (!ClientContext.macroRegistry.registerEntry(createdMacro)) {
+               ChatUtils.printChat(Component.literal("A macro with that name already exists"), ChatUtils.DEFAULT_SIGNATURE);
+               return 0;
+            }
 
             MutableComponent createNamedMessage = Component.literal("Macro ").append(createdMacro.getDisplayComponent());
-
             MutableComponent createdMessage = createNamedMessage.append(" has been created");
-
             ChatUtils.printChat(createdMessage, ChatUtils.DEFAULT_SIGNATURE);
             return 1;
          });
@@ -133,12 +134,13 @@ public final class MacroCommand extends Command {
 
             Keybind emptyMacroKeybind = (Keybind)(emptyCreateContext.getArgument("key", Keybind.class));
             Macro emptyMacro = emptyMacroType.create(emptyMacroName, emptyMacroKeybind);
-            ClientContext.macroRegistry.registerEntry(emptyMacro);
+            if (!ClientContext.macroRegistry.registerEntry(emptyMacro)) {
+               ChatUtils.printChat(Component.literal("A macro with that name already exists"), ChatUtils.DEFAULT_SIGNATURE);
+               return 0;
+            }
 
             MutableComponent emptyNamedMessage = Component.literal("Macro ").append(emptyMacro.getDisplayComponent());
-
             MutableComponent emptyCreatedMessage = emptyNamedMessage.append(" has been created");
-
             ChatUtils.printChat(emptyCreatedMessage, ChatUtils.DEFAULT_SIGNATURE);
             return 1;
          });
