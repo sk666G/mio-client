@@ -19,6 +19,27 @@ import dev.schizo.client.modules.client.DiscordModule;
 import dev.schizo.client.modules.client.UIModule;
 import dev.schizo.client.modules.client.BaritoneModule;
 import dev.schizo.client.modules.client.NotificationsModule;
+import dev.schizo.client.modules.hud.ArmorModule;
+import dev.schizo.client.modules.hud.ChatModule;
+import dev.schizo.client.modules.hud.CryptoModule;
+import dev.schizo.client.modules.hud.DirectionModule;
+import dev.schizo.client.modules.hud.EffectsModule;
+import dev.schizo.client.modules.hud.EntityListModule;
+import dev.schizo.client.modules.hud.FrameTimeGraphModule;
+import dev.schizo.client.modules.hud.GraphModule;
+import dev.schizo.client.modules.hud.IndicatorModule;
+import dev.schizo.client.modules.hud.InventoryModule;
+import dev.schizo.client.modules.hud.LagOMeterModule;
+import dev.schizo.client.modules.hud.MapModule;
+import dev.schizo.client.modules.hud.MetricsModule;
+import dev.schizo.client.modules.hud.ModuleListModule;
+import dev.schizo.client.modules.hud.MusicModule;
+import dev.schizo.client.modules.hud.PlayerModelModule;
+import dev.schizo.client.modules.hud.PositionModule;
+import dev.schizo.client.modules.hud.TextRadarModule;
+import dev.schizo.client.modules.hud.TotemsModule;
+import dev.schizo.client.modules.hud.WatermarkModule;
+import dev.schizo.client.modules.hud.WelcomerModule;
 import dev.schizo.client.modules.movement.NoFallModule;
 import dev.schizo.client.modules.exploit.ReachModule;
 import dev.schizo.client.modules.exploit.PhaseModule;
@@ -101,6 +122,90 @@ public final class ModuleCompatibility {
       Map.entry(HUDModule.class, assessed(
          Classification.CLIENT_ONLY,
          "Local HUD rendering and editor presentation only; no outgoing gameplay packet path was found."
+      )),
+      Map.entry(ArmorModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Renders local armor/equipment HUD state only; no outgoing gameplay packet path was found."
+      )),
+      Map.entry(ChatModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Renders local chat HUD information only; no outgoing chat or gameplay packet path was found."
+      )),
+      Map.entry(CryptoModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Renders market-price HUD data fetched from an external public HTTP API; it does not modify Minecraft gameplay traffic or server state."
+      )),
+      Map.entry(DirectionModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Renders local facing-direction text only."
+      )),
+      Map.entry(EffectsModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Renders locally observed status-effect information only."
+      )),
+      Map.entry(EntityListModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Renders locally observed entity counts/list information only."
+      )),
+      Map.entry(FrameTimeGraphModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Renders bounded local frame-time telemetry only."
+      )),
+      Map.entry(GraphModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Renders local graph telemetry only."
+      )),
+      Map.entry(IndicatorModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Renders local indicator state derived from client/module data only."
+      )),
+      Map.entry(InventoryModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Renders the locally observed inventory as a HUD widget without issuing inventory actions."
+      )),
+      Map.entry(LagOMeterModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Renders local latency/tick timing observations only."
+      )),
+      Map.entry(MapModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Renders locally available map data in the HUD without issuing world interactions."
+      )),
+      Map.entry(MetricsModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Renders local performance metrics only."
+      )),
+      Map.entry(ModuleListModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Renders local module status text only."
+      )),
+      Map.entry(MusicModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Renders local media-session display text only."
+      )),
+      Map.entry(PlayerModelModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Renders a local player-model HUD preview only."
+      )),
+      Map.entry(PositionModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Renders local/fake coordinate text and only observes clientbound position corrections; it does not rewrite or send movement packets."
+      )),
+      Map.entry(TextRadarModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Renders a local player radar from observed client entity state only."
+      )),
+      Map.entry(TotemsModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Renders local totem count/state only."
+      )),
+      Map.entry(WatermarkModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Renders local Schizo watermark/version text only."
+      )),
+      Map.entry(WelcomerModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Renders local welcome/status text only."
       )),
       Map.entry(UIModule.class, assessed(
          Classification.CLIENT_ONLY,
