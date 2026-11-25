@@ -18,9 +18,7 @@ import dev.schizo.client.events.PlayerTotemEvent;
 import dev.schizo.client.events.ConnectScreenConnectEvent;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.LocalPlayerTickEvent;
-import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.events.bus.EventBus;
-import dev.schizo.mixin.ClientboundEntityEventPacketAccessor;
 
 import com.mojang.authlib.GameProfile;
 import java.util.Iterator;
@@ -28,6 +26,9 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BiFunction;
+import net.minecraft.client.multiplayer.ClientPacketListener;
+import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundEntityEventPacket;
 import net.minecraft.network.protocol.game.ClientboundPlayerInfoRemovePacket;
@@ -35,10 +36,8 @@ import net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket;
 import net.minecraft.world.entity.player.Player;
 
 public final class TotemPopTracker implements ClientAccess {
-   private final Map<String, Integer> popCounts = new ConcurrentHashMap<>();
-   private final Map<String, Long> disconnectTimes = new ConcurrentHashMap<>();
-   private final Map<UUID, String> profileNames = new ConcurrentHashMap<>();
-   private volatile long sessionGeneration;
+   private final Map popCounts = new ConcurrentHashMap();
+   private final Map disconnectTimes = new ConcurrentHashMap();
 
    public TotemPopTracker() {
       ClientAccess.eventBus.subscribe(this);
@@ -70,31 +69,37 @@ public final class TotemPopTracker implements ClientAccess {
          }
       }
 
-      long nowMillis = System.currentTimeMillis();
-      this.disconnectTimes.entrySet().removeIf(entry -> {
-         if (entry.getValue() + 120000L >= nowMillis) {
-            return false;
+      String lastExpiredName = null;
+      Iterator disconnectIterator = this.disconnectTimes.entrySet().iterator();
+
+      while (disconnectIterator.hasNext()) {
+         Entry entry = (Entry)disconnectIterator.next();
+
+         long expiresAt = (Long)entry.getValue();
+
+         expiresAt += 120000L;
+         if (expiresAt < System.currentTimeMillis()) {
+            lastExpiredName = (String)entry.getKey();
+            this.popCounts.remove(entry.getKey());
          }
-         this.popCounts.remove(entry.getKey());
-         return true;
-      });
+      }
+
+      if (lastExpiredName != null) {
+         this.disconnectTimes.remove(lastExpiredName);
+      }
    }
 
    @EventHandler
    private void onConnectScreenConnectEvent(ConnectScreenConnectEvent event) {
-      this.resetSession();
-   }
+      if (ClientContext.serverStateManager.getServerData() != null) {
+         String address = event.getServerAddress();
 
-   @EventHandler
-   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
-      this.resetSession();
-   }
+         if (!address.equals(ClientContext.serverStateManager.getServerData().ip)) {
+            return;
+         }
+      }
 
-   private void resetSession() {
-      this.sessionGeneration++;
       this.popCounts.clear();
-      this.disconnectTimes.clear();
-      this.profileNames.clear();
    }
 
    public int getPopCount(String name) {
@@ -105,47 +110,52 @@ public final class TotemPopTracker implements ClientAccess {
    private void onPacketReceive(
       PacketEvent.Receive event
    ) {
-      if (event.getPacket() instanceof ClientboundEntityEventPacket entityEventPacket
-         && entityEventPacket.getEventId() == 35) {
-         int entityId = ((ClientboundEntityEventPacketAccessor)entityEventPacket).getId();
-         long expectedGeneration = this.sessionGeneration;
-         ClientAccess.schizoMinecraft.executeIfPossible(() -> {
-            if (this.sessionGeneration != expectedGeneration
-               || ClientAccess.schizoMinecraft.level == null) {
-               return;
-            }
+      if (!this.isWorldUnavailable()) {
+         if (event.getPacket() instanceof ClientboundEntityEventPacket entityEventPacket) {
+            byte eventId = entityEventPacket.getEventId();
 
-            if (ClientAccess.schizoMinecraft.level.getEntity(entityId) instanceof Player player) {
-               String playerName = player.getGameProfile().name();
-               int count = this.popCounts.merge(playerName, 1, Integer::sum);
-               EventBus eventBus = ClientAccess.eventBus;
-               eventBus.post(new PlayerTotemEvent(
-                  player, count, PlayerTotemEvent.Kind.TOTEM_POP
-               ));
+            if (eventId == 35) {
+               if (entityEventPacket.getEntity(ClientAccess.schizoMinecraft.level) instanceof Player player) {
+                  String playerName = player.getGameProfile().name();
+                  Map counts = this.popCounts;
+                  BiFunction<String, Integer, Integer> incrementCount =
+                     (ignoredKey, previousCount) -> previousCount == null ? 1 : previousCount + 1;
+                  counts.compute(playerName, incrementCount);
+                  EventBus eventBus = ClientAccess.eventBus;
+                  PlayerTotemEvent popEvent = new PlayerTotemEvent(player, (Integer)this.popCounts.get(playerName), PlayerTotemEvent.Kind.TOTEM_POP);
+                  eventBus.post(popEvent);
+               }
             }
-         });
-      }
-
-      if (event.getPacket() instanceof ClientboundPlayerInfoUpdatePacket playerInfoUpdatePacket) {
-         for (ClientboundPlayerInfoUpdatePacket.Entry joinedEntry : playerInfoUpdatePacket.newEntries()) {
-            GameProfile profile = joinedEntry.profile();
-            if (profile == null) {
-               continue;
-            }
-            this.profileNames.put(profile.id(), profile.name());
-            this.disconnectTimes.remove(profile.name());
          }
-      }
 
-      if (event.getPacket() instanceof ClientboundPlayerInfoRemovePacket playerInfoRemovePacket) {
-         long disconnectedAt = System.currentTimeMillis();
-         for (UUID removedId : playerInfoRemovePacket.profileIds()) {
-            String removedName = this.profileNames.remove(removedId);
-            if (removedName != null) {
-               this.disconnectTimes.put(removedName, disconnectedAt);
+         if (event.getPacket() instanceof ClientboundPlayerInfoUpdatePacket playerInfoUpdatePacket) {
+            Iterator joinedEntries = playerInfoUpdatePacket.newEntries().iterator();
+
+            while (joinedEntries.hasNext()) {
+               ClientboundPlayerInfoUpdatePacket.Entry joinedEntry = (ClientboundPlayerInfoUpdatePacket.Entry)joinedEntries.next();
+               Map joinedDisconnectTimes = this.disconnectTimes;
+               GameProfile joinedProfile = joinedEntry.profile();
+               String joinedName = joinedProfile.name();
+               joinedDisconnectTimes.remove(joinedName);
+            }
+         }
+
+         if (event.getPacket() instanceof ClientboundPlayerInfoRemovePacket playerInfoRemovePacket) {
+            Iterator removedProfiles = playerInfoRemovePacket.profileIds().iterator();
+
+            while (removedProfiles.hasNext()) {
+               UUID removedId = (UUID)removedProfiles.next();
+               ClientPacketListener listener = ClientAccess.schizoMinecraft.player.connection;
+               PlayerInfo playerInfo = listener.getPlayerInfo(removedId);
+               if (playerInfo != null) {
+                  Map removedDisconnectTimes = this.disconnectTimes;
+                  GameProfile removedProfile = playerInfo.getProfile();
+                  String removedName = removedProfile.name();
+                  long disconnectedAt = System.currentTimeMillis();
+                  removedDisconnectTimes.put(removedName, disconnectedAt);
+               }
             }
          }
       }
    }
-
 }

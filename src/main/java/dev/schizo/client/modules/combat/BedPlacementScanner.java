@@ -12,7 +12,6 @@ package dev.schizo.client.modules.combat;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.managers.RotationManager;
 import dev.schizo.client.utils.combat.DamageUtils;
-import dev.schizo.client.utils.entity.EntityUtils;
 import dev.schizo.client.utils.combat.BoundingBoxUtils;
 import dev.schizo.client.utils.world.BlockInteractionUtils;
 import dev.schizo.client.utils.world.WorldUtils;
@@ -45,12 +44,6 @@ public class BedPlacementScanner implements ClientAccess {
 
    static {
       scanPosition = new MutableBlockPos();
-   }
-
-   static boolean shouldRejectSelfDamage(
-      float selfDamage, float maximumSelfDamage, float playerHealth, boolean antiSuicide
-   ) {
-      return selfDamage > maximumSelfDamage || antiSuicide && selfDamage >= playerHealth;
    }
 
    public BedPlacementCandidate scanPlacement(LivingEntity target) {
@@ -259,10 +252,7 @@ public class BedPlacementScanner implements ClientAccess {
       float selfDamage = DamageUtils.getBedDamage(explosionCenterSnapshot, selfPlayer);
 
       Float maximumDamage = this.module.maxSelfDamageSetting.getValue();
-      float playerHealth = EntityUtils.getPlayerHealthWithAbsorption();
-      if (shouldRejectSelfDamage(
-         selfDamage, maximumDamage, playerHealth, this.module.antiSuicideSetting.getValue()
-      )) {
+      if (selfDamage > maximumDamage) {
          return null;
       }
 

@@ -16,7 +16,6 @@ import dev.schizo.client.events.MinecraftTickEvent;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.managers.WebhookManager;
-import dev.schizo.client.managers.NotificationDeliveryHistory;
 import dev.schizo.client.utils.ElapsedTimer;
 import dev.schizo.client.utils.chat.ChatUtils;
 import dev.schizo.client.events.EventStage;
@@ -44,9 +43,6 @@ import net.minecraft.util.ARGB;
 
 public class WebhookNotifsModule extends Module {
 
-   private static final int MAX_PENDING_MESSAGES = 1000;
-   private static final long MAX_PENDING_CHARACTERS = 1_000_000L;
-   private static final int MAX_BATCH_MESSAGES = 100;
    private static final Map<Color, String> ANSI_PALETTE = new HashMap<>();
    static {
       ANSI_PALETTE.put(new Color(0, 0, 0), "30");
@@ -72,73 +68,18 @@ public class WebhookNotifsModule extends Module {
    private final Setting<Boolean> pingSetting;
    private final DateTimeFormatter timestampFormatter;
    private final List<String> pendingMessages;
-   private final NotificationDeliveryHistory deliveryHistory;
-   private long pendingCharacters;
-   private boolean batchInFlight;
-   private boolean deliveryPaused;
-   private int consecutiveDeliveryFailures;
-   private long pingGeneration;
+   private final List<String> includedMessages;
    private boolean pingPending;
    private final ElapsedTimer notificationTimer;
    private String previousQueueMessage;
    private ServerData lastServer;
    @Override
    public void onEnable() {
-      this.retryDelivery();
+      this.notificationTimer.reset();
       if (ClientContext.webhookManager.isConfigured()) return;
       String prefix = CommandRegistry.getPrefix();
       ChatUtils.printChat(Component.literal("Set a notification destination with " + prefix + "webhook set <url> or "
          + prefix + "webhook telegram <bot-token> <chat-id>."), ChatUtils.createSignature(-10395), ChatUtils.MessagePriority.MID);
-   }
-
-   public int getPendingMessageCount() {
-      synchronized (this.pendingMessages) {
-         return this.pendingMessages.size();
-      }
-   }
-
-   public boolean isBatchInFlight() {
-      synchronized (this.pendingMessages) {
-         return this.batchInFlight;
-      }
-   }
-
-   public boolean isDeliveryPaused() {
-      synchronized (this.pendingMessages) {
-         return this.deliveryPaused;
-      }
-   }
-
-   public int getConsecutiveDeliveryFailures() {
-      synchronized (this.pendingMessages) {
-         return this.consecutiveDeliveryFailures;
-      }
-   }
-
-   public List<NotificationDeliveryHistory.Entry> getDeliveryHistory() {
-      return this.deliveryHistory.snapshot();
-   }
-
-   public void clearDeliveryHistory() {
-      this.deliveryHistory.clear();
-   }
-
-   /** Unpauses delivery without clearing queued messages. */
-   public boolean retryDelivery() {
-      synchronized (this.pendingMessages) {
-         this.deliveryPaused = false;
-         this.consecutiveDeliveryFailures = 0;
-         this.notificationTimer.reset();
-         return !this.pendingMessages.isEmpty();
-      }
-   }
-
-   private void recordDeliveryLocked(
-      NotificationDeliveryHistory.Status status, int messageCount, String detail
-   ) {
-      this.deliveryHistory.record(new NotificationDeliveryHistory.Entry(
-         System.currentTimeMillis(), status, messageCount, detail
-      ));
    }
 
    private String formatMessage(ChatMessageEvent event) {
@@ -168,18 +109,7 @@ public class WebhookNotifsModule extends Module {
       for (String line : lines) {
          if (!line.isEmpty()) message.append(ChatFormatting.stripFormatting(line)).append('\n');
       }
-      if (message.length() < 2) return;
-      String queued = message.substring(0, message.length() - 1);
-      synchronized (this.pendingMessages) {
-         if (this.pendingMessages.size() >= MAX_PENDING_MESSAGES
-            || this.pendingCharacters + queued.length() > MAX_PENDING_CHARACTERS) {
-            this.recordDeliveryLocked(NotificationDeliveryHistory.Status.DROPPED, 1, "Queue full");
-            ClientAccess.logger.warn("Webhook notification queue is full; newest message was dropped");
-            return;
-         }
-         this.pendingMessages.add(queued);
-         this.pendingCharacters += queued.length();
-      }
+      if (message.length() >= 2) this.pendingMessages.add(message.substring(0, message.length() - 1));
    }
 
    public static String getClosestAnsiColor(int rgb) {
@@ -254,7 +184,6 @@ public class WebhookNotifsModule extends Module {
             Boolean pingEveryone = pingOption.getValue();
             if (pingEveryone) {
                this.pingPending = true;
-               this.pingGeneration++;
             }
          }
 
@@ -274,100 +203,33 @@ public class WebhookNotifsModule extends Module {
 
    @EventHandler
    private void onClientUpdate(MinecraftTickEvent event) {
-      if (ClientAccess.schizoMinecraft.level != null) {
-         this.lastServer = ClientContext.serverStateManager.getServerData();
-      }
+      if (ClientAccess.schizoMinecraft.level != null) this.lastServer = ClientContext.serverStateManager.getServerData();
       WebhookManager manager = ClientContext.webhookManager;
-      if (!manager.isConfigured()
-         || !this.notificationTimer.hasElapsed(this.timeoutSetting.getValue(), TimeUnit.SECONDS)) return;
-
-      List<String> batchMessages;
-      String payload;
-      boolean sendPing;
-      long selectedPingGeneration;
+      if (!manager.isConfigured() || !this.notificationTimer.hasElapsed(this.timeoutSetting.getValue(), TimeUnit.SECONDS)
+         || this.pendingMessages.isEmpty()) return;
+      this.notificationTimer.reset();
       synchronized (this.pendingMessages) {
-         if (this.batchInFlight || this.deliveryPaused || this.pendingMessages.isEmpty()) return;
-         batchMessages = new ArrayList<>();
+         if (this.pendingMessages.isEmpty()) return;
+         String mention = this.pingPending && !manager.isTelegram() ? "@everyone\n" : "";
+         this.pingPending = false;
          StringBuilder batch = new StringBuilder();
          String timestamp = "[" + this.timestampFormatter.format(LocalDateTime.now()) + "] ";
          for (String message : this.pendingMessages) {
-            if (batchMessages.size() >= MAX_BATCH_MESSAGES) break;
-            String item = (this.timestampSetting.getValue() ? timestamp : "") + message;
-            if (!batchMessages.isEmpty() && batch.length() + item.length() + 1 > 1800) break;
-            if (!batch.isEmpty()) batch.append('\n');
-            batch.append(item);
-            batchMessages.add(message);
+            if (batch.length() > 1900) break;
+            if (this.timestampSetting.getValue()) batch.append(timestamp);
+            batch.append(message).append('\n');
+            this.includedMessages.add(message);
          }
-         if (batchMessages.isEmpty()) return;
-
-         sendPing = this.pingPending && !manager.isTelegram();
-         selectedPingGeneration = this.pingGeneration;
-         String text = batch.toString().replace("`", "'");
+         String text = batch.substring(0, batch.length() - 1).replace("`", "'");
          if (manager.isTelegram()) {
-            payload = text;
+            manager.sendContent(text);
          } else {
-            String mention = sendPing ? "@everyone\n" : "";
             String language = this.colorSetting.getValue() ? "ansi\n" : "";
-            payload = mention + "```" + language + text + "```";
+            manager.sendContent(mention + "```" + language + text + "```");
          }
-         this.batchInFlight = true;
-         this.notificationTimer.reset();
+         for (String message : this.includedMessages) this.pendingMessages.remove(message);
+         this.includedMessages.clear();
       }
-
-      // Partial chunk delivery can cause duplicates when the retained batch is retried.
-      // Messages are removed only after every chunk has been acknowledged.
-      manager.sendContent(payload).whenComplete((ignored, failure) -> {
-         synchronized (this.pendingMessages) {
-            if (failure == null) {
-               boolean matchedPrefix = this.pendingMessages.size() >= batchMessages.size();
-               if (matchedPrefix) {
-                  for (int index = 0; index < batchMessages.size(); index++) {
-                     if (!this.pendingMessages.get(index).equals(batchMessages.get(index))) {
-                        matchedPrefix = false;
-                        break;
-                     }
-                  }
-               }
-
-               if (matchedPrefix) {
-                  for (String expected : batchMessages) {
-                     this.pendingMessages.remove(0);
-                     this.pendingCharacters -= expected.length();
-                  }
-                  this.consecutiveDeliveryFailures = 0;
-                  this.recordDeliveryLocked(
-                     NotificationDeliveryHistory.Status.DELIVERED, batchMessages.size(), "Delivered"
-                  );
-                  if (sendPing && this.pingGeneration == selectedPingGeneration) this.pingPending = false;
-               } else {
-                  this.recordDeliveryLocked(
-                     NotificationDeliveryHistory.Status.FAILED, batchMessages.size(), "Queue changed"
-                  );
-                  ClientAccess.logger.error("Webhook queue prefix changed during delivery; retaining queued messages");
-               }
-            } else {
-               this.consecutiveDeliveryFailures++;
-               Throwable cause = failure;
-               while (cause.getCause() != null
-                  && (cause instanceof java.util.concurrent.CompletionException
-                     || cause instanceof java.util.concurrent.ExecutionException)) {
-                  cause = cause.getCause();
-               }
-               this.recordDeliveryLocked(
-                  NotificationDeliveryHistory.Status.FAILED,
-                  batchMessages.size(),
-                  cause.getClass().getSimpleName()
-               );
-               ClientAccess.logger.warn("Webhook batch delivery attempt {} failed",
-                  this.consecutiveDeliveryFailures);
-               if (this.consecutiveDeliveryFailures >= 5) {
-                  this.deliveryPaused = true;
-                  ClientAccess.logger.error("Webhook delivery paused after repeated failures; use webhook retry to resume");
-               }
-            }
-            this.batchInFlight = false;
-         }
-      });
    }
 
    public WebhookNotifsModule() {
@@ -392,7 +254,7 @@ public class WebhookNotifsModule extends Module {
       this.pingSetting = this.add(new BooleanSetting("Ping", false).dependsOn(registeredTypes, registeredStash));
       this.timestampFormatter = DateTimeFormatter.ofPattern("HH:mm");
       this.pendingMessages = Collections.synchronizedList(new ArrayList<>());
-      this.deliveryHistory = new NotificationDeliveryHistory();
+      this.includedMessages = new ArrayList<>();
       this.notificationTimer = new ElapsedTimer();
    }
 

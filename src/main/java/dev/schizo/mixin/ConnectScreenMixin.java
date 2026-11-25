@@ -26,7 +26,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(ConnectScreen.class)
 public class ConnectScreenMixin {
 
-   @Inject(method = "connect", at = @At("HEAD"), cancellable = true)
+   @Inject(method = "connect", at = @At("HEAD"))
    private void recordServerConnection(
       Minecraft minecraft, ServerAddress address, ServerData serverData, TransferState transferState, CallbackInfo callback
    ) {
@@ -35,12 +35,9 @@ public class ConnectScreenMixin {
          resolvedServerData = new ServerData("Schizo", address.getHost(), Type.OTHER);
       }
 
-      ConnectScreenConnectEvent event = new ConnectScreenConnectEvent(resolvedServerData.ip);
-      ClientAccess.eventBus.postCancellable(event);
-      if (event.isCancelled()) {
-         callback.cancel();
-         return;
-      }
-      ClientContext.serverStateManager.setServerData(resolvedServerData);
+      ClientAccess.eventBus
+         .post(new ConnectScreenConnectEvent(resolvedServerData.ip));
+      ClientContext.serverStateManager
+         .setServerData(resolvedServerData);
    }
 }

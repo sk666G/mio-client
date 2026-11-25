@@ -177,30 +177,29 @@ public class ChamsModule extends Module {
          MaskShaderRenderer.MASK_TARGET, maskColor
       );
       RenderTarget mainTarget = ClientAccess.schizoMinecraft.getMainRenderTarget();
-      RenderTargetUtils.setMainRenderTarget(MaskShaderRenderer.MASK_TARGET);
-      try {
-         EntityChamsRenderer.flush();
-         Boolean blendEnabled = this.blendSetting.getValue();
-         if (blendEnabled) {
-            RenderUtils.blitToMain(
-               MaskShaderRenderer.MASK_TARGET,
-               ClientRenderPipelines.BLIT_LIGHTNING
-            );
-         } else {
-            RenderTarget maskTarget = MaskShaderRenderer.MASK_TARGET;
-            GpuTextureView mainColorView = mainTarget.getColorTextureView();
-            maskTarget.blitAndBlendToTexture(mainColorView);
-         }
-         float bloomRadius = this.radiusSetting.getValue();
-         Float factorValue = this.factorSetting.getValue();
-         float bloomFactor = factorValue;
-         Setting<Float> overlapSettingSnapshot = this.overlapSetting;
-         Float overlapValue = overlapSettingSnapshot.getValue();
-         MaskShaderRenderer.setParameters(bloomRadius, bloomFactor, maskOpacity, overlapValue);
-         MaskShaderRenderer.renderEffect("bloom_mask");
-      } finally {
-         RenderTargetUtils.setMainRenderTarget(mainTarget);
+      RenderTargetUtils.setMainRenderTarget(
+         MaskShaderRenderer.MASK_TARGET
+      );
+      EntityChamsRenderer.flush();
+      Boolean blendEnabled = this.blendSetting.getValue();
+      if (blendEnabled) {
+         RenderUtils.blitToMain(
+            MaskShaderRenderer.MASK_TARGET,
+            ClientRenderPipelines.BLIT_LIGHTNING
+         );
+      } else {
+         RenderTarget maskTarget = MaskShaderRenderer.MASK_TARGET;
+         GpuTextureView mainColorView = mainTarget.getColorTextureView();
+         maskTarget.blitAndBlendToTexture(mainColorView);
       }
+      float bloomRadius = (this.radiusSetting.getValue());
+      Float factorValue = this.factorSetting.getValue();
+      float bloomFactor = factorValue;
+      Setting<Float> overlapSettingSnapshot = this.overlapSetting;
+      Float overlapValue = overlapSettingSnapshot.getValue();
+      MaskShaderRenderer.setParameters(bloomRadius, bloomFactor, maskOpacity, overlapValue);
+      MaskShaderRenderer.renderEffect("bloom_mask");
+      RenderTargetUtils.setMainRenderTarget(mainTarget);
       Setting<Boolean> compositeBlendOption = this.blendSetting;
       Boolean compositeBlendEnabled = compositeBlendOption.getValue();
       if (compositeBlendEnabled) {
@@ -238,22 +237,18 @@ public class ChamsModule extends Module {
                         Integer opacityValue = this.opacitySetting.getValue();
                         if (opacityValue > 0) {
                            this.renderingBaseModel = true;
-                           try {
-                              float baseOpacity = (this.opacitySetting.getValue()).intValue();
-                              RenderUtils.setRenderColor(
-                                 1.0F, 1.0F, 1.0F, baseOpacity / 1e+02F
-                              );
-                              RenderUtils renderer = RenderUtils.INSTANCE;
-                              float partialTick = event.getPartialTick();
-                              PoseStack poseStackSnapshot = event.getPoseStack();
-                              RenderBuffers renderBuffers = ClientAccess.schizoMinecraft.renderBuffers();
-                              renderer.renderEntity(
-                                 entity, partialTick, poseStackSnapshot, renderBuffers.bufferSource()
-                              );
-                           } finally {
-                              this.renderingBaseModel = false;
-                              RenderUtils.setRenderColor(1.0F, 1.0F, 1.0F, 1.0F);
-                           }
+                           float baseOpacity = (this.opacitySetting.getValue()).intValue();
+                           RenderUtils.setRenderColor(
+                              1.0F, 1.0F, 1.0F, baseOpacity / 1e+02F
+                           );
+                           RenderUtils renderer = RenderUtils.INSTANCE;
+                           float partialTick = event.getPartialTick();
+                           PoseStack poseStackSnapshot = event.getPoseStack();
+                           RenderBuffers renderBuffers = ClientAccess.schizoMinecraft.renderBuffers();
+                           renderer.renderEntity(
+                              entity, partialTick, poseStackSnapshot, renderBuffers.bufferSource()
+                           );
+                           this.renderingBaseModel = false;
                         }
                      }
                   }
@@ -321,17 +316,13 @@ public class ChamsModule extends Module {
    }
 
    private void renderGlintBatch(EntityRenderRelation relation, MeshBuffer buffer) {
-      if (buffer.isEmpty()) {
-         return;
-      }
-
-      EntityRenderRelation previousRelation = this.activeGlintRelation;
-      OptionInstance speedOption = ClientAccess.schizoMinecraft.options.glintSpeed();
-      double previousSpeed = ((Double)speedOption.get());
-      OptionInstance glintStrengthOption = ClientAccess.schizoMinecraft.options.glintStrength();
-      double previousStrength = ((Double)glintStrengthOption.get());
-      this.activeGlintRelation = relation;
-      try {
+      if (!buffer.isEmpty()) {
+         this.activeGlintRelation = relation;
+         OptionInstance optionSnapshot = ClientAccess.schizoMinecraft.options.glintSpeed();
+         double previousSpeed = ((Double)optionSnapshot.get());
+         OptionInstance glintStrengthOption = ClientAccess.schizoMinecraft.options.glintStrength();
+         double previousStrength = ((Double)glintStrengthOption.get());
+         OptionInstance speedOption = ClientAccess.schizoMinecraft.options.glintSpeed();
          double requestedSpeed = (this.speedSetting.getValue()).doubleValue();
          GameOptionsOverrides.forceSetOptionValue(speedOption, requestedSpeed);
          double capturedStrength = (this.strengthSetting.getValue()).floatValue();
@@ -339,14 +330,10 @@ public class ChamsModule extends Module {
          renderingGlintBatch = true;
          MeshDrawContext.setRenderType(ClientRenderTypes.shineGlint());
          buffer.draw();
-      } finally {
          renderingGlintBatch = false;
-         this.activeGlintRelation = previousRelation;
-         try {
-            this.updateGlobalGlintStrength(previousStrength);
-         } finally {
-            speedOption.set(previousSpeed);
-         }
+         this.updateGlobalGlintStrength(previousStrength);
+         speedOption = ClientAccess.schizoMinecraft.options.glintSpeed();
+         speedOption.set(previousSpeed);
       }
    }
 
@@ -728,29 +715,31 @@ public class ChamsModule extends Module {
    @EventHandler(priority = 200)
    private void onWorldRenderStarted(WorldRenderEvent.BeforeBufferSource event) {
       EntityCullingOverrides.disableCulling();
-      try {
-         Iterator<Entity> entityIterator = ClientAccess.schizoMinecraft.level.entitiesForRendering().iterator();
-         while (entityIterator.hasNext()) {
-            Entity entity = entityIterator.next();
-            if (this.shouldRenderEntityInRange(entity) && this.shineSetting.getValue()) {
-               PoseStack poses = event.getPoseStack();
+      Iterator<Entity> entityIterator = ClientAccess.schizoMinecraft.level.entitiesForRendering().iterator();
+      while (entityIterator.hasNext()) {
+         Entity entity = entityIterator.next();
+         if (this.shouldRenderEntityInRange(entity)) {
+            Boolean shineValue = this.shineSetting.getValue();
+            if (shineValue) {
                renderingShineModels = true;
-               poses.pushPose();
-               try {
-                  RenderUtils.setRenderColor(1.0F, 1.0F, 1.0F, 1.0F);
-                  RenderUtils.applyCameraRotation(poses);
-                  EntityChamsRenderer.setRelation(this.getEntityRelation(entity));
-                  EntityChamsRenderer.renderEntity(poses, entity);
-               } finally {
-                  poses.popPose();
-                  renderingShineModels = false;
-               }
+               (event.getPoseStack()).pushPose();
+               RenderUtils.setRenderColor(
+                  1.0F, 1.0F, 1.0F,1.0F);
+               RenderUtils.applyCameraRotation(
+                  event.getPoseStack()
+               );
+               EntityChamsRenderer.setRelation(
+                  this.getEntityRelation(entity)
+               );
+               EntityChamsRenderer.renderEntity(
+                  event.getPoseStack(), entity
+               );
+               (event.getPoseStack()).popPose();
+               renderingShineModels = false;
             }
          }
-      } finally {
-         renderingShineModels = false;
-         EntityCullingOverrides.restoreCulling();
       }
+      EntityCullingOverrides.restoreCulling();
    }
 
    public static void bindReferencedModules(ModuleRegistry modules) {

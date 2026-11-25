@@ -13,12 +13,12 @@ package dev.schizo.client.modules.movement;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.EventHandler;
-import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.events.LocalPlayerTickEvent;
 import dev.schizo.client.events.LocalPlayerPreTickEvent;
 import dev.schizo.client.events.StepHeightEvent;
 import dev.schizo.client.utils.network.PacketSender;
 import dev.schizo.client.render.FontRenderer;
+import dev.schizo.client.managers.TickRateController;
 import dev.schizo.client.managers.HoleManager;
 import dev.schizo.client.utils.entity.PlayerStateUtils;
 import dev.schizo.client.events.EventStage;
@@ -52,23 +52,8 @@ public class StepModule extends Module {
 
    @Override
    public void onDisable() {
-      this.releaseStepTimer();
-      this.stepCount = 0;
-   }
-
-   @EventHandler
-   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
-      this.releaseStepTimer();
-      this.stepCount = 0;
-   }
-
-   private void releaseStepTimer() {
-      ClientContext.tickRateController.releaseMultiplier(this);
       this.usingStepTimer = false;
-   }
-
-   static boolean shouldRequestStepTimer(boolean normalMode, boolean timerEnabled, boolean inCobweb) {
-      return normalMode && timerEnabled && !inCobweb;
+      this.stepCount = 0;
    }
 
    @EventHandler(priority = -100)
@@ -89,12 +74,12 @@ public class StepModule extends Module {
    @EventHandler
    private void onStepHeight(StepHeightEvent event) {
       if (holeSnap.shouldPauseStep()) {
-         this.releaseStepTimer();
          return;
       }
       if (!ClientAccess.schizoMinecraft.player.onGround() || PlayerStateUtils.getTrackedFallDistance() > 0.0F
          || !ClientAccess.schizoMinecraft.player.verticalCollision) {
-         this.releaseStepTimer();
+         TickRateController timer = ClientContext.tickRateController;
+         timer.releaseMultiplier(this);
          return;
       }
       if (EventStage.Pre == event.getStage()) {
@@ -109,28 +94,24 @@ public class StepModule extends Module {
 
       double actualHeight = event.getHeight();
       if (actualHeight <= 0.6D) {
-         this.releaseStepTimer();
+         TickRateController timer = ClientContext.tickRateController;
+         timer.releaseMultiplier(this);
          return;
       }
 
       if (this.modeSetting.getValue() == StepModule.ModeChoice.VANILLA) {
-         this.releaseStepTimer();
          this.stepCount++;
          return;
       }
 
       ArrayList<Double> offsets = new ArrayList<>();
-      boolean requestTimer = shouldRequestStepTimer(
-         this.modeSetting.getValue() == StepModule.ModeChoice.NORMAL,
-         this.useTimerSetting.getValue(),
-         PlayerStateUtils.isInCobweb(ClientAccess.schizoMinecraft.player)
-      );
-      if (requestTimer) {
-         float requestedSpeed = this.timerSpeedSetting.getValue();
-         ClientContext.tickRateController.requestMultiplier(this, requestedSpeed);
-         this.usingStepTimer = true;
-      } else {
-         this.releaseStepTimer();
+      if (this.useTimerSetting.getValue()) {
+         if (!PlayerStateUtils.isInCobweb(ClientAccess.schizoMinecraft.player)) {
+            TickRateController timer = ClientContext.tickRateController;
+            float requestedSpeed = this.timerSpeedSetting.getValue();
+            timer.requestMultiplier(this, requestedSpeed);
+            this.usingStepTimer = true;
+         }
       }
 
       this.stepCount++;
@@ -179,7 +160,6 @@ public class StepModule extends Module {
       Predicate<Object> timerSpeedVisibility = ignored -> this.modeSetting.getValue() == ModeChoice.NORMAL && this.useTimerSetting.isExpanded();
       this.timerSpeedSetting = this.add(new NumberSetting<>("TimerSpeed", 0.3F, 0.01F, 1.0F, timerSpeedVisibility));
       this.stepCount = 0;
-      this.modeSetting.setChangeCallback(this::releaseStepTimer);
    }
 
    public enum ModeChoice implements NamedEntry {

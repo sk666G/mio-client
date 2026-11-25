@@ -14,7 +14,6 @@ import dev.schizo.client.ClientContext;
 import dev.schizo.client.managers.SocialRegistry;
 import dev.schizo.client.utils.world.BlockInteractionUtils;
 import dev.schizo.client.utils.entity.PlayerStateUtils;
-import dev.schizo.client.utils.network.ServerSideDeathState;
 import dev.schizo.client.modules.ModuleCategory;
 import dev.schizo.client.settings.BooleanSetting;
 import dev.schizo.client.settings.NumberSetting;
@@ -74,27 +73,19 @@ public class SelfTrapModule extends AutoTrapModule {
       Iterable<Entity> entities = ClientAccess.schizoMinecraft.level.entitiesForRendering();
       Spliterator<Entity> entitySpliterator = entities.spliterator();
       Stream<Entity> candidateStream = StreamSupport.stream(entitySpliterator, false).filter(candidate -> {
-         if (!(candidate instanceof Player player)) {
+         if (candidate == ClientAccess.schizoMinecraft.player) {
             return false;
          }
 
+         float candidateDistance = ClientAccess.schizoMinecraft.player.distanceTo(candidate);
+         if (!(candidateDistance <= this.enemyRangeSetting.getValue() && candidate instanceof Player)) {
+            return false;
+         }
          SocialRegistry friends = ClientContext.socialRegistry;
-         String name = candidate.getName().getString();
-         boolean friend = friends.isFriendName(name);
-         if (!CombatTargetPolicy.isEligible(
-            player.isAlive(),
-            player.isDeadOrDying(),
-            player == ClientAccess.schizoMinecraft.player,
-            player.isSpectator(),
-            player.isCreative(),
-            friend,
-            ((ServerSideDeathState)player).isServerSideDead()
-         )) {
-            return false;
-         }
+         Component candidateName = candidate.getName();
+         String name = candidateName.getString();
 
-         float candidateDistance = ClientAccess.schizoMinecraft.player.distanceTo(player);
-         return candidateDistance <= this.enemyRangeSetting.getValue();
+         return !friends.isFriendName(name) && candidate.isAlive();
       });
       LocalPlayer distancePlayer = ClientAccess.schizoMinecraft.player;
       Comparator<Entity> nearestFirst = Comparator.comparing(distancePlayer::distanceToSqr);

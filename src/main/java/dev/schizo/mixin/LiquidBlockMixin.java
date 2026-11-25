@@ -9,7 +9,6 @@
 
 package dev.schizo.mixin;
 
-import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.utils.combat.BoundingBoxUtils;
 import dev.schizo.client.managers.ModuleRegistry;
@@ -34,14 +33,15 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(LiquidBlock.class)
 public class LiquidBlockMixin {
+   private static ReachModule reach = ClientContext.getModule(ReachModule.class);
 
    @Inject(method = "getShape", at = @At("HEAD"), cancellable = true)
    private void overrideLiquidSelectionShape(
       BlockState blockState, BlockGetter level, BlockPos blockPos, CollisionContext collisionContext, CallbackInfoReturnable<VoxelShape> callback
    ) {
       Minecraft client = Minecraft.getInstance();
-      if (MixinModuleRegistry.liquidBlockReach.isToggled()
-         && MixinModuleRegistry.liquidBlockReach.liquidPlaceSetting.getValue()
+      if (reach.isToggled()
+         && reach.liquidPlaceSetting.getValue()
          && (client.player.getMainHandItem().getItem() instanceof BlockItem || client.player.getOffhandItem().getItem() instanceof BlockItem)) {
          boolean hasAdjacentAir = false;
 
@@ -62,7 +62,7 @@ public class LiquidBlockMixin {
             return;
          }
 
-         if (distanceSquared < MixinModuleRegistry.liquidBlockReach.modifierSetting.getValue() * MixinModuleRegistry.liquidBlockReach.modifierSetting.getValue() && !hasAdjacentAir) {
+         if (distanceSquared < reach.modifierSetting.getValue() * reach.modifierSetting.getValue() && !hasAdjacentAir) {
             return;
          }
 
@@ -71,4 +71,8 @@ public class LiquidBlockMixin {
       }
    }
 
+   @Unique
+   private static void schizo$bindLiquidBlockModules(ModuleRegistry moduleRegistry) {
+      reach = (ReachModule)moduleRegistry.getModule(ReachModule.class);
+   }
 }

@@ -22,7 +22,6 @@ import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.LocalPlayerTickEvent;
-import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.events.bus.EventBus;
 import dev.schizo.client.modules.combat.AutoCrystalModule;
 import dev.schizo.client.modules.misc.SwingModule;
@@ -44,8 +43,8 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
 public class CrystalInteractionManager implements ClientAccess {
-   private static volatile SwingModule swing;
-   private static volatile AutoCrystalModule autoCrystal;
+   private static final SwingModule swing;
+   private static final AutoCrystalModule autoCrystal;
    private final ElapsedTimer attackCooldownTimer = new ElapsedTimer();
    private long additionalCooldownMillis;
    private int lastAttackedEntityId;
@@ -110,18 +109,10 @@ public class CrystalInteractionManager implements ClientAccess {
          return;
       }
       var eventLoop = ClientAccess.schizoMinecraft;
-      var expectedLevel = ClientAccess.schizoMinecraft.level;
-      var expectedPlayer = ClientAccess.schizoMinecraft.player;
       Runnable attackTask = () -> {
-         if (ClientAccess.schizoMinecraft.level != expectedLevel
-            || ClientAccess.schizoMinecraft.player != expectedPlayer
-            || expectedLevel == null
-            || expectedPlayer == null) {
-            return;
-         }
-         Entity targetEntity = expectedLevel.getEntity(entityId);
+         Entity targetEntity = ClientAccess.schizoMinecraft.level.getEntity(entityId);
          if (targetEntity != null) {
-            expectedPlayer.attack(targetEntity);
+            ClientAccess.schizoMinecraft.player.attack(targetEntity);
          }
       };
 
@@ -133,15 +124,9 @@ public class CrystalInteractionManager implements ClientAccess {
       eventBus.subscribe(this);
    }
 
-   public static void bindModules(ModuleRegistry registry) {
-      swing = (SwingModule)java.util.Objects.requireNonNull(
-         registry.getModule(SwingModule.class),
-         "Required module is not registered: SwingModule"
-      );
-      autoCrystal = (AutoCrystalModule)java.util.Objects.requireNonNull(
-         registry.getModule(AutoCrystalModule.class),
-         "Required module is not registered: AutoCrystalModule"
-      );
+   static {
+      swing = (SwingModule)ClientContext.getModule(SwingModule.class);
+      autoCrystal = (AutoCrystalModule)ClientContext.getModule(AutoCrystalModule.class);
    }
 
    private void resetAttackCooldown(InteractionHand hand) {
@@ -224,13 +209,6 @@ public class CrystalInteractionManager implements ClientAccess {
 
    public boolean attackEntity(int entityId) {
       return this.attackEntity(entityId, false);
-   }
-
-   @EventHandler
-   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
-      this.lastAttackedEntityId = -1;
-      this.additionalCooldownMillis = 0L;
-      this.attackCooldownTimer.clear();
    }
 
    @EventHandler(priority = -300)

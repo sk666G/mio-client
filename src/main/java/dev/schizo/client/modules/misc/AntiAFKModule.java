@@ -120,14 +120,6 @@ public class AntiAFKModule extends Module {
    public void onEnable() {
       this.idleTimer.reset();
       this.actionTimer.reset();
-      this.jumpActionPending = false;
-      this.sneakActionPending = false;
-   }
-
-   @Override
-   public void onDisable() {
-      this.jumpActionPending = false;
-      this.sneakActionPending = false;
    }
 
    @EventHandler
@@ -210,13 +202,6 @@ public class AntiAFKModule extends Module {
 
       BlockableEventLoop<?> replyClient = ClientAccess.schizoMinecraft;
       Runnable replyAction = () -> {
-         if (!this.isToggled()
-            || !this.autoReplySetting.getValue()
-            || !this.isIdle()
-            || ClientAccess.schizoMinecraft.player == null) {
-            return;
-         }
-
          ClientPacketListener replyConnectionCapture = ClientAccess.schizoMinecraft.player.connection;
          LocalPlayer replyPlayer = ClientAccess.schizoMinecraft.player;
          String playerName = replyPlayer.getName().getString();

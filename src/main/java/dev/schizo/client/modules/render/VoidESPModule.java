@@ -11,7 +11,6 @@ package dev.schizo.client.modules.render;
 
 import java.util.function.Predicate;
 import dev.schizo.client.ClientAccess;
-import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.PacketEvent;
 import dev.schizo.client.events.WorldRenderEvent;
 import dev.schizo.client.events.EventHandler;
@@ -20,7 +19,6 @@ import dev.schizo.client.render.WorldBoxRenderer;
 import dev.schizo.client.managers.RotationManager;
 import dev.schizo.client.render.ColorUtils;
 import dev.schizo.client.utils.world.WorldUtils;
-import dev.schizo.client.utils.AdaptiveScanBudget;
 import dev.schizo.client.modules.Module;
 import dev.schizo.client.modules.ModuleCategory;
 import dev.schizo.client.settings.BooleanSetting;
@@ -33,6 +31,7 @@ import java.awt.Color;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
+import java.util.stream.Stream;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.core.BlockPos;
@@ -53,12 +52,7 @@ public class VoidESPModule extends Module {
    final Setting<Boolean> colorsSetting;
    private final Setting<Color> fillSetting;
    private final Setting<Color> lineSetting;
-   private static final int FLOOR_SCAN_BUDGET_PER_TICK = 2048;
-   private final Set<BlockPos> voidBlocks;
-   private Iterator<BlockPos> floorScan = java.util.Collections.emptyIterator();
-   private BlockPos scanOrigin;
-   private int scanFloorY = Integer.MIN_VALUE;
-   private int scanRadius = -1;
+   private final Set voidBlocks;
    private boolean resetPending;
 
    private boolean shouldRemoveVoidBlock(BlockPos position) {
@@ -108,61 +102,30 @@ public class VoidESPModule extends Module {
    @Override
    public void onDisable() {
       this.voidBlocks.clear();
-      this.resetFloorScan();
-   }
-
-   private void resetFloorScan() {
-      this.floorScan = java.util.Collections.emptyIterator();
-      this.scanOrigin = null;
-      this.scanFloorY = Integer.MIN_VALUE;
-      this.scanRadius = -1;
-   }
-
-   private void prepareFloorScan(Vec3 cameraPosition, int floorY, int radius) {
-      BlockPos origin = BlockPos.containing(cameraPosition);
-      if (!origin.equals(this.scanOrigin)
-         || floorY != this.scanFloorY
-         || radius != this.scanRadius
-         || !this.floorScan.hasNext()) {
-         this.floorScan = VoidFloorScanCursor.iterator(cameraPosition, floorY, radius);
-         this.scanOrigin = origin;
-         this.scanFloorY = floorY;
-         this.scanRadius = radius;
-      }
    }
 
    @EventHandler
    private void onLocalPlayerTickEvent(LocalPlayerTickEvent event) {
       if (this.resetPending) {
          this.voidBlocks.clear();
-         this.resetFloorScan();
          this.resetPending = false;
       }
 
       this.voidBlocks.removeIf((java.util.function.Predicate<net.minecraft.core.BlockPos>)this::shouldRemoveVoidBlock);
       GameRenderer gameRenderer = ClientAccess.schizoMinecraft.gameRenderer;
       Vec3 cameraPosition = (gameRenderer.getMainCamera()).position();
-      ClientLevel level = ClientAccess.schizoMinecraft.level;
-      int floorY = level.getMinY();
-      int scanRadius = this.radiusSetting.getValue();
-      this.prepareFloorScan(cameraPosition, floorY, scanRadius);
-      int budget = AdaptiveScanBudget.limit(FLOOR_SCAN_BUDGET_PER_TICK, ClientContext.frameTiming);
-      int processed = 0;
-      while (processed < budget && this.floorScan.hasNext()) {
-         BlockPos position = this.floorScan.next();
-         if (!isBedrock(position)) {
-            this.voidBlocks.add(position);
-         }
-         processed++;
-      }
+      float scanRadius = (this.radiusSetting.getValue()).intValue();
+      Stream voidBlockStream = WorldUtils.streamSphereBlocks(cameraPosition, scanRadius).filter((java.util.function.Predicate<net.minecraft.core.BlockPos>)this::isVoidBlock);
+      Set destinationBlocks = this.voidBlocks;
+      voidBlockStream.forEach((java.util.function.Consumer<net.minecraft.core.BlockPos>)destinationBlocks::add);
    }
 
    @EventHandler
    private void onWorldRender(WorldRenderEvent.Main event) {
-      Iterator<BlockPos> positions = this.voidBlocks.iterator();
+      Iterator positions = this.voidBlocks.iterator();
 
       while (positions.hasNext()) {
-         BlockPos position = positions.next();
+         BlockPos position = (BlockPos)positions.next();
          AABB blockBox = new AABB(position);
          int baseY = position.getY();
 
@@ -244,7 +207,7 @@ public class VoidESPModule extends Module {
          return colors.isExpanded();
       };
       this.lineSetting = this.add(new ColorSetting(new String("Line"), new Color(-1140916224, true), lineVisibility));
-      this.voidBlocks = new HashSet<>();
+      this.voidBlocks = new HashSet();
    }
 
 }

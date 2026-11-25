@@ -50,7 +50,6 @@ public class PhaseESPModule extends Module {
    private final Setting<Boolean> outlineSetting;
    private final Setting<Float> alphaSetting;
    private final Map<BlockPos, BlockAnimation> blockAnimations;
-   private ClientLevel animationLevel;
 
    private boolean isNotBedrock(BlockPos position) {
 
@@ -137,21 +136,13 @@ public class PhaseESPModule extends Module {
       return PhaseESPModule.Safety.UNSAFE;
    }
 
-   private void refreshPosition(BlockPos position, long nowNanos) {
-      BlockAnimation animation = this.blockAnimations.get(position);
-      if (animation == null) {
-         animation = BlockAnimation.create(nowNanos);
-      } else {
-         animation = animation.refresh(nowNanos);
-      }
-      this.blockAnimations.put(position, animation);
-   }
-
-   private void refreshAnimationLevel(ClientLevel level) {
-      if (this.animationLevel != level) {
-         this.blockAnimations.clear();
-         this.animationLevel = level;
-      }
+   private void refreshPosition(BlockPos position) {
+      Map<BlockPos, BlockAnimation> animations = this.blockAnimations;
+      PhaseESPModule.BlockAnimation animation = animations.getOrDefault(
+         position, PhaseESPModule.BlockAnimation.create()
+      );
+      animations = this.blockAnimations;
+      animations.put(position, animation.refresh());
    }
 
    private AABB getBlockBounds(BlockPos position) {
@@ -172,23 +163,19 @@ public class PhaseESPModule extends Module {
       return BlockInteractionUtils.isCollidable(playerPosition);
    }
 
-   private void removeExpiredPositions(long nowNanos) {
+   private void removeExpiredPositions() {
       this.blockAnimations.entrySet().removeIf(
-         entry -> entry.getValue().isExpired(nowNanos)
+         entry -> {
+            long nowMillis = System.currentTimeMillis();
+            PhaseESPModule.BlockAnimation animation = entry.getValue();
+            return nowMillis > animation.expiresAtMillis();
+         }
       );
    }
 
    @EventHandler
    private void onWorldRender(WorldRenderEvent.Main event) {
-      ClientLevel level = ClientAccess.schizoMinecraft.level;
-      if (level == null || ClientAccess.schizoMinecraft.player == null) {
-         this.blockAnimations.clear();
-         this.animationLevel = null;
-         return;
-      }
-      this.refreshAnimationLevel(level);
-      long nowNanos = System.nanoTime();
-      this.removeExpiredPositions(nowNanos);
+      this.removeExpiredPositions();
       double playerMinY = ClientAccess.schizoMinecraft.player.getBoundingBox().minY;
       float roundedPlayerY = (float)Math.round(playerMinY);
       AABB playerBounds = ClientAccess.schizoMinecraft.player.getBoundingBox();
@@ -205,7 +192,7 @@ public class PhaseESPModule extends Module {
             .map(BlockPos::immutable)
             .filter(this::isPhaseCandidate)
             .filter(this::shouldHighlightPosition)
-            .forEach(position -> this.refreshPosition(position, nowNanos));
+            .forEach(this::refreshPosition);
       }
 
       for (Entry<BlockPos, BlockAnimation> entry : this.blockAnimations.entrySet()) {
@@ -213,7 +200,7 @@ public class PhaseESPModule extends Module {
          PhaseESPModule.BlockAnimation animation = entry.getValue();
 
          PhaseESPModule.Safety safety = classifySafetyForRender(position);
-         Color fillColor = safety.getFadedColor(this, animation, nowNanos);
+         Color fillColor = safety.getFadedColor(this, animation);
 
          AABB blockBounds = this.getBlockBounds(position);
          PoseStack fillPoses = event.getPoseStack();
@@ -224,7 +211,7 @@ public class PhaseESPModule extends Module {
          );
          Boolean drawOutline = this.outlineSetting.getValue();
          if (drawOutline) {
-            float animationAlpha = animation.getAlpha(nowNanos);
+            float animationAlpha = animation.getAlpha();
             Float configuredAlpha = this.alphaSetting.getValue();
             float outlineAlpha = animationAlpha * configuredAlpha;
             PoseStack outlinePoses = event.getPoseStack();
@@ -237,12 +224,6 @@ public class PhaseESPModule extends Module {
                outlinePoses, outlineBounds, outlineColor, 1.0F);
          }
       }
-   }
-
-   @Override
-   public void onDisable() {
-      this.blockAnimations.clear();
-      this.animationLevel = null;
    }
 
    public PhaseESPModule() {
@@ -264,7 +245,7 @@ public class PhaseESPModule extends Module {
       UNSAFE;
 
       Color getFadedColor(
-         PhaseESPModule module, PhaseESPModule.BlockAnimation animation, long nowNanos
+         PhaseESPModule module, PhaseESPModule.BlockAnimation animation
       ) {
          Setting<Color> colorSetting = switch (this) {
             case SAFE -> module.safeSetting;
@@ -274,48 +255,45 @@ public class PhaseESPModule extends Module {
          Color baseColor = colorSetting.getValue();
          float baseAlpha = baseColor.getAlpha();
          return ColorUtils.withAlpha(
-            baseColor, (int)(baseAlpha * animation.getAlpha(nowNanos))
+            baseColor, (int)(baseAlpha * animation.getAlpha())
          );
       }
 
    }
 
-   static record BlockAnimation(
-      long createdAtNanos,
-      long expiresAtNanos
+   private record BlockAnimation(
+      long createdAtMillis,
+      long expiresAtMillis
    ) {
-      static final long FADE_NANOS = 75_000_000L;
-      static final long RETENTION_NANOS = 200_000_000L;
 
-      static BlockAnimation create(long nowNanos) {
-         return new BlockAnimation(nowNanos, nowNanos + RETENTION_NANOS);
+      public static PhaseESPModule.BlockAnimation create() {
+         PhaseESPModule.BlockAnimation animation = new PhaseESPModule.BlockAnimation(System.currentTimeMillis(), 0L);
+         return animation.refresh();
       }
 
-      BlockAnimation refresh(long nowNanos) {
-         return new BlockAnimation(this.createdAtNanos, nowNanos + RETENTION_NANOS);
+      public PhaseESPModule.BlockAnimation refresh() {
+         return new PhaseESPModule.BlockAnimation(this.createdAtMillis, System.currentTimeMillis() + 200L);
       }
 
-      boolean isExpired(long nowNanos) {
-         return nowNanos > this.expiresAtNanos;
-      }
-
-      float getAlpha(long nowNanos) {
-         long ageNanos = Math.max(0L, nowNanos - this.createdAtNanos);
-         if (ageNanos <= FADE_NANOS) {
-            return (float)ageNanos / (float)FADE_NANOS;
+      public float getAlpha() {
+         long ageMillis = System.currentTimeMillis() - this.createdAtMillis;
+         float alphaValue = (float)ageMillis;
+         if (alphaValue <= 75.0F) {
+            alphaValue = (float)ageMillis;
+            return alphaValue / 75.0F;
          }
 
-         long remainingNanos = this.expiresAtNanos - nowNanos;
-         if (remainingNanos <= FADE_NANOS) {
-            return Mth.clamp(
-               (float)remainingNanos / (float)FADE_NANOS,
-               0.0F,
-               1.0F
-            );
+         alphaValue = (float)ageMillis;
+         float lifetimeMillis = (float)(this.expiresAtMillis - this.createdAtMillis);
+         if (alphaValue >= lifetimeMillis - 75.0F) {
+            alphaValue = (float)(this.expiresAtMillis - this.createdAtMillis - ageMillis);
+            alphaValue /= 75.0F;
+            return Mth.clamp(alphaValue, 0.0F, 1.0F);
          }
 
          return 1.0F;
       }
+
    }
 
 }

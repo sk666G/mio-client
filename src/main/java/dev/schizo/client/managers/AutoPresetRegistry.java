@@ -10,7 +10,6 @@
 package dev.schizo.client.managers;
 
 import dev.schizo.client.utils.chat.ChatUtils;
-import dev.schizo.client.config.PresetNameValidator;
 import dev.schizo.client.utils.inventory.Kit;
 import dev.schizo.client.utils.network.AutoPresetServerEntry;
 
@@ -26,7 +25,6 @@ import com.google.gson.JsonObject;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.Iterator;
 import java.util.Locale;
 import java.util.Map;
@@ -53,106 +51,31 @@ public final class AutoPresetRegistry implements ClientAccess, JsonConfigurable 
 
    @Override
    public void fromJson(JsonElement json) {
-      Map<String, ParsedServerEntry> parsed;
-      try {
-         parsed = parseSettings(json);
-      } catch (IllegalArgumentException invalidRoot) {
-         ClientAccess.logger.warn("Ignoring malformed auto-preset configuration", invalidRoot);
-         return;
-      }
+      JsonObject root = json.getAsJsonObject();
+      Iterator serverIterator = root.entrySet().iterator();
 
-      Map<String, AutoPresetServerEntry> loaded = new LinkedHashMap<>();
-      for (Entry<String, ParsedServerEntry> serverEntry : parsed.entrySet()) {
-         String server = serverEntry.getKey();
-         ParsedServerEntry parsedEntry = serverEntry.getValue();
-         AutoPresetServerEntry resolved = new AutoPresetServerEntry(server);
-
-         for (Entry<String, String> presetEntry : parsedEntry.presets().entrySet()) {
-            PresetCategory category = PresetCategory.findByName(presetEntry.getKey());
-            if (category != null) {
-               resolved.getPresets().put(category, presetEntry.getValue());
-            }
-         }
-
-         if (parsedEntry.kitName() != null) {
-            resolved.setKitName(parsedEntry.kitName());
-         }
-         if (!resolved.getPresets().isEmpty() || resolved.hasKit()) {
-            loaded.put(server, resolved);
-         }
-      }
-
-      this.serverSettings.clear();
-      this.serverSettings.putAll(loaded);
-      this.lastServer = null;
-   }
-
-   static Map<String, ParsedServerEntry> parseSettings(JsonElement json) {
-      if (json == null || !json.isJsonObject()) {
-         throw new IllegalArgumentException("Auto-preset configuration must be a JSON object");
-      }
-
-      Map<String, ParsedServerEntry> loaded = new LinkedHashMap<>();
-      for (Entry<String, JsonElement> serverEntry : json.getAsJsonObject().entrySet()) {
-         String server = serverEntry.getKey();
-         if (server == null || server.isBlank() || server.length() > 255) {
-            continue;
-         }
-         server = normalizeServerKey(server);
-
-         JsonElement serverJson = serverEntry.getValue();
-         if (serverJson == null || !serverJson.isJsonObject()) {
-            continue;
-         }
-
-         Map<String, String> presets = new LinkedHashMap<>();
-         String kitName = null;
+      while (serverIterator.hasNext()) {
+         Entry serverEntry = (Entry)serverIterator.next();
+         String server = (String)serverEntry.getKey();
+         JsonElement serverJson = (JsonElement)serverEntry.getValue();
          JsonObject settingsJson = serverJson.getAsJsonObject();
-         for (Entry<String, JsonElement> settingEntry : settingsJson.entrySet()) {
-            String categoryName = settingEntry.getKey();
-            JsonElement value = settingEntry.getValue();
-            if ("kit".equalsIgnoreCase(categoryName)) {
-               if (value != null && value.isJsonPrimitive()
-                  && value.getAsJsonPrimitive().isString()) {
-                  String candidateKit = value.getAsString();
-                  if (!candidateKit.isBlank() && candidateKit.length() <= 255) {
-                     kitName = candidateKit;
-                  }
-               }
-               continue;
-            }
+         Iterator settingIterator = settingsJson.entrySet().iterator();
 
-            if (categoryName == null || categoryName.isBlank() || categoryName.length() > 64
-               || value == null || !value.isJsonPrimitive()
-               || !value.getAsJsonPrimitive().isString()) {
-               continue;
-            }
-
-            try {
-               String presetName = PresetNameValidator.normalize(value.getAsString());
-               presets.put(categoryName, presetName);
-            } catch (IllegalArgumentException invalidPresetName) {
-               // Skip only the invalid mapping; other server/category entries remain loadable.
+         while (settingIterator.hasNext()) {
+            Entry settingEntry = (Entry)settingIterator.next();
+            String categoryName = (String)settingEntry.getKey();
+            PresetCategory category = PresetCategory.findByName(categoryName);
+            JsonElement presetJson = (JsonElement)settingEntry.getValue();
+            String presetName = presetJson.getAsString();
+            if (category != null) {
+               this.setPreset(server, category, presetName);
             }
          }
 
-         if (!presets.isEmpty() || kitName != null) {
-            loaded.put(server, new ParsedServerEntry(presets, kitName));
+         if (settingsJson.has("kit")) {
+            JsonElement kitJson = settingsJson.get("kit");
+            this.setKit(server, kitJson.getAsString());
          }
-      }
-      return Map.copyOf(loaded);
-   }
-
-   static String normalizeServerKey(String server) {
-      if (server == null) {
-         throw new IllegalArgumentException("Server key must not be null");
-      }
-      return server.toLowerCase(Locale.ROOT);
-   }
-
-   record ParsedServerEntry(Map<String, String> presets, String kitName) {
-      ParsedServerEntry {
-         presets = Map.copyOf(presets);
       }
    }
 
@@ -188,9 +111,7 @@ public final class AutoPresetRegistry implements ClientAccess, JsonConfigurable 
    }
 
    public boolean removeKit(String server) {
-      AutoPresetServerEntry settings = server == null
-         ? null
-         : (AutoPresetServerEntry)this.serverSettings.get(normalizeServerKey(server));
+      AutoPresetServerEntry settings = (AutoPresetServerEntry)this.serverSettings.get(server);
       if (settings == null) {
          return false;
       }
@@ -207,9 +128,7 @@ public final class AutoPresetRegistry implements ClientAccess, JsonConfigurable 
    }
 
    public boolean removePreset(String server, PresetCategory category) {
-      AutoPresetServerEntry settings = server == null
-         ? null
-         : (AutoPresetServerEntry)this.serverSettings.get(normalizeServerKey(server));
+      AutoPresetServerEntry settings = (AutoPresetServerEntry)this.serverSettings.get(server);
       if (settings == null) {
          return false;
       }
@@ -220,11 +139,7 @@ public final class AutoPresetRegistry implements ClientAccess, JsonConfigurable 
    public void setPreset(
       String server, PresetCategory category, String presetName
    ) {
-      String serverKey = normalizeServerKey(server);
-      AutoPresetServerEntry settings = (AutoPresetServerEntry)this.serverSettings.computeIfAbsent(
-         serverKey,
-         (Function<String, AutoPresetServerEntry>)ignoredServer -> new AutoPresetServerEntry(serverKey)
-      );
+      AutoPresetServerEntry settings = (AutoPresetServerEntry)this.serverSettings.computeIfAbsent(server, (Function<String, AutoPresetServerEntry>)ignoredServer -> new AutoPresetServerEntry(server));
 
       settings.getPresets().put(category, presetName);
    }
@@ -235,7 +150,7 @@ public final class AutoPresetRegistry implements ClientAccess, JsonConfigurable 
       String previousServer = this.lastServer;
       if (!serverAddress.equalsIgnoreCase(previousServer)) {
          this.lastServer = event.getServerAddress();
-         AutoPresetServerEntry settings = (AutoPresetServerEntry)this.serverSettings.get(normalizeServerKey(this.lastServer));
+         AutoPresetServerEntry settings = (AutoPresetServerEntry)this.serverSettings.get(this.lastServer);
          if (settings != null) {
 
             AtomicInteger messageCounter = new AtomicInteger(-2);
@@ -283,15 +198,11 @@ public final class AutoPresetRegistry implements ClientAccess, JsonConfigurable 
    }
 
    public boolean removeServer(String server) {
-      return server != null && this.serverSettings.remove(normalizeServerKey(server)) != null;
+      return this.serverSettings.remove(server) != null;
    }
 
    public void setKit(String server, String kitName) {
-      String serverKey = normalizeServerKey(server);
-      AutoPresetServerEntry settings = (AutoPresetServerEntry)this.serverSettings.computeIfAbsent(
-         serverKey,
-         (Function<String, AutoPresetServerEntry>)ignoredServer -> new AutoPresetServerEntry(serverKey)
-      );
+      AutoPresetServerEntry settings = (AutoPresetServerEntry)this.serverSettings.computeIfAbsent(server, (Function<String, AutoPresetServerEntry>)ignoredServer -> new AutoPresetServerEntry(server));
 
       settings.setKitName(kitName);
    }

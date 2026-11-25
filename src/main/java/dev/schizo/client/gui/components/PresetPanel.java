@@ -11,7 +11,6 @@ package dev.schizo.client.gui.components;
 
 import dev.schizo.client.gui.panels.Panel;
 import dev.schizo.client.ClientContext;
-import dev.schizo.client.ClientAccess;
 import dev.schizo.client.gui.screens.PresetScreen;
 import dev.schizo.client.gui.components.ActionButtonComponent;
 import dev.schizo.client.config.PresetData;
@@ -30,8 +29,6 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import java.io.IOException;
 import java.nio.file.Path;
 import net.minecraft.util.Util;
-import net.minecraft.network.chat.Component;
-import dev.schizo.client.utils.chat.ChatUtils;
 import org.apache.commons.lang3.SystemUtils;
 
 public class PresetPanel extends Panel {
@@ -61,10 +58,8 @@ public class PresetPanel extends Panel {
                      );
                   ClientContext.configurationManager.getPresetUndoState().push(action);
                   this.requestListRefresh();
-               } catch (IOException | IllegalArgumentException saveFailure) {
-                  ClientAccess.logger.warn("Could not save preset {}", this.saveNameSetting.getValue(), saveFailure);
-                  ChatUtils.printChat(Component.literal("Failed to save preset."), ChatUtils.DEFAULT_SIGNATURE,
-                     ChatUtils.MessagePriority.MID);
+               } catch (IOException saveFailure) {
+                  saveFailure.printStackTrace();
                }
 
                this.saveNameSetting
@@ -134,9 +129,7 @@ public class PresetPanel extends Panel {
                         ClientContext.configurationManager.getPresetUndoState().undo();
                         this.requestListRefresh();
                      } catch (IOException undoFailure) {
-                        ClientAccess.logger.warn("Could not undo preset operation", undoFailure);
-                        ChatUtils.printChat(Component.literal("Failed to undo preset operation."),
-                           ChatUtils.DEFAULT_SIGNATURE, ChatUtils.MessagePriority.MID);
+                        undoFailure.printStackTrace();
                      }
                   }
                )
@@ -176,10 +169,7 @@ public class PresetPanel extends Panel {
                            );
                         ClientContext.configurationManager.getPresetUndoState().push(action);
                         this.requestListRefresh();
-                     } catch (IOException | IllegalArgumentException saveFailure) {
-                        ClientAccess.logger.warn("Could not save preset {}", this.selectedPreset.getName(), saveFailure);
-                        ChatUtils.printChat(Component.literal("Failed to save preset " + this.selectedPreset.getName() + "."),
-                           ChatUtils.DEFAULT_SIGNATURE, ChatUtils.MessagePriority.MID);
+                     } catch (IOException ignoredSaveFailure) {
                      }
                   }
                )
@@ -192,16 +182,10 @@ public class PresetPanel extends Panel {
                      PresetUndoAction action = PresetUndoAction.beforeDelete(
                         this.getSelectedCategoryPresets(), this.selectedPreset.getName()
                      );
-                     try {
-                        if (this.getSelectedCategoryPresets().deletePreset(this.selectedPreset.getName())) {
-                           ClientContext.configurationManager.getPresetUndoState().push(action);
-                           this.setMode(PresetPanelMode.NEW);
-                        }
-                     } catch (IOException | IllegalArgumentException deleteFailure) {
-                        ClientAccess.logger.warn("Could not delete preset {}", this.selectedPreset.getName(), deleteFailure);
-                        ChatUtils.printChat(Component.literal("Failed to delete preset " + this.selectedPreset.getName() + "."),
-                           ChatUtils.DEFAULT_SIGNATURE, ChatUtils.MessagePriority.MID);
+                     if (this.getSelectedCategoryPresets().deletePreset(this.selectedPreset.getName())) {
+                        ClientContext.configurationManager.getPresetUndoState().push(action);
                      }
+                     this.setMode(PresetPanelMode.NEW);
                   }
                )
             );

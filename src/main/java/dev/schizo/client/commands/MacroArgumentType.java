@@ -20,6 +20,7 @@ import com.mojang.brigadier.arguments.ArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.DynamicCommandExceptionType;
 import com.mojang.brigadier.suggestion.SuggestionsBuilder;
+import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -35,9 +36,14 @@ public class MacroArgumentType implements ArgumentType {
 
       String requestedName = reader.readString();
       MacroRegistry macroRegistry = ClientContext.macroRegistry;
-      Macro matchingMacro = macroRegistry.findByName(requestedName).orElse(null);
-      if (matchingMacro != null) {
-         return matchingMacro;
+      Iterator macros = ((List)macroRegistry.getRegistry()).iterator();
+
+      while (macros.hasNext()) {
+         Macro macro = (Macro)macros.next();
+         String macroName = macro.getName();
+         if (macroName.equalsIgnoreCase(requestedName)) {
+            return macro;
+         }
       }
 
       DynamicCommandExceptionType unknownMacroException = new DynamicCommandExceptionType(invalidName -> {

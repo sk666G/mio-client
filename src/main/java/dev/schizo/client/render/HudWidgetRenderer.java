@@ -19,7 +19,6 @@ import dev.schizo.client.ClientContext;
 import dev.schizo.client.gui.screens.ClientScreen;
 import dev.schizo.client.gui.screens.HudEditorScreen;
 import dev.schizo.client.modules.HudWidgetModule;
-import dev.schizo.client.profiling.EventProfiler;
 import dev.schizo.client.modules.client.FontsModule;
 import dev.schizo.client.settings.options.HudAnchor;
 
@@ -35,7 +34,6 @@ public abstract class HudWidgetRenderer implements ClientAccess, GuiElement {
       0,120);
    public static boolean renderingHud = false;
    protected final HudWidgetModule widget;
-   private final EventProfiler.HudHandle profilerHandle;
    private final FloatAnimation selectionAnimation = new FloatAnimation();
    private final FloatAnimation enabledAnimation = new FloatAnimation();
    private HudAnchor anchor = HudAnchor.NONE;
@@ -45,9 +43,9 @@ public abstract class HudWidgetRenderer implements ClientAccess, GuiElement {
    private float relativeY = 0.5F;
    private int horizontalDirection;
    private int verticalDirection;
-   private final float[] dimensions = new float[2];
+   private float[] dimensions = new float[2];
    private boolean selected;
-   private final MonotonicHoverDelay hoverDelay = new MonotonicHoverDelay(300_000_000L);
+   private long hoverStartMillis;
 
    @Override
    public int getHeight() {
@@ -75,11 +73,11 @@ public abstract class HudWidgetRenderer implements ClientAccess, GuiElement {
    }
 
    public float getY() {
-      float screenHeight = ClientAccess.schizoMinecraft.getWindow().getGuiScaledHeight();
-      return HudWidgetPosition.clampToViewport(
-         this.relativeY * screenHeight,
-         screenHeight,
-         this.getDimensions()[1]
+      return Math.min(
+         this.relativeY
+            * ClientAccess.schizoMinecraft.getWindow().getGuiScaledHeight(),
+         ClientAccess.schizoMinecraft.getWindow().getGuiScaledHeight()
+            - this.getDimensions()[1]
       );
    }
 
@@ -88,11 +86,11 @@ public abstract class HudWidgetRenderer implements ClientAccess, GuiElement {
    }
 
    public float getX() {
-      float screenWidth = ClientAccess.schizoMinecraft.getWindow().getGuiScaledWidth();
-      return HudWidgetPosition.clampToViewport(
-         this.relativeX * screenWidth,
-         screenWidth,
-         this.getDimensions()[0]
+      return Math.min(
+         this.relativeX
+            * ClientAccess.schizoMinecraft.getWindow().getGuiScaledWidth(),
+         ClientAccess.schizoMinecraft.getWindow().getGuiScaledWidth()
+            - this.getDimensions()[0]
       );
    }
 
@@ -103,11 +101,6 @@ public abstract class HudWidgetRenderer implements ClientAccess, GuiElement {
 
    protected HudWidgetRenderer(HudWidgetModule widget) {
       this.widget = widget;
-      this.profilerHandle = EventProfiler.GLOBAL.registerHudWidget(widget.getName());
-   }
-
-   public EventProfiler.HudHandle getProfilerHandle() {
-      return this.profilerHandle;
    }
 
    public void updateSnapping(float screenWidth, float screenHeight, float snapDistance) {
@@ -160,7 +153,11 @@ public abstract class HudWidgetRenderer implements ClientAccess, GuiElement {
       float[] size = this.getDimensions();
       if (this.isMouseOver(mouseX, mouseY)
          && !this.selected) {
-         if (this.hoverDelay.hasElapsed(System.nanoTime())) {
+         if (this.hoverStartMillis == -1L) {
+            this.hoverStartMillis = System.currentTimeMillis();
+         }
+
+         if (this.hoverStartMillis + 300L <= System.currentTimeMillis()) {
             float labelX = this.getHorizontalDirection() == 1
                ? this.getX()
                   + size[0]
@@ -180,7 +177,7 @@ public abstract class HudWidgetRenderer implements ClientAccess, GuiElement {
                );
          }
       } else {
-         this.hoverDelay.reset();
+         this.hoverStartMillis = -1L;
       }
 
       if (!renderingHud) {
@@ -260,15 +257,7 @@ public abstract class HudWidgetRenderer implements ClientAccess, GuiElement {
    }
 
    public void setDimensions(float[] dimensions) {
-      this.dimensions[0] = dimensions[0];
-      this.dimensions[1] = dimensions[1];
-   }
-
-   /** Resets and returns this renderer's private zero-size dimensions while it is not visible. */
-   public float[] useHiddenDimensions() {
-      this.dimensions[0] = 0.0F;
-      this.dimensions[1] = 0.0F;
-      return this.dimensions;
+      this.dimensions = dimensions;
    }
 
    @Override
@@ -292,12 +281,8 @@ public abstract class HudWidgetRenderer implements ClientAccess, GuiElement {
 
    public void setX(float x, boolean screenCoordinates) {
       if (screenCoordinates) {
-         float screenWidth = ClientAccess.schizoMinecraft.getWindow().getGuiScaledWidth();
-         this.relativeX = HudWidgetPosition.toNormalizedPosition(
-            x,
-            screenWidth,
-            this.getDimensions()[0]
-         );
+         this.relativeX = x
+            / ClientAccess.schizoMinecraft.getWindow().getGuiScaledWidth();
       } else {
          this.relativeX = Mth.clamp(
             x,
@@ -337,12 +322,8 @@ public abstract class HudWidgetRenderer implements ClientAccess, GuiElement {
 
    public void setY(float y, boolean screenCoordinates) {
       if (screenCoordinates) {
-         float screenHeight = ClientAccess.schizoMinecraft.getWindow().getGuiScaledHeight();
-         this.relativeY = HudWidgetPosition.toNormalizedPosition(
-            y,
-            screenHeight,
-            this.getDimensions()[1]
-         );
+         this.relativeY = y
+            / ClientAccess.schizoMinecraft.getWindow().getGuiScaledHeight();
       } else {
          this.relativeY = Mth.clamp(
             y,
@@ -354,8 +335,10 @@ public abstract class HudWidgetRenderer implements ClientAccess, GuiElement {
 
    public FloatBounds getBounds() {
       return FloatBounds.fromPositionAndSize(
-         this.getX(),
-         this.getY(),
+         this.relativeX
+            * ClientAccess.schizoMinecraft.getWindow().getGuiScaledWidth(),
+         this.relativeY
+            * ClientAccess.schizoMinecraft.getWindow().getGuiScaledHeight(),
          this.dimensions[0],
          this.dimensions[1]
       );

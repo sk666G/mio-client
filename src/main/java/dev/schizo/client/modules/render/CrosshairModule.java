@@ -85,33 +85,44 @@ public class CrosshairModule extends Module {
          gap += movementAmplitude * currentAnimation.updateAndGet();
       }
       float guiScale = (ClientAccess.schizoMinecraft.getWindow()).getGuiScale();
-      PoseStack crosshairPose = event.getPoseStack();
-      crosshairPose.pushPose();
-      try {
-         float inverseScale = 1.0F / guiScale;
-         crosshairPose.scale(inverseScale, inverseScale, inverseScale);
-         Setting<Integer> shadowCheck = this.shadowSetting;
-         if (!shadowCheck.isAtMinimum()) {
-            crosshairPose.pushPose();
-            try {
-               int shadowOffset = this.shadowSetting.getValue();
-               crosshairPose.translate(shadowOffset, shadowOffset, 0.0F);
-               float shadowLength = this.lengthSetting.getValue();
-               float shadowHalfWidth = this.widthSetting.getValue() / 2.0F;
-               Color shadowColor = ColorUtils.darken(this.colorSetting.getValue(), 0.25F);
-               this.drawCrosshair(crosshairPose, shadowLength, shadowHalfWidth, gap, shadowColor);
-            } finally {
-               crosshairPose.popPose();
-            }
-         }
-
-         float length = this.lengthSetting.getValue();
-         float halfWidth = this.widthSetting.getValue() / 2.0F;
-         Color color = this.colorSetting.getValue();
-         this.drawCrosshair(crosshairPose, length, halfWidth, gap, color);
-      } finally {
-         crosshairPose.popPose();
+      (event.getPoseStack()).pushPose();
+      PoseStack scalePose = event.getPoseStack();
+      float scaleX = 1.0F / guiScale;
+      float scaleY = 1.0F / guiScale;
+      float scaleZ = 1.0F / guiScale;
+      scalePose.scale(scaleX, scaleY, scaleZ);
+      Setting<Integer> shadowCheck = this.shadowSetting;
+      if (!shadowCheck.isAtMinimum()) {
+         PoseStack shadowPose = event.getPoseStack();
+         shadowPose.pushPose();
+         float shadowX = (this.shadowSetting.getValue()).intValue();
+         float shadowY = (this.shadowSetting.getValue()).intValue();
+         shadowPose.translate(shadowX, shadowY, 0.0F);
+         PoseStack shadowDrawPose = event.getPoseStack();
+         float shadowLength = (this.lengthSetting.getValue()).intValue();
+         Setting<Integer> shadowWidthSetting = this.widthSetting;
+         Integer shadowWidthValue = shadowWidthSetting.getValue();
+         float shadowWidth = shadowWidthValue.intValue();
+         float shadowHalfWidth = shadowWidth / 2.0F;
+         Setting<Color> shadowColorSetting = this.colorSetting;
+         Color shadowBaseColor = shadowColorSetting.getValue();
+         Color shadowColor = ColorUtils.darken(shadowBaseColor, 0.25F);
+         this.drawCrosshair(shadowDrawPose, shadowLength, shadowHalfWidth, gap, shadowColor);
+         shadowPose.popPose();
       }
+      PoseStack crosshairPose = event.getPoseStack();
+      Setting<Integer> lengthSetting = this.lengthSetting;
+      Integer lengthValue = lengthSetting.getValue();
+      float length = lengthValue.intValue();
+      Setting<Integer> widthSetting = this.widthSetting;
+      Integer widthValue = widthSetting.getValue();
+      float width = widthValue.intValue();
+      float halfWidth = width / 2.0F;
+      Setting<Color> colorSetting = this.colorSetting;
+      Color color = colorSetting.getValue();
+      this.drawCrosshair(crosshairPose, length, halfWidth, gap, color);
+      PoseStack popPose = event.getPoseStack();
+      popPose.popPose();
    }
 
    private void drawCrosshair(PoseStack pose, float length, float halfWidth, float gap, Color color) {

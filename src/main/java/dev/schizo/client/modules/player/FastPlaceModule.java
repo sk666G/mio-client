@@ -336,18 +336,17 @@ public class FastPlaceModule extends Module {
             Direction supportDirection = BlockInteractionUtils.findSupportDirection(positionForSupport, strictDirection);
             if (supportDirection != null && enderChestSlot != -1) {
                int slotToSelect = enderChestSlot;
-               try {
-                  InventoryUtils.selectHotbarSlotForPlacement(slotToSelect);
-                  InteractionHand mainHand = InteractionHand.MAIN_HAND;
+               InventoryUtils.selectHotbarSlotForPlacement(slotToSelect);
+               InteractionHand mainHand = InteractionHand.MAIN_HAND;
 
-                  BlockInteractionUtils.sendPlacement(miningPosition, null, supportDirection, false, mainHand);
-                  SwingAction swingAction = SwingAction.INTERACT;
-                  InteractionHand swingHand = InteractionHand.MAIN_HAND;
-                  SwingInteractionManager swingManager = ClientContext.swingManager;
-                  swingManager.swingPacket(swingHand, swingAction);
-               } finally {
-                  InventoryUtils.selectHotbarSlotForPlacement(previousSlot);
-               }
+               BlockInteractionUtils.sendPlacement(miningPosition, null, supportDirection, false, mainHand);
+               SwingAction swingAction = SwingAction.INTERACT;
+               InteractionHand swingHand = InteractionHand.MAIN_HAND;
+               SwingInteractionManager swingManager = ClientContext.swingManager;
+               swingManager.swingPacket(swingHand, swingAction);
+
+               int slotToRestore = previousSlot;
+               InventoryUtils.selectHotbarSlotForPlacement(slotToRestore);
                RotationManager managerForRequest = ClientContext.rotationManager;
                Vec3 miningCenter = miningPosition.getCenter();
 

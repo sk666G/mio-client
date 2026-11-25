@@ -9,7 +9,6 @@
 
 package dev.schizo.mixin;
 
-import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.modules.render.ChamsModule;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.render.RenderUtils;
@@ -30,6 +29,8 @@ import org.spongepowered.asm.mixin.injection.ModifyArg;
 
 @Mixin(RenderType.class)
 public class RenderTypeColorMixin {
+   private static GlintModule glintModule = ClientContext.getModule(GlintModule.class);
+   private static ChamsModule chamsGlintModule = ClientContext.getModule(ChamsModule.class);
    @Shadow
    @Final
    public RenderSetup state;
@@ -45,14 +46,14 @@ public class RenderTypeColorMixin {
    private Vector4fc applyRenderColorModifiers(Vector4fc originalColor) {
       Vector4f mutableColor = (Vector4f)originalColor;
       if (ClientRenderPipelines.isGlint(this.state.pipeline)
-         && MixinModuleRegistry.renderTypeColorGlintModule.isToggled()) {
-         mutableColor.mul(MixinModuleRegistry.renderTypeColorGlintModule.getGlintColor());
+         && glintModule.isToggled()) {
+         mutableColor.mul(glintModule.getGlintColor());
       }
 
       if (ClientRenderPipelines.isGlint(this.state.pipeline)
          && ChamsModule.renderingGlintBatch) {
          mutableColor.set(
-            MixinModuleRegistry.renderTypeColorChamsGlintModule.getGlintColor(),
+            chamsGlintModule.getGlintColor(),
             1.0F
          );
       }
@@ -75,4 +76,13 @@ public class RenderTypeColorMixin {
       return mutableColor;
    }
 
+   @Unique
+   private static void schizo$bindRenderTypeColorModules(ModuleRegistry moduleRegistry) {
+      glintModule = (GlintModule)moduleRegistry.getModule(
+         GlintModule.class
+      );
+      chamsGlintModule = (ChamsModule)moduleRegistry.getModule(
+         ChamsModule.class
+      );
+   }
 }

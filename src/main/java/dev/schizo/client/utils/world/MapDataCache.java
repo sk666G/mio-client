@@ -22,15 +22,19 @@ import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.LocalPlayerTickEvent;
 import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.events.PacketEvent;
+import dev.schizo.client.utils.ElapsedTimer;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.LinkOption;
+import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.nio.file.Path;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.component.DataComponents;
@@ -43,13 +47,9 @@ import net.minecraft.world.level.saveddata.maps.MapId;
 import net.minecraft.world.level.saveddata.maps.MapItemSavedData;
 
 public final class MapDataCache implements ClientAccess {
-   private static final long SAVE_INTERVAL_NANOS = java.util.concurrent.TimeUnit.MINUTES.toNanos(5);
-   private final Map<String, MapItemSavedData> mapDataByName = new HashMap<>();
-   private CompletableFuture<Void> pendingSave = CompletableFuture.completedFuture(null);
-   private long lastSaveNanos;
-   private boolean preserveUnreadableFile;
-   private String serverAddress;
-   private volatile Object session = new Object();
+   private final ElapsedTimer saveTimer = new ElapsedTimer();
+   private final Map<String, MapItemSavedData> mapDataByName = Collections.synchronizedMap(new HashMap<>());
+   private String serverAddress = null;
 
    public MapDataCache() {
       ClientAccess.eventBus.subscribe(this);
@@ -58,58 +58,63 @@ public final class MapDataCache implements ClientAccess {
    public void load(String address) {
       this.mapDataByName.clear();
       Path filePath = ConfigurationManager.MAPS_DIRECTORY.resolve(FontRenderer.sanitizeFileName(address) + ".data");
-      this.preserveUnreadableFile = false;
-      if (Files.notExists(filePath, LinkOption.NOFOLLOW_LINKS)) {
+      if (!filePath.toFile().exists()) {
          return;
       }
+
+      byte[] decodedBytes;
       try {
-         this.mapDataByName.putAll(MapCacheReader.read(filePath, (scale, colors) -> {
-            MapItemSavedData data = MapItemSavedData.createForClient(scale, true, null);
-            System.arraycopy(colors, 0, data.colors, 0, colors.length);
-            return data;
-         }));
-      } catch (IOException | RuntimeException failure) {
-         this.preserveUnreadableFile = true;
-         ClientAccess.logger.warn("Could not load map cache {}; preserving the file", filePath, failure);
+         byte[] fileBytes = FileUtils.readBytes(filePath);
+         decodedBytes = CompressionUtils.inflate(fileBytes);
+      } catch (Exception decodeFailure) {
+         return;
+      }
+
+      ByteArrayInputStream byteInput = new ByteArrayInputStream(decodedBytes);
+      try (DataInputStream input = new DataInputStream(byteInput)) {
+         int entryCount = input.readInt();
+         for (int entryIndex = 0; entryIndex < entryCount; entryIndex++) {
+            String name = input.readUTF();
+            byte scale = input.readByte();
+            MapItemSavedData mapData = MapItemSavedData.createForClient(scale, true, null);
+            for (int colorIndex = 0;
+               colorIndex < 16384;
+               colorIndex++
+            ) {
+               mapData.colors[colorIndex] = input.readByte();
+            }
+            this.mapDataByName.put(name, mapData);
+         }
+      } catch (Exception loadFailure) {
+         loadFailure.printStackTrace();
       }
    }
 
    @EventHandler
    private void onLocalPlayerTickEvent(LocalPlayerTickEvent event) {
-      long now = System.nanoTime();
-      if (this.serverAddress != null && now - this.lastSaveNanos >= SAVE_INTERVAL_NANOS && this.pendingSave.isDone()) {
-         this.lastSaveNanos = now;
-         byte[] snapshot = this.serializeMaps();
-         if (snapshot != null) {
+      if (this.saveTimer.hasElapsedAndReset(5L, TimeUnit.MINUTES) && this.serverAddress != null) {
+         CompletableFuture.runAsync(() -> {
             String address = this.serverAddress;
-            this.pendingSave = CompletableFuture.runAsync(() -> writeSnapshot(address, snapshot), ClientAccess.executorService);
-         }
+            this.save(address);
+         }, ClientAccess.executorService);
       }
    }
 
    @EventHandler
    private void onConnectScreenConnectEvent(ConnectScreenConnectEvent event) {
-      this.session = new Object();
-      this.pendingSave.join();
-      this.lastSaveNanos = System.nanoTime();
       this.serverAddress = event.getServerAddress();
       this.load(this.serverAddress);
    }
 
    @EventHandler
    private void onMinecraftDisconnectEvent(MinecraftDisconnectEvent event) {
-      this.session = new Object();
       if (this.serverAddress != null) {
          this.save(this.serverAddress);
       }
-      this.serverAddress = null;
-      this.mapDataByName.clear();
-      this.preserveUnreadableFile = false;
    }
 
    public MapItemSavedData getMapData(ItemStack stack, MapId mapId) {
       ClientLevel level = ClientAccess.schizoMinecraft.level;
-      if (level == null) return null;
       MapItemSavedData worldData = MapItem.getSavedData(mapId, level);
       if (mapId.id() != -1 && worldData != null) {
          return worldData;
@@ -120,38 +125,33 @@ public final class MapDataCache implements ClientAccess {
    }
 
    public void save(String address) {
-      this.pendingSave.join();
-      byte[] snapshot = this.serializeMaps();
-      if (snapshot != null) {
-         writeSnapshot(address, snapshot);
+      if (this.mapDataByName.isEmpty()) {
+         return;
       }
-   }
 
-   private byte[] serializeMaps() {
-      if (this.preserveUnreadableFile || this.mapDataByName.isEmpty()) {
-         return null;
-      }
-      ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-      try (DataOutputStream output = new DataOutputStream(bytes)) {
-         output.writeInt(this.mapDataByName.size());
-         for (var entry : this.mapDataByName.entrySet()) {
-            output.writeUTF(entry.getKey());
-            output.writeByte(entry.getValue().scale);
-            output.write(entry.getValue().colors);
+      ByteArrayOutputStream byteOutput = new ByteArrayOutputStream();
+      try (DataOutputStream output = new DataOutputStream(byteOutput)) {
+         HashSet<Entry<String, MapItemSavedData>> entrySnapshot;
+         synchronized (this.mapDataByName) {
+            entrySnapshot = new HashSet<>(this.mapDataByName.entrySet());
          }
-         return bytes.toByteArray();
-      } catch (IOException failure) {
-         ClientAccess.logger.warn("Could not serialize map cache", failure);
-         return null;
-      }
-   }
+         int entryCount = entrySnapshot.size();
+         output.writeInt(entryCount);
+         for (Entry<String, MapItemSavedData> entry : entrySnapshot) {
+            String name = entry.getKey();
+            output.writeUTF(name);
+            byte scale = entry.getValue().scale;
+            output.writeByte(scale);
+            for (byte color : entry.getValue().colors) {
+               output.writeByte(color);
+            }
+         }
 
-   private static void writeSnapshot(String address, byte[] snapshot) {
-      Path target = ConfigurationManager.MAPS_DIRECTORY.resolve(FontRenderer.sanitizeFileName(address) + ".data");
-      try {
-         FileUtils.writeBytesAtomically(target, CompressionUtils.deflate(snapshot, 2));
-      } catch (IOException | RuntimeException failure) {
-         ClientAccess.logger.warn("Could not save map cache {}", target, failure);
+         Path filePath = ConfigurationManager.MAPS_DIRECTORY.resolve(FontRenderer.sanitizeFileName(address) + ".data");
+         byte[] serializedBytes = byteOutput.toByteArray();
+         FileUtils.writeBytes(filePath, CompressionUtils.deflate(serializedBytes, 2));
+      } catch (Exception saveFailure) {
+         saveFailure.printStackTrace();
       }
    }
 
@@ -163,9 +163,6 @@ public final class MapDataCache implements ClientAccess {
    private void cacheNamedMap(ItemStack stack) {
       if (stack.getItem() == Items.FILLED_MAP && stack.has(DataComponents.CUSTOM_NAME)) {
          String name = stack.getHoverName().getString();
-         if (this.mapDataByName.size() >= MapCacheReader.MAX_MAPS && !this.mapDataByName.containsKey(name)) {
-            return;
-         }
          MapId mapId = (MapId)stack.getOrDefault(DataComponents.MAP_ID, new MapId(-1));
          this.mapDataByName.compute(name, (ignoredName, previousData) -> {
             ClientLevel level = ClientAccess.schizoMinecraft.level;
@@ -178,11 +175,8 @@ public final class MapDataCache implements ClientAccess {
    private void onPacketReceive(PacketEvent.Receive event) {
       if (event.getPacket() instanceof ClientboundMapItemDataPacket) {
          TaskScheduler scheduler = ClientContext.taskScheduler;
-         Object owner = this.session;
          Runnable updateMaps = () -> {
-            if (owner != this.session) return;
             LocalPlayer player = ClientAccess.schizoMinecraft.player;
-            if (player == null || ClientAccess.schizoMinecraft.level == null) return;
             Inventory inventory = player.getInventory();
             for (Object item : inventory.getNonEquipmentItems()) {
                ItemStack stack = (ItemStack)item;

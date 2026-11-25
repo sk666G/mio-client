@@ -17,7 +17,6 @@ import dev.schizo.client.events.EventHandler;
 import java.util.Iterator;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.RejectedExecutionException;
 import java.util.function.BiConsumer;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
@@ -33,17 +32,12 @@ public class ChunkScanner implements ClientAccess {
    private final BiConsumer chunkLoadCallback;
    private final BiConsumer chunkUnloadCallback;
    private final BiConsumer blockUpdateCallback;
-   private volatile ExecutorService executor;
-   private volatile boolean running;
+   private ExecutorService executor;
 
-   public synchronized void start() {
-      if (this.running) {
-         return;
-      }
-      this.running = true;
-      if (this.workerCount > 0) {
-         this.executor = createExecutor(this.workerCount);
-      }
+   public void start() {
+      int requestedWorkers = this.workerCount;
+
+      this.executor = createExecutor(requestedWorkers);
       ClientAccess.eventBus.subscribe(this);
    }
 
@@ -61,14 +55,11 @@ public class ChunkScanner implements ClientAccess {
       }
    }
 
-   public synchronized void restartExecutor() {
-      ExecutorService previous = this.executor;
-      if (previous != null) {
-         previous.shutdownNow();
-      }
-      this.executor = this.running && this.workerCount > 0
-         ? createExecutor(this.workerCount)
-         : null;
+   public void restartExecutor() {
+      this.executor.shutdownNow();
+      int requestedWorkers = this.workerCount;
+
+      this.executor = createExecutor(requestedWorkers);
    }
 
    public ChunkScanner(int workerCount, BiConsumer chunkLoadCallback, BiConsumer chunkUnloadCallback, BiConsumer blockUpdateCallback) {
@@ -115,11 +106,10 @@ public class ChunkScanner implements ClientAccess {
       if (ClientAccess.schizoMinecraft.level != null) {
          if (this.blockUpdateCallback != null) {
             if (event.getPacket() instanceof ClientboundBlockUpdatePacket blockPacket) {
-               BlockPos blockPosition = blockPacket.getPos().immutable();
-               BlockState blockState = blockPacket.getBlockState();
-               this.dispatchPacketCallback(() -> {
+               this.dispatch(() -> {
                   BiConsumer updateCallback = this.blockUpdateCallback;
-                  updateCallback.accept(blockPosition, blockState);
+                  BlockPos blockPosition = blockPacket.getPos();
+                  updateCallback.accept(blockPosition, blockPacket.getBlockState());
                });
                return;
             }
@@ -127,7 +117,7 @@ public class ChunkScanner implements ClientAccess {
 
          if (this.blockUpdateCallback != null) {
             if (event.getPacket() instanceof ClientboundSectionBlocksUpdatePacket sectionPacket) {
-               this.dispatchPacketCallback(() -> sectionPacket.runUpdates((position, state) -> {
+               this.dispatch(() -> sectionPacket.runUpdates((position, state) -> {
                   BiConsumer updateCallback = this.blockUpdateCallback;
                   updateCallback.accept(position.immutable(), state);
                }));
@@ -145,67 +135,33 @@ public class ChunkScanner implements ClientAccess {
                }
 
                ChunkPos copiedChunkPosition = new ChunkPos(extractedChunkPosition.x, extractedChunkPosition.z);
-               ClientAccess.schizoMinecraft.executeIfPossible(() -> {
-                  if (!this.running || ClientAccess.schizoMinecraft.level == null) {
-                     return;
-                  }
-                  int chunkZ = copiedChunkPosition.z;
-                  int chunkX = copiedChunkPosition.x;
-                  ClientLevel level = ClientAccess.schizoMinecraft.level;
-                  LevelChunk chunk = level.getChunk(chunkX, chunkZ);
-                  this.dispatch(() -> this.chunkUnloadCallback.accept(copiedChunkPosition, chunk));
-               });
+               int chunkZ = copiedChunkPosition.z;
+               int chunkX = copiedChunkPosition.x;
+               ClientLevel level = ClientAccess.schizoMinecraft.level;
+               LevelChunk chunk = level.getChunk(chunkX, chunkZ);
+               this.dispatch(() -> this.chunkUnloadCallback.accept(copiedChunkPosition, chunk));
             }
          }
       }
    }
 
-   private void dispatchPacketCallback(Runnable action) {
-      if (!this.running) {
-         return;
-      }
-      if (this.workerCount == 0) {
-         ClientAccess.schizoMinecraft.executeIfPossible(() -> this.dispatch(action));
-      } else {
-         this.dispatch(action);
-      }
-   }
-
    private void dispatch(Runnable action) {
-      if (!this.running) {
-         return;
-      }
       if (this.workerCount == 0) {
          action.run();
-         return;
-      }
-
-      ExecutorService target = this.executor;
-      if (target == null || target.isShutdown()) {
-         return;
-      }
-      try {
-         target.execute(action);
-      } catch (RejectedExecutionException ignoredDuringShutdown) {
-         // A concurrent stop/restart owns cancellation of work that has not started yet.
+      } else {
+         this.executor.execute(action);
       }
    }
 
-   public synchronized void stop() {
-      if (!this.running) {
-         return;
-      }
-      this.running = false;
+   public void stop() {
       ClientAccess.eventBus.unsubscribe(this);
-      ExecutorService previous = this.executor;
+      this.executor.shutdownNow();
       this.executor = null;
-      if (previous != null) {
-         previous.shutdownNow();
-      }
    }
 
    private static ExecutorService createExecutor(int requestedWorkers) {
-      return Executors.newFixedThreadPool(requestedWorkers);
+      int workers = Math.max(requestedWorkers, 1);
+      return Executors.newFixedThreadPool(workers);
    }
 
    public interface Listener {

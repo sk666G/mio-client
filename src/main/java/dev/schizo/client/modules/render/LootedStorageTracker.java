@@ -14,8 +14,7 @@ import dev.schizo.client.utils.math.MathConstants;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.events.MultiPlayerGameModeUseItemOnEvent;
 import java.awt.Color;
-import java.util.Iterator;
-import java.util.LinkedHashSet;
+import java.util.HashSet;
 import java.util.Set;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.player.LocalPlayer;
@@ -32,7 +31,6 @@ import net.minecraft.world.level.block.state.properties.EnumProperty;
 import net.minecraft.world.phys.BlockHitResult;
 public class LootedStorageTracker implements ClientAccess {
    private static final Color LOOTED_COLOR;
-   private static final int MAX_LOOTED_POSITIONS = 16_384;
    private final Set<BlockPos> lootedPositions;
    public static Color getLootedColor() {
       return LOOTED_COLOR;
@@ -54,34 +52,14 @@ public class LootedStorageTracker implements ClientAccess {
             Set<BlockPos> positionsToCheck = this.lootedPositions;
             Direction partnerDirection = this.getPartnerDirection(chestType, state);
             if (positionsToCheck.contains(position.relative(partnerDirection))) {
-               this.trackLooted(position);
+               this.lootedPositions.add(position);
             }
          }
       }
    }
 
    public LootedStorageTracker() {
-      this.lootedPositions = new LinkedHashSet<>(128);
-   }
-
-   public void clear() {
-      this.lootedPositions.clear();
-   }
-
-   private void trackLooted(BlockPos position) {
-      BlockPos immutablePosition = position.immutable();
-      if (!this.lootedPositions.add(immutablePosition)) {
-         return;
-      }
-
-      while (this.lootedPositions.size() > MAX_LOOTED_POSITIONS) {
-         Iterator<BlockPos> oldest = this.lootedPositions.iterator();
-         if (!oldest.hasNext()) {
-            break;
-         }
-         oldest.next();
-         oldest.remove();
-      }
+      this.lootedPositions = new HashSet<>(100);
    }
 
    static {
@@ -137,9 +115,9 @@ public class LootedStorageTracker implements ClientAccess {
                if (chestType != ChestType.SINGLE) {
                   Set<BlockPos> positionsToMark = this.lootedPositions;
                   Direction partnerDirection = this.getPartnerDirection(chestType, state);
-                  this.trackLooted(position.relative(partnerDirection));
+                  positionsToMark.add(position.relative(partnerDirection));
                }
-               this.trackLooted(position);
+               this.lootedPositions.add(position);
             }
             return;
          }

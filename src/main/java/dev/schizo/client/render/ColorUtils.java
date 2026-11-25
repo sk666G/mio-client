@@ -179,7 +179,7 @@ public final class ColorUtils {
             (int)(firstColor.getAlpha() * firstWeight + secondColor.getAlpha() * (1.0F - firstWeight))
          );
       } catch (IllegalArgumentException exception) {
-         dev.schizo.client.ClientAccess.logger.debug("Could not interpolate color; using white fallback", exception);
+         exception.printStackTrace();
          return Color.white;
       }
    }

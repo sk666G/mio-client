@@ -9,8 +9,6 @@
 
 package dev.schizo.client.media;
 
-import dev.schizo.client.integrations.IntegrationHealth;
-
 import java.io.IOException;
 import java.util.Locale;
 import java.util.Objects;
@@ -37,7 +35,6 @@ public final class PortableMediaSessionProvider implements AutoCloseable {
     private volatile Availability availability = Availability.NOT_STARTED;
     private volatile String lastFailure;
     private volatile MediaSessionSource source;
-    private MediaSessionSource externallyClosedSource;
     private volatile Thread worker;
     private volatile WindowsBackend windows;
     private volatile boolean closed;
@@ -62,14 +59,6 @@ public final class PortableMediaSessionProvider implements AutoCloseable {
     public MediaSnapshot latest() { return latest; }
     public Backend backend() { return backend; }
     public Availability availability() { return !closed && windows != null && windows.lastFailure() != null ? Availability.UNAVAILABLE : availability; }
-    public IntegrationHealth health() {
-        return switch (availability()) {
-            case NOT_STARTED -> IntegrationHealth.IDLE;
-            case AVAILABLE -> IntegrationHealth.AVAILABLE;
-            case UNAVAILABLE, UNSUPPORTED -> IntegrationHealth.UNAVAILABLE;
-            case CLOSED -> IntegrationHealth.DISABLED;
-        };
-    }
     public String lastFailure() { WindowsBackend w = windows; return w != null ? w.lastFailure() : lastFailure; }
 
     public synchronized void start() {
@@ -87,24 +76,16 @@ public final class PortableMediaSessionProvider implements AutoCloseable {
 
         }
     }
-    private void publish(MediaSnapshot state) {
-        MediaSnapshot published = Objects.requireNonNull(state);
-        synchronized (this) {
-            if (closed) return;
-            latest = published;
-            availability = Availability.AVAILABLE;
-        }
-        update.accept(published);
+    private synchronized void publish(MediaSnapshot state) {
+        if (closed) return;
+        latest = Objects.requireNonNull(state); availability = Availability.AVAILABLE;
+        update.accept(state);
     }
-    private void publishFailure(Throwable failure) {
-        MediaSnapshot empty = MediaSnapshot.empty();
-        synchronized (this) {
-            if (closed) return;
-            lastFailure = failure.getClass().getSimpleName() + ": " + failure.getMessage();
-            latest = empty;
-            availability = Availability.UNAVAILABLE;
-        }
-        update.accept(empty);
+    private synchronized void publishFailure(Throwable failure) {
+        if (closed) return;
+        lastFailure = failure.getClass().getSimpleName() + ": " + failure.getMessage();
+        latest = MediaSnapshot.empty(); availability = Availability.UNAVAILABLE;
+        update.accept(latest);
     }
     private void poll() {
         while (!closed && !Thread.currentThread().isInterrupted()) {
@@ -120,22 +101,8 @@ public final class PortableMediaSessionProvider implements AutoCloseable {
             } catch (IOException | RuntimeException | LinkageError unavailable) {
                 publishFailure(unavailable);
             } finally {
-                boolean closeOpened = opened != null;
-                synchronized (this) {
-                    if (source == opened) {
-                        source = null;
-                    } else if (externallyClosedSource == opened) {
-                        externallyClosedSource = null;
-                        closeOpened = false;
-                    }
-                }
-                if (closeOpened) {
-                    try {
-                        opened.close();
-                    } catch (IOException cleanup) {
-                        if (!closed) lastFailure = "Media close failed: " + cleanup.getMessage();
-                    }
-                }
+                synchronized (this) { if (source == opened) source = null; }
+                if (opened != null) try { opened.close(); } catch (IOException cleanup) { if (!closed) lastFailure = "Media close failed: " + cleanup.getMessage(); }
             }
             if (!closed && !Thread.currentThread().isInterrupted()) {
                 try { Thread.sleep(RETRY_MILLIS); } catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); }
@@ -143,35 +110,14 @@ public final class PortableMediaSessionProvider implements AutoCloseable {
         }
     }
     @Override public void close() {
-        WindowsBackend w;
-        Thread thread;
+        MediaSessionSource current; WindowsBackend w; Thread thread;
         synchronized (this) {
             if (closed) return;
-            closed = true;
-            availability = Availability.CLOSED;
-            thread = worker;
-            if (thread != null) thread.interrupt();
-
-            MediaSessionSource current = source;
-            source = null;
-            if (current != null) {
-                try {
-                    current.close();
-                    externallyClosedSource = current;
-                } catch (IOException cleanup) {
-                    lastFailure = "Media close failed: " + cleanup.getMessage();
-                }
-            }
-            w = windows;
-            windows = null;
+            closed = true; availability = Availability.CLOSED;
+            current = source; w = windows; thread = worker;
         }
+        if (thread != null) thread.interrupt();
+        if (current != null) try { current.close(); } catch (IOException cleanup) { lastFailure = "Media close failed: " + cleanup.getMessage(); }
         if (w != null) w.close();
-        if (thread != null && thread != Thread.currentThread()) {
-            try {
-                thread.join(1_000L);
-            } catch (InterruptedException interrupted) {
-                Thread.currentThread().interrupt();
-            }
-        }
     }
 }

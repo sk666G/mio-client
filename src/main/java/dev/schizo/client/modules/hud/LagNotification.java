@@ -25,10 +25,12 @@ public final class LagNotification extends HudNotification {
 
    @Override
    public void update() {
+      long nowMillis = System.currentTimeMillis();
       ServerStateManager networkActivity = ClientContext.serverStateManager;
-      long idleMillis = networkActivity.getPacketIdleMillis(ServerStateManager.PacketActivity.ANY);
+      long idleMillis = nowMillis - networkActivity.getLastPacketTime();
       if (idleMillis < 1000L && !this.finished) {
-         this.finishAfter(500L);
+         long completionTimeMillis = System.currentTimeMillis();
+         this.endTimeMillis = completionTimeMillis + 500L;
          this.finished = true;
       }
 
@@ -42,7 +44,8 @@ public final class LagNotification extends HudNotification {
 
    public void finish() {
       if (!this.finished) {
-         this.finishAfter(500L);
+         long nowMillis = System.currentTimeMillis();
+         this.endTimeMillis = nowMillis + 500L;
          this.finished = true;
       }
    }

@@ -101,12 +101,7 @@ public class KillEffectsModule extends Module {
    @Override
    public void onEnable() {
       this.killStreak = 0;
-      this.killSayMessages.reloadMessages(true);
-   }
-
-   @Override
-   public void onDisable() {
-      this.killSayMessages.invalidate();
+      this.killSayMessages.reloadMessages((true));
    }
 
    private void spawnKillLightning(Vec3 position) {

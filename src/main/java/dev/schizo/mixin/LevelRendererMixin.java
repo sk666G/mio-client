@@ -24,7 +24,6 @@ import dev.schizo.client.modules.render.AmbienceModule;
 import dev.schizo.client.modules.render.ChamsModule;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
-import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.render.LevelRendererFramebufferAccess;
 import dev.schizo.client.managers.RotationManager;
 import dev.schizo.client.managers.RenderTargetRegistry;
@@ -80,6 +79,12 @@ import org.spongepowered.asm.mixin.injection.invoke.arg.Args;
 
 @Mixin(LevelRenderer.class)
 public abstract class LevelRendererMixin implements ClientAccess, LevelRendererFramebufferAccess {
+   private static final ViewClipModule viewClip = ClientContext.getModule(ViewClipModule.class);
+   private static final AmbienceModule ambienceModule = ClientContext.getModule(AmbienceModule.class);
+   private static final NoRenderModule noRenderModule = ClientContext.getModule(NoRenderModule.class);
+   private static final FreecamModule freecam = ClientContext.getModule(FreecamModule.class);
+   private static final SkyboxModule skyboxModule = ClientContext.getModule(SkyboxModule.class);
+   private static final ChamsModule chamsModule = ClientContext.getModule(ChamsModule.class);
    @Unique
    private PoseStack worldPoseStack;
    @Unique
@@ -109,9 +114,9 @@ public abstract class LevelRendererMixin implements ClientAccess, LevelRendererF
    private boolean shouldRenderWeather(
       WeatherEffectRenderer weatherRenderer, MultiBufferSource buffers, Vec3 cameraPosition, WeatherRenderState weatherState
    ) {
-      return !MixinModuleRegistry.levelAmbience.isToggled()
-         || !MixinModuleRegistry.levelAmbience.worldWeatherSetting.getValue()
-         || MixinModuleRegistry.levelAmbience.weatherSetting.getValue()
+      return !ambienceModule.isToggled()
+         || !ambienceModule.worldWeatherSetting.getValue()
+         || ambienceModule.weatherSetting.getValue()
             != AmbienceModule.WeatherChoice.CLEAR;
    }
 
@@ -129,13 +134,6 @@ public abstract class LevelRendererMixin implements ClientAccess, LevelRendererF
       boolean renderFlag2,
       CallbackInfo callback
    ) {
-      // Schizo's extra world passes clear the depth buffer twice. Avoid that
-      // GPU work entirely when no enabled feature has a world-render listener.
-      if (!ClientAccess.eventBus.hasListeners(WorldRenderEvent.BeforeDepthClear.class)
-         && !ClientAccess.eventBus.hasListeners(WorldRenderEvent.Main.class)
-         && !ClientAccess.eventBus.hasListeners(WorldRenderEvent.Overlay.class)) {
-         return;
-      }
       PoseStack poses = new PoseStack();
       float partialTick = RenderUtils.getPartialTick();
       GpuBufferSlice previousFog = RenderSystem.getShaderFog();
@@ -145,38 +143,34 @@ public abstract class LevelRendererMixin implements ClientAccess, LevelRendererF
             .getBuffer(FogMode.NONE)
       );
       poses.pushPose();
-      try {
-         RenderUtils.applyCameraRotation(poses);
-         WorldRenderEvent.BeforeDepthClear beforeDepthEvent = WorldRenderEvent.BeforeDepthClear.create(
-            poses, partialTick
-         );
-         ClientAccess.eventBus.post(
-            beforeDepthEvent
-         );
-         RenderUtils.clearDepth(
-            ClientAccess.schizoMinecraft.getMainRenderTarget()
-         );
-         RenderUtils.setRenderColor(1.0F, 1.0F, 1.0F, 1.0F);
-         WorldRenderEvent.Main mainEvent = WorldRenderEvent.Main.create(
-            poses, partialTick
-         );
-         ClientAccess.eventBus.post(
-            mainEvent
-         );
-         RenderUtils.clearDepth(
-            ClientAccess.schizoMinecraft.getMainRenderTarget()
-         );
-         WorldRenderEvent.Overlay overlayEvent = WorldRenderEvent.Overlay.create(
-            poses, partialTick
-         );
-         ClientAccess.eventBus.post(
-            overlayEvent
-         );
-      } finally {
-         poses.popPose();
-         RenderUtils.setRenderColor(1.0F, 1.0F, 1.0F, 1.0F);
-         RenderSystem.setShaderFog(previousFog);
-      }
+      RenderUtils.applyCameraRotation(poses);
+      WorldRenderEvent.BeforeDepthClear beforeDepthEvent = WorldRenderEvent.BeforeDepthClear.create(
+         poses, partialTick
+      );
+      ClientAccess.eventBus.post(
+         beforeDepthEvent
+      );
+      RenderUtils.clearDepth(
+         ClientAccess.schizoMinecraft.getMainRenderTarget()
+      );
+      RenderUtils.setRenderColor(1.0F, 1.0F, 1.0F, 1.0F);
+      WorldRenderEvent.Main mainEvent = WorldRenderEvent.Main.create(
+         poses, partialTick
+      );
+      ClientAccess.eventBus.post(
+         mainEvent
+      );
+      RenderUtils.clearDepth(
+         ClientAccess.schizoMinecraft.getMainRenderTarget()
+      );
+      WorldRenderEvent.Overlay overlayEvent = WorldRenderEvent.Overlay.create(
+         poses, partialTick
+      );
+      ClientAccess.eventBus.post(
+         overlayEvent
+      );
+      poses.popPose();
+      RenderSystem.setShaderFog(previousFog);
    }
 
    // Mojang leaves the world render pass lambda unnamed.
@@ -197,12 +191,12 @@ public abstract class LevelRendererMixin implements ClientAccess, LevelRendererF
       CallbackInfo callback,
       @Local PoseStack poses
    ) {
-      if (ClientAccess.eventBus.hasListeners(WorldRenderEvent.BeforeBufferSource.class)) {
-         WorldRenderEvent.BeforeBufferSource event = WorldRenderEvent.BeforeBufferSource.create(
-            poses, RenderUtils.getPartialTick()
-         );
-         ClientAccess.eventBus.post(event);
-      }
+      WorldRenderEvent.BeforeBufferSource event = WorldRenderEvent.BeforeBufferSource.create(
+         poses, RenderUtils.getPartialTick()
+      );
+      ClientAccess.eventBus.post(
+         event
+      );
    }
 
    @Inject(
@@ -227,13 +221,13 @@ public abstract class LevelRendererMixin implements ClientAccess, LevelRendererF
       CallbackInfo callback,
       @Local FrameGraphBuilder frameGraph
    ) {
-      if (MixinModuleRegistry.levelSkybox.isToggled()
-         && MixinModuleRegistry.levelSkybox.shaderSetting.getValue()) {
+      if (skyboxModule.isToggled()
+         && skyboxModule.shaderSetting.getValue()) {
          FramePass skyFramePass = frameGraph.addPass("sky_zio");
          this.targets.main = skyFramePass.readsAndWrites(this.targets.main);
          skyFramePass.executes(
             () -> {
-               ClientContext.shaderRegistry.render("sky", MixinModuleRegistry.levelSkybox::drawShaderQuad);
+               ClientContext.shaderRegistry.render("sky", skyboxModule::drawShaderQuad);
                RenderUtils.INSTANCE
                   .fillRect(
                      this.worldPoseStack, 0.0F, 0.0F, 1.0F, 1.0F, 0
@@ -273,16 +267,16 @@ public abstract class LevelRendererMixin implements ClientAccess, LevelRendererF
    private void suppressSkyBlindness(
       Camera camera, CallbackInfoReturnable<Boolean> callback
    ) {
-      if (MixinModuleRegistry.levelNoRender.isToggled()
-         && MixinModuleRegistry.levelNoRender.blindnessSetting.getValue()) {
+      if (noRenderModule.isToggled()
+         && noRenderModule.blindnessSetting.getValue()) {
          callback.setReturnValue(null);
       }
    }
 
    @ModifyExpressionValue(method = "renderLevel", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/player/LocalPlayer;isSpectator()Z"))
    private boolean applyCameraSpectatorOverride(boolean originalSpectator) {
-      return MixinModuleRegistry.levelFreecam.isToggled()
-         || (MixinModuleRegistry.levelViewClip.isToggled() && ClientAccess.schizoMinecraft.gameRenderer.getMainCamera().isDetached())
+      return freecam.isToggled()
+         || (viewClip.isToggled() && ClientAccess.schizoMinecraft.gameRenderer.getMainCamera().isDetached())
          || originalSpectator;
    }
 
@@ -307,11 +301,11 @@ public abstract class LevelRendererMixin implements ClientAccess, LevelRendererF
    // Mojang leaves the background color render pass lambda unnamed.
    @ModifyExpressionValue(method = "method_62218(Lorg/joml/Vector4f;)V", at = @At(value = "INVOKE", target = "Lnet/minecraft/util/ARGB;colorFromFloat(FFFF)I"))
    private int applySkyboxBackgroundColor(int originalColor) {
-      return MixinModuleRegistry.levelSkybox.isToggled()
-            && MixinModuleRegistry.levelSkybox.isCurrentDimensionEnabled()
+      return skyboxModule.isToggled()
+            && skyboxModule.isCurrentDimensionEnabled()
          ? ARGB.color(
             0,
-            (MixinModuleRegistry.levelSkybox.backgroundSetting.getValue())
+            (skyboxModule.backgroundSetting.getValue())
                .hashCode()
          )
          : originalColor;
@@ -323,12 +317,12 @@ public abstract class LevelRendererMixin implements ClientAccess, LevelRendererF
       at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/systems/RenderSystem;setShaderFog(Lcom/mojang/blaze3d/buffers/GpuBufferSlice;)V")
    )
    private static void applySkyFogSlice(Args arguments) {
-      if (MixinModuleRegistry.levelSkybox.isToggled()
-         && MixinModuleRegistry.levelSkybox.splitFogSetting.getValue()
-         && MixinModuleRegistry.levelSkybox.isCurrentDimensionEnabled()) {
+      if (skyboxModule.isToggled()
+         && skyboxModule.splitFogSetting.getValue()
+         && skyboxModule.isCurrentDimensionEnabled()) {
          arguments.set(
             0,
-            MixinModuleRegistry.levelSkybox.getSkySlice()
+            skyboxModule.getSkySlice()
          );
       }
    }
@@ -345,11 +339,11 @@ public abstract class LevelRendererMixin implements ClientAccess, LevelRendererF
    ) {
       Entity entity = EntityRenderStateAccess.getEntity(renderState);
       return (
-            !MixinModuleRegistry.levelNoRender.entitiesSetting.getValue()
+            !noRenderModule.entitiesSetting.getValue()
                || entity == null
-               || !MixinModuleRegistry.levelNoRender.shouldHideEntity(entity)
+               || !noRenderModule.shouldHideEntity(entity)
          )
-         && !MixinModuleRegistry.levelChams.shouldRenderThroughWalls(
+         && !chamsModule.shouldRenderThroughWalls(
             entity
          );
    }
@@ -361,7 +355,7 @@ public abstract class LevelRendererMixin implements ClientAccess, LevelRendererF
 
    @ModifyExpressionValue(method = "extractVisibleEntities", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/Camera;isDetached()Z"))
    private boolean applyFreecamDetachedCamera(boolean originalDetached) {
-      return MixinModuleRegistry.levelFreecam.isToggled() || originalDetached;
+      return freecam.isToggled() || originalDetached;
    }
 
    @Inject(method = "addWeatherPass", at = @At("HEAD"))
@@ -383,7 +377,7 @@ public abstract class LevelRendererMixin implements ClientAccess, LevelRendererF
       at = @At(value = "INVOKE", target = "Lnet/minecraft/world/attribute/EnvironmentAttributeProbe;getValue(Lnet/minecraft/world/attribute/EnvironmentAttribute;F)Ljava/lang/Object;", ordinal = 1)
    )
    private Object applyCloudHeight(Object originalHeight) {
-      return MixinModuleRegistry.levelSkybox.getCloudHeight((Float)originalHeight);
+      return skyboxModule.getCloudHeight((Float)originalHeight);
    }
 
    @ModifyExpressionValue(
@@ -391,9 +385,9 @@ public abstract class LevelRendererMixin implements ClientAccess, LevelRendererF
       at = @At(value = "INVOKE", target = "Lnet/minecraft/world/attribute/EnvironmentAttributeProbe;getValue(Lnet/minecraft/world/attribute/EnvironmentAttribute;F)Ljava/lang/Object;", ordinal = 0)
    )
    private Object applyCloudColor(Object originalColor) {
-      return MixinModuleRegistry.levelSkybox.isToggled()
-            && MixinModuleRegistry.levelSkybox.cloudsSetting.getValue()
-         ? (MixinModuleRegistry.levelSkybox.cloudsColorSetting.getValue())
+      return skyboxModule.isToggled()
+            && skyboxModule.cloudsSetting.getValue()
+         ? (skyboxModule.cloudsColorSetting.getValue())
             .hashCode()
          : originalColor;
    }
@@ -412,7 +406,7 @@ public abstract class LevelRendererMixin implements ClientAccess, LevelRendererF
       boolean renderFlag2,
       CallbackInfo callback
    ) {
-      if (MixinModuleRegistry.levelFreecam.shouldHideHands()
+      if (freecam.shouldHideHands()
          && IrisShaderBridge.isHandRendererAvailable()) {
          this.savedHideGui = new AtomicBoolean();
          this.savedHideGui
@@ -435,7 +429,7 @@ public abstract class LevelRendererMixin implements ClientAccess, LevelRendererF
       boolean renderFlag2,
       CallbackInfo callback
    ) {
-      if (MixinModuleRegistry.levelFreecam.shouldHideHands()
+      if (freecam.shouldHideHands()
          && this.savedHideGui != null) {
          ClientAccess.schizoMinecraft.options.hideGui = this.savedHideGui
             .getPlain();

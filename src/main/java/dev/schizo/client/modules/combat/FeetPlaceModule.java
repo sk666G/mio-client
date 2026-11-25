@@ -28,7 +28,6 @@ import dev.schizo.client.utils.combat.BlockRaycastOverride;
 import dev.schizo.client.settings.options.BlockerTargetOffsets;
 import dev.schizo.client.utils.world.BlockInteractionUtils;
 import dev.schizo.client.utils.entity.PlayerStateUtils;
-import dev.schizo.client.utils.network.ServerSideDeathState;
 import dev.schizo.client.utils.inventory.InventoryUtils;
 import dev.schizo.client.managers.WorldStateManager;
 import dev.schizo.client.managers.ModuleRegistry;
@@ -202,15 +201,9 @@ public class FeetPlaceModule extends PlacementModule {
    private Set<BlockPos> collectEnemyPositions() {
       Set<BlockPos> positions = new HashSet<>();
       for (Player player : ClientAccess.schizoMinecraft.level.players()) {
-         if (!CombatTargetPolicy.isEligible(
-            player.isAlive(),
-            player.isDeadOrDying(),
-            player == ClientAccess.schizoMinecraft.player,
-            player.isSpectator(),
-            player.isCreative(),
-            ClientContext.socialRegistry.isFriendPlayer(player),
-            ((ServerSideDeathState)player).isServerSideDead()
-         ) || player.distanceTo(ClientAccess.schizoMinecraft.player) > 4.0F) {
+         if (!player.isAlive() || player == ClientAccess.schizoMinecraft.player
+            || player.distanceTo(ClientAccess.schizoMinecraft.player) > 4.0F
+            || ClientContext.socialRegistry.isFriendPlayer(player)) {
             continue;
          }
          for (BlockPos occupied : PlayerStateUtils.getOccupiedBlockPositions(player)) {

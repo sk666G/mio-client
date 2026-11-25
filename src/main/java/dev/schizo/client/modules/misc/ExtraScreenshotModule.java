@@ -93,15 +93,6 @@ public class ExtraScreenshotModule extends Module {
    }
 
    public void processScreenshotBytes(byte[] imageBytes) {
-      byte[] capturedBytes = imageBytes.clone();
-      if (!ClientAccess.schizoMinecraft.isSameThread()) {
-         ClientAccess.schizoMinecraft.executeIfPossible(() -> this.beginScreenshotProcessing(capturedBytes));
-         return;
-      }
-      this.beginScreenshotProcessing(capturedBytes);
-   }
-
-   private void beginScreenshotProcessing(byte[] imageBytes) {
       ModeChoice mode = this.getActiveMode();
       if (mode == ModeChoice.IMGUR) {
          synchronized (this) {
@@ -115,49 +106,23 @@ public class ExtraScreenshotModule extends Module {
             this.uploadTimer.reset();
          }
       }
-
-      try {
-         this.playScreenshotSound();
-      } catch (Exception failure) {
-         LOGGER.warn("Could not play screenshot sound", failure);
-      }
-
-      if (mode != ModeChoice.IMGUR) {
-         this.uploadTimer.reset();
-      }
-      if (mode == ModeChoice.NONE) {
-         return;
-      }
-      if (mode == ModeChoice.IMGUR) {
-         ChatUtils.printChat(Component.literal("Uploading screenshot..."), ChatUtils.moduleSignature(this));
-      }
-
-      try {
-         ClientAccess.executorService.submit(() -> this.processScreenshotBytesBackground(imageBytes, mode));
-      } catch (java.util.concurrent.RejectedExecutionException rejected) {
-         this.reportProcessingFailure(mode, rejected);
-      }
-   }
-
-   private void processScreenshotBytesBackground(byte[] imageBytes, ModeChoice mode) {
+      try { this.playScreenshotSound(); }
+      catch (Exception failure) { LOGGER.warn("Could not play screenshot sound", failure); }
+      if (mode != ModeChoice.IMGUR) this.uploadTimer.reset();
+      if (mode == ModeChoice.NONE) return;
       try {
          if (mode == ModeChoice.COPY) {
             BufferedImage source = ImageIO.read(new ByteArrayInputStream(imageBytes));
             if (source == null) throw new IOException("Unsupported screenshot format");
             BufferedImage image = new BufferedImage(source.getWidth(), source.getHeight(), BufferedImage.TYPE_INT_RGB);
             Graphics2D graphics = image.createGraphics();
-            try {
-               graphics.drawImage(source, 0, 0, null);
-            } finally {
-               graphics.dispose();
-            }
+            try { graphics.drawImage(source, 0, 0, null); }
+            finally { graphics.dispose(); }
             this.copyImageToClipboard(new ClipboardImage(image));
-            ClientAccess.schizoMinecraft.executeIfPossible(() ->
-               ChatUtils.printChat(Component.literal("Copied screenshot to clipboard."), ChatUtils.moduleSignature(this))
-            );
+            ChatUtils.printChat(Component.literal("Copied screenshot to clipboard."), ChatUtils.moduleSignature(this));
             return;
          }
-
+         ChatUtils.printChat(Component.literal("Uploading screenshot..."), ChatUtils.moduleSignature(this));
          String encoded = URLEncoder.encode(Base64.getEncoder().encodeToString(imageBytes), StandardCharsets.UTF_8);
          HttpRequest request = dev.schizo.client.utils.network.HttpRequests.post("https://api.imgur.com/3/image", BodyPublishers.ofString("image=" + encoded))
             .header("Content-Type", "application/x-www-form-urlencoded").header("Authorization", imgurAuthorization)
@@ -173,23 +138,17 @@ public class ExtraScreenshotModule extends Module {
          if (!"https".equalsIgnoreCase(uri.getScheme()) && !"http".equalsIgnoreCase(uri.getScheme())) {
             throw new IOException("Invalid image link");
          }
-         ClientAccess.schizoMinecraft.executeIfPossible(() -> {
+         ClientAccess.schizoMinecraft.execute(() -> {
             ClientAccess.schizoMinecraft.keyboardHandler.setClipboard(link);
             var notification = Component.literal("Copied screenshot link.").withStyle(style -> style.withClickEvent(new OpenUrl(uri)));
             ChatUtils.printChat(notification, -43296436);
          });
       } catch (Exception failure) {
-         this.reportProcessingFailure(mode, failure);
-      }
-   }
-
-   private void reportProcessingFailure(ModeChoice mode, Exception failure) {
-      LOGGER.warn("Screenshot {} failed", mode == ModeChoice.COPY ? "copy" : "upload", failure);
-      ClientAccess.schizoMinecraft.executeIfPossible(() -> {
+         LOGGER.warn("Screenshot {} failed", mode == ModeChoice.COPY ? "copy" : "upload", failure);
          var message = Component.literal(mode == ModeChoice.COPY ? "Failed to copy the screenshot!" : "Failed to upload screenshot to Imgur")
             .withStyle(ChatFormatting.RED);
          ChatUtils.printChat(message, ChatUtils.moduleSignature(this), ChatUtils.MessagePriority.MID);
-      });
+      }
    }
 
    @Override
@@ -232,7 +191,13 @@ public class ExtraScreenshotModule extends Module {
          }
       }
 
-      this.processScreenshotBytes(imageBytes);
+      ClientAccess.executorService.submit((Runnable)() -> {
+         try {
+            this.processScreenshotBytes(imageBytes);
+         } catch (Exception processingFailure) {
+            LOGGER.warn("Could not process screenshot", processingFailure);
+         }
+      });
    }
 
    private byte[] encodeScreenshot(NativeImage image) throws IOException {

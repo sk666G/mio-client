@@ -16,8 +16,10 @@ import dev.schizo.client.utils.inventory.InventoryUtils;
 import dev.schizo.client.settings.NamedEntry;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 public enum CrystalDamagePolicy implements ClientAccess, NamedEntry {
@@ -30,85 +32,63 @@ public enum CrystalDamagePolicy implements ClientAccess, NamedEntry {
    }
 
    public double getMinimumDamage(LivingEntity target) {
-      boolean obsidianDropNearTarget = autoCrystal.obsidianDropNearTarget;
-      boolean quiverThreatActive = autoCrystal.quiverThreatActive;
-      if (obsidianDropNearTarget || quiverThreatActive) {
-         return new CrystalDamageThresholds(
-            obsidianDropNearTarget,
-            quiverThreatActive,
-            false,
-            false,
-            EntityUtils.getHealthWithAbsorption(target),
-            0.0D,
-            0.0D,
-            false,
-            false,
-            false
-         ).minimumDamage(this == HIT);
-      }
+      if (!autoCrystal.obsidianDropNearTarget && !autoCrystal.quiverThreatActive) {
+         if (autoCrystal.isFacePlaceEnabled()) {
+            float health = EntityUtils.getHealthWithAbsorption(target);
 
-      boolean facePlaceOverride = false;
-      if (autoCrystal.isFacePlaceEnabled()) {
-         float health = EntityUtils.getHealthWithAbsorption(target);
-         Float healthLimit = autoCrystal.facePlaceHealthSetting.getValue();
-         if (health <= healthLimit) {
-            facePlaceOverride = true;
-         }
+            Float healthLimit = autoCrystal.facePlaceHealthSetting.getValue();
+            if (health <= healthLimit) {
+               return 0.6;
+            }
 
-         if (!facePlaceOverride && target instanceof Player player) {
-            float armor = InventoryUtils.getLowestArmorDurabilityPercent(player);
-            Integer armorLimit = autoCrystal.facePlaceArmorThresholdSetting.getValue();
-            if (armor <= armorLimit.intValue()) {
-               facePlaceOverride = true;
+            if (target instanceof Player player) {
+               float armor = InventoryUtils.getLowestArmorDurabilityPercent(player);
+
+               Integer armorLimit = autoCrystal.facePlaceArmorThresholdSetting.getValue();
+               if (armor <= armorLimit.intValue()) {
+                  return 0.6;
+               }
+            }
+
+            if (target.isUsingItem()) {
+               ItemStack activeStack = target.getUseItem();
+               Item shield = Items.SHIELD;
+               if (activeStack.is(shield)) {
+                  if (autoCrystal.facePlaceShieldBreakerSetting.getValue()) {
+                     return 0.6;
+                  }
+               }
             }
          }
 
-         if (!facePlaceOverride && target.isUsingItem()) {
-            ItemStack activeStack = target.getUseItem();
-            if (activeStack.is(Items.SHIELD) && autoCrystal.facePlaceShieldBreakerSetting.getValue()) {
-               facePlaceOverride = true;
-            }
+         BlockState stateSnapshot = ClientAccess.schizoMinecraft.level.getBlockState(target.blockPosition());
+         Block portal = Blocks.NETHER_PORTAL;
+         if (stateSnapshot.is(portal)) {
+            return 0.6;
          }
+
+         double placeMinimum = (autoCrystal.minPlaceDamageSetting.getValue()).floatValue();
+
+         double hitMinimum = (autoCrystal.minBreakDamageSetting.getValue()).floatValue();
+
+         if (autoCrystal.minPlaceDamageSetting.shouldDisplayBoundaryLabel()) {
+            placeMinimum = EntityUtils.getHealthWithAbsorption(target);
+         }
+
+         if (autoCrystal.shouldIgnoreMiningBlock()) {
+            double miningMinimum = autoCrystal.alwaysIgnoreMiningSetting.getValue() ? 0.6 : 5.0;
+
+            placeMinimum = Math.min(placeMinimum, miningMinimum);
+            hitMinimum = 3.0;
+         }
+
+         double selectedMinimum = this == HIT ? hitMinimum : placeMinimum;
+         double targetHealth = EntityUtils.getHealthWithAbsorption(target);
+         return Math.min(selectedMinimum, targetHealth);
+      } else {
+         return 0.1;
       }
-
-      double targetHealth = EntityUtils.getHealthWithAbsorption(target);
-      if (facePlaceOverride) {
-         return new CrystalDamageThresholds(
-            false, false, true, false, targetHealth,
-            0.0D, 0.0D, false, false, false
-         ).minimumDamage(this == HIT);
-      }
-
-      BlockState stateSnapshot = ClientAccess.schizoMinecraft.level.getBlockState(target.blockPosition());
-      boolean targetInNetherPortal = stateSnapshot.is(Blocks.NETHER_PORTAL);
-      if (targetInNetherPortal) {
-         return new CrystalDamageThresholds(
-            false, false, false, true, targetHealth,
-            0.0D, 0.0D, false, false, false
-         ).minimumDamage(this == HIT);
-      }
-
-      double placeMinimum = autoCrystal.minPlaceDamageSetting.getValue().floatValue();
-      double hitMinimum = autoCrystal.minBreakDamageSetting.getValue().floatValue();
-      boolean placeMinimumUsesTargetHealth = autoCrystal.minPlaceDamageSetting.shouldDisplayBoundaryLabel();
-      boolean ignoreMiningBlock = autoCrystal.shouldIgnoreMiningBlock();
-      boolean alwaysIgnoreMining = autoCrystal.alwaysIgnoreMiningSetting.getValue();
-
-      CrystalDamageThresholds thresholds = new CrystalDamageThresholds(
-         false,
-         false,
-         false,
-         false,
-         targetHealth,
-         placeMinimum,
-         hitMinimum,
-         placeMinimumUsesTargetHealth,
-         ignoreMiningBlock,
-         alwaysIgnoreMining
-      );
-      return thresholds.minimumDamage(this == HIT);
    }
-
    public double getMaximumSelfDamage() {
       if (autoCrystal.isSelfInvulnerable()) {
          return 999.0;
@@ -127,61 +107,56 @@ public enum CrystalDamagePolicy implements ClientAccess, NamedEntry {
    public boolean shouldRejectDamage(
       LivingEntity target, double selfDamage, double targetDamage, CrystalLethality lethality
    ) {
-      boolean selfHoldingTotem = ClientAccess.schizoMinecraft.player.isHolding(Items.TOTEM_OF_UNDYING);
+      Item totem = Items.TOTEM_OF_UNDYING;
+
+      boolean holdingTotem = ClientAccess.schizoMinecraft.player.isHolding(totem);
+
       if (autoCrystal.isSelfInvulnerable()) {
-         selfDamage = 0.0D;
+         selfDamage = 0.0;
       }
 
-      // Preserve the original early return: Force Suicide must not read the
-      // anti-suicide, health, minimum-damage or ratio settings below.
       if (autoCrystal.forceSuicideSetting.getValue()) {
          return false;
       }
 
-      double selfHealth = EntityUtils.getPlayerHealthWithAbsorption();
-      if (selfDamage >= selfHealth && autoCrystal.antiSuicideSetting.getValue()
-         && CrystalDamageSafetyInputs.shouldRejectAntiSuicide(
-            selfDamage,
-            selfHealth,
-            true,
-            lethality.isKill(),
-            selfHoldingTotem
-         )) {
-         return true;
+      if (selfDamage >= EntityUtils.getPlayerHealthWithAbsorption()) {
+         if (autoCrystal.antiSuicideSetting.getValue()) {
+            if (!lethality.isKill() || !holdingTotem) {
+               return true;
+            }
+         }
       }
 
-      boolean targetKill = lethality.isKill();
-      boolean targetIntersection = lethality.isIntersection();
-      if (CrystalDamageSafetyInputs.shouldAcceptHitIntersection(this == HIT, targetIntersection)
-         || targetKill) {
+      if (this == HIT) {
+         if (lethality.isIntersection()) {
+            return false;
+         }
+      }
+
+      if (lethality.isKill()) {
          return false;
       }
 
-      // The ratio applies only to PLACE and only with positive self damage.
-      if (this == PLACE && selfDamage > 0.0D) {
-         double minimumRatio = autoCrystal.placeDamageRatioSetting.getValue().floatValue();
-         if (CrystalDamageSafetyInputs.shouldRejectPlaceRatio(
-            false,
-            selfDamage,
-            targetDamage,
-            minimumRatio
-         )) {
+      if (this == PLACE && selfDamage > 0.0) {
+         double damageRatio = targetDamage / selfDamage;
+
+         Float minimumRatio = autoCrystal.placeDamageRatioSetting.getValue();
+         if (damageRatio < minimumRatio.floatValue()) {
             return true;
          }
       }
 
-      double targetHealth = EntityUtils.getHealthWithAbsorption(target);
-      if (targetDamage >= targetHealth) {
-         return false;
+      if (!(targetDamage >= EntityUtils.getHealthWithAbsorption(target))) {
+         if (!(targetDamage >= this.getMinimumDamage(target))) {
+            return true;
+         }
+
+         if (!(selfDamage <= this.getMaximumSelfDamage())) {
+            return true;
+         }
       }
 
-      double minimumTargetDamage = this.getMinimumDamage(target);
-      if (!(targetDamage >= minimumTargetDamage)) {
-         return true;
-      }
-
-      double maximumSelfDamage = this.getMaximumSelfDamage();
-      return !(selfDamage <= maximumSelfDamage);
+      return false;
    }
 
    @Override

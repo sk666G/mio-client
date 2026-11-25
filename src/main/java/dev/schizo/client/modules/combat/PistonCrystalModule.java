@@ -12,7 +12,6 @@ package dev.schizo.client.modules.combat;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.EventHandler;
-import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.events.RotationRequestEvent;
 import dev.schizo.client.managers.InventoryStateManager;
 import dev.schizo.client.managers.ModuleRegistry;
@@ -28,7 +27,6 @@ import dev.schizo.client.settings.NumberSetting;
 import dev.schizo.client.settings.Setting;
 import dev.schizo.client.utils.ElapsedTimer;
 import dev.schizo.client.utils.entity.PlayerStateUtils;
-import dev.schizo.client.utils.network.ServerSideDeathState;
 import dev.schizo.client.utils.entity.SwingAction;
 import dev.schizo.client.utils.inventory.InventoryUtils;
 import dev.schizo.client.utils.network.PacketSender;
@@ -113,22 +111,8 @@ public final class PistonCrystalModule extends Module {
 
    @Override
    public void onToggle() {
-      this.resetCycleState();
-   }
-
-   private void resetCycleState() {
-      this.plan = null;
-      this.target = null;
-      this.powerItem = Items.AIR;
       this.resetStages();
       this.stageTracker.reset();
-      this.forceCrystal = false;
-      this.wasBlocked = false;
-   }
-
-   @EventHandler
-   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
-      this.resetCycleState();
    }
 
    @EventHandler
@@ -142,18 +126,9 @@ public final class PistonCrystalModule extends Module {
       if (nextTarget != this.target) {
          this.plan = null;
          this.resetStages();
-         this.stageTracker.reset();
          this.target = nextTarget;
       }
       if (this.target == null || multiTask.shouldPauseModule(this)) {
-         return;
-      }
-      if (!PistonCrystalPlanner.hasPowerSource(
-         this.powerItem == Items.REDSTONE_BLOCK, this.powerItem == Items.REDSTONE_TORCH
-      )) {
-         this.plan = null;
-         this.resetStages();
-         this.stageTracker.reset();
          return;
       }
 
@@ -195,15 +170,8 @@ public final class PistonCrystalModule extends Module {
       Player selected = null;
       double distance = this.targetRangeSetting.getValue();
       for (Player candidate : ClientAccess.schizoMinecraft.level.players()) {
-         if (!CombatTargetPolicy.isEligible(
-            candidate.isAlive(),
-            candidate.isDeadOrDying(),
-            candidate == ClientAccess.schizoMinecraft.player,
-            candidate.isSpectator(),
-            candidate.isCreative(),
-            ClientContext.socialRegistry.isFriendPlayer(candidate),
-            ((ServerSideDeathState)candidate).isServerSideDead()
-         ) || !PlayerStateUtils.hasArmor(candidate)) {
+         if (candidate == ClientAccess.schizoMinecraft.player || candidate.isSpectator() || candidate.getHealth() <= 0.0F
+            || ClientContext.socialRegistry.isFriendPlayer(candidate) || !PlayerStateUtils.hasArmor(candidate)) {
             continue;
          }
          double candidateDistance = ClientAccess.schizoMinecraft.player.getEyePosition().distanceTo(candidate.position());

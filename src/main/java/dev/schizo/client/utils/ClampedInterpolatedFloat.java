@@ -11,7 +11,6 @@ package dev.schizo.client.utils;
 
 import dev.schizo.client.utils.FrameTiming;
 import dev.schizo.client.ClientContext;
-import dev.schizo.client.gui.UiMotionPolicy;
 
 import java.util.function.Supplier;
 import net.minecraft.util.Mth;
@@ -51,10 +50,6 @@ public class ClampedInterpolatedFloat extends InterpolatedFloat {
 
    @Override
    public float updateAndGet() {
-      if (UiMotionPolicy.isReducedMotion()) {
-         this.setValue(this.targetValue);
-         return this.getValue();
-      }
       FrameTiming frameTiming = ClientContext.frameTiming;
       float interpolationInput = 0.5F;
 
@@ -82,7 +77,7 @@ public class ClampedInterpolatedFloat extends InterpolatedFloat {
       int timingSample = ClientContext.frameTiming.getFramesPerSecond();
 
       if (timingSample <= 15) {
-         this.setValue(this.targetValue);
+         this.currentValue = this.targetValue;
       }
       return this.getValue();
    }

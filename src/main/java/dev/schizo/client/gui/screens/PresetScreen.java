@@ -58,25 +58,22 @@ public final class PresetScreen extends ClientScreen {
             0.75F
                * hintOpacity
          );
-         try {
-            String hintText = "Drop preset files here";
-            float hintWidth = FontRenderer.INSTANCE
-               .getWidth(hintText);
-            FontRenderer.INSTANCE
-               .drawWithShadow(
-                  poseStack,
-                  hintText,
-                  (ClientAccess.schizoMinecraft.getWindow().getGuiScaledWidth() - hintWidth)
-                     / 2.0F,
-                  ClientAccess.schizoMinecraft.getWindow().getGuiScaledHeight()
-                     / 2.0F,
-                  Color.white
-               );
-         } finally {
-            RenderUtils.setColorAlpha(
-               1.0F
+         String hintText = "Drop preset files here";
+         float hintWidth = FontRenderer.INSTANCE
+            .getWidth(hintText);
+         FontRenderer.INSTANCE
+            .drawWithShadow(
+               poseStack,
+               hintText,
+               (ClientAccess.schizoMinecraft.getWindow().getGuiScaledWidth() - hintWidth)
+                  / 2.0F,
+               ClientAccess.schizoMinecraft.getWindow().getGuiScaledHeight()
+                  / 2.0F,
+               Color.white
             );
-         }
+         RenderUtils.setColorAlpha(
+            1.0F
+         );
       }
    }
 

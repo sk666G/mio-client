@@ -33,6 +33,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.regex.Matcher;
 import java.util.function.Predicate;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.multiplayer.ClientLevel;
@@ -74,7 +75,10 @@ public class EntityListModule extends HudWidgetModule {
          }
       }
 
-      return this.dimensions(maximumWidth, totalHeight);
+      float[] dimensions = new float[2];
+      dimensions[0] = maximumWidth;
+      dimensions[1] = totalHeight;
+      return dimensions;
    }
 
    @EventHandler
@@ -141,9 +145,11 @@ public class EntityListModule extends HudWidgetModule {
       }
 
       this.entries.clear();
-      for (Entry<String, Integer> entry : this.countsByName.entrySet()) {
-         this.entries.add(EntityCount.fromEntry(entry));
-      }
+      this.entries.addAll(
+         this.countsByName.entrySet().stream()
+            .map(EntityCount::fromEntry)
+            .toList()
+      );
       Setting<SortMode> sortingOption = this.sortingSetting;
       EntityListModule.SortMode sorting = sortingOption.getValue();
       switch (sorting) {
@@ -151,12 +157,17 @@ public class EntityListModule extends HudWidgetModule {
             this.entries.sort(Comparator.comparing(EntityCount::displayName));
             break;
          case COUNT:
-            this.entries.sort(Comparator.comparingInt((EntityCount entry) -> -entry.count()));
+            this.entries.sort(Comparator.comparing((EntityCount entry) -> -entry.count()));
             break;
          case LENGTH:
-            this.entries.sort(Comparator.comparingDouble(
-               entry -> FontRenderer.INSTANCE.getWidth(entry.plainText())
-            ));
+            this.entries.sort(Comparator.comparing((EntityCount entry) -> {
+                     FontRenderer textRenderer = FontRenderer.INSTANCE;
+                     boolean coloredCount = false;
+                     float width = textRenderer.getWidth(
+                        entry.formatText(coloredCount)
+                     );
+                     return width;
+                  }));
       }
    }
 
@@ -249,20 +260,32 @@ public class EntityListModule extends HudWidgetModule {
 
    private record EntityCount(
       String displayName,
-      int count,
-      String plainText,
-      String coloredText
+      int count
    ) {
       static EntityListModule.EntityCount fromEntry(Entry<String, Integer> entry) {
-         String displayName = entry.getKey();
-         int count = entry.getValue();
-         String plainText = displayName + " x" + count;
-         String coloredText = displayName + ChatFormatting.WHITE + " x" + count;
-         return new EntityListModule.EntityCount(displayName, count, plainText, coloredText);
+         return new EntityListModule.EntityCount(entry.getKey(), entry.getValue());
       }
 
       public String formatText(boolean coloredCount) {
-         return coloredCount ? this.coloredText : this.plainText;
+         if (coloredCount) {
+            String nameForColoredText = this.displayName;
+            ChatFormatting whiteFormatting = ChatFormatting.WHITE;
+            String whiteCode = String.valueOf(whiteFormatting);
+            int coloredCountValue = this.count;
+            String countText = String.valueOf(coloredCountValue);
+            return "\u0001\u0001 x\u0001"
+               .replaceFirst("\u0001", Matcher.quoteReplacement(String.valueOf(nameForColoredText)))
+               .replaceFirst("\u0001", Matcher.quoteReplacement(String.valueOf(whiteCode)))
+               .replaceFirst("\u0001", Matcher.quoteReplacement(countText));
+         } else {
+            String nameForPlainText = this.displayName;
+            int plainCount = this.count;
+            String countText = String.valueOf(plainCount);
+            return "\u0001 x\u0001"
+               .replaceFirst("\u0001", Matcher.quoteReplacement(String.valueOf(nameForPlainText)))
+               .replaceFirst("\u0001", Matcher.quoteReplacement(countText));
+         }
       }
+
    }
 }

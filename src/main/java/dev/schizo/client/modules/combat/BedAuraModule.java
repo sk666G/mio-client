@@ -12,10 +12,8 @@ package dev.schizo.client.modules.combat;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.RotationRequestEvent;
-import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.utils.entity.PlayerStateTracker;
-import dev.schizo.client.utils.network.ServerSideDeathState;
 import dev.schizo.client.managers.RotationManager;
 import dev.schizo.client.utils.ElapsedTimer;
 import dev.schizo.client.utils.network.PacketSender;
@@ -34,7 +32,6 @@ import dev.schizo.client.settings.options.DimensionType;
 
 import java.awt.Color;
 import java.util.Iterator;
-import java.util.List;
 import java.util.function.Predicate;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.multiplayer.MultiPlayerGameMode;
@@ -180,12 +177,10 @@ public final class BedAuraModule extends Module {
 
       int originalSlot = ClientAccess.schizoMinecraft.player.getInventory().getSelectedSlot();
       if (bedSlot != -1) {
-         try {
-            InventoryUtils.selectHotbarSlot(bedSlot);
-            this.placeBed(placement);
-         } finally {
-            InventoryUtils.selectHotbarSlot(originalSlot);
-         }
+         InventoryUtils.selectHotbarSlot(bedSlot);
+         this.placeBed(placement);
+
+         InventoryUtils.selectHotbarSlot(originalSlot);
       }
    }
 
@@ -202,12 +197,6 @@ public final class BedAuraModule extends Module {
       return false;
    }
 
-   static boolean isEligibleTarget(
-      boolean localPlayer, boolean alive, boolean spectator, boolean creative, boolean friend, boolean serverSideDead
-   ) {
-      return !localPlayer && alive && !spectator && !creative && !friend && !serverSideDead;
-   }
-
    private Player selectTarget() {
       Player closestTarget = null;
       float closestDistance = 99999.0F;
@@ -216,21 +205,16 @@ public final class BedAuraModule extends Module {
 
       while (players.hasNext()) {
          Player candidate = players.next();
-         boolean eligible = isEligibleTarget(
-            candidate == ClientAccess.schizoMinecraft.player,
-            candidate.isAlive(),
-            candidate.isSpectator(),
-            candidate.isCreative(),
-            ClientContext.socialRegistry.isFriendPlayer(candidate),
-            ((ServerSideDeathState)candidate).isServerSideDead()
-         );
-         if (eligible) {
-            double distanceLimit = closestDistance;
-            Vec3 comparisonEyeSnapshot = ClientAccess.schizoMinecraft.player.getEyePosition();
-            Vec3 comparisonPosition = candidate.position();
-            if (distanceLimit > comparisonEyeSnapshot.distanceTo(comparisonPosition)) {
-               closestTarget = candidate;
-               closestDistance = (float)comparisonEyeSnapshot.distanceTo(comparisonPosition);
+         if (candidate != ClientAccess.schizoMinecraft.player) {
+            if (!ClientContext.socialRegistry.isFriendPlayer(candidate)) {
+               double distanceLimit = closestDistance;
+               Vec3 comparisonEyeSnapshot = ClientAccess.schizoMinecraft.player.getEyePosition();
+               Vec3 comparisonPosition = candidate.position();
+               if (distanceLimit > comparisonEyeSnapshot.distanceTo(comparisonPosition)) {
+                  closestTarget = candidate;
+
+                  closestDistance = (float)ClientAccess.schizoMinecraft.player.getEyePosition().distanceTo(candidate.position());
+               }
             }
          }
       }
@@ -252,21 +236,10 @@ public final class BedAuraModule extends Module {
       return entity.getBoundingBox();
    }
 
-   static Direction selectInteractionDirection(List<Direction> strictDirections, Direction fallbackDirection) {
-      return strictDirections.isEmpty() ? fallbackDirection : strictDirections.getFirst();
-   }
-
    private static Direction selectInteractionDirection(BlockPos position, Direction fallbackDirection) {
-      return selectInteractionDirection(BlockInteractionUtils.getStrictDirections(position), fallbackDirection);
-   }
 
-   @EventHandler
-   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
-      this.target = null;
-      this.placement = null;
-      this.breakPosition = null;
-      this.placeTimer.clear();
-      this.breakTimer.clear();
+      BlockInteractionUtils.getStrictDirections(position);
+      return fallbackDirection;
    }
 
    @EventHandler

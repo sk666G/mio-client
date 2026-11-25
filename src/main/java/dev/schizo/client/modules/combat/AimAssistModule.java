@@ -25,7 +25,6 @@ import dev.schizo.client.settings.BooleanSetting;
 import dev.schizo.client.settings.NumberSetting;
 import dev.schizo.client.settings.Setting;
 import dev.schizo.client.utils.math.MathConstants;
-import dev.schizo.client.utils.network.ServerSideDeathState;
 import java.util.Comparator;
 import java.util.stream.Stream;
 import net.minecraft.client.multiplayer.ClientLevel;
@@ -133,21 +132,11 @@ public class AimAssistModule extends Module {
    }
 
    private boolean isValidTarget(Entity entity) {
-      if (!(entity instanceof Player player)) {
+      if (!(entity instanceof Player) || entity == ClientAccess.schizoMinecraft.player) {
          return false;
       }
 
-      boolean friend = this.friendsSetting.getValue()
-         && ClientContext.socialRegistry.isFriendName(player.getGameProfile().name());
-      if (!CombatTargetPolicy.isEligible(
-         player.isAlive(),
-         player.isDeadOrDying(),
-         player == ClientAccess.schizoMinecraft.player,
-         player.isSpectator(),
-         player.isCreative(),
-         friend,
-         ((ServerSideDeathState)player).isServerSideDead()
-      )) {
+      if (!entity.isAlive()) {
          return false;
       }
 
@@ -167,6 +156,15 @@ public class AimAssistModule extends Module {
          return false;
       }
 
+      if (this.friendsSetting.getValue()) {
+         SocialRegistry socialRegistry = ClientContext.socialRegistry;
+
+         String name = ((Player)entity).getGameProfile().name();
+
+         if (socialRegistry.isFriendName(name)) {
+            return false;
+         }
+      }
       return hasLineOfSight(entity);
    }
 

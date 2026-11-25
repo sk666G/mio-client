@@ -61,7 +61,6 @@ public final class AutoTemplateModule extends Module {
    private void onPlayerTick(LocalPlayerPreTickEvent event) {
       if (this.isWorldUnavailable() || !(ClientAccess.schizoMinecraft.screen instanceof SmithingScreen)) return;
       AbstractContainerMenu menu = ClientAccess.schizoMinecraft.player.containerMenu;
-      if (!menu.getCarried().isEmpty()) return;
       if (!this.actionTimer.hasElapsed((this.delaySetting.getValue()).longValue())) return;
       if (!menu.getSlot(3).getItem().isEmpty()) {
          this.quickMove(menu, 3);
@@ -119,7 +118,7 @@ public final class AutoTemplateModule extends Module {
    }
 
    private boolean fillInput(AbstractContainerMenu menu, int target, int source) {
-      if (!menu.getCarried().isEmpty() || source == -1 || !menu.getSlot(target).getItem().isEmpty()) return false;
+      if (source == -1 || !menu.getSlot(target).getItem().isEmpty()) return false;
       InventoryUtils.swapSlotsWithPickup(source, target);
       this.actionTimer.reset();
       return true;

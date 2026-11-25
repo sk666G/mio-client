@@ -49,8 +49,6 @@ def viaFabricPlusModules = nestedLibraries(configurations.viaDistribution) {
 }
 
 dependencies {
-    testImplementation 'org.junit.jupiter:junit-jupiter:5.11.4'
-    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     minecraft "com.mojang:minecraft:${minecraft_version}"
     mappings loom.officialMojangMappings()
     modImplementation "net.fabricmc:fabric-loader:${loader_version}"
@@ -101,34 +99,14 @@ loom {
     }
 }
 
-def modVersion = project.version.toString()
-
 processResources {
-    inputs.property 'version', modVersion
-    filesMatching('fabric.mod.json') { expand version: modVersion }
-    from('LICENSES') { into 'LICENSES' }
-    from('THIRD_PARTY_NOTICES.md')
-    from('LICENSING.md')
+    inputs.property 'version', project.version
+    filesMatching('fabric.mod.json') { expand version: project.version }
 }
 
 java {
     toolchain { languageVersion = JavaLanguageVersion.of(21) }
     withSourcesJar()
-}
-
-tasks.named('sourcesJar') {
-    from('LICENSES') { into 'LICENSES' }
-    from('THIRD_PARTY_NOTICES.md')
-    from('LICENSING.md')
-}
-
-tasks.withType(Test).configureEach {
-    useJUnitPlatform()
-}
-
-tasks.withType(org.gradle.api.tasks.bundling.AbstractArchiveTask).configureEach {
-    preserveFileTimestamps = false
-    reproducibleFileOrder = true
 }
 
 tasks.withType(JavaCompile).configureEach {
@@ -152,4 +130,16 @@ tasks.named('runClient') {
 idea.module {
     excludeDirs += files('run', '.gradle')
     downloadSources = true
+}
+
+tasks.named('processResources') {
+    from('LICENSES') { into 'LICENSES' }
+    from('THIRD_PARTY_NOTICES.md')
+    from('LICENSING.md')
+}
+
+tasks.named('sourcesJar') {
+    from('LICENSES') { into 'LICENSES' }
+    from('THIRD_PARTY_NOTICES.md')
+    from('LICENSING.md')
 }

@@ -29,6 +29,7 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.tags.ItemTags;
 import net.minecraft.tags.TagKey;
 import net.minecraft.util.Mth;
+import net.minecraft.world.damagesource.CombatRules;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.damagesource.DamageSources;
 import net.minecraft.world.effect.MobEffectInstance;
@@ -105,13 +106,12 @@ public final class DamageUtils implements ClientAccess {
       }
 
       float exposure = getExposure(explosionPosition, target, bounds, ignoredPositions, solidPosition, ignoreLowResistance);
-      ExplosionDamageMath.Difficulty difficulty = switch (ClientAccess.schizoMinecraft.level.getDifficulty()) {
-         case PEACEFUL -> ExplosionDamageMath.Difficulty.PEACEFUL;
-         case EASY -> ExplosionDamageMath.Difficulty.EASY;
-         case HARD -> ExplosionDamageMath.Difficulty.HARD;
-         default -> ExplosionDamageMath.Difficulty.NORMAL;
-      };
-      float damage = ExplosionDamageMath.calculate(normalizedDistance, exposure, power, difficulty);
+      double impact = (1.0D - normalizedDistance) * exposure;
+      double quadraticImpact = impact * impact + impact;
+      double scaledImpact = quadraticImpact / 2.0D;
+      double rawDamage = scaledImpact * 7.0D * diameter;
+      float damage = (float)(rawDamage + 1.0D);
+      damage = scaleForDifficulty(damage);
 
       damage = applyDamageReduction(target, damage);
       damage = resolveBlockingDamage(target, explosionPosition, damage);
@@ -129,7 +129,15 @@ public final class DamageUtils implements ClientAccess {
    public static float getExposure(
       Vec3 explosionPosition, Entity target, AABB bounds, Collection ignoredPositions, BlockPos solidPosition, boolean ignoreLowResistance
    ) {
-      Vec3 samplePosition = new Vec3(0.0D, 0.0D, 0.0D);
+      Vec3 samplePosition = new Vec3(0.0, 0.0, 0.0);
+      double stepX = 1.0D / ((bounds.maxX - bounds.minX) * 2.0D + 1.0D);
+      double stepY = 1.0D / ((bounds.maxY - bounds.minY) * 2.0D + 1.0D);
+      double stepZ = 1.0D / ((bounds.maxZ - bounds.minZ) * 2.0D + 1.0D);
+      double offsetX = (1.0D - Math.floor(1.0D / stepX) * stepX) / 2.0D;
+      double offsetZ = (1.0D - Math.floor(1.0D / stepZ) * stepZ) / 2.0D;
+      if (stepX < 0.0 || stepY < 0.0 || stepZ < 0.0) {
+         return 0.0F;
+      }
       BlockRaycastContext.Builder builder = new BlockRaycastContext.Builder(samplePosition, explosionPosition);
 
       builder.withEntity(target);
@@ -142,22 +150,32 @@ public final class DamageUtils implements ClientAccess {
          : BlockRaycastClassifier.NO_OVERRIDE;
       builder.withClassifiers(classifierArray);
       BlockRaycastContext context = builder.build();
+      int visibleSamples = 0;
+      int totalSamples = 0;
+      for (double fractionX = 0.0; fractionX <= 1.0D; fractionX += stepX) {
+         for (double fractionY = 0.0; fractionY <= 1.0D; fractionY += stepY) {
+            for (double fractionZ = 0.0; fractionZ <= 1.0D; fractionZ += stepZ) {
+               double maximumX = bounds.maxX;
+               double minimumX = bounds.minX;
+               double sampleX = Mth.lerp(fractionX, minimumX, maximumX);
+               double maximumY = bounds.maxY;
+               double minimumY = bounds.minY;
+               double sampleY = Mth.lerp(fractionY, minimumY, maximumY);
+               double maximumZ = bounds.maxZ;
+               double minimumZ = bounds.minZ;
+               double sampleZ = Mth.lerp(fractionZ, minimumZ, maximumZ);
+               double offsetSampleX = sampleX + offsetX;
+               double shiftedZ = sampleZ + offsetZ;
+               Vec3Utils.setComponents(samplePosition, offsetSampleX, sampleY, shiftedZ);
 
-      return ExplosionExposureMath.calculate(
-         bounds.minX,
-         bounds.minY,
-         bounds.minZ,
-         bounds.maxX,
-         bounds.maxY,
-         bounds.maxZ,
-         explosionPosition.x,
-         explosionPosition.y,
-         explosionPosition.z,
-         (sampleX, sampleY, sampleZ, explosionX, explosionY, explosionZ) -> {
-            Vec3Utils.setComponents(samplePosition, sampleX, sampleY, sampleZ);
-            return RaycastUtils.raycast(context).getType() == Type.MISS;
+               if (RaycastUtils.raycast(context).getType() == Type.MISS) {
+                  visibleSamples++;
+               }
+               totalSamples++;
+            }
          }
-      );
+      }
+      return (float)visibleSamples / totalSamples;
    }
 
    public static float applyDamageReduction(LivingEntity target, float damage) {
@@ -170,19 +188,26 @@ public final class DamageUtils implements ClientAccess {
          assumeBestArmor = false;
       }
 
+      DamageSources damageSources = ClientAccess.schizoMinecraft.level.damageSources();
+      DamageSource damageSource = damageSources.explosion((Explosion)null);
+
       float armor = target.getArmorValue();
       var toughnessAttribute = Attributes.ARMOR_TOUGHNESS;
       float toughness = (float)target.getAttributeValue(toughnessAttribute);
+      damage = CombatRules.getDamageAfterAbsorb(target, damage, damageSource, armor, toughness);
       var resistanceEffect = MobEffects.RESISTANCE;
-      boolean hasResistance = target.hasEffect(resistanceEffect);
-      float resistanceAmplifier = 1.0F;
-      if (hasResistance || assumeBestArmor) {
-         MobEffectInstance resistance = target.getEffect(resistanceEffect);
+      if (target.hasEffect(resistanceEffect) || assumeBestArmor) {
+         var activeResistanceEffect = MobEffects.RESISTANCE;
+
+         MobEffectInstance resistance = target.getEffect(activeResistanceEffect);
+         float resistanceAmplifier = 1.0F;
          if (resistance != null) {
             resistanceAmplifier = resistance.getAmplifier();
          }
+         float resistanceLevel = resistanceAmplifier + 1.0F;
+         float resistanceNumerator = damage * (25.0F - resistanceLevel * 5.0F);
+         damage = resistanceNumerator / 25.0F;
       }
-
       int protectionScore = 0;
       if (target instanceof Player player) {
          int assumedArmorUnits = 1;
@@ -213,16 +238,12 @@ public final class DamageUtils implements ClientAccess {
             protectionScore = (int)(assumedArmorFraction * 20.0F);
          }
       }
-
-      return ExplosionDamageReductionMath.apply(
-         damage,
-         armor,
-         toughness,
-         hasResistance,
-         resistanceAmplifier,
-         assumeBestArmor,
-         protectionScore
-      );
+      if (protectionScore > 20) {
+         protectionScore = 20;
+      }
+      float protectionAsFloat = protectionScore;
+      damage *= 1.0F - protectionAsFloat / 25.0F;
+      return damage < 0.0F ? 0.0F : damage;
    }
 
    private static float resolveBlockingDamage(
@@ -251,19 +272,7 @@ public final class DamageUtils implements ClientAccess {
       double dot = attackDirection.dot(viewVector);
       double angle = Math.acos(dot);
 
-      List<ExplosionBlockingDamageMath.Reduction> reductions = new java.util.ArrayList<>();
-      for (BlocksAttacks.DamageReduction reduction : blocksAttacks.damageReductions()) {
-         boolean damageTypeMatches = reduction.type().isEmpty()
-            || reduction.type().get().contains(damageSource.typeHolder());
-         reductions.add(new ExplosionBlockingDamageMath.Reduction(
-            reduction.horizontalBlockingAngle(),
-            damageTypeMatches,
-            reduction.base(),
-            reduction.factor()
-         ));
-      }
-
-      return ExplosionBlockingDamageMath.apply(damage, angle, reductions);
+      return blocksAttacks.resolveBlockedDamage(damageSource, damage, angle);
    }
 
    public static float scaleForDifficulty(float damage) {
