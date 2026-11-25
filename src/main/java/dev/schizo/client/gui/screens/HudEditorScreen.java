@@ -19,6 +19,7 @@ import dev.schizo.client.render.MaskShaderRenderer;
 import dev.schizo.client.render.ClientRenderPipelines;
 import dev.schizo.client.render.RenderTargetUtils;
 import dev.schizo.client.utils.collections.IntPair;
+import dev.schizo.client.utils.math.FloatBounds;
 import dev.schizo.client.render.HudAnchorGroup;
 import dev.schizo.client.render.HudHoverLabel;
 import dev.schizo.client.utils.ClampedInterpolatedFloat;
@@ -432,43 +433,43 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
             return true;
          }
          HudWidgetRenderer widget = this.draggedWidget;
-         this.draggedWidget = null;
-         HudAnchorGroup freeGroup = this.getAnchorGroup(HudAnchor.NONE);
-         widget.setSelected(false);
-         freeGroup.getWidgets().remove(widget);
          int screenWidth = ClientAccess.schizoMinecraft.getWindow().getGuiScaledWidth();
          int screenHeight = ClientAccess.schizoMinecraft.getWindow().getGuiScaledHeight();
          widget.updateSnapping(screenWidth, screenHeight, 5.0F);
-
-         for (HudAnchorGroup group : anchorGroups) {
-            for (Object widgetElement : group.getWidgets()) {
-               HudWidgetRenderer otherWidget = (HudWidgetRenderer)widgetElement;
-               if (otherWidget.getBounds().intersects(widget.getBounds())) {
-                  group.getWidgets().addLast(widget);
-                  widget.setAnchor(group.getAnchor());
-                  this.finishLayoutEdit();
-                  return true;
-               }
-            }
+         HudAnchorGroup destination = this.findDropGroup(widget);
+         HudAnchorGroup freeGroup = this.getAnchorGroup(HudAnchor.NONE);
+         if (destination != freeGroup) {
+            destination.getWidgets().addLast(widget);
+            freeGroup.getWidgets().remove(widget);
          }
-
-         for (HudAnchor anchor : HudAnchor.values()) {
-            if (anchor.getBounds().intersects(widget.getBounds().expand(5.0F))) {
-               this.getAnchorGroup(anchor).getWidgets().addLast(widget);
-               widget.setAnchor(anchor);
-               this.finishLayoutEdit();
-               return true;
-            }
-         }
-
-         // A free widget that is not snapped to an anchor must remain in the free group.
-         freeGroup.getWidgets().addLast(widget);
-         widget.setAnchor(HudAnchor.NONE);
+         widget.setAnchor(destination.getAnchor());
+         widget.setSelected(false);
+         this.draggedWidget = null;
          this.finishLayoutEdit();
          return true;
       }
 
       return released;
+   }
+
+   private HudAnchorGroup findDropGroup(HudWidgetRenderer dragged) {
+      FloatBounds bounds = dragged.getBounds();
+      for (HudAnchorGroup group : anchorGroups) {
+         for (Object entry : group.getWidgets()) {
+            HudWidgetRenderer other = (HudWidgetRenderer)entry;
+            if (other != dragged && other.getBounds().intersects(bounds)) {
+               return group;
+            }
+         }
+      }
+
+      FloatBounds snapBounds = bounds.expand(5.0F);
+      for (HudAnchor anchor : HudAnchor.values()) {
+         if (anchor.getBounds().intersects(snapBounds)) {
+            return this.getAnchorGroup(anchor);
+         }
+      }
+      return this.getAnchorGroup(HudAnchor.NONE);
    }
 
    private ModuleComponent findModuleRow(HudWidgetRenderer widget) {

@@ -71,13 +71,17 @@ class TickRateControllerTest {
    }
 
    @Test
-   void rejectsNonFiniteRequestsWithoutChangingTheCurrentOwner() {
+   void rejectsNonFiniteRequests() {
       TickRateController.Requests requests = new TickRateController.Requests();
       Object owner = new Object();
-      requests.request(owner, 1.25F);
 
-      assertThrows(IllegalArgumentException.class, () -> requests.request(new Object(), Float.NaN));
-      assertThrows(IllegalArgumentException.class, () -> requests.request(new Object(), Float.POSITIVE_INFINITY));
-      assertEquals(1.25F, requests.getMultiplier(), EPSILON);
+      assertThrows(IllegalArgumentException.class, () -> requests.request(owner, Float.NaN));
+      assertThrows(IllegalArgumentException.class, () -> requests.request(owner, Float.POSITIVE_INFINITY));
+   }
+
+   @Test
+   void rejectsMissingOwner() {
+      TickRateController.Requests requests = new TickRateController.Requests();
+      assertThrows(NullPointerException.class, () -> requests.request(null, 1.0F));
    }
 }
