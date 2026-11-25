@@ -102,7 +102,12 @@ public final class NamehistoryCommand extends Command {
                   "https://namemc.com/profile/" + String.valueOf((String)openContext.getArgument("name", String.class))
                );
                Util.getPlatform().openUri(profileUri);
-            } catch (Throwable ignoredBrowserFailure) {
+            } catch (Exception browserFailure) {
+               RuntimeDiagnostics.record(
+                  RuntimeDiagnostics.Area.COMMAND,
+                  "Name history browser launch",
+                  browserFailure
+               );
             }
 
             return 1;
