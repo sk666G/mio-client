@@ -15,8 +15,9 @@ from pathlib import Path, PurePosixPath, PureWindowsPath
 
 EXPECTED_COMMIT = "2fec97aa0c52860f9252b61543dce8fc9825e081"
 VERSION_PLACEHOLDER = "$" + "{version}"
-PRESERVE_TOP_LEVEL = {".git", ".github", "tools"}
-REMOVED_MODULES = {
+PRESERVE_TOP_LEVEL = {".git", ".github", "tools", "LICENSE"}
+REMOVED_PATHS = {
+    "zio.png",
     "src/main/java/dev/zio/client/modules/exploit/GrimDisablerModule.java",
     "src/main/java/dev/zio/client/modules/exploit/RaytraceBypassModule.java",
 }
@@ -244,7 +245,7 @@ def build_staging_tree(stage: Path, members) -> int:
     collision_paths = set()
     for rel, raw in members:
         rel = safe_relative_member(rel)
-        if rel in REMOVED_MODULES:
+        if rel in REMOVED_PATHS:
             continue
         mapped = mapped_path(rel)
         collision_key = mapped.casefold()
