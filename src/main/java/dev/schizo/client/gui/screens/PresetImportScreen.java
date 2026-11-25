@@ -120,7 +120,7 @@ public final class PresetImportScreen extends ClientScreen {
       try {
          Files.copy(sourcePath, targetCategory.getDirectory().resolve(fileName));
       } catch (IOException copyFailure) {
-         copyFailure.printStackTrace();
+         ClientAccess.logger.warn("Could not import dropped preset {}", sourcePath, copyFailure);
       }
 
       ClientContext.configurationManager
