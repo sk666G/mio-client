@@ -491,6 +491,8 @@ public class SpeedMineModule extends Module {
 
       owner.retargetTimer.reset();
       owner.rebreakTracker.reset();
+      owner.extraBreakTracker.clear();
+      owner.extraBreakTarget = null;
    }
 
    @Override
