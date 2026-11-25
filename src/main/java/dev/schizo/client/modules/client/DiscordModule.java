@@ -9,6 +9,7 @@
 
 package dev.schizo.client.modules.client;
 
+import dev.schizo.client.diagnostics.RuntimeDiagnostics;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.SchizoClient;
 import dev.schizo.client.events.MinecraftTickEvent;
@@ -75,6 +76,7 @@ public class DiscordModule extends Module {
       pending.whenComplete((connectedClient, failure) -> {
          if (failure != null) {
             LOGGER.warn("Discord connection failed: {}", failure.getClass().getSimpleName());
+            RuntimeDiagnostics.record(RuntimeDiagnostics.Area.INTEGRATION, "Discord IPC connect", failure);
             Minecraft minecraft = ClientAccess.schizoMinecraft;
             if (minecraft != null) {
                minecraft.execute(() -> {
@@ -149,7 +151,8 @@ public class DiscordModule extends Module {
          }
          RichPresence presence = presenceBuilder.build();
          ipcClient.sendRichPresence(presence);
-      } catch (Exception ignored) {
+      } catch (Exception failure) {
+         RuntimeDiagnostics.record(RuntimeDiagnostics.Area.INTEGRATION, "Discord presence update", failure);
       }
    }
 
