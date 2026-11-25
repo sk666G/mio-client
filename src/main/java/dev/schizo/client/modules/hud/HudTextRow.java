@@ -24,7 +24,9 @@ import net.minecraft.client.gui.Font.DisplayMode;
 import net.minecraft.util.Mth;
 
 public class HudTextRow {
-   private static final HUDModule hudSettings;
+   private static HUDModule hudSettings() {
+      return ClientContext.requireModule(HUDModule.class);
+   }
    private final Supplier<? extends Component> textSupplier;
    private final Supplier<?> visibilitySupplier;
    private float visibility;
@@ -55,9 +57,7 @@ public class HudTextRow {
       this.visibilitySupplier = visibilitySupplier;
    }
 
-   static {
-      hudSettings = ClientContext.getModule(HUDModule.class);
-   }
+   
 
    public boolean isDrawn() {
       Boolean visible = (Boolean)this.visibilitySupplier.get();
@@ -73,7 +73,7 @@ public class HudTextRow {
       } else {
          FontRenderer font = FontRenderer.INSTANCE;
          float textWidth = this.measuredTextWidth;
-         Setting<Boolean> smoothWidthOption = hudSettings.smoothWidthSetting;
+         Setting<Boolean> smoothWidthOption = hudSettings().smoothWidthSetting;
          Boolean smoothWidth = smoothWidthOption.getValue();
          if (smoothWidth) {
             this.widthAnimation.setTarget(textWidth);
