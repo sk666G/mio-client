@@ -28,16 +28,16 @@ import java.util.ArrayList;
 import java.util.List;
 
 public final class StashRegistry extends Registry<StashEntry> implements ClientAccess, JsonConfigurable {
-   private static StashFinderModule stashFinderModule;
+   private static StashFinderModule stashFinderModule() {
+      return ClientContext.requireModule(StashFinderModule.class);
+   }
 
    public StashRegistry() {
       EventBus eventBus = ClientAccess.eventBus;
       eventBus.subscribe(this);
    }
 
-   static {
-      stashFinderModule = ClientContext.getModule(StashFinderModule.class);
-   }
+   
 
    @Override
    public void fromJson(JsonElement element) {
@@ -72,7 +72,7 @@ public final class StashRegistry extends Registry<StashEntry> implements ClientA
 
    @Override
    public JsonElement toJson() {
-      Setting<Boolean> logSetting = stashFinderModule.logSetting;
+      Setting<Boolean> logSetting = stashFinderModule().logSetting;
       Boolean loggingEnabled = logSetting.getValue();
       if (!loggingEnabled) {
          return new JsonObject();
