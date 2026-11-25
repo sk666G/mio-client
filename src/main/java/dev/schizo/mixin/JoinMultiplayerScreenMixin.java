@@ -28,8 +28,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(JoinMultiplayerScreen.class)
 public class JoinMultiplayerScreenMixin extends Screen {
-   private static final FakeVanillaModule fakeVanillaModule = ClientContext.getModule(FakeVanillaModule.class);
-   private static final UIModule uiModule = ClientContext.getModule(UIModule.class);
+
 
    protected JoinMultiplayerScreenMixin(Component title) {
       super(title);
@@ -43,9 +42,9 @@ public class JoinMultiplayerScreenMixin extends Screen {
                2,
                6
             )
-            .selected(fakeVanillaModule.isToggled())
+            .selected(schizo$fakeVanillaModule().isToggled())
             .onValueChange(
-               (checkbox, isSelected) -> fakeVanillaModule.setToggled(
+               (checkbox, isSelected) -> schizo$fakeVanillaModule().setToggled(
                   isSelected
                )
             );
@@ -59,14 +58,24 @@ public class JoinMultiplayerScreenMixin extends Screen {
    ) {
       if (!(this.getFocused() instanceof EditBox)) {
          if (keyEvent.key()
-            == uiModule.getKeybind()
+            == schizo$uiModule().getKeybind()
                .code()) {
             callback.setReturnValue(false);
             callback.cancel();
-            uiModule.enable();
+            schizo$uiModule().enable();
             ClientContext.getClickGui()
                .open();
          }
       }
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static FakeVanillaModule schizo$fakeVanillaModule() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(FakeVanillaModule.class);
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static UIModule schizo$uiModule() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(UIModule.class);
    }
 }
