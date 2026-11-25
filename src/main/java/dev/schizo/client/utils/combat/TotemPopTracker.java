@@ -18,6 +18,7 @@ import dev.schizo.client.events.PlayerTotemEvent;
 import dev.schizo.client.events.ConnectScreenConnectEvent;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.LocalPlayerTickEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.events.bus.EventBus;
 import dev.schizo.mixin.ClientboundEntityEventPacketAccessor;
 
@@ -81,14 +82,15 @@ public final class TotemPopTracker implements ClientAccess {
 
    @EventHandler
    private void onConnectScreenConnectEvent(ConnectScreenConnectEvent event) {
-      if (ClientContext.serverStateManager.getServerData() != null) {
-         String address = event.getServerAddress();
+      this.resetSession();
+   }
 
-         if (!address.equals(ClientContext.serverStateManager.getServerData().ip)) {
-            return;
-         }
-      }
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.resetSession();
+   }
 
+   private void resetSession() {
       this.sessionGeneration++;
       this.popCounts.clear();
       this.disconnectTimes.clear();
