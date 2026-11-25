@@ -38,8 +38,12 @@ import org.spongepowered.asm.mixin.injection.invoke.arg.Args;
 
 @Mixin(SkyRenderer.class)
 public class SkyRendererMixin {
-   private static final SkyboxModule skyboxModule = ClientContext.getModule(SkyboxModule.class);
-   private static final NoRenderModule noRenderModule = ClientContext.getModule(NoRenderModule.class);
+   private static SkyboxModule skyboxModule() {
+      return ClientContext.requireModule(SkyboxModule.class);
+   }
+   private static NoRenderModule noRenderModule() {
+      return ClientContext.requireModule(NoRenderModule.class);
+   }
    @Unique
    private static boolean hook = false;
 
@@ -48,9 +52,9 @@ public class SkyRendererMixin {
       at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/dimension/DimensionType;skybox()Lnet/minecraft/world/level/dimension/DimensionType$Skybox;")
    )
    private Skybox overrideDimensionSkybox(Skybox originalSkybox) {
-      if (skyboxModule.isToggled()
-         && skyboxModule.isCurrentDimensionEnabled()) {
-         return switch (skyboxModule.typeSetting.getValue()) {
+      if (skyboxModule().isToggled()
+         && skyboxModule().isCurrentDimensionEnabled()) {
+         return switch (skyboxModule().typeSetting.getValue()) {
             case NONE -> originalSkybox;
             case OVERWORLD -> Skybox.OVERWORLD;
             case FLAT -> Skybox.NONE;
@@ -66,11 +70,11 @@ public class SkyRendererMixin {
    private void overrideSkyRenderState(
       ClientLevel level, float partialTick, Camera camera, SkyRenderState renderState, CallbackInfo callback
    ) {
-      if (skyboxModule.isToggled()
-         && skyboxModule.isCurrentDimensionEnabled()) {
-         renderState.skyColor = (skyboxModule.skySetting.getValue())
+      if (skyboxModule().isToggled()
+         && skyboxModule().isCurrentDimensionEnabled()) {
+         renderState.skyColor = (skyboxModule().skySetting.getValue())
             .hashCode();
-         if (skyboxModule.typeSetting.getValue()
+         if (skyboxModule().typeSetting.getValue()
             == SkyboxModule.SkyType.FLAT) {
             renderState.shouldRenderDarkDisc = false;
          }
@@ -79,21 +83,21 @@ public class SkyRendererMixin {
 
    @Inject(method = "renderSun", at = @At("HEAD"), cancellable = true)
    private void hideSun(float brightness, PoseStack poses, CallbackInfo callback) {
-      if (noRenderModule.shouldHideCelestialBodies()) {
+      if (noRenderModule().shouldHideCelestialBodies()) {
          callback.cancel();
       }
    }
 
    @Inject(method = "renderMoon", at = @At("HEAD"), cancellable = true)
    private void hideMoon(MoonPhase phase, float brightness, PoseStack poses, CallbackInfo callback) {
-      if (noRenderModule.shouldHideCelestialBodies()) {
+      if (noRenderModule().shouldHideCelestialBodies()) {
          callback.cancel();
       }
    }
 
    @Inject(method = "renderStars", at = @At("HEAD"), cancellable = true)
    private void hideStars(float brightness, PoseStack poses, CallbackInfo callback) {
-      if (noRenderModule.shouldHideStars()) {
+      if (noRenderModule().shouldHideStars()) {
          callback.cancel();
       }
    }
@@ -102,8 +106,8 @@ public class SkyRendererMixin {
    private void renderFancyStarBloom(
       float brightness, PoseStack poses, CallbackInfo callback
    ) {
-      if (skyboxModule.isToggled()
-         && skyboxModule.fancyStarsSetting.getValue()) {
+      if (skyboxModule().isToggled()
+         && skyboxModule().fancyStarsSetting.getValue()) {
          if (!hook) {
             this.renderStarsToBloomMask(brightness, poses);
          }
@@ -118,9 +122,9 @@ public class SkyRendererMixin {
       )
    )
    public void overrideStarTint(Args arguments) {
-      if (skyboxModule.isToggled()
-         && skyboxModule.fancyStarsSetting.getValue()) {
-         Color starColor = skyboxModule.starsColorSetting.getValue();
+      if (skyboxModule().isToggled()
+         && skyboxModule().fancyStarsSetting.getValue()) {
+         Color starColor = skyboxModule().starsColorSetting.getValue();
          float originalAlpha = arguments.<Vector4f>get(1).w();
          arguments.set(1, new Vector4f(starColor.getRed() / 255.0F, starColor.getGreen() / 255.0F, starColor.getBlue() / 255.0F, originalAlpha));
       }
@@ -131,7 +135,7 @@ public class SkyRendererMixin {
       RenderTarget previousTarget = Minecraft.getInstance().getMainRenderTarget();
       RenderUtils.clearColor(
          MaskShaderRenderer.MASK_TARGET,
-         skyboxModule.starsColorSetting.getValue()
+         skyboxModule().starsColorSetting.getValue()
       );
       RenderUtils.clearDepth(
          MaskShaderRenderer.MASK_TARGET
