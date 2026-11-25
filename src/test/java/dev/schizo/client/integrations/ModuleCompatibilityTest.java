@@ -5,6 +5,9 @@ import static org.junit.jupiter.api.Assertions.*;
 import dev.schizo.client.modules.client.ColorsModule;
 import dev.schizo.client.modules.client.FontsModule;
 import dev.schizo.client.modules.client.HUDModule;
+import dev.schizo.client.modules.client.CapesModule;
+import dev.schizo.client.modules.client.DiscordModule;
+import dev.schizo.client.modules.client.UIModule;
 import dev.schizo.client.modules.client.SettingsModule;
 import dev.schizo.client.modules.client.AntiCheatModule;
 import dev.schizo.client.modules.combat.AntiPhaseModule;
@@ -54,6 +57,7 @@ import dev.schizo.client.modules.render.TrailsModule;
 import dev.schizo.client.modules.render.TrajectoriesModule;
 import dev.schizo.client.modules.render.VoidESPModule;
 import dev.schizo.client.modules.render.ZoomModule;
+import dev.schizo.client.modules.render.TunnelsModule;
 import org.junit.jupiter.api.Test;
 
 class ModuleCompatibilityTest {
@@ -64,6 +68,9 @@ class ModuleCompatibilityTest {
       assertClassification(ColorsModule.class, ModuleCompatibility.Classification.CLIENT_ONLY);
       assertClassification(FontsModule.class, ModuleCompatibility.Classification.CLIENT_ONLY);
       assertClassification(HUDModule.class, ModuleCompatibility.Classification.CLIENT_ONLY);
+      assertClassification(UIModule.class, ModuleCompatibility.Classification.CLIENT_ONLY);
+      assertClassification(CapesModule.class, ModuleCompatibility.Classification.VISUAL_ONLY);
+      assertClassification(DiscordModule.class, ModuleCompatibility.Classification.CLIENT_ONLY);
       assertClassification(AmbienceModule.class, ModuleCompatibility.Classification.VISUAL_ONLY);
       assertClassification(AnimationsModule.class, ModuleCompatibility.Classification.VISUAL_ONLY);
       assertClassification(ChamsModule.class, ModuleCompatibility.Classification.VISUAL_ONLY);
@@ -94,6 +101,7 @@ class ModuleCompatibilityTest {
       assertClassification(TrailsModule.class, ModuleCompatibility.Classification.VISUAL_ONLY);
       assertClassification(TrajectoriesModule.class, ModuleCompatibility.Classification.VISUAL_ONLY);
       assertClassification(VoidESPModule.class, ModuleCompatibility.Classification.VISUAL_ONLY);
+      assertClassification(TunnelsModule.class, ModuleCompatibility.Classification.VISUAL_ONLY);
       assertClassification(dev.schizo.client.modules.movement.NoFallModule.class, ModuleCompatibility.Classification.PACKET_AFFECTING);
       assertClassification(FreeLookModule.class, ModuleCompatibility.Classification.SERVER_SENSITIVE);
       assertClassification(ReachModule.class, ModuleCompatibility.Classification.SERVER_SENSITIVE);
@@ -129,6 +137,26 @@ class ModuleCompatibilityTest {
 
       assertEquals(ModuleCompatibility.Classification.UNVERIFIED, assessment.classification());
       assertFalse(assessment.sourceReviewed());
+   }
+
+   @Test
+   void exactReviewedSettingsDoNotCertifyFutureOrUnknownSettings() {
+      ModuleCompatibility.SettingAssessment cape =
+         ModuleCompatibility.assessSetting(CapesModule.class, "Cape");
+      assertEquals(ModuleCompatibility.Classification.VISUAL_ONLY, cape.classification());
+      assertTrue(cape.individuallyReviewed());
+
+      for (String name : new String[]{"Verticals", "LineWidth", "Height", "MinLength", "Fill", "Outline"}) {
+         ModuleCompatibility.SettingAssessment tunnel =
+            ModuleCompatibility.assessSetting(TunnelsModule.class, name);
+         assertEquals(ModuleCompatibility.Classification.VISUAL_ONLY, tunnel.classification(), name);
+         assertTrue(tunnel.individuallyReviewed(), name);
+      }
+
+      ModuleCompatibility.SettingAssessment unknown =
+         ModuleCompatibility.assessSetting(TunnelsModule.class, "FutureSetting");
+      assertEquals(ModuleCompatibility.Classification.UNVERIFIED, unknown.classification());
+      assertFalse(unknown.individuallyReviewed());
    }
 
    @Test
