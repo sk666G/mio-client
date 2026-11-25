@@ -34,27 +34,32 @@ public final class AliasRegistry implements ClientAccess, JsonConfigurable {
 
    @Override
    public void fromJson(JsonElement input) {
-      JsonObject json = input.getAsJsonObject();
-      if (json.has("module")) {
-         JsonObject moduleObject = json.getAsJsonObject("module");
+      if (!(input instanceof JsonObject json)) {
+         throw new IllegalArgumentException("Alias configuration must be a JSON object");
+      }
+
+      Map<Module, String> loadedModuleAliases = new HashMap<>();
+      Map<String, String> loadedPlayerAliases = new HashMap<>();
+
+      if (json.get("module") instanceof JsonObject moduleObject && ClientContext.moduleRegistry != null) {
          moduleObject.asMap().forEach((configuredModuleName, aliasElement) -> {
             Optional<Module> moduleMatch = ClientContext.moduleRegistry.findFirst((Predicate<Module>)module -> {
                return module.getName().equalsIgnoreCase(LegacyBranding.canonicalModuleName(configuredModuleName));
             });
-            moduleMatch.ifPresent(module -> {
-               String alias = aliasElement.getAsString();
-               this.setModuleAlias(module, alias);
-            });
+            moduleMatch.ifPresent(module -> loadedModuleAliases.put(module, aliasElement.getAsString()));
          });
       }
 
-      if (json.has("players")) {
-         JsonObject playerObject = json.getAsJsonObject("players");
-         playerObject.asMap().forEach((playerName, aliasElement) -> {
-            String alias = aliasElement.getAsString();
-            this.setPlayerAlias(playerName, alias);
-         });
+      if (json.get("players") instanceof JsonObject playerObject) {
+         playerObject.asMap().forEach((playerName, aliasElement) ->
+            loadedPlayerAliases.put(playerName, aliasElement.getAsString())
+         );
       }
+
+      this.moduleAliases.clear();
+      this.moduleAliases.putAll(loadedModuleAliases);
+      this.playerAliases.clear();
+      this.playerAliases.putAll(loadedPlayerAliases);
    }
 
    @Override
