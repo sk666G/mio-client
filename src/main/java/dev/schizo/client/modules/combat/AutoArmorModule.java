@@ -263,10 +263,7 @@ public class AutoArmorModule extends Module {
       this.skipNextArmorUpdate = true;
    }
 
-   static {
-      elytraFlyModule = (ElytraFlyModule)ClientContext.getModule(ElytraFlyModule.class);
-      noSlowModule = (NoSlowModule)ClientContext.getModule(NoSlowModule.class);
-   }
+   
 
    private void performArmorUpdates() {
       if (this.skipNextArmorUpdate) {
