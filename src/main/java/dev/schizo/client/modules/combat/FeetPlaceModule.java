@@ -146,8 +146,8 @@ public class FeetPlaceModule extends PlacementModule {
    }
 
    static {
-      antiCheat = (AntiCheatModule)ClientContext.getModule(AntiCheatModule.class);
-      speedMine = (SpeedMineModule)ClientContext.getModule(SpeedMineModule.class);
+
+
    }
 
    @Override
