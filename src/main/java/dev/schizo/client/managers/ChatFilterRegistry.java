@@ -70,17 +70,33 @@ public class ChatFilterRegistry implements ClientAccess, JsonConfigurable {
 
    @Override
    public void fromJson(JsonElement json) {
-      if (json instanceof JsonObject root && root.has("filters") && root.get("filters") instanceof JsonArray serializedFilters) {
-         for (int filterIndex = 0; filterIndex < serializedFilters.size(); filterIndex++) {
-            JsonObject filterObject = serializedFilters.get(filterIndex).getAsJsonObject();
-            if (filterObject.has("id") && filterObject.has("filter")) {
-               String id = filterObject.get("id").getAsString();
-               String filter = filterObject.get("filter").getAsString();
-               if (!this.containsId(id)) {
-                  this.add(id, filter);
-               }
-            }
+      if (!(json instanceof JsonObject root)
+         || !(root.get("filters") instanceof JsonArray serializedFilters)) {
+         throw new IllegalArgumentException("Chat-filter configuration must contain a filters array");
+      }
+
+      List<ChatFilterEntry> loaded = new ArrayList<>();
+      for (JsonElement filterElement : serializedFilters) {
+         if (!(filterElement instanceof JsonObject filterObject)
+            || !filterObject.has("id")
+            || !filterObject.has("filter")) {
+            continue;
          }
+
+         try {
+            String id = filterObject.get("id").getAsString();
+            String filter = filterObject.get("filter").getAsString();
+            if (loaded.stream().noneMatch(existing -> existing.id().equalsIgnoreCase(id))) {
+               loaded.add(new ChatFilterEntry(id, filter));
+            }
+         } catch (RuntimeException invalidFilter) {
+            ClientAccess.logger.warn("Skipping invalid chat-filter entry", invalidFilter);
+         }
+      }
+
+      synchronized (this.filters) {
+         this.filters.clear();
+         this.filters.addAll(loaded);
       }
    }
 
