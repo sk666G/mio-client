@@ -47,11 +47,28 @@ class RepositoryHygieneTest(unittest.TestCase):
     def test_static_initializers_do_not_resolve_modules_from_client_context(self):
         source_root = ROOT / "src/main/java/dev/schizo"
         offenders = []
-        static_block = re.compile(r"static\s*\{.*?ClientContext\.getModule\(", re.S)
         static_field = re.compile(r"static[^;\n]*=\s*ClientContext\.getModule\(")
+
+        def static_blocks(text):
+            for match in re.finditer(r"\bstatic\s*\{", text):
+                start = match.start()
+                cursor = text.find("{", start)
+                depth = 0
+                while cursor < len(text):
+                    character = text[cursor]
+                    if character == "{":
+                        depth += 1
+                    elif character == "}":
+                        depth -= 1
+                        if depth == 0:
+                            yield text[start:cursor + 1]
+                            break
+                    cursor += 1
+
         for path in source_root.rglob("*.java"):
             text = path.read_text(encoding="utf-8")
-            if static_block.search(text) or static_field.search(text):
+            eager_block = any("ClientContext.getModule(" in block for block in static_blocks(text))
+            if eager_block or static_field.search(text):
                 offenders.append(str(path.relative_to(source_root)))
         self.assertEqual([], sorted(offenders), f"Eager static module lookups remain: {offenders}")
 
