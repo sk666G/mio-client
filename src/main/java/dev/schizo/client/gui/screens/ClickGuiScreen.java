@@ -23,7 +23,7 @@ import dev.schizo.client.utils.ElapsedTimer;
 import dev.schizo.client.render.ColorUtils;
 import dev.schizo.client.render.FontRenderer;
 import dev.schizo.client.gui.components.ModuleComponent;
-import dev.schizo.client.managers.ConfigurationManager;
+import dev.schizo.client.diagnostics.RuntimeDiagnostics;
 import dev.schizo.client.render.GuiScaleUtils;
 import dev.schizo.client.modules.HudWidgetModule;
 import dev.schizo.client.modules.Keybind;
@@ -35,9 +35,6 @@ import dev.schizo.mixin.EditBoxSelectionAccessor;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -71,7 +68,7 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
    public EditBox searchBox;
    private String searchCompletion;
    private String normalizedSearchQuery = "";
-   public List openModuleComponents = new ArrayList();
+   public final List<ModuleComponent> openModuleComponents = new ArrayList<>();
 
    private void handleSecretSequence(int keyCode) {
       if (!this.gamePanelUnlocked
@@ -80,25 +77,12 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
          this.secretSequenceIndex++;
          if (this.secretSequenceIndex
             == GAME_PANEL_UNLOCK_SEQUENCE.length) {
-            try {
-               Path markerPath = ConfigurationManager.USER_HOME_MARKER_PATH;
-               markerPath.toFile().createNewFile();
-               java.nio.file.attribute.DosFileAttributeView dos = Files.getFileAttributeView(
-                  markerPath, java.nio.file.attribute.DosFileAttributeView.class, LinkOption.NOFOLLOW_LINKS
-               );
-               if (dos != null) {
-                  try {
-                     dos.setHidden(true);
-                  } catch (UnsupportedOperationException unavailable) {
-
-                  }
-               }
-            } catch (IOException ignoredIoException) {
-            }
-
             this.gamePanelUnlocked = true;
+            if (UIModule.INSTANCE != null) {
+               UIModule.INSTANCE.unlockGamePanel();
+            }
             this.secretSequenceIndex = 0;
-            this.addGamePanel();
+            this.addGamePanelIfMissing();
             this.resetPanelPositions();
          }
       } else {
@@ -180,7 +164,12 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
             );
             presetScreen.open();
          } catch (Exception pasteException) {
-            pasteException.printStackTrace();
+            RuntimeDiagnostics.record(
+               RuntimeDiagnostics.Area.GUI,
+               "ClickGUI preset paste",
+               pasteException
+            );
+            this.setTooltipText("Preset import failed: " + pasteException.getClass().getSimpleName());
          }
       }
    }
@@ -198,9 +187,7 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
    }
 
    public ClickGuiScreen() {
-      this.gamePanelUnlocked = ConfigurationManager.USER_HOME_MARKER_PATH
-         .toFile()
-         .exists();
+      this.gamePanelUnlocked = UIModule.INSTANCE != null && UIModule.INSTANCE.isGamePanelUnlocked();
       int panelX = 10;
 
       for (ModuleCategory category : ModuleCategory.values()) {
@@ -230,7 +217,7 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
    }
 
    @Override
-   public void onFilesDrop(List paths) {
+   public void onFilesDrop(List<Path> paths) {
       PresetImportScreen.openForDroppedFiles(this, paths);
    }
 
@@ -252,15 +239,11 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
       this.drawSearchDimmer(poseStack);
       int fontHeight = FontRenderer.INSTANCE
          .getHeight();
-      if (this.openModuleComponents.size()
-         >= (3)) {
-         ((ModuleComponent)this.openModuleComponents.getFirst())
-            .setOpen(
-               false
-            );
+      if (this.openModuleComponents.size() >= 3) {
+         this.openModuleComponents.getFirst().setOpen(false);
       }
 
-      this.openModuleComponents.removeIf((java.util.function.Predicate<dev.schizo.client.gui.components.ModuleComponent>)ModuleComponent::isClosed);
+      this.openModuleComponents.removeIf(ModuleComponent::isClosed);
       if (this.searchBox.isFocused()) {
          FontRenderer fontRenderer = FontRenderer.INSTANCE;
          String searchText = this.searchBox.getValue();
@@ -418,9 +401,25 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
    }
 
    public void addGamePanel() {
-      GamePanel gamePanel = new GamePanel();
-      this.panels.add(gamePanel);
+      this.addGamePanelIfMissing();
       this.resetPanelPositions();
+   }
+
+   public void syncGamePanelUnlock(boolean unlocked) {
+      this.gamePanelUnlocked = unlocked;
+      if (unlocked) {
+         this.addGamePanelIfMissing();
+         this.resetPanelPositions();
+      }
+   }
+
+   private void addGamePanelIfMissing() {
+      for (Panel panel : this.panels) {
+         if ("Game".equals(panel.getName())) {
+            return;
+         }
+      }
+      this.panels.add(new GamePanel());
    }
 
    @Override

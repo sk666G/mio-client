@@ -157,7 +157,7 @@ public class Panel implements RegistryContainer, GuiElement, NamedEntry {
       return this.height;
    }
 
-   public ArrayList getChildren() {
+   public List<GuiElement> getChildren() {
       return this.children;
    }
 
@@ -271,9 +271,7 @@ public class Panel implements RegistryContainer, GuiElement, NamedEntry {
 
    @Override
    public boolean unregister(Object child) {
-      GuiElement element = (GuiElement)child;
-
-      return this.getRegistry().add(element);
+      return this.getRegistry().remove(child);
    }
 
    public int getY() {

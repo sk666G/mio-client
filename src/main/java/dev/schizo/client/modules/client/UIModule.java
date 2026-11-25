@@ -62,6 +62,7 @@ public final class UIModule extends Module {
    public final Setting<Float> scaleSetting;
    public final Setting<Boolean> snowSetting;
    public final Setting<Boolean> gamesSetting;
+   private final Setting<Boolean> gamePanelUnlockedSetting;
    public final Setting<Boolean> descriptionsSetting;
    final Setting<LanguageChoice> languageSetting;
    public final Setting<Boolean> settingsSetting;
@@ -189,6 +190,16 @@ public final class UIModule extends Module {
       return this.animSpeedSetting.getValue();
    }
 
+   public boolean isGamePanelUnlocked() {
+      return this.gamePanelUnlockedSetting.getValue();
+   }
+
+   public void unlockGamePanel() {
+      if (!this.gamePanelUnlockedSetting.getValue()) {
+         this.gamePanelUnlockedSetting.setValue(true);
+      }
+   }
+
    private boolean applyingPalette;
 
    private void applySelectedPalette() {
@@ -257,6 +268,7 @@ public final class UIModule extends Module {
       this.scaleSetting = this.add(new NumberSetting<>("Scale", 1.0F, 0.1F, 2.0F));
       this.snowSetting = this.add(new BooleanSetting("Snow", true));
       this.gamesSetting = this.add(new BooleanSetting("Games", true));
+      this.gamePanelUnlockedSetting = this.add(new BooleanSetting("GamePanelUnlocked", false, ignored -> false));
       BooleanSetting descriptionsOption = new BooleanSetting("Descriptions", true);
       descriptionsOption.markVisibilityDependency();
       this.descriptionsSetting = this.add(descriptionsOption);
@@ -375,6 +387,12 @@ public final class UIModule extends Module {
          }
       };
       gamesCallbackSetting.setChangeCallback(gamesChangeCallback);
+      this.gamePanelUnlockedSetting.setChangeCallback(() -> {
+         ClickGuiScreen screen = ClientContext.clickGui;
+         if (screen != null) {
+            screen.syncGamePanelUnlock(this.gamePanelUnlockedSetting.getValue());
+         }
+      });
       Setting<Boolean> resetCallbackSetting = this.resetSetting;
       Runnable resetChangeCallback = () -> {
          Setting<Boolean> reset = this.resetSetting;
