@@ -46,7 +46,7 @@ public class WarpModule extends Module {
    protected final Setting<Boolean> disableGroundSetting;
    protected final Setting<Boolean> autoDisableSetting;
    protected final WarpRechargeController rechargeController;
-   protected boolean receivedCorrection;
+   protected volatile boolean receivedCorrection;
    protected volatile int plainCharge;
 
    public int getCharge() {
