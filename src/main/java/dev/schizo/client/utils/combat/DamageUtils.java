@@ -46,7 +46,9 @@ import net.minecraft.world.phys.HitResult.Type;
 import net.minecraft.world.phys.Vec3;
 
 public final class DamageUtils implements ClientAccess {
-   private static AutoCrystalModule autoCrystal;
+   private static AutoCrystalModule autoCrystal() {
+      return ClientContext.requireModule(AutoCrystalModule.class);
+   }
 
    private DamageUtils() {
    }
@@ -161,11 +163,11 @@ public final class DamageUtils implements ClientAccess {
    }
 
    public static float applyDamageReduction(LivingEntity target, float damage) {
-      AutoCrystalModule crystalModule = autoCrystal;
+      AutoCrystalModule crystalModule = autoCrystal();
 
       boolean assumeBestArmor;
       if (crystalModule.isToggled()) {
-         assumeBestArmor = autoCrystal.assumeBestArmorSetting.getValue();
+         assumeBestArmor = autoCrystal().assumeBestArmorSetting.getValue();
       } else {
          assumeBestArmor = false;
       }
@@ -281,7 +283,5 @@ public final class DamageUtils implements ClientAccess {
       return Mth.clamp(100 - (int)Math.ceil(usedFraction * 100.0F), 1, 100);
    }
 
-   static {
-      autoCrystal = (AutoCrystalModule)ClientContext.getModule(AutoCrystalModule.class);
-   }
+   
 }
