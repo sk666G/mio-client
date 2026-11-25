@@ -8,6 +8,8 @@ import dev.schizo.client.modules.client.HUDModule;
 import dev.schizo.client.modules.client.CapesModule;
 import dev.schizo.client.modules.client.DiscordModule;
 import dev.schizo.client.modules.client.UIModule;
+import dev.schizo.client.modules.client.BaritoneModule;
+import dev.schizo.client.modules.client.NotificationsModule;
 import dev.schizo.client.modules.client.SettingsModule;
 import dev.schizo.client.modules.client.AntiCheatModule;
 import dev.schizo.client.modules.combat.AntiPhaseModule;
@@ -71,6 +73,8 @@ class ModuleCompatibilityTest {
       assertClassification(UIModule.class, ModuleCompatibility.Classification.CLIENT_ONLY);
       assertClassification(CapesModule.class, ModuleCompatibility.Classification.VISUAL_ONLY);
       assertClassification(DiscordModule.class, ModuleCompatibility.Classification.CLIENT_ONLY);
+      assertClassification(NotificationsModule.class, ModuleCompatibility.Classification.WORLD_INTERACTION);
+      assertClassification(BaritoneModule.class, ModuleCompatibility.Classification.SERVER_SENSITIVE);
       assertClassification(AmbienceModule.class, ModuleCompatibility.Classification.VISUAL_ONLY);
       assertClassification(AnimationsModule.class, ModuleCompatibility.Classification.VISUAL_ONLY);
       assertClassification(ChamsModule.class, ModuleCompatibility.Classification.VISUAL_ONLY);
@@ -140,6 +144,26 @@ class ModuleCompatibilityTest {
    }
 
    @Test
+   void reviewsMixedClientModuleSettingsIndividually() {
+      assertReviewedSetting(
+         NotificationsModule.class, "Watermark",
+         ModuleCompatibility.Classification.CLIENT_ONLY
+      );
+      assertReviewedSetting(
+         NotificationsModule.class, "SayChat",
+         ModuleCompatibility.Classification.WORLD_INTERACTION
+      );
+      assertReviewedSetting(
+         BaritoneModule.class, "BackFill",
+         ModuleCompatibility.Classification.WORLD_INTERACTION
+      );
+      assertReviewedSetting(
+         BaritoneModule.class, "Color",
+         ModuleCompatibility.Classification.VISUAL_ONLY
+      );
+   }
+
+   @Test
    void exactReviewedSettingsDoNotCertifyFutureOrUnknownSettings() {
       ModuleCompatibility.SettingAssessment cape =
          ModuleCompatibility.assessSetting(CapesModule.class, "Cape");
@@ -168,6 +192,18 @@ class ModuleCompatibilityTest {
       assertEquals(ModuleCompatibility.Classification.SERVER_SENSITIVE, assessment.inheritedModuleClassification());
       assertFalse(assessment.individuallyReviewed());
       assertTrue(assessment.requiresWarning());
+   }
+
+   private static void assertReviewedSetting(
+      Class<?> moduleType,
+      String settingName,
+      ModuleCompatibility.Classification expected
+   ) {
+      ModuleCompatibility.SettingAssessment assessment =
+         ModuleCompatibility.assessSetting(moduleType, settingName);
+      assertEquals(expected, assessment.classification(), moduleType.getName() + "/" + settingName);
+      assertTrue(assessment.individuallyReviewed(), moduleType.getName() + "/" + settingName);
+      assertTrue(assessment.reason() != null && !assessment.reason().isBlank());
    }
 
    private static void assertClassification(
