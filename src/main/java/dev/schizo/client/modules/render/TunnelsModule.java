@@ -73,7 +73,7 @@ public class TunnelsModule extends Module {
    private final Set<Long> queuedChunkScans;
    private ChunkScanCursor activeChunkScan;
    private ClientLevel scanLevel;
-   private long runtimeGeneration;
+   private volatile long runtimeGeneration;
 
    private boolean isNonSolid(BlockPos position) {
       ClientLevel level = ClientAccess.schizoMinecraft.level;
@@ -439,9 +439,9 @@ public class TunnelsModule extends Module {
          });
       } catch (Exception ignoredFailure) {
       } finally {
-         boolean idle = false;
-         AtomicBoolean busyFlag = this.mergeInProgress;
-         busyFlag.set(idle);
+         if (this.runtimeGeneration == expectedGeneration) {
+            this.mergeInProgress.set(false);
+         }
       }
    }
 
