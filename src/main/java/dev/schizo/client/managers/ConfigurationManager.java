@@ -16,6 +16,7 @@ import dev.schizo.client.config.SafeModeManager;
 import dev.schizo.client.config.ConfigurationBackupManager;
 import dev.schizo.client.config.ModulePresetCodec;
 import dev.schizo.client.config.JsonStateTransaction;
+import dev.schizo.client.config.ConfigurationSaveGate;
 import dev.schizo.client.config.PresetUndoState;
 import dev.schizo.client.render.BundledResourceInstaller;
 import dev.schizo.client.utils.FileUtils;
@@ -59,8 +60,7 @@ public final class ConfigurationManager implements ClientAccess {
    private final BundledResourceInstaller bundledResources = new BundledResourceInstaller();
    private final PresetUndoState presetUndoState = new PresetUndoState();
    private final ConfigurableRegistry configurables = new ConfigurableRegistry();
-   private final Object asyncSaveLock = new Object();
-   private volatile long asyncSaveVersion;
+   private final ConfigurationSaveGate saveGate = new ConfigurationSaveGate();
 
    public ModulePresetCodec getModulePresetCodec() {
       return this.modulePresetCodec;
@@ -242,7 +242,7 @@ public final class ConfigurationManager implements ClientAccess {
          return;
       }
 
-      long saveVersion = ++this.asyncSaveVersion;
+      long saveVersion = this.saveGate.reserveAsyncSave();
       List<ConfigSnapshot> snapshots = new ArrayList<>();
       Iterator<?> configurableIterator = this.configurables.iterator();
       while (configurableIterator.hasNext()) {
@@ -263,12 +263,10 @@ public final class ConfigurationManager implements ClientAccess {
    }
 
    private void writeSnapshots(List<ConfigSnapshot> snapshots, long saveVersion) {
-      synchronized (this.asyncSaveLock) {
-         if (saveVersion != this.asyncSaveVersion) {
-            return;
-         }
-         this.writeSnapshotsLocked(snapshots);
-      }
+      this.saveGate.runIfCurrent(
+         saveVersion,
+         () -> this.writeSnapshotsLocked(snapshots)
+      );
    }
 
    private void writeSnapshotsLocked(List<ConfigSnapshot> snapshots) {
@@ -313,43 +311,53 @@ public final class ConfigurationManager implements ClientAccess {
          ClientAccess.logger.error("Skipping configuration save because the data root is not a real directory");
          return;
       }
-      if (!PanicCommand.unloaded) {
-         Iterator<?> configurableIterator = this.configurables.iterator();
+      if (PanicCommand.unloaded) {
+         return;
+      }
 
-         while (configurableIterator.hasNext()) {
-            JsonConfigurable configurable = (JsonConfigurable)configurableIterator.next();
-            if (SafeModeManager.GLOBAL.isActive() && "modules.json".equals(configurable.getConfigName())) {
-               ClientAccess.logger.info("Preserving module enablement state while Safe Mode is active");
+      this.saveGate.invalidatePendingAndRun(this::saveCurrentStateLocked);
+   }
+
+   private void saveCurrentStateLocked() {
+      if (!isSafeRootDirectory()) {
+         ClientAccess.logger.error("Skipping configuration save because the data root is not a real directory");
+         return;
+      }
+
+      Iterator<?> configurableIterator = this.configurables.iterator();
+      while (configurableIterator.hasNext()) {
+         JsonConfigurable configurable = (JsonConfigurable)configurableIterator.next();
+         if (SafeModeManager.GLOBAL.isActive() && "modules.json".equals(configurable.getConfigName())) {
+            ClientAccess.logger.info("Preserving module enablement state while Safe Mode is active");
+            continue;
+         }
+
+         try {
+            Path configPath = ROOT_DIRECTORY.resolve(configurable.getConfigName());
+            if (Files.exists(configPath, LinkOption.NOFOLLOW_LINKS)
+               && (Files.isSymbolicLink(configPath)
+                  || !Files.isRegularFile(configPath, LinkOption.NOFOLLOW_LINKS))) {
+               ClientAccess.logger.warn(
+                  "Skipping configuration save because {} is not a regular file",
+                  configurable.getConfigName()
+               );
                continue;
             }
-
             try {
-               Path configPath = ROOT_DIRECTORY.resolve(configurable.getConfigName());
-               if (Files.exists(configPath, LinkOption.NOFOLLOW_LINKS)
-                  && (Files.isSymbolicLink(configPath)
-                     || !Files.isRegularFile(configPath, LinkOption.NOFOLLOW_LINKS))) {
-                  ClientAccess.logger.warn(
-                     "Skipping configuration save because {} is not a regular file",
-                     configurable.getConfigName()
-                  );
-                  continue;
-               }
-               try {
-                  this.backupManager.backupBeforeSave(configurable.getConfigName());
-               } catch (IOException | IllegalArgumentException backupFailure) {
-                  ClientAccess.logger.warn(
-                     "Could not back up configuration {} before saving",
-                     configurable.getConfigName(),
-                     backupFailure
-                  );
-               }
-               Gson gsonSnapshot = ClientAccess.gson;
-               JsonElement serialized = configurable.toJson();
-               JsonObject object = serialized.getAsJsonObject();
-               FileUtils.writeUtf8Atomically(configPath, gsonSnapshot.toJson(object));
-            } catch (Exception saveFailure) {
-               ClientAccess.logger.error("Could not save configuration {}", configurable.getConfigName(), saveFailure);
+               this.backupManager.backupBeforeSave(configurable.getConfigName());
+            } catch (IOException | IllegalArgumentException backupFailure) {
+               ClientAccess.logger.warn(
+                  "Could not back up configuration {} before saving",
+                  configurable.getConfigName(),
+                  backupFailure
+               );
             }
+            Gson gsonSnapshot = ClientAccess.gson;
+            JsonElement serialized = configurable.toJson();
+            JsonObject object = serialized.getAsJsonObject();
+            FileUtils.writeUtf8Atomically(configPath, gsonSnapshot.toJson(object));
+         } catch (Exception saveFailure) {
+            ClientAccess.logger.error("Could not save configuration {}", configurable.getConfigName(), saveFailure);
          }
       }
    }
