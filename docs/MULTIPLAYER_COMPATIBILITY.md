@@ -14,6 +14,7 @@ Fabric's networking documentation describes packets as the client/server state b
 | Module or group | Observed behavior from source | Compatibility status |
 | --- | --- | --- |
 | HUD widgets (`Armor`, `Chat`, `Crypto`, `Direction`, `Effects`, `EntityList`, `FrameTimeGraph`, `Graph`, `Indicator`, `Inventory`, `LagOMeter`, `Map`, `Metrics`, `ModuleList`, `Music`, `PlayerModel`, `Position`, `TextRadar`, `Totems`, `Watermark`, `Welcomer`) | Render local HUD/telemetry/inventory/entity/media/coordinate information. `Crypto` fetches a public market-price API and `Position` observes clientbound position corrections, but no reviewed HUD widget sends or rewrites Minecraft gameplay traffic. | `VISUAL_ONLY`; source-reviewed as a complete HUD category. |
+| Misc source-review wave | Explicitly reviewed 28 of 29 current Misc modules across local presentation, external notification, automatic chat/interaction, reconnect/respawn and packet-handling behavior. `Swing` remains deliberately `UNVERIFIED` pending a complete trace of its `Hand=Packet` behavior through mixins/packet construction. | Mixed classifications; see in-client `;compat module <ModuleClass>` details. |
 | `NoFall` | Its Packet mode changes the outgoing movement packet's on-ground flag after tracked fall distance exceeds 2.1 blocks. | `PACKET_AFFECTING`; not vanilla-consistent and not supported on multiplayer. |
 | `NoRender` | Cancels selected clientbound chunk-cache-radius and End fire block-update packet events; other settings hide local render effects. | `PACKET_AFFECTING`; affects client packet processing, with setting-level review pending. |
 | `FreeLook` | Separates camera rotation from player rotation and changes the view vector used for entity/block picking. | `SERVER_SENSITIVE`; interaction targeting can diverge from the player's reported rotation. |
@@ -40,7 +41,7 @@ Use:
 - `;compat list <CLASSIFICATION>` to filter the inventory.
 - `;compat module <ModuleClass>` for the module rationale and each setting's current review state.
 
-The registry labels the source-reviewed modules listed above. The Render, Client and HUD module categories now have source-level classifications for every currently registered module. **Every other module defaults to `UNVERIFIED`**. Runtime warnings are shown when a module in one of the warning-required classes is enabled in multiplayer; warnings are deduplicated per module per connection and capped in chat. The inventory identifies every individual setting as `UNVERIFIED` until that exact runtime-class/config-name pair has received its own source review. Explicit setting reviews now cover Capes/Cape, Discord/Server, all six current Tunnels settings, all current Notifications settings and all current Baritone settings; future settings do not inherit those labels automatically. A module-level label is not a per-setting certification. In remote multiplayer, hover any ClickGUI setting to see its explicit `UNVERIFIED` review state and the parent module classification in the existing tooltip; local and single-player tooltips remain unchanged.
+The registry labels the source-reviewed modules listed above. The Render, Client and HUD module categories now have source-level classifications for every currently registered module. The Misc category is source-reviewed for 28 of 29 current modules; `Swing` remains explicitly `UNVERIFIED` until its `Hand=Packet` behavior is traced end-to-end. **Every other module defaults to `UNVERIFIED`**. Runtime warnings are shown when a module in one of the warning-required classes is enabled in multiplayer; warnings are deduplicated per module per connection and capped in chat. The inventory identifies every individual setting as `UNVERIFIED` until that exact runtime-class/config-name pair has received its own source review. Explicit setting reviews now cover Capes/Cape, Discord/Server, all six current Tunnels settings, all current Notifications settings and all current Baritone settings; future settings do not inherit those labels automatically. A module-level label is not a per-setting certification. In remote multiplayer, hover any ClickGUI setting to see its explicit `UNVERIFIED` review state and the parent module classification in the existing tooltip; local and single-player tooltips remain unchanged.
 
 The report does not modify packets or attempt to evade server validation. The default policy is **WARN_ONLY** and leaves module activation unchanged.
 
@@ -65,6 +66,17 @@ When the conservative policy is active, already-enabled blocked modules are susp
 - **Public-server tested:** none.
 - **Server/plugin-specific compatibility:** none established.
 - **Protocol behavior tested:** no packet-capture comparison against an unmodified vanilla client was performed.
+
+## Misc review disposition
+
+The current Misc pass reviewed 28 modules rather than assigning a category-wide default:
+
+- **Local/client or visual:** AntiSpam, AntiQuit, ChatFilter, ChestSearchBar, CoordLogger, CustomDeathText, ExtraScreenshot, ExtraTab, Heaven, KillEffects, NoNarrator, SoundBlocker, StashFinder, VisualRange and WebhookNotifs.
+- **World/input/server interaction:** Announcer, AntiAFK, AntiAim, AutoReconnect, AutoRespawn, AutoSign, MiddleClick and Spammer.
+- **Packet-affecting:** AntiCyrillic, BetterChat, NoPacketKick, NoRotate and SkinFlicker.
+- **Still unverified:** Swing. Its animation/equip-render consumers are traced, but the `Hand=Packet` option remains a certification blocker until the exact outgoing-hand behavior is located and reviewed.
+
+External HTTP/webhook behavior is recorded separately from Minecraft gameplay traffic: ExtraScreenshot's optional explicit Imgur upload and WebhookNotifs' configured webhook/Telegram delivery do not make those modules Minecraft packet-affecting, but they remain privacy/network features users should configure deliberately.
 
 ## Remaining compatibility work
 
