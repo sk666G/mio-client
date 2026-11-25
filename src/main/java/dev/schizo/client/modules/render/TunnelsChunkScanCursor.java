@@ -1,18 +1,19 @@
 package dev.schizo.client.modules.render;
 
 import net.minecraft.core.BlockPos;
-import net.minecraft.world.level.ChunkPos;
 
 final class TunnelsChunkScanCursor {
-   final ChunkPos chunkPosition;
+   private final int baseX;
+   private final int baseZ;
    private final int firstY;
    private final int endY;
    private int localX;
    private int localZ;
    private int y;
 
-   TunnelsChunkScanCursor(ChunkPos chunkPosition, int firstY, int endY) {
-      this.chunkPosition = chunkPosition;
+   TunnelsChunkScanCursor(int baseX, int baseZ, int firstY, int endY) {
+      this.baseX = baseX;
+      this.baseZ = baseZ;
       this.firstY = firstY;
       this.endY = Math.max(firstY, endY);
       this.y = firstY;
@@ -23,9 +24,7 @@ final class TunnelsChunkScanCursor {
          return false;
       }
 
-      int x = this.chunkPosition.getMinBlockX() + this.localX;
-      int z = this.chunkPosition.getMinBlockZ() + this.localZ;
-      target.set(x, this.y, z);
+      target.set(this.baseX + this.localX, this.y, this.baseZ + this.localZ);
 
       this.y++;
       if (this.y >= this.endY) {
