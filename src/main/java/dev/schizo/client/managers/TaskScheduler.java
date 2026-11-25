@@ -15,6 +15,7 @@ import dev.schizo.client.events.MinecraftRunTickEvent;
 import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.events.RotationRequestEvent;
 import dev.schizo.client.events.bus.EventBus;
+import dev.schizo.client.profiling.RuntimeDiagnostics;
 import java.util.concurrent.atomic.AtomicBoolean;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
@@ -159,7 +160,14 @@ public final class TaskScheduler implements ClientAccess {
       }
 
       private void run() {
-         this.tasks.runPass(failure -> ClientAccess.logger.error("Scheduled {} task failed", this.name, failure));
+         this.tasks.runPass(failure -> {
+            RuntimeDiagnostics.GLOBAL.record(
+               RuntimeDiagnostics.Area.SCHEDULED_TASK,
+               this.name,
+               failure
+            );
+            ClientAccess.logger.error("Scheduled {} task failed", this.name, failure);
+         });
       }
 
       private void clear() {
