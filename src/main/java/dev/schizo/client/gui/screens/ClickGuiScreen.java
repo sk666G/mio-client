@@ -52,6 +52,8 @@ import net.minecraft.util.ARGB;
 import org.lwjgl.glfw.GLFW;
 
 public class ClickGuiScreen extends ClientScreen implements ClientAccess {
+   private static final int PANEL_LAYOUT_MARGIN = 10;
+   private static final int PANEL_LAYOUT_GAP = 3;
 
    private static final int[] GAME_PANEL_UNLOCK_SEQUENCE = {
       GLFW.GLFW_KEY_UP, GLFW.GLFW_KEY_UP,
@@ -219,6 +221,29 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
       if (this.gamePanelUnlocked) {
          this.addGamePanel();
       }
+   }
+
+   @Override
+   protected float resolveGuiScale(float preferredScale) {
+      if (GuiScaleUtils.isAdvancedUiScaleLoaded() || this.panels.isEmpty()) {
+         return preferredScale;
+      }
+
+      int requiredWidth = PANEL_LAYOUT_MARGIN * 2;
+      for (int index = 0; index < this.panels.size(); index++) {
+         requiredWidth += this.panels.get(index).getWidth();
+         if (index + 1 < this.panels.size()) {
+            requiredWidth += PANEL_LAYOUT_GAP;
+         }
+      }
+
+      double baseMultiplier = GuiScaleUtils.calculateScaleMultiplier(1.0F);
+      return ClickGuiLayout.fitScale(
+         preferredScale,
+         ClientAccess.schizoMinecraft.getWindow().getGuiScaledWidth(),
+         baseMultiplier,
+         requiredWidth
+      );
    }
 
    @Override
