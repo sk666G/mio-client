@@ -109,7 +109,6 @@ public class HitmarkerModule extends Module {
 
    static {
 
-      crosshair = (CrosshairModule)ClientContext.getModule(CrosshairModule.class);
    }
 
    @Override
