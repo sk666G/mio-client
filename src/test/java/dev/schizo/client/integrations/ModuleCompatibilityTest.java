@@ -127,6 +127,37 @@ class ModuleCompatibilityTest {
    }
 
    @Test
+   void classifiesEveryHudWidgetAsSourceReviewedVisualOnly() {
+      Class<?>[] hudModules = {
+         ArmorModule.class,
+         ChatModule.class,
+         CryptoModule.class,
+         DirectionModule.class,
+         EffectsModule.class,
+         EntityListModule.class,
+         FrameTimeGraphModule.class,
+         GraphModule.class,
+         IndicatorModule.class,
+         InventoryModule.class,
+         LagOMeterModule.class,
+         MapModule.class,
+         MetricsModule.class,
+         ModuleListModule.class,
+         MusicModule.class,
+         PlayerModelModule.class,
+         PositionModule.class,
+         TextRadarModule.class,
+         TotemsModule.class,
+         WatermarkModule.class,
+         WelcomerModule.class
+      };
+
+      for (Class<?> moduleType : hudModules) {
+         assertClassification(moduleType, ModuleCompatibility.Classification.VISUAL_ONLY);
+      }
+   }
+
+   @Test
    void unknownClassesDefaultToUnverified() {
       ModuleCompatibility.Assessment assessment = ModuleCompatibility.assess(UnreviewedModule.class);
 
