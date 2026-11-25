@@ -118,7 +118,6 @@ public final class ModulePreferencesRegistry implements ClientAccess, JsonConfig
 
    @Override
    public void fromJson(JsonElement json) {
-      this.state.clear();
       if (json == null || !json.isJsonObject()) {
          return;
       }
