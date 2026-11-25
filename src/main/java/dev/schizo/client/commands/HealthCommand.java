@@ -35,6 +35,15 @@ public final class HealthCommand extends Command {
          this.showHealth();
          return 1;
       });
+      builder.then(literal("events").executes(context -> {
+         this.showEventFailures();
+         return 1;
+      }));
+      builder.then(literal("reset").executes(context -> {
+         EventFailureTracker.GLOBAL.reset();
+         send("Event failure diagnostics reset.");
+         return 1;
+      }));
    }
 
    private void showHealth() {
@@ -81,6 +90,27 @@ public final class HealthCommand extends Command {
       }
       if (configReport.totalIssueCount() > previewCount) {
          send("... " + (configReport.totalIssueCount() - previewCount) + " more config issues");
+      }
+   }
+
+   private void showEventFailures() {
+      java.util.List<EventFailureTracker.FailureSnapshot> failures =
+         EventFailureTracker.GLOBAL.recentFailures();
+      if (failures.isEmpty()) {
+         send("No retained event callback failures.");
+         return;
+      }
+
+      int count = Math.min(10, failures.size());
+      send("Recent event callback failures:");
+      for (int index = 0; index < count; index++) {
+         EventFailureTracker.FailureSnapshot failure = failures.get(index);
+         String detail = failure.listener() + " / " + failure.eventType()
+            + " / " + failure.failureType() + " / thread " + failure.threadName();
+         if (failure.message() != null && !failure.message().isBlank()) {
+            detail += " / " + failure.message();
+         }
+         send((index + 1) + ". " + detail);
       }
    }
 
