@@ -13,6 +13,7 @@ import dev.schizo.client.events.Cancellable;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.modules.Module;
 import dev.schizo.client.profiling.EventProfiler;
+import dev.schizo.client.profiling.RuntimeDiagnostics;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -23,6 +24,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class EventBus implements EventDispatcher {
    private final EventProfiler profiler;
+   private final RuntimeDiagnostics diagnostics;
    private final Map<Object, List<EventListener>> instanceListenerCache =
       Collections.synchronizedMap(new IdentityHashMap<>());
    private final Map<Class<?>, List<EventListener>> staticListenerCache = new ConcurrentHashMap<>();
@@ -33,7 +35,12 @@ public class EventBus implements EventDispatcher {
    }
 
    public EventBus(EventProfiler profiler) {
+      this(profiler, RuntimeDiagnostics.GLOBAL);
+   }
+
+   EventBus(EventProfiler profiler, RuntimeDiagnostics diagnostics) {
       this.profiler = java.util.Objects.requireNonNull(profiler);
+      this.diagnostics = java.util.Objects.requireNonNull(diagnostics);
    }
 
    @Override
@@ -174,7 +181,7 @@ public class EventBus implements EventDispatcher {
       if (listeners != null) {
          if (!this.profiler.isEnabled()) {
             for (int index = 0; index < listeners.length; index++) {
-               listeners[index].call(event);
+               this.callListener(listeners[index], event);
             }
          } else {
             for (int index = 0; index < listeners.length; index++) {
@@ -193,7 +200,7 @@ public class EventBus implements EventDispatcher {
          if (!this.profiler.isEnabled()) {
             for (int index = 0; index < listeners.length; index++) {
                EventListener listener = listeners[index];
-               listener.call(event);
+               this.callListener(listener, event);
                if (event.isCancelled()) {
                   break;
                }
@@ -210,16 +217,32 @@ public class EventBus implements EventDispatcher {
       }
       return event;
    }
+   private void callListener(EventListener listener, Object event) {
+      try {
+         listener.call(event);
+      } catch (RuntimeException failure) {
+         String detail = listener.diagnosticLabel() + " [" + event.getClass().getSimpleName() + "]";
+         this.diagnostics.record(RuntimeDiagnostics.Area.EVENT_DISPATCH, detail, failure);
+         dev.schizo.client.ClientAccess.logger.error(
+            "Event listener {} failed while handling {}",
+            listener.diagnosticLabel(),
+            event.getClass().getSimpleName(),
+            failure
+         );
+         throw failure;
+      }
+   }
+
    private void callProfiled(EventListener listener, Object event) {
       EventProfiler.CallbackHandle handle = listener.profileHandle();
       if (handle == null) {
-         listener.call(event);
+         this.callListener(listener, event);
          return;
       }
       long startedAt = this.profiler.nanoTime();
       Throwable callbackFailure = null;
       try {
-         listener.call(event);
+         this.callListener(listener, event);
       } catch (RuntimeException | Error failure) {
          callbackFailure = failure;
          throw failure;
