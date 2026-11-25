@@ -44,4 +44,18 @@ class TradeRegistryTest {
       assertFalse(TradeRegistry.hasSameName(first, null));
    }
 
+
+   @Test
+   @SuppressWarnings("unchecked")
+   void malformedTradeRootPreservesExistingState() {
+      TradeRegistry registry = new TradeRegistry();
+      TradeDefinition existing = trade("Keep");
+      registry.getRegistry().add(existing);
+
+      assertThrows(IllegalArgumentException.class, () -> registry.fromJson(new com.google.gson.JsonObject()));
+
+      assertEquals(1, registry.getRegistry().size());
+      assertSame(existing, registry.getRegistry().iterator().next());
+   }
+
 }
