@@ -227,10 +227,13 @@ public final class AutoPresetRegistry implements ClientAccess, JsonConfigurable 
       settings.getPresets().put(category, presetName);
    }
 
+   AutoPresetServerEntry getSettingsForConnection(String serverAddress) {
+      return (AutoPresetServerEntry)this.serverSettings.get(normalizeServerKey(serverAddress));
+   }
+
    @EventHandler
    public void onConnectScreenConnectEvent(ConnectScreenConnectEvent event) {
-      String serverKey = normalizeServerKey(event.getServerAddress());
-      AutoPresetServerEntry settings = (AutoPresetServerEntry)this.serverSettings.get(serverKey);
+      AutoPresetServerEntry settings = this.getSettingsForConnection(event.getServerAddress());
       if (settings == null) {
          return;
       }
