@@ -11,13 +11,9 @@ package dev.schizo.client.gui.components;
 
 import dev.schizo.client.gui.panels.Panel;
 import dev.schizo.client.ClientAccess;
-import dev.schizo.client.ClientContext;
-import dev.schizo.client.gui.screens.ClientScreen;
 import dev.schizo.client.gui.CloseState;
 import dev.schizo.client.gui.components.StringSettingComponent;
 import dev.schizo.client.settings.StringSetting;
-
-import com.mojang.blaze3d.vertex.PoseStack;
 
 public abstract class TradeSelectorPanel<T> extends Panel implements ClientAccess {
    protected final TradeItemsComponent tradeItems;
@@ -42,37 +38,15 @@ public abstract class TradeSelectorPanel<T> extends Panel implements ClientAcces
    protected abstract T getSelection();
 
    @Override
-   public void render(PoseStack poseStack, double mouseX, double mouseY) {
-      super.render(poseStack, mouseX, mouseY);
-      ClientScreen screen = (ClientScreen)ClientAccess.schizoMinecraft.screen;
-      if (!this.tradeItems
-         .isSelectorOpen()) {
-         ClientContext.taskScheduler
-            .scheduleRotationTask(
-               () -> screen.getPanels()
-                  .remove(this),
-               0
-            );
-      }
-   }
-
-   @Override
    public void mouseClicked(double mouseX, double mouseY, int button) {
       super.mouseClicked(mouseX, mouseY, button);
       T selection = this.getSelection();
       if (selection != null) {
-         ClientScreen screen = (ClientScreen)ClientAccess.schizoMinecraft.screen;
-         ClientContext.taskScheduler
-            .scheduleRotationTask(
-               () -> {
-                  screen.getPanels()
-                     .remove(this);
-                  this.applySelection(selection);
-                  this.tradeItems
-                     .closeSelector();
-               },
-               0
-            );
+         try {
+            this.applySelection(selection);
+         } finally {
+            this.tradeItems.closeSelector();
+         }
       }
    }
 
