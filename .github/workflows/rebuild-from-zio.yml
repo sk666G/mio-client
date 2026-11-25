@@ -14,25 +14,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out Schizo staging branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ github.ref_name }}
           fetch-depth: 0
 
       - name: Install Java 21 toolchain
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '21'
 
       - name: Install Java 25 Gradle runtime
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '25'
 
       - name: Set up Gradle cache
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v6
 
       - name: Fetch pinned Open Zio source
         env:
@@ -60,19 +60,54 @@ jobs:
           ORG_GRADLE_JAVA_INSTALLATIONS_PATHS: ${{ env.JAVA_HOME_21_X64 }}
         run: ./gradlew --no-daemon clean build
 
-      - name: Upload remapped client JAR
-        uses: actions/upload-artifact@v4
-        with:
-          name: schizo-zio-rebuild
-          path: build/libs/*.jar
-          if-no-files-found: error
-
       - name: Commit rebuilt source tree to staging
         run: |
+          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
           if ! git diff --cached --quiet; then
             git commit -m "Rebuild Schizo on Open Zio architecture [skip ci]"
-            git push origin "HEAD:${{ github.ref_name }}"
           fi
+          git push origin "HEAD:${{ github.ref_name }}"
+
+      - name: Verify rebuilt artifacts and record provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t jars < <(find build/libs -maxdepth 1 -type f -name 'schizo-*.jar' ! -name '*-sources.jar' ! -name '*-dev.jar' | sort)
+          if [ "${#jars[@]}" -ne 1 ]; then
+            printf 'Expected exactly one runnable Schizo JAR, found %s\n' "${#jars[@]}" >&2
+            printf '%s\n' "${jars[@]}" >&2
+            exit 1
+          fi
+          mapfile -t source_jars < <(find build/libs -maxdepth 1 -type f -name 'schizo-*-sources.jar' | sort)
+          if [ "${#source_jars[@]}" -ne 1 ]; then
+            printf 'Expected exactly one Schizo sources JAR, found %s\n' "${#source_jars[@]}" >&2
+            printf '%s\n' "${source_jars[@]}" >&2
+            exit 1
+          fi
+
+          jar_file="${jars[0]}"
+          source_jar="${source_jars[0]}"
+          for required in fabric.mod.json THIRD_PARTY_NOTICES.md LICENSES/DiscordIPC-APACHE-2.0.txt; do
+            jar tf "$jar_file" | grep -Fqx "$required"
+          done
+          for required in THIRD_PARTY_NOTICES.md LICENSES/DiscordIPC-APACHE-2.0.txt; do
+            jar tf "$source_jar" | grep -Fqx "$required"
+          done
+
+          sha256sum "$jar_file" > build/libs/SHA256SUMS.txt
+          git rev-parse HEAD > build/libs/COMMIT_SHA.txt
+
+      - name: Upload rebuilt client artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: schizo-zio-rebuild
+          path: |
+            build/libs/schizo-*.jar
+            !build/libs/*-sources.jar
+            !build/libs/*-dev.jar
+            build/libs/SHA256SUMS.txt
+            build/libs/COMMIT_SHA.txt
+          if-no-files-found: error
