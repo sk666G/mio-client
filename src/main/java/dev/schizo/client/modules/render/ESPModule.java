@@ -247,24 +247,29 @@ public class ESPModule extends Module {
 
       ClientLevel currentLevel = ClientAccess.schizoMinecraft.level;
       if (currentLevel != this.lootedLevel) {
-         this.resetLootedStorage(currentLevel);
+         this.resetTransientState(currentLevel);
       }
    }
 
    @EventHandler
    private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
-      this.resetLootedStorage(null);
+      this.resetTransientState(null);
    }
 
    @Override
    public void onDisable() {
-      this.resetLootedStorage(null);
+      this.resetTransientState(null);
    }
 
-   private void resetLootedStorage(ClientLevel level) {
+   private void resetTransientState(ClientLevel level) {
       this.lootedGeneration++;
       this.lootedStorage.clear();
       this.lootedLevel = level;
+      this.chorusPositions.clear();
+      this.renderEntities.clear();
+      this.visibleBlockEntities.clear();
+      this.currentlyRenderingBlock = null;
+      this.renderingBlockEntities = false;
    }
 
    private void renderGroupedItemLabels(WorldRenderEvent event, List<ESPItemGroup> groups) {
@@ -545,7 +550,7 @@ public class ESPModule extends Module {
 
       if (event.getPacket() instanceof ClientboundRespawnPacket) {
          ClientAccess.schizoMinecraft.executeIfPossible(() ->
-            this.resetLootedStorage(ClientAccess.schizoMinecraft.level)
+            this.resetTransientState(ClientAccess.schizoMinecraft.level)
          );
          return;
       }
