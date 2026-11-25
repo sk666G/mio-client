@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundEntityEventPacket;
 import net.minecraft.network.protocol.game.ClientboundPlayerInfoRemovePacket;
@@ -70,14 +71,19 @@ public final class TotemPopTracker implements ClientAccess {
          }
       }
 
-      long nowMillis = System.currentTimeMillis();
+      long nowNanos = System.nanoTime();
       this.disconnectTimes.entrySet().removeIf(entry -> {
-         if (entry.getValue() + 120000L >= nowMillis) {
+         if (!isDisconnectExpired(entry.getValue(), nowNanos)) {
             return false;
          }
          this.popCounts.remove(entry.getKey());
          return true;
       });
+   }
+
+   static boolean isDisconnectExpired(long disconnectedAtNanos, long nowNanos) {
+      long elapsedNanos = nowNanos - disconnectedAtNanos;
+      return elapsedNanos > TimeUnit.SECONDS.toNanos(120L);
    }
 
    @EventHandler
@@ -138,7 +144,7 @@ public final class TotemPopTracker implements ClientAccess {
       }
 
       if (event.getPacket() instanceof ClientboundPlayerInfoRemovePacket playerInfoRemovePacket) {
-         long disconnectedAt = System.currentTimeMillis();
+         long disconnectedAt = System.nanoTime();
          for (UUID removedId : playerInfoRemovePacket.profileIds()) {
             String removedName = this.profileNames.remove(removedId);
             if (removedName != null) {
