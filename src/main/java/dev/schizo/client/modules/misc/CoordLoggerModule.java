@@ -180,12 +180,11 @@ public class CoordLoggerModule extends Module {
       PacketEvent.Receive event
    ) {
       if (event.getPacket() instanceof ClientboundPlayerCombatKillPacket) {
-         Setting<Boolean> deathSettingSnapshot = this.deathSetting;
-         Boolean saveOnDeath = deathSettingSnapshot.getValue();
-         if (saveOnDeath) {
-
-            this.saveCoordinates("Death");
-         }
+         ClientAccess.schizoMinecraft.executeIfPossible(() -> {
+            if (this.isToggled() && this.deathSetting.getValue()) {
+               this.saveCoordinates("Death");
+            }
+         });
       }
    }
 
