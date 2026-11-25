@@ -4,20 +4,20 @@ Status is intentionally conservative. A checked item requires recorded evidence.
 
 ## Source and integration
 
-- [x] Start from `lunyx/safe-mode` (`684333a2edce978cc7673ae3277c4d65d92f1d63`) and consolidate the reviewed feature branches.
-- [x] Integrate the Module/Event Profiler while preserving newer command registrations.
-- [x] Keep the reliability-hardening stack in branch ancestry.
+- [x] Consolidate the reviewed GUI/HUD, profiler, module/reliability and runtime ownership stacks through verified candidate v6 (Build #708).
+- [x] Integrate the final five Astra GUI interaction commits independently (Build #720).
+- [x] Carry the stronger runtime #96 deltas and transactional preset/config rollback tests (#716/#717) into v7.
 - [x] Remove GrimDisabler and RaytraceBypass implementations, registration and rebuild-script reinjection.
 - [ ] Complete per-module multiplayer compatibility matrix and authorized controlled-server scenarios.
 - [ ] Complete visual QA across ClickGUI, HUD Studio, command palette, integration/profile screens, Performance Center (profiler start/stop/reset and frame-history graph) and all theme presets.
 
 ## Build and tests
 
-- [x] Run automated tests and clean Gradle build in GitHub Actions for the consolidated integration candidate.
-- [ ] Obtain a successful GitHub Actions run for the latest branch head after all final changes.
+- [x] Run automated tests and clean Gradle builds for v6 (#708), transactional config rollback (#716/#717), artifact provenance (#718), license packaging (#719), and final Astra delta (#720).
+- [ ] Obtain a successful GitHub Actions run for the complete v7 candidate after all components are integrated.
+- [ ] Verify the final review artifact's `COMMIT_SHA.txt` and `SHA256SUMS.txt` against the tested runnable JAR.
 - [ ] Verify remapped artifact starts in the target Minecraft/Fabric environment.
-- [ ] Verify Python rebuild security tests after the final rebuild-script changes.
-- [ ] Run the rebuild workflow from a clean dedicated staging checkout and inspect the generated artifact.
+- [ ] Run the rebuild workflow from a clean dedicated staging checkout at the final v7 head and inspect the generated artifact.
 
 ## Security, data and documentation
 
@@ -25,13 +25,13 @@ Status is intentionally conservative. A checked item requires recorded evidence.
 - [x] Preserve atomic writes and safe path handling in the existing reliability stack.
 - [x] Harden rebuild destination validation and archive-entry preflight.
 - [x] Record architecture findings and known limitations.
-- [ ] Resolve DiscordIPC license status from authoritative upstream license evidence and update notices.
-- [ ] Review all dependency versions and license metadata against authoritative sources.
+- [x] Resolve DiscordIPC license status from upstream Apache-2.0 evidence, retain the full license, and package the notice/license in runtime and source artifacts.
+- [ ] Review all remaining dependency versions and license metadata against authoritative sources.
 
 ## Release
 
 - [ ] Complete the live client and controlled-server checks.
-- [ ] Review the final branch diff and generated JAR contents.
+- [ ] Review the final v7 branch diff and generated JAR contents after the combined build.
 - [ ] Confirm every checklist item required for release candidate review.
 - [ ] Obtain explicit approval before any public release or merge.
 
