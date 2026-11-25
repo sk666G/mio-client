@@ -118,6 +118,23 @@ public final class ContextProfileRegistry implements ClientAccess, JsonConfigura
       return failedContext == null ? null : failedContext.replace("|", " / ");
    }
 
+   /** Uses the same selection and ordering as application, with no mutation. */
+   public synchronized List<Rule> previewCurrentRules() {
+      if (this.isWorldUnavailable() || ClientAccess.schizoMinecraft.gameMode == null) return List.of();
+      GameType mode = ClientAccess.schizoMinecraft.gameMode.getPlayerMode();
+      if (mode == null) return List.of();
+      return selectApplicationRules(this.rules, currentServerKey(), WorldUtils.getDimension().getName(), mode.getName());
+   }
+
+   public static List<Rule> selectApplicationRules(List<Rule> rules, String server, String dimension, String gameMode) {
+      Map<PresetCategory, Rule> selected = new EnumMap<>(PresetCategory.class);
+      for (Rule rule : selectMatchingRules(rules, server, dimension, gameMode)) selected.put(rule.category(), rule);
+      List<Rule> ordered = new ArrayList<>(selected.values());
+      ordered.sort(Comparator.comparingInt((Rule rule) -> rule.category() == PresetCategory.ALL ? 0 : 1)
+         .thenComparingInt(rule -> rule.category().ordinal()));
+      return List.copyOf(ordered);
+   }
+
    public synchronized List<Rule> getRules() {
       return List.copyOf(this.rules);
    }
@@ -381,16 +398,7 @@ public final class ContextProfileRegistry implements ClientAccess, JsonConfigura
             this.dirty = false;
             return;
          }
-         List<Rule> matching = selectMatchingRules(this.rules, server, dimension, gameMode);
-         Map<PresetCategory, Rule> selected = new EnumMap<>(PresetCategory.class);
-         for (Rule rule : matching) {
-            selected.put(rule.category(), rule);
-         }
-
-         List<Rule> applicationOrder = new ArrayList<>(selected.values());
-         applicationOrder.sort(Comparator
-            .comparingInt((Rule rule) -> rule.category() == PresetCategory.ALL ? 0 : 1)
-            .thenComparingInt(rule -> rule.category().ordinal()));
+         List<Rule> applicationOrder = selectApplicationRules(this.rules, server, dimension, gameMode);
 
          for (Rule rule : applicationOrder) {
             PresetRegistry registry = ClientContext.configurationManager == null

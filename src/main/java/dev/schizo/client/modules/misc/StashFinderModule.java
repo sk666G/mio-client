@@ -249,6 +249,7 @@ public class StashFinderModule extends Module {
       Optional existingStash = ClientContext.stashRegistry.findFirst(
          (Predicate<StashEntry>)candidate -> candidate.hasSameLocation(stash)
       );
+      if (existingStash.isPresent()) ((StashEntry)existingStash.get()).observeAgain();
       if (existingStash.isEmpty()
          && ClientContext.stashRegistry.registerEntry(stash)) {
          Setting<Boolean> xaeroOption = this.xaeroSetting;

@@ -40,6 +40,19 @@ public final class StashRegistry extends Registry<StashEntry> implements ClientA
    }
 
    @Override
+   public boolean registerEntry(dev.schizo.client.settings.NamedEntry entry) {
+      if (!(entry instanceof StashEntry stash) || !stash.isPersistable()) return false;
+      for (StashEntry known : this.entries) {
+         if (known.hasSameLocation(stash)) {
+            known.observeAgain();
+            return false;
+         }
+      }
+      // Descriptions such as "5 chests" legitimately repeat at different locations.
+      return this.entries.add(stash);
+   }
+
+   @Override
    public void fromJson(JsonElement element) {
       if (!element.isJsonObject()) {
          return;
