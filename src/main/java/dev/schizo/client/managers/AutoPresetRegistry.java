@@ -18,7 +18,6 @@ import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.ConnectScreenConnectEvent;
 import dev.schizo.client.events.EventHandler;
-import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.settings.JsonConfigurable;
 import dev.schizo.client.settings.options.PresetCategory;
 
@@ -42,7 +41,6 @@ import net.minecraft.network.chat.MessageSignature;
 
 public final class AutoPresetRegistry implements ClientAccess, JsonConfigurable {
    private final Map serverSettings = new HashMap();
-   private String lastServer;
 
    public Collection getServers() {
       return this.serverSettings.keySet();
@@ -85,7 +83,6 @@ public final class AutoPresetRegistry implements ClientAccess, JsonConfigurable 
 
       this.serverSettings.clear();
       this.serverSettings.putAll(loaded);
-      this.lastServer = null;
    }
 
    static Map<String, ParsedServerEntry> parseSettings(JsonElement json) {
@@ -230,27 +227,10 @@ public final class AutoPresetRegistry implements ClientAccess, JsonConfigurable 
       settings.getPresets().put(category, presetName);
    }
 
-   boolean beginConnection(String serverAddress) {
-      String serverKey = normalizeServerKey(serverAddress);
-      if (serverKey.equals(this.lastServer)) {
-         return false;
-      }
-      this.lastServer = serverKey;
-      return true;
-   }
-
-   void resetConnectionState() {
-      this.lastServer = null;
-   }
-
    @EventHandler
    public void onConnectScreenConnectEvent(ConnectScreenConnectEvent event) {
-      String serverAddress = event.getServerAddress();
-      if (!this.beginConnection(serverAddress)) {
-         return;
-      }
-
-      AutoPresetServerEntry settings = (AutoPresetServerEntry)this.serverSettings.get(this.lastServer);
+      String serverKey = normalizeServerKey(event.getServerAddress());
+      AutoPresetServerEntry settings = (AutoPresetServerEntry)this.serverSettings.get(serverKey);
       if (settings == null) {
          return;
       }
@@ -295,11 +275,6 @@ public final class AutoPresetRegistry implements ClientAccess, JsonConfigurable 
                schedulerForKit.scheduleRunTickTask(messageForKit);
             });
       }
-   }
-
-   @EventHandler
-   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
-      this.resetConnectionState();
    }
 
    public boolean removeServer(String server) {
