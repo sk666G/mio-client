@@ -43,6 +43,35 @@ class HudLayoutHistoryTest {
    }
 
    @Test
+   void dragAndResizeEachCreateOneUndoStepAndCanBeReplayed() {
+      var history = new HudLayoutHistory<String>(10);
+      history.beginEdit("original");
+      history.beginEdit("mid-drag");
+      history.finishEdit("snapped");
+      history.beginEdit("snapped");
+      history.finishEdit("resized");
+      assertEquals("snapped", history.undo("resized"));
+      assertEquals("original", history.undo("snapped"));
+      assertFalse(history.canUndo());
+      assertEquals("snapped", history.redo("original"));
+      assertEquals("resized", history.redo("snapped"));
+   }
+
+   @Test
+   void cancelOrNoOpAfterUndoPreservesRedo() {
+      var history = new HudLayoutHistory<String>(10);
+      history.record("original");
+      assertEquals("original", history.undo("edited"));
+      history.beginEdit("original");
+      assertEquals("original", history.cancelEdit());
+      history.finishEdit("discarded");
+      history.beginEdit("original");
+      history.finishEdit("original");
+      assertFalse(history.canUndo());
+      assertEquals("edited", history.redo("original"));
+   }
+
+   @Test
    void rejectsAnInvalidCapacity() {
       assertThrows(IllegalArgumentException.class, () -> new HudLayoutHistory<>(0));
    }

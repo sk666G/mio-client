@@ -64,8 +64,10 @@ public class RegistrySetScreen<E> extends ClientScreen {
 
       for (Object catalogEntry : this.catalogEntries
          .orderedEntries()) {
-         E entry = registrySetting.getRegistry().stream().filter(candidate -> candidate == catalogEntry).findFirst().orElse(null);
-         ResourceKey catalogEntryKey = entry == null ? null : registrySetting.getRegistry().getResourceKey(entry).orElse(null);
+         // The catalog is selected by the exact registry instance above.
+         @SuppressWarnings("unchecked")
+         E entry = (E)catalogEntry;
+         ResourceKey<E> catalogEntryKey = registrySetting.getRegistry().getResourceKey(entry).orElse(null);
          if (catalogEntryKey != null) {
             this.addEntryPair(catalogEntryKey.identifier(), entry, true);
          }
