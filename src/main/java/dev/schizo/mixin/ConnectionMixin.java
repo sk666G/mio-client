@@ -65,7 +65,8 @@ public class ConnectionMixin {
             if (event.isCancelled()) {
                callback.cancel();
             }
-         } catch (Exception ignoredException) {
+         } catch (Exception eventFailure) {
+            ClientAccess.logger.warn("Packet receive event handler failed", eventFailure);
          }
       }
    }
@@ -82,7 +83,8 @@ public class ConnectionMixin {
             if (event.isCancelled()) {
                callback.cancel();
             }
-         } catch (Exception ignoredException) {
+         } catch (Exception eventFailure) {
+            ClientAccess.logger.warn("Packet send event handler failed", eventFailure);
          }
       }
    }
@@ -96,7 +98,8 @@ public class ConnectionMixin {
             PacketEvent.PostSend event = new PacketEvent.PostSend(packet);
             ClientAccess.eventBus
                .post(event);
-         } catch (Exception ignoredException) {
+         } catch (Exception eventFailure) {
+            ClientAccess.logger.warn("Packet post-send event handler failed", eventFailure);
          }
       }
    }
