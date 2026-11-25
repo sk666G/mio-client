@@ -453,7 +453,7 @@ class ModuleCompatibilityTest {
 
    @Test
    void settingReviewCountIncludesExplicitReviewsOnly() {
-      assertTrue(ModuleCompatibility.reviewedSettingCount() >= 111);
+      assertTrue(ModuleCompatibility.reviewedSettingCount() >= 129);
    }
 
    @Test
@@ -500,6 +500,23 @@ class ModuleCompatibilityTest {
       assertTrue(serverSlot.individuallyReviewed());
       assertTrue(movementSync.individuallyReviewed());
       assertTrue(direction.individuallyReviewed());
+   }
+
+   @Test
+   void reviewedCameraSettingsCanBeNarrowerThanInputSensitiveParents() {
+      ModuleCompatibility.SettingAssessment viewRange =
+         ModuleCompatibility.assessSetting(ViewClipModule.class, "Range");
+      ModuleCompatibility.SettingAssessment viewScroll =
+         ModuleCompatibility.assessSetting(ViewClipModule.class, "Scroll");
+      ModuleCompatibility.SettingAssessment warpMode =
+         ModuleCompatibility.assessSetting(WarpModule.class, "Mode");
+
+      assertEquals(ModuleCompatibility.Classification.VISUAL_ONLY, viewRange.classification());
+      assertFalse(viewRange.requiresWarning());
+      assertEquals(ModuleCompatibility.Classification.INPUT_MODIFYING, viewScroll.classification());
+      assertTrue(viewScroll.requiresWarning());
+      assertEquals(ModuleCompatibility.Classification.PACKET_AFFECTING, warpMode.classification());
+      assertTrue(warpMode.requiresWarning());
    }
 
    @Test
