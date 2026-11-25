@@ -20,14 +20,8 @@ import com.mojang.brigadier.StringReader;
 import com.mojang.brigadier.arguments.ArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.DynamicCommandExceptionType;
-import com.mojang.brigadier.suggestion.Suggestions;
 import com.mojang.brigadier.suggestion.SuggestionsBuilder;
-import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Predicate;
-import java.util.function.Supplier;
-import java.util.stream.Stream;
 import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.network.chat.Component;
 
@@ -41,28 +35,9 @@ public class PresetArgumentType implements ArgumentType {
 
    @Override
    public CompletableFuture listSuggestions(CommandContext context, SuggestionsBuilder builder) {
-      Supplier<Suggestions> suggestionsSupplier = () -> {
-         ConfigurationManager configurationManager = ClientContext.configurationManager;
-
-         PresetCategory category = (PresetCategory)context.getArgument("category", PresetCategory.class);
-         PresetRegistry presetRegistry = configurationManager.getPresetRegistry(category);
-
-         try {
-
-            presetRegistry.loadPresets();
-         } catch (Throwable ignoredReloadFailure) {
-         }
-
-         Stream<String> presetNames = ((List<PresetData>)presetRegistry.getRegistry()).stream().map(PresetData::getName);
-
-         try {
-            CompletableFuture suggestionsFuture = SharedSuggestionProvider.suggest(presetNames, builder);
-            return (Suggestions)suggestionsFuture.get();
-         } catch (Exception ignoredSuggestionFailure) {
-            return null;
-         }
-      };
-      return CompletableFuture.supplyAsync(suggestionsSupplier);
+      PresetCategory category = (PresetCategory)context.getArgument("category", PresetCategory.class);
+      PresetRegistry registry = ClientContext.configurationManager.getPresetRegistry(category);
+      return SharedSuggestionProvider.suggest(registry.getPresetNames(), builder);
    }
 
    public static PresetData getPreset(CommandContext context, String categoryArgumentName, String presetArgumentName) throws CommandSyntaxException {
@@ -70,11 +45,8 @@ public class PresetArgumentType implements ArgumentType {
       String presetName = (String)context.getArgument(presetArgumentName, String.class);
       ConfigurationManager configurationManager = ClientContext.configurationManager;
       PresetRegistry registryForLookup = configurationManager.getPresetRegistry(category);
-      Predicate<PresetData> presetFilter = candidate -> {
-         return candidate.getName().equalsIgnoreCase(presetName);
-      };
-      Optional presetResult = registryForLookup.findFirst(presetFilter);
-      if (presetResult.isEmpty()) {
+      PresetData preset = registryForLookup.getPreset(presetName);
+      if (preset == null) {
          DynamicCommandExceptionType notFoundException = new DynamicCommandExceptionType(
             missingName -> {
                String missingNameText = String.valueOf(missingName);
@@ -84,7 +56,7 @@ public class PresetArgumentType implements ArgumentType {
          );
          throw notFoundException.create(presetName);
       } else {
-         return (PresetData)presetResult.get();
+         return preset;
       }
    }
 
