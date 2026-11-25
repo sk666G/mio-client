@@ -123,6 +123,7 @@ public class SearchModule extends Module {
    private final Queue<QueuedSearchChunk> pendingChunkScans;
    private final Set<Long> queuedChunkScans;
    private SearchChunkScanCursor activeChunkScan;
+   private ChunkPos activeChunkPosition;
    private LevelChunk activeChunk;
    private ClientLevel scanLevel;
    private boolean alertPending;
@@ -295,17 +296,20 @@ public class SearchModule extends Module {
             int firstY = this.heightSetting.getValue() == HeightChoice.OLD
                ? 0
                : this.minimumBuildHeight;
+            this.activeChunkPosition = next.position();
             this.activeChunk = next.chunk();
             this.activeChunkScan = new SearchChunkScanCursor(
-               next.position(),
+               next.position().getMinBlockX(),
+               next.position().getMinBlockZ(),
                firstY,
                this.maximumBuildHeight
             );
          }
 
          if (!this.activeChunkScan.next(scanPosition)) {
-            this.queuedChunkScans.remove(this.activeChunkScan.chunkPosition.toLong());
+            this.queuedChunkScans.remove(this.activeChunkPosition.toLong());
             this.activeChunkScan = null;
+            this.activeChunkPosition = null;
             this.activeChunk = null;
             continue;
          }
@@ -368,8 +372,9 @@ public class SearchModule extends Module {
       long key = chunkPosition.toLong();
       this.queuedChunkScans.remove(key);
       this.pendingChunkScans.removeIf(queued -> queued.position().toLong() == key);
-      if (this.activeChunkScan != null && this.activeChunkScan.chunkPosition.toLong() == key) {
+      if (this.activeChunkPosition != null && this.activeChunkPosition.toLong() == key) {
          this.activeChunkScan = null;
+         this.activeChunkPosition = null;
          this.activeChunk = null;
       }
       this.blocksByPosition.keySet().removeIf(position -> isPositionInChunk(position, chunkPosition));
@@ -380,6 +385,7 @@ public class SearchModule extends Module {
       this.pendingChunkScans.clear();
       this.queuedChunkScans.clear();
       this.activeChunkScan = null;
+      this.activeChunkPosition = null;
       this.activeChunk = null;
    }
 
