@@ -309,16 +309,30 @@ public final class ModuleRegistry extends Registry<Module> implements ClientAcce
       while (modulesIterator.hasNext()) {
          Module module = modulesIterator.next();
          if (!(module instanceof HudWidgetModule)) {
-            try {
-               String moduleConfigName = module.getConfigName();
-               JsonElement moduleConfig = module.toJson();
-               config.add(moduleConfigName, moduleConfig);
-            } catch (Exception ignoredFailure) {
-            }
+            addSerializedModule(config, module);
          }
       }
 
       return config;
+   }
+
+   static void addSerializedModule(JsonObject target, Module module) {
+      if (target == null || module == null) {
+         throw new IllegalArgumentException("Module serialization target and module must not be null");
+      }
+
+      try {
+         JsonElement moduleConfig = module.toJson();
+         if (moduleConfig == null) {
+            throw new IllegalStateException("Module returned null configuration");
+         }
+         target.add(module.getConfigName(), moduleConfig);
+      } catch (RuntimeException serializationFailure) {
+         throw new IllegalStateException(
+            "Could not serialize module " + module.getName(),
+            serializationFailure
+         );
+      }
    }
 
    @Override
