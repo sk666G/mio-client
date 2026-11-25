@@ -231,6 +231,27 @@ class BoundedCountdownTaskQueueTest {
    }
 
    @Test
+   void cancellingAnOwnerRemovesOnlyItsPendingTasks() {
+      BoundedCountdownTaskQueue queue = new BoundedCountdownTaskQueue(4, 4);
+      Object firstOwner = new Object();
+      Object secondOwner = new Object();
+      AtomicInteger executed = new AtomicInteger();
+
+      BoundedCountdownTaskQueue.Reservation first = queue.reserve(firstOwner, executed::incrementAndGet, 0);
+      BoundedCountdownTaskQueue.Reservation second = queue.reserve(secondOwner, executed::incrementAndGet, 0);
+      assertNotNull(first);
+      assertNotNull(second);
+      assertTrue(queue.enqueue(first));
+      assertTrue(queue.enqueue(second));
+
+      assertEquals(1, queue.cancelOwner(firstOwner));
+      assertEquals(1, queue.outstandingCount());
+      queue.runPass(failure -> fail(failure));
+      assertEquals(1, queue.runPass(failure -> fail(failure)));
+      assertEquals(1, executed.get());
+   }
+
+   @Test
    void reentrantDrainIsIgnored() {
       BoundedCountdownTaskQueue queue = new BoundedCountdownTaskQueue(2, 2);
       AtomicInteger nestedDrains = new AtomicInteger();
