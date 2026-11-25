@@ -1432,6 +1432,186 @@ public final class ModuleCompatibility {
       Map.entry(setting(ZoomModule.class, "Amount"), settingAssessed(
          Classification.VISUAL_ONLY,
          "Controls the local field-of-view zoom divisor."
+      )),
+      Map.entry(setting(PhaseModule.class, "Mode"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Selects Phase's reviewed movement/interaction path, including paths that emit explicit position or use-item traffic."
+      )),
+      Map.entry(setting(PhaseModule.class, "Auto"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls automatic repetition of the reviewed movement action."
+      )),
+      Map.entry(setting(PhaseModule.class, "Delay"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls the cadence of the reviewed automatic movement action."
+      )),
+      Map.entry(setting(PhaseModule.class, "Attack"), settingAssessed(
+         Classification.WORLD_INTERACTION,
+         "Controls whether nearby blocking entities or blocks are cleared through ordinary combat/mining interaction helpers."
+      )),
+      Map.entry(setting(PhaseModule.class, "Dynamic"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Changes target/rotation selection for the reviewed movement interaction."
+      )),
+      Map.entry(setting(PhaseModule.class, "NCP"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Selects an alternate reviewed interaction/slot sequencing path."
+      )),
+      Map.entry(setting(PhaseModule.class, "Always"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls whether the reviewed movement interaction remains active for repeated attempts instead of disabling after one result."
+      )),
+      Map.entry(setting(PhaseModule.class, "InBlocks"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Changes whether the reviewed movement interaction may proceed while collision state indicates the player is inside blocks."
+      )),
+      Map.entry(setting(PhaseModule.class, "InCrawl"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Changes whether the reviewed movement interaction may proceed while the player is in crawl-sized collision state."
+      )),
+      Map.entry(setting(PhaseModule.class, "Avoid"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Changes the reviewed movement target/angle selection near unsafe vertical boundaries."
+      )),
+      Map.entry(setting(PhaseModule.class, "1.21"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Selects the reviewed version-specific rotation/interaction sequencing path."
+      )),
+      Map.entry(setting(PhaseModule.class, "Place"), settingAssessed(
+         Classification.WORLD_INTERACTION,
+         "Enables support-block placement as part of the reviewed interaction."
+      )),
+      Map.entry(setting(PhaseModule.class, "Await"), settingAssessed(
+         Classification.WORLD_INTERACTION,
+         "Controls whether the reviewed interaction waits for a valid support-placement state before continuing."
+      )),
+      Map.entry(setting(PhaseModule.class, "Flatten"), settingAssessed(
+         Classification.WORLD_INTERACTION,
+         "Changes the support-block positions considered by the reviewed placement path."
+      )),
+      Map.entry(setting(SpeedMineModule.class, "Blocks"), settingAssessed(
+         Classification.WORLD_INTERACTION,
+         "Selects which block types are eligible for automatic mining behavior."
+      )),
+      Map.entry(setting(SpeedMineModule.class, "Mode"), settingAssessed(
+         Classification.WORLD_INTERACTION,
+         "Selects how the configured block list is applied when choosing mining targets."
+      )),
+      Map.entry(setting(SpeedMineModule.class, "Damage"), settingAssessed(
+         Classification.WORLD_INTERACTION,
+         "Controls the mining-progress threshold used before the reviewed mining action advances."
+      )),
+      Map.entry(setting(SpeedMineModule.class, "Range"), settingAssessed(
+         Classification.WORLD_INTERACTION,
+         "Controls the maximum distance at which reviewed mining targets remain eligible."
+      )),
+      Map.entry(setting(SpeedMineModule.class, "Grim"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Selects an alternate reviewed mining action-sequencing path."
+      )),
+      Map.entry(setting(SpeedMineModule.class, "TPSSync"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Changes reviewed mining timing using observed server tick-rate information."
+      )),
+      Map.entry(setting(SpeedMineModule.class, "NoBreakDelay"), settingAssessed(
+         Classification.WORLD_INTERACTION,
+         "Controls whether the module suppresses the local delay before continuing mining actions."
+      )),
+      Map.entry(setting(SpeedMineModule.class, "ExtraBreak"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Enables additional reviewed mining-action sequencing for a secondary break target."
+      )),
+      Map.entry(setting(SpeedMineModule.class, "SneakExtend"), settingAssessed(
+         Classification.WORLD_INTERACTION,
+         "Changes how secondary mining targets are extended while the player is sneaking."
+      )),
+      Map.entry(setting(SpeedMineModule.class, "RebreakPage"), settingAssessed(
+         Classification.CLIENT_ONLY,
+         "Acts only as the local settings-group state for rebreak controls."
+      )),
+      Map.entry(setting(SpeedMineModule.class, "Rebreak"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Selects the reviewed repeated-mining action strategy."
+      )),
+      Map.entry(setting(SpeedMineModule.class, "Async"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Changes scheduling of the reviewed repeated-mining action sequence."
+      )),
+      Map.entry(setting(SpeedMineModule.class, "InstantDelay"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls the delay between reviewed repeated-mining attempts."
+      )),
+      Map.entry(setting(SpeedMineModule.class, "HoldingBest"), settingAssessed(
+         Classification.WORLD_INTERACTION,
+         "Requires the locally selected best mining tool before a reviewed repeated-mining action proceeds."
+      )),
+      Map.entry(setting(SpeedMineModule.class, "SwapPage"), settingAssessed(
+         Classification.CLIENT_ONLY,
+         "Acts only as the local settings-group state for mining tool-swap controls."
+      )),
+      Map.entry(setting(SpeedMineModule.class, "AutoSwap"), settingAssessed(
+         Classification.WORLD_INTERACTION,
+         "Selects how the module automatically changes inventory/hotbar tool state for mining."
+      )),
+      Map.entry(setting(SpeedMineModule.class, "SwapBack"), settingAssessed(
+         Classification.WORLD_INTERACTION,
+         "Controls whether the previous inventory/hotbar selection is restored after reviewed mining actions."
+      )),
+      Map.entry(setting(SpeedMineModule.class, "1.21"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Selects the reviewed version-specific mining/tool-swap sequencing path."
+      )),
+      Map.entry(setting(SpeedMineModule.class, "Alternative"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Selects an alternate reviewed silent tool-swap/mining sequence."
+      )),
+      Map.entry(setting(SpeedMineModule.class, "SwapReset"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls reset behavior around the reviewed silent tool-swap sequence."
+      )),
+      Map.entry(setting(SpeedMineModule.class, "Rotate"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Enables rotation requests toward the reviewed mining target."
+      )),
+      Map.entry(setting(SpeedMineModule.class, "Limit"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls the rotation limit applied by the reviewed mining rotation path."
+      )),
+      Map.entry(setting(SpeedMineModule.class, "Render"), settingAssessed(
+         Classification.VISUAL_ONLY,
+         "Controls only local mining-progress rendering."
+      )),
+      Map.entry(setting(SpeedMineModule.class, "LineWidth"), settingAssessed(
+         Classification.VISUAL_ONLY,
+         "Controls only the local mining overlay line width."
+      )),
+      Map.entry(setting(SpeedMineModule.class, "RenderMode"), settingAssessed(
+         Classification.VISUAL_ONLY,
+         "Selects only the local mining overlay presentation mode."
+      )),
+      Map.entry(setting(SpeedMineModule.class, "Air"), settingAssessed(
+         Classification.VISUAL_ONLY,
+         "Changes only whether reviewed mining overlay state is shown for air/finished targets."
+      )),
+      Map.entry(setting(SpeedMineModule.class, "Fade"), settingAssessed(
+         Classification.VISUAL_ONLY,
+         "Controls only local mining overlay fade animation."
+      )),
+      Map.entry(setting(SpeedMineModule.class, "ColorMode"), settingAssessed(
+         Classification.VISUAL_ONLY,
+         "Selects only the local mining overlay color strategy."
+      )),
+      Map.entry(setting(SpeedMineModule.class, "Fill"), settingAssessed(
+         Classification.VISUAL_ONLY,
+         "Changes only the local mining overlay fill color."
+      )),
+      Map.entry(setting(SpeedMineModule.class, "Outline"), settingAssessed(
+         Classification.VISUAL_ONLY,
+         "Changes only the local mining overlay outline color."
+      )),
+      Map.entry(setting(SpeedMineModule.class, "Abort"), settingAssessed(
+         Classification.CLIENT_ONLY,
+         "Acts as a hidden local reset action that clears the module's current mining session state."
       ))
    );
 
