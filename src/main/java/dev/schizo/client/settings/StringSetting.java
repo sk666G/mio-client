@@ -25,6 +25,9 @@ public final class StringSetting extends Setting<String> {
 
    @Override
    public void fromJson(JsonElement json) {
+      if (json == null || !json.isJsonPrimitive() || !json.getAsJsonPrimitive().isString()) {
+         throw new IllegalArgumentException("String setting requires a JSON string");
+      }
       this.setValue(json.getAsString());
    }
 

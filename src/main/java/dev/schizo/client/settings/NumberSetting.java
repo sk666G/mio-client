@@ -36,12 +36,26 @@ public final class NumberSetting<N extends Number> extends Setting<N> implements
 
    @Override
    public void fromJson(JsonElement json) {
+      if (json == null || !json.isJsonPrimitive() || !json.getAsJsonPrimitive().isNumber()) {
+         throw new IllegalArgumentException("Numeric setting requires a JSON number");
+      }
+
+      double requested = json.getAsDouble();
+      if (!Double.isFinite(requested)) {
+         throw new IllegalArgumentException("Numeric setting requires a finite value");
+      }
+      if (this.getValue() instanceof Integer && requested != Math.rint(requested)) {
+         throw new IllegalArgumentException("Integer setting requires a whole number");
+      }
+
       if (this.getValue() instanceof Double) {
-         this.setNumber(json.getAsDouble());
+         this.setNumber(requested);
       } else if (this.getValue() instanceof Integer) {
-         this.setNumber(json.getAsDouble());
+         this.setNumber(requested);
       } else if (this.getValue() instanceof Float) {
          this.setNumber(json.getAsFloat());
+      } else {
+         this.setNumber(json.getAsLong());
       }
    }
 
