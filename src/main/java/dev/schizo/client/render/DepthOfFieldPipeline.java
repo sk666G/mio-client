@@ -21,11 +21,11 @@ import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL13;
 
 public class DepthOfFieldPipeline extends ShaderPipeline {
-   private static final AmbienceModule ambience;
-
-   static {
-      ambience = ClientContext.getModule(AmbienceModule.class);
+   private static AmbienceModule ambience() {
+      return ClientContext.requireModule(AmbienceModule.class);
    }
+
+   
 
    public DepthOfFieldPipeline() {
       super(ClientAccess.schizoMinecraft.getMainRenderTarget());
@@ -54,7 +54,7 @@ public class DepthOfFieldPipeline extends ShaderPipeline {
          super.updateUniforms();
 
          GL13.glActiveTexture(33998);
-         AmbienceModule capturedAmbience = DepthOfFieldPipeline.ambience;
+         AmbienceModule capturedAmbience = DepthOfFieldPipeline.ambience();
 
          RenderTarget depthTarget = capturedAmbience.getDepthRenderTarget();
          GpuTexture depthTexture = depthTarget.getDepthTexture();
@@ -72,7 +72,7 @@ public class DepthOfFieldPipeline extends ShaderPipeline {
          capturedFocusUniforms.set("FocusDistance", focusDistance);
          ShaderUniforms capturedStrengthUniforms = this.uniforms;
 
-         Setting<Float> strengthOption = DepthOfFieldPipeline.ambience.strengthSetting;
+         Setting<Float> strengthOption = DepthOfFieldPipeline.ambience().strengthSetting;
          Float strengthValue = strengthOption.getValue();
          float rawStrength = strengthValue;
 
