@@ -9,6 +9,7 @@
 
 package dev.schizo.client.settings;
 
+import dev.schizo.client.diagnostics.RuntimeDiagnostics;
 import dev.schizo.client.utils.math.MathConstants;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.render.ColorUtils;
@@ -151,7 +152,8 @@ public final class ColorSetting extends Setting<Color> {
       try {
          Color parsedColor = ColorUtils.parseHexColor(text);
          this.setColor(parsedColor);
-      } catch (Throwable failure) {
+      } catch (RuntimeException failure) {
+         RuntimeDiagnostics.record(RuntimeDiagnostics.Area.SETTING_CALLBACK, this.getConfigName() + " color parse", failure);
       }
    }
 
