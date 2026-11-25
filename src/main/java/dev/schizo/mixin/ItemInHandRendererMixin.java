@@ -46,9 +46,15 @@ import org.spongepowered.asm.mixin.injection.invoke.arg.Args;
 
 @Mixin(value = ItemInHandRenderer.class, priority = 9999)
 public abstract class ItemInHandRendererMixin {
-   private static final ViewModelModule viewModel = ClientContext.getModule(ViewModelModule.class);
-   private static final SwingModule swing = ClientContext.getModule(SwingModule.class);
-   private static final NoHitDelayModule noHitDelayModule = ClientContext.getModule(NoHitDelayModule.class);
+   private static ViewModelModule viewModel() {
+      return ClientContext.requireModule(ViewModelModule.class);
+   }
+   private static SwingModule swing() {
+      return ClientContext.requireModule(SwingModule.class);
+   }
+   private static NoHitDelayModule noHitDelayModule() {
+      return ClientContext.requireModule(NoHitDelayModule.class);
+   }
    @Unique
    private static final Vector3f blockingRotation = new Vector3f(
       120.0F, 15.0F, 100.0F
@@ -96,8 +102,8 @@ public abstract class ItemInHandRendererMixin {
       float offsetY = 0.0F;
       float offsetZ = 0.0F;
       this.itemRotation.set(0.0F);
-      if (noHitDelayModule.isToggled()
-         && noHitDelayModule.hasUseKeyDelayElapsed()
+      if (noHitDelayModule().isToggled()
+         && noHitDelayModule().hasUseKeyDelayElapsed()
          && hand == InteractionHand.MAIN_HAND
          && (
             !ClientAccess.schizoMinecraft.player.isUsingItem()
@@ -128,7 +134,7 @@ public abstract class ItemInHandRendererMixin {
          blockingOffsets = true;
       }
 
-      if (viewModel.isToggled()) {
+      if (viewModel().isToggled()) {
          boolean consumable = itemStack.has(DataComponents.FOOD) || itemStack.getItem() instanceof PotionItem;
          boolean activeItemMatches = ClientAccess.schizoMinecraft
                .player
@@ -138,43 +144,43 @@ public abstract class ItemInHandRendererMixin {
          if (consumable
             && activeItemMatches
             && ClientAccess.schizoMinecraft.player.isUsingItem()
-            && !viewModel.eatingSetting.getValue()) {
+            && !viewModel().eatingSetting.getValue()) {
             return;
          }
 
          if (hand == InteractionHand.MAIN_HAND) {
             offsetX += consumable && activeItemMatches
                ? 0.0F
-               : -viewModel.mainXSetting.getValue();
-            offsetY += viewModel.mainYSetting.getValue();
+               : -viewModel().mainXSetting.getValue();
+            offsetY += viewModel().mainYSetting.getValue();
             offsetZ = consumable && activeItemMatches
                ? 0.0F
-               : viewModel.mainZSetting.getValue();
+               : viewModel().mainZSetting.getValue();
             if (!blockingOffsets) {
                this.itemRotation
                   .set(
-                     viewModel.mainRotateXSetting.getValue(),
-                     viewModel.mainRotateYSetting.getValue(),
-                     viewModel.mainRotateZSetting.getValue()
+                     viewModel().mainRotateXSetting.getValue(),
+                     viewModel().mainRotateYSetting.getValue(),
+                     viewModel().mainRotateZSetting.getValue()
                   );
             }
          } else {
             offsetX += consumable && activeItemMatches
                ? 0.0F
-               : viewModel.offXSetting.getValue();
-            offsetY = viewModel.offYSetting.getValue();
+               : viewModel().offXSetting.getValue();
+            offsetY = viewModel().offYSetting.getValue();
             offsetZ = consumable && activeItemMatches
                ? 0.0F
-               : viewModel.offZSetting.getValue();
+               : viewModel().offZSetting.getValue();
             this.itemRotation
                .set(
-                  viewModel.offRotateXSetting.getValue(),
-                  viewModel.offRotateYSetting.getValue(),
-                  viewModel.offRotateZSetting.getValue()
+                  viewModel().offRotateXSetting.getValue(),
+                  viewModel().offRotateYSetting.getValue(),
+                  viewModel().offRotateZSetting.getValue()
                );
          }
 
-         Vector3f scale = viewModel.getScale(hand);
+         Vector3f scale = viewModel().getScale(hand);
          pose.scale(scale.x, scale.y, scale.z);
       }
 
@@ -199,9 +205,9 @@ public abstract class ItemInHandRendererMixin {
    private void applyViewModelArmTransform(
       PoseStack pose, SubmitNodeCollector submitNodes, int light, float equipProgress, float swingProgress, HumanoidArm arm, CallbackInfo callback
    ) {
-      if (viewModel.isToggled()
-         && viewModel.armSetting.getValue()) {
-         float offsetX = -viewModel.mainXSetting.getValue();
+      if (viewModel().isToggled()
+         && viewModel().armSetting.getValue()) {
+         float offsetX = -viewModel().mainXSetting.getValue();
          if (ClientAccess.schizoMinecraft.player.getMainArm()
             == HumanoidArm.LEFT) {
             offsetX = -offsetX;
@@ -209,13 +215,13 @@ public abstract class ItemInHandRendererMixin {
 
          pose.translate(
             offsetX,
-            viewModel.mainYSetting.getValue(),
-            viewModel.mainZSetting.getValue()
+            viewModel().mainYSetting.getValue(),
+            viewModel().mainZSetting.getValue()
          );
          pose.scale(
-            viewModel.mainScaleXSetting.getValue(),
-            viewModel.mainScaleYSetting.getValue(),
-            viewModel.mainScaleZSetting.getValue()
+            viewModel().mainScaleXSetting.getValue(),
+            viewModel().mainScaleYSetting.getValue(),
+            viewModel().mainScaleZSetting.getValue()
          );
       }
    }
@@ -233,7 +239,7 @@ public abstract class ItemInHandRendererMixin {
       float originalProgress = arguments.<Float>get(4);
       arguments.set(
          4,
-         viewModel.applySwingProgressOverride(
+         viewModel().applySwingProgressOverride(
             hand, originalProgress
          )
       );
@@ -253,7 +259,7 @@ public abstract class ItemInHandRendererMixin {
       int packedLight,
       CallbackInfo callback
    ) {
-      if (noHitDelayModule.isToggled()
+      if (noHitDelayModule().isToggled()
          && hand == InteractionHand.OFF_HAND
          && stack.is(Items.SHIELD)) {
          callback.cancel();
@@ -262,16 +268,16 @@ public abstract class ItemInHandRendererMixin {
 
    @WrapWithCondition(method = "renderHandsWithItems", at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/vertex/PoseStack;mulPose(Lorg/joml/Quaternionfc;)V"))
    private boolean shouldApplyHandSway(PoseStack pose, Quaternionfc rotation) {
-      return !viewModel.isToggled()
-         || !viewModel.noSwaySetting.getValue();
+      return !viewModel().isToggled()
+         || !viewModel().noSwaySetting.getValue();
    }
 
    @ModifyExpressionValue(method = "tick", at = @At(value = "INVOKE", target = "Lnet/minecraft/util/Mth;clamp(FFF)F", ordinal = 2))
    private float overrideMainHandEquipStep(float originalStep) {
-      if (swing.isToggled()
-         && swing.typeSetting.getValue()
+      if (swing().isToggled()
+         && swing().typeSetting.getValue()
             != SwingModule.TypeChoice.VANILLA) {
-         boolean legacySwing = swing.typeSetting.getValue()
+         boolean legacySwing = swing().typeSetting.getValue()
             == SwingModule.TypeChoice.ONE_EIGHT;
          float attackStrength = this.minecraft.player.getAttackStrengthScale(1.0F);
          if (legacySwing) {
@@ -291,17 +297,17 @@ public abstract class ItemInHandRendererMixin {
 
    @ModifyExpressionValue(method = "tick", at = @At(value = "INVOKE", target = "Lnet/minecraft/util/Mth;clamp(FFF)F", ordinal = 3))
    private float overrideOffHandEquipStep(float originalStep) {
-      if (swing.isToggled()
-         && swing.typeSetting.getValue()
+      if (swing().isToggled()
+         && swing().typeSetting.getValue()
             != SwingModule.TypeChoice.VANILLA) {
          boolean itemChanged = !ItemStack.isSameItemSameComponents(
             this.offHandItem,
             ClientAccess.schizoMinecraft.player.getOffhandItem()
          );
-         if (swing.typeSetting.getValue()
+         if (swing().typeSetting.getValue()
                == SwingModule.TypeChoice.ONE_TWELVE
-            && swing.shakeSetting.getValue()
-            && swing.consumeShakeTick()) {
+            && swing().shakeSetting.getValue()
+            && swing().consumeShakeTick()) {
             itemChanged = true;
          }
 
@@ -313,8 +319,8 @@ public abstract class ItemInHandRendererMixin {
 
    @ModifyExpressionValue(method = "renderArmWithItem", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/player/AbstractClientPlayer;isAutoSpinAttack()Z"))
    private boolean overrideTridentAnimation(boolean originalSpinAttack) {
-      return viewModel.isToggled()
-            && viewModel.noTridentAnimSetting.getValue()
+      return viewModel().isToggled()
+            && viewModel().noTridentAnimSetting.getValue()
          ? false
          : originalSpinAttack;
    }
@@ -323,8 +329,8 @@ public abstract class ItemInHandRendererMixin {
    private void overrideInstantSwapOffset(
       Args arguments, @Local(argsOnly = true) HumanoidArm arm
    ) {
-      if (viewModel.isToggled()
-         && viewModel.instantSwapSetting.getValue()
+      if (viewModel().isToggled()
+         && viewModel().instantSwapSetting.getValue()
          && !ClientAccess.schizoMinecraft
             .player
             .getItemHeldByArm(arm)
@@ -335,11 +341,11 @@ public abstract class ItemInHandRendererMixin {
 
    @ModifyArgs(method = "applyEatTransform", at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/vertex/PoseStack;translate(FFF)V", ordinal = 0))
    private void scaleEatingOffset(Args arguments) {
-      if (viewModel.isToggled()) {
+      if (viewModel().isToggled()) {
          arguments.set(
             1,
             arguments.<Float>get(1)
-               * viewModel.eatMultiplierSetting.getValue()
+               * viewModel().eatMultiplierSetting.getValue()
          );
       }
    }
