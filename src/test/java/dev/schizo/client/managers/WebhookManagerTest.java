@@ -18,6 +18,15 @@ import org.junit.jupiter.api.Test;
 
 class WebhookManagerTest {
    @Test
+   void usesAnExplicitJsonConfigurationFile() {
+      WebhookManager manager = new WebhookManager(request ->
+         CompletableFuture.completedFuture(response(204, ""))
+      );
+
+      assertEquals("webhook.json", manager.getConfigName());
+   }
+
+   @Test
    void retriesTransientFailureAndAcknowledgesSuccess() {
       AtomicInteger calls = new AtomicInteger();
       WebhookManager manager = new WebhookManager(request -> {
