@@ -31,7 +31,9 @@ import org.lwjgl.opengl.GL32C;
 import org.lwjgl.system.MemoryStack;
 
 public class SkyboxShaderPass extends BaseShaderPass implements ReloadableShaderPass {
-   private static final SkyboxModule SKYBOX_MODULE();
+   private static SkyboxModule SKYBOX_MODULE() {
+      return ClientContext.requireModule(SkyboxModule.class);
+   }
    private static final int CONFIG_BINDING = 0;
    private static final int CONFIG_SIZE = 48;
    private int configBlock = GL31C.GL_INVALID_INDEX;
