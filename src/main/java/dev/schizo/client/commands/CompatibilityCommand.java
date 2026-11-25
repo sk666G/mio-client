@@ -173,7 +173,7 @@ public final class CompatibilityCommand extends Command {
       for (ModuleCompatibility.Classification classification : ModuleCompatibility.Classification.values()) {
          output.append("\n").append(classification).append(": ").append(counts.getOrDefault(classification, 0));
       }
-      output.append("\nUnreviewed modules/settings remain UNVERIFIED. This report does not certify server compatibility.");
+      output.append("\nAll registered modules are source-reviewed. Individual settings remain UNVERIFIED unless explicitly marked reviewed. This report does not certify server compatibility.");
       this.print(output.toString());
       return 1;
    }
@@ -235,7 +235,7 @@ public final class CompatibilityCommand extends Command {
          .append("\nModule classification: ").append(moduleAssessment.classification())
          .append("\nSource reviewed: ").append(moduleAssessment.sourceReviewed() ? "yes" : "no")
          .append("\n").append(moduleAssessment.reason())
-         .append("\nSettings (each remains UNVERIFIED until individually reviewed):");
+         .append("\nSettings (reviewed entries are explicit; others remain UNVERIFIED):");
 
       List<Setting<?>> settings = found.getSettings();
       int displayed = Math.min(settings.size(), MAX_LISTED_SETTINGS);
@@ -245,6 +245,7 @@ public final class CompatibilityCommand extends Command {
             ModuleCompatibility.assessSetting(found.getClass(), setting.getConfigName());
          output.append("\n• ").append(setting.getConfigName())
             .append(": ").append(settingAssessment.classification())
+            .append(settingAssessment.individuallyReviewed() ? " [reviewed]" : " [unreviewed]")
             .append(" (inherits ").append(settingAssessment.inheritedModuleClassification()).append(")");
       }
       if (settings.size() > displayed) {
