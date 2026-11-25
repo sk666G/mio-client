@@ -976,6 +976,26 @@ public final class ModuleCompatibility {
       Map.entry(setting(NoPacketKickModule.class, "Message"), settingAssessed(
          Classification.CLIENT_ONLY,
          "Only controls whether intercepted connection exceptions are reported locally; it does not control interception itself."
+      )),
+      Map.entry(setting(dev.schizo.client.modules.movement.NoFallModule.class, "Mode"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Selects NoFall's behavior mode; reviewed modes can alter outgoing movement state or movement/action sequencing."
+      )),
+      Map.entry(setting(dev.schizo.client.modules.movement.NoFallModule.class, "GroundDistance"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls the local ground-distance threshold used by NoFall's MLG-style action logic."
+      )),
+      Map.entry(setting(PingSpoofModule.class, "Mode"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Selects which latency-related packet path PingSpoof delays or mutates."
+      )),
+      Map.entry(setting(PingSpoofModule.class, "Delay"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls how long selected latency-related packets are held before release."
+      )),
+      Map.entry(setting(PingSpoofModule.class, "Jitter"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Adds variation to the configured packet-delay interval."
       ))
    );
 
@@ -986,6 +1006,10 @@ public final class ModuleCompatibility {
          return UNVERIFIED;
       }
       return REVIEWED.getOrDefault(moduleType, UNVERIFIED);
+   }
+
+   public static int reviewedSettingCount() {
+      return REVIEWED_SETTINGS.size();
    }
 
    public static SettingAssessment assessSetting(Class<?> moduleType, String settingName) {
