@@ -81,6 +81,7 @@ public class MinecraftMixin {
          MixinModuleRegistry.minecraftUiModule.disable();
          ClientContext.configurationManager
             .save();
+         ClientAccess.executorService.shutdown();
       }
    }
 
