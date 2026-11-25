@@ -9,6 +9,7 @@
 
 package dev.schizo.mixin;
 
+import dev.schizo.client.diagnostics.RuntimeDiagnostics;
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import dev.schizo.client.render.BuiltinResourcePack;
 import dev.schizo.client.SchizoClient;
@@ -58,7 +59,12 @@ public class ShaderManagerMixin {
          if (resourceStream != null) {
             try {
                resourceStream.close();
-            } catch (Exception ignoredCloseFailure) {
+            } catch (Exception closeFailure) {
+               RuntimeDiagnostics.record(
+                  RuntimeDiagnostics.Area.MIXIN,
+                  "Builtin shader resource close",
+                  closeFailure
+               );
             }
 
             putBuiltinShaderResource(resources, "%s.%s".formatted(shaderBasePath, extension));
