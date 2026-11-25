@@ -190,7 +190,7 @@ public class NameTagsModule extends Module {
    }
    private boolean shouldRenderSelf() {
       FreecamModule freecam = freecamModule;
-      if (freecam.isToggled()) {
+      if (freecam != null && freecam.isToggled()) {
          return true;
       }
       Setting<Boolean> selfOption = this.selfSetting;
@@ -278,8 +278,11 @@ public class NameTagsModule extends Module {
          float health = EntityUtils.getHealthWithAbsorption(entity);
          double healthRatioSnapshot = EntityUtils.getHealthFraction(entity);
          int healthColor = ColorUtils.getHealthColor(healthRatioSnapshot);
-         ColorsSchemeChoice colorScheme = colorsModule.schemeSetting.getValue();
-         healthColor = colorScheme.transform(healthColor);
+         ColorsModule colorsSnapshot = colorsModule;
+         if (colorsSnapshot != null) {
+            ColorsSchemeChoice colorScheme = colorsSnapshot.schemeSetting.getValue();
+            healthColor = colorScheme.transform(healthColor);
+         }
          boolean configuredDecimals = this.decimalsSetting.getValue();
          String healthFormat;
          if (configuredDecimals) {
@@ -359,16 +362,19 @@ public class NameTagsModule extends Module {
          ItemDisplayContext itemDisplayContext = blockItem ? ItemDisplayContext.FIXED : ItemDisplayContext.GUI;
          this.hasEquipmentItem = true;
          poses.pushPose();
-         float itemPoseX = x * scale;
-         float itemPoseY = y * scale;
-         poses.translate(itemPoseX, itemPoseY, 0.0F);
-         float itemPoseScaleY = -scale;
-         poses.scale(itemPoseScaleX, itemPoseScaleY, itemPoseScaleZ);
-         ItemStackRenderState itemRenderState = new ItemStackRenderState();
-         SubmitNodeStorage itemBuffers = NameTagItemRenderer.getSubmitNodes();
-         ClientAccess.schizoMinecraft.getItemModelResolver().updateForTopItem(itemRenderState, stack, itemDisplayContext, ClientAccess.schizoMinecraft.level, null, 0);
-         itemRenderState.submit(poses, itemBuffers, 15728880, OverlayTexture.NO_OVERLAY, 0);
-         poses.popPose();
+         try {
+            float itemPoseX = x * scale;
+            float itemPoseY = y * scale;
+            poses.translate(itemPoseX, itemPoseY, 0.0F);
+            float itemPoseScaleY = -scale;
+            poses.scale(itemPoseScaleX, itemPoseScaleY, itemPoseScaleZ);
+            ItemStackRenderState itemRenderState = new ItemStackRenderState();
+            SubmitNodeStorage itemBuffers = NameTagItemRenderer.getSubmitNodes();
+            ClientAccess.schizoMinecraft.getItemModelResolver().updateForTopItem(itemRenderState, stack, itemDisplayContext, ClientAccess.schizoMinecraft.level, null, 0);
+            itemRenderState.submit(poses, itemBuffers, 15728880, OverlayTexture.NO_OVERLAY, 0);
+         } finally {
+            poses.popPose();
+         }
       }
       Setting<Boolean> amountOption = this.amountSetting;
       if (amountOption.getValue()) {
@@ -486,7 +492,11 @@ public class NameTagsModule extends Module {
          }
          if (stack.isDamageableItem() && this.durabilitySetting.getValue() != DurabilityChoice.HIDE) {
             float durabilityY = (showItemDetails ? y * scale - 4.0F : y) - FontRenderer.INSTANCE.getHeight();
-            Color durabilityColor = colorsModule.schemeSetting.getValue().transform(new Color(stack.getBarColor(), false));
+            Color durabilityColor = new Color(stack.getBarColor(), false);
+            ColorsModule colorsSnapshot = colorsModule;
+            if (colorsSnapshot != null) {
+               durabilityColor = colorsSnapshot.schemeSetting.getValue().transform(durabilityColor);
+            }
             this.hasDurabilityText = true;
             this.drawText(
                poses, durabilityPercent + "%", x * scale, durabilityY, scale * 1.5F, durabilityColor, false, TextAlignment.CENTER
@@ -596,13 +606,22 @@ public class NameTagsModule extends Module {
          case SPECTATOR -> "SP";
       };
    }
+   @Override
+   public void onDisable() {
+      this.visibleEntities.clear();
+      this.equipmentItems.clear();
+      this.hasEquipmentItem = false;
+      this.hasDurabilityText = false;
+   }
+
    @EventHandler(priority = -1100)
    private void onWorldRender(WorldRenderEvent.Overlay event) {
       RenderTarget renderTarget = (RenderTarget)NAME_TAG_RENDER_TARGET.get();
       (RenderUtils.getEntityBuffers()).endBatch();
-      Vec3 cameraPosition = (ClientAccess.schizoMinecraft.gameRenderer.getMainCamera()).position();
+      Vec3 cameraPosition = ClientAccess.schizoMinecraft.gameRenderer.getMainCamera().position();
+      float partialTick = RenderUtils.getPartialTick();
+      EntityRenderDispatcher entityDispatcher = ClientAccess.schizoMinecraft.getEntityRenderDispatcher();
       for (Entity entity : this.visibleEntities) {
-         float partialTick = RenderUtils.getPartialTick();
          double interpolationPartialTick = partialTick;
          double previousXSnapshot = entity.xo;
          double currentX = entity.getX();
@@ -615,8 +634,7 @@ public class NameTagsModule extends Module {
          double previousZSnapshot = entity.zo;
          double currentZ = entity.getZ();
          double relativeZ = Mth.lerp(interpolationPartialTick, previousZSnapshot, currentZ) - cameraPosition.z;
-         EntityRenderDispatcher entityDispatcherSnapshot = ClientAccess.schizoMinecraft.getEntityRenderDispatcher();
-         EntityRenderer entityRenderer = entityDispatcherSnapshot.getRenderer(entity);
+         EntityRenderer entityRenderer = entityDispatcher.getRenderer(entity);
          EntityRenderState renderState = entityRenderer.createRenderState(entity, partialTick);
          Vec3 renderOffset = entityRenderer.getRenderOffset(renderState);
          PoseStack entityPoses = event.getPoseStack();
@@ -645,7 +663,7 @@ public class NameTagsModule extends Module {
 
          lightingSnapshot.setupFor(com.mojang.blaze3d.platform.Lighting.Entry.ITEMS_FLAT);
          ShaderModule shaderSnapshot = shader;
-         if (shaderSnapshot.includesNameTags()) {
+         if (shaderSnapshot != null && shaderSnapshot.includesNameTags()) {
             RenderTargetUtils.overrideRenderTargets(renderTarget);
             try {
                RenderUtils.clearColor(renderTarget);
@@ -666,6 +684,7 @@ public class NameTagsModule extends Module {
    @EventHandler
    private void refreshVisibleEntities(MinecraftRunTickEvent event) {
       if (this.isWorldUnavailable()) {
+         this.visibleEntities.clear();
          return;
       }
       ElapsedTimer refreshTimerSnapshot = this.entityRefreshTimer;
@@ -674,28 +693,24 @@ public class NameTagsModule extends Module {
       }
       this.visibleEntities.clear();
       ClientLevel level = ClientAccess.schizoMinecraft.level;
+      Vec3 cameraPosition = ClientAccess.schizoMinecraft.gameRenderer.getMainCamera().position();
+      int maximumRange = this.rangeSetting.getValue();
       for (Entity entity : level.entitiesForRendering()) {
          if (!this.shouldRenderEntity(entity)) {
             continue;
          }
-         GameRenderer gameRenderer = ClientAccess.schizoMinecraft.gameRenderer;
-         Vec3 cameraPositionSnapshot = (gameRenderer.getMainCamera()).position();
-         Vec3 entityPositionSnapshot = entity.position();
-         float distance = Vec3Utils.horizontalDistance(cameraPositionSnapshot, entityPositionSnapshot);
-         Integer maximumRange = this.rangeSetting.getValue();
-         if (distance > maximumRange.intValue()) {
+         Vec3 entityPosition = entity.position();
+         float distance = Vec3Utils.horizontalDistance(cameraPosition, entityPosition);
+         if (distance > maximumRange) {
             continue;
          }
-         AABB boundsSnapshot = entity.getBoundingBox();
-         if (RotationManager.isVisible(boundsSnapshot)) {
+         if (RotationManager.isVisible(entity.getBoundingBox())) {
             this.visibleEntities.add(entity);
          }
       }
-      this.visibleEntities.sort(Comparator.comparingDouble(sortedEntity -> {
-         Vec3 sortCameraPositionSnapshot = (ClientAccess.schizoMinecraft.gameRenderer.getMainCamera()).position();
-         Vec3 sortEntityPosition = sortedEntity.position();
-         return -sortCameraPositionSnapshot.distanceToSqr(sortEntityPosition);
-      }));
+      this.visibleEntities.sort(
+         Comparator.comparingDouble(entity -> -cameraPosition.distanceToSqr(entity.position()))
+      );
    }
    private static boolean isEntityRefreshDue(ElapsedTimer timer) {
       return timer.hasElapsedAndReset(50L);
@@ -712,36 +727,37 @@ public class NameTagsModule extends Module {
       PoseStack poses, String text, float x, float y, double scale, Color color, boolean vanillaFont, NameTagsModule.TextAlignment alignment
    ) {
       poses.pushPose();
-      poses.translate(x, y, 0.0F);
+      try {
+         poses.translate(x, y, 0.0F);
 
-      float textScaleX = 0.025F * (float)scale;
-      float textScaleY = 0.025F * (float)scale;
-      poses.scale(textScaleX, textScaleY, 1.0F);
+         float textScaleX = 0.025F * (float)scale;
+         float textScaleY = 0.025F * (float)scale;
+         poses.scale(textScaleX, textScaleY, 1.0F);
 
-      float alignmentOffset = alignment.getOffset(text, vanillaFont);
-      if (vanillaFont) {
-         int vanillaOffset = (int)alignmentOffset;
-         GuiDrawUtils.drawText(
-            poses, text, vanillaOffset, 0, color.hashCode(), true
-         );
-      } else {
-         FontRenderer.INSTANCE
-            .drawWithShadow(poses, text, alignmentOffset, 0.0F, color, Font.DisplayMode.SEE_THROUGH);
+         float alignmentOffset = alignment.getOffset(text, vanillaFont);
+         if (vanillaFont) {
+            int vanillaOffset = (int)alignmentOffset;
+            GuiDrawUtils.drawText(
+               poses, text, vanillaOffset, 0, color.hashCode(), true
+            );
+         } else {
+            FontRenderer.INSTANCE
+               .drawWithShadow(poses, text, alignmentOffset, 0.0F, color, Font.DisplayMode.SEE_THROUGH);
+         }
+      } finally {
+         poses.popPose();
       }
-      poses.popPose();
    }
    private void renderTag(PoseStack poses, LivingEntity entity) {
       this.hasDurabilityText = this.hasEquipmentItem = false;
       AnimationsModule animationsSnapshot = animationsModule;
-      boolean animated = animationsSnapshot.isPlayerScalingEnabled()
+      boolean animated = animationsSnapshot != null
+         && animationsSnapshot.isPlayerScalingEnabled()
          && entity != ClientAccess.schizoMinecraft.player;
       float entityHeight = entity.getBbHeight();
-      float modelHeightScale;
-      if (animated) {
-         modelHeightScale = animationsModule.playerScaleSetting.getValue();
-      } else {
-         modelHeightScale = 1.0F;
-      }
+      float modelHeightScale = animated
+         ? animationsSnapshot.playerScaleSetting.getValue()
+         : 1.0F;
 
       float scaledEntityHeight = entityHeight * modelHeightScale;
       float anchorHeight = scaledEntityHeight + 0.5F;
@@ -754,74 +770,75 @@ public class NameTagsModule extends Module {
          cameraPosition, interpolatedPosition, scaleAsDouble
       );
       poses.pushPose();
-      float scaleAboveOrigin = tagScale - 1.0F;
-      float scaleHeightOffset = scaleAboveOrigin * 0.25F;
-      float tagAnchorY = anchorHeight + scaleHeightOffset;
-      poses.translate(0.0F, tagAnchorY, 0.0F);
-      Camera dispatcherCamera = ClientAccess.schizoMinecraft.getEntityRenderDispatcher().camera;
-      poses.mulPose(dispatcherCamera.rotation());
-      float poseScaleX = tagScale * 0.025F;
-      float negativeScaleY = -tagScale;
-      float poseScaleY = negativeScaleY * 0.025F;
-      float negativeScaleZ = -tagScale;
-      float poseScaleZ = negativeScaleZ * 0.025F;
-      poses.scale(poseScaleX, poseScaleY, poseScaleZ);
-      Component label = this.buildTagText(entity);
-      String plainLabel = label.getString();
-      float textX = -FontRenderer.INSTANCE.getWidth(plainLabel);
-      textX *= 0.5F;
+      try {
+         float scaleAboveOrigin = tagScale - 1.0F;
+         float scaleHeightOffset = scaleAboveOrigin * 0.25F;
+         float tagAnchorY = anchorHeight + scaleHeightOffset;
+         poses.translate(0.0F, tagAnchorY, 0.0F);
+         Camera dispatcherCamera = ClientAccess.schizoMinecraft.getEntityRenderDispatcher().camera;
+         poses.mulPose(dispatcherCamera.rotation());
+         float poseScaleX = tagScale * 0.025F;
+         float negativeScaleY = -tagScale;
+         float poseScaleY = negativeScaleY * 0.025F;
+         float negativeScaleZ = -tagScale;
+         float poseScaleZ = negativeScaleZ * 0.025F;
+         poses.scale(poseScaleX, poseScaleY, poseScaleZ);
+         Component label = this.buildTagText(entity);
+         String plainLabel = label.getString();
+         float textX = -FontRenderer.INSTANCE.getWidth(plainLabel);
+         textX *= 0.5F;
 
-      Color outline = this.outlineSetting.getValue();
-      float fillLeft = textX - 1.0F;
-      float textFillWidth = textX * -1.0F;
-      float fillWidth = textFillWidth + 1.0F;
-      float fillFontHeight = (float)FontRenderer.INSTANCE.getHeight();
-      float fillHeight = fillFontHeight + 1.0F;
-      Setting<Color> fillOption = this.fillSetting;
-      GuiDrawUtils.fillRect(
-         poses, fillLeft, -1.0F, fillWidth, fillHeight, fillOption.getValue()
-      );
-      float outlineLeft = textX - 2.5F + 1.5F;
-      float textOutlineWidth = textX * -1.0F;
-      float outlineWidth = textOutlineWidth + 1.0F;
-      float outlineFontHeight = (float)FontRenderer.INSTANCE.getHeight();
-      GuiDrawUtils.drawLineRect(
-         poses, outlineLeft, -1.0F, outlineWidth, outlineFontHeight + 1.0F, outline
-      );
+         Color outline = this.outlineSetting.getValue();
+         float fillLeft = textX - 1.0F;
+         float textFillWidth = textX * -1.0F;
+         float fillWidth = textFillWidth + 1.0F;
+         float fillFontHeight = (float)FontRenderer.INSTANCE.getHeight();
+         float fillHeight = fillFontHeight + 1.0F;
+         Setting<Color> fillOption = this.fillSetting;
+         GuiDrawUtils.fillRect(
+            poses, fillLeft, -1.0F, fillWidth, fillHeight, fillOption.getValue()
+         );
+         float outlineLeft = textX - 2.5F + 1.5F;
+         float textOutlineWidth = textX * -1.0F;
+         float outlineWidth = textOutlineWidth + 1.0F;
+         float outlineFontHeight = (float)FontRenderer.INSTANCE.getHeight();
+         GuiDrawUtils.drawLineRect(
+            poses, outlineLeft, -1.0F, outlineWidth, outlineFontHeight + 1.0F, outline
+         );
 
-      Color textColor = this.textSetting.getValue();
-      if (entity.isShiftKeyDown()) {
-         textColor = this.sneakSetting.getValue();
-      }
-      if (entity.isInvisible()) {
-         textColor = this.invisiblesSetting.getValue();
-      }
-      SocialRegistry friendCheckManager = ClientContext.socialRegistry;
-      if (friendCheckManager.isFriendEntity(entity)) {
-         Setting<Boolean> friendOption = this.friendSetting;
-         if (friendOption.getValue()) {
-            SocialRegistry friendColorManager = ClientContext.socialRegistry;
-            textColor = friendColorManager.getFriendColor();
+         Color textColor = this.textSetting.getValue();
+         if (entity.isShiftKeyDown()) {
+            textColor = this.sneakSetting.getValue();
          }
-      }
-      SocialRegistry enemyCheckManager = ClientContext.socialRegistry;
-      if (enemyCheckManager.isEnemyEntity(entity)) {
-         Setting<Boolean> enemyOption = this.enemySetting;
-         if (enemyOption.getValue()) {
-            SocialRegistry enemyColorManager = ClientContext.socialRegistry;
-            textColor = enemyColorManager.getEnemyColor();
+         if (entity.isInvisible()) {
+            textColor = this.invisiblesSetting.getValue();
          }
-      }
+         SocialRegistry friendCheckManager = ClientContext.socialRegistry;
+         if (friendCheckManager.isFriendEntity(entity)) {
+            Setting<Boolean> friendOption = this.friendSetting;
+            if (friendOption.getValue()) {
+               SocialRegistry friendColorManager = ClientContext.socialRegistry;
+               textColor = friendColorManager.getFriendColor();
+            }
+         }
+         SocialRegistry enemyCheckManager = ClientContext.socialRegistry;
+         if (enemyCheckManager.isEnemyEntity(entity)) {
+            Setting<Boolean> enemyOption = this.enemySetting;
+            if (enemyOption.getValue()) {
+               SocialRegistry enemyColorManager = ClientContext.socialRegistry;
+               textColor = enemyColorManager.getEnemyColor();
+            }
+         }
 
-      FontsModule queriedFontsModule = fontsModule;
-      queriedFontsModule.isToggled();
          FontRenderer.INSTANCE
             .drawWithShadow(poses, label, textX, 1.0F, textColor, Font.DisplayMode.SEE_THROUGH);
-      if (entity instanceof Player equipmentPlayer) {
-         this.collectEquipment(equipmentPlayer);
-         this.renderEquipment(poses, equipmentPlayer);
+         if (entity instanceof Player equipmentPlayer) {
+            this.collectEquipment(equipmentPlayer);
+            this.renderEquipment(poses, equipmentPlayer);
+         }
+      } finally {
+         poses.popPose();
       }
-      poses.popPose();
    }
    public static int getTotemPopColor(int pops) {
       float fraction = Mth.clamp(pops / 10.0F, 0.0F, 1.0F);
