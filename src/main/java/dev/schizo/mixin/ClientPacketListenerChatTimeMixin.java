@@ -34,8 +34,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(ClientPacketListener.class)
 public class ClientPacketListenerChatTimeMixin {
-   private static final AmbienceModule ambienceModule = ClientContext.getModule(AmbienceModule.class);
-   private static final FastLatencyModule fastLatencyModule = ClientContext.getModule(FastLatencyModule.class);
+
+
    @Shadow
    private ClientLevel level;
    @Unique
@@ -81,9 +81,9 @@ public class ClientPacketListenerChatTimeMixin {
       cancellable = true
    )
    private void overrideServerTimeForAmbience(ClientboundSetTimePacket packet, CallbackInfo callback) {
-      if (ambienceModule.isToggled() && ambienceModule.worldTimeSetting.getValue()) {
-         ambienceModule.updateServerTimeSnapshot(packet.gameTime(), packet.dayTime());
-         this.level.setTimeFromServer(ambienceModule.getWorldTime(), ambienceModule.getWorldTime(), false);
+      if (schizo$ambienceModule().isToggled() && schizo$ambienceModule().worldTimeSetting.getValue()) {
+         schizo$ambienceModule().updateServerTimeSnapshot(packet.gameTime(), packet.dayTime());
+         this.level.setTimeFromServer(schizo$ambienceModule().getWorldTime(), schizo$ambienceModule().getWorldTime(), false);
          callback.cancel();
       }
    }
@@ -101,7 +101,17 @@ public class ClientPacketListenerChatTimeMixin {
    @WrapWithCondition(method = "applyPlayerInfoUpdate", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/multiplayer/PlayerInfo;setLatency(I)V"))
    private boolean allowPlayerInfoLatencyUpdate(PlayerInfo playerInfo, int latencyMillis) {
       return ClientAccess.schizoMinecraft.player == null
-         || !fastLatencyModule.isToggled()
+         || !schizo$fastLatencyModule().isToggled()
          || !playerInfo.getProfile().id().equals(ClientAccess.schizoMinecraft.player.getUUID());
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static AmbienceModule schizo$ambienceModule() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(AmbienceModule.class);
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static FastLatencyModule schizo$fastLatencyModule() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(FastLatencyModule.class);
    }
 }
