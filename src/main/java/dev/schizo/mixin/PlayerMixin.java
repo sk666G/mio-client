@@ -20,6 +20,8 @@ import dev.schizo.client.modules.misc.SocialEntry;
 import dev.schizo.client.managers.PlayerTickExecutor;
 import dev.schizo.client.utils.FloatAnimation;
 import dev.schizo.client.utils.entity.PlayerState;
+import dev.schizo.client.utils.MonotonicTime;
+import java.util.concurrent.TimeUnit;
 import dev.schizo.client.utils.entity.EntityUtils;
 import dev.schizo.client.utils.world.BlockInteractionUtils;
 import dev.schizo.client.settings.options.SocialRole;
@@ -56,9 +58,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(Player.class)
 public abstract class PlayerMixin extends LivingEntity implements PlayerState {
    @Unique
-   private long lastCrawlingTime;
+   private long lastCrawlingAtNanos;
    @Unique
-   private long lastEatingTime;
+   private long lastEatingAtNanos;
    @Unique
    private SocialRole socialRole;
    @Unique
@@ -101,14 +103,14 @@ public abstract class PlayerMixin extends LivingEntity implements PlayerState {
             EntityUtils.getHealthFraction(this), 100L
          );
       if (this.getBoundingBox().getYsize() < 1.0) {
-         this.lastCrawlingTime = System.currentTimeMillis();
+         this.lastCrawlingAtNanos = System.nanoTime();
       }
 
       this.nextToWall = !this.level()
          .noCollision(this.getBoundingBox().inflate(1.0E-4, 0.0, 1.0E-4));
       if (!this.isUsingItem()
          || this.getItemUseProgress(this.getUseItem(), this) > 1.0F) {
-         this.lastEatingTime = System.currentTimeMillis();
+         this.lastEatingAtNanos = System.nanoTime();
       }
    }
 
@@ -236,8 +238,8 @@ public abstract class PlayerMixin extends LivingEntity implements PlayerState {
    }
 
    @Override
-   public long schizo$getLastEatingTime() {
-      return this.lastEatingTime;
+   public long schizo$getLastEatingTimeNanos() {
+      return this.lastEatingAtNanos;
    }
 
    @Override
@@ -263,7 +265,11 @@ public abstract class PlayerMixin extends LivingEntity implements PlayerState {
 
    @Override
    public boolean schizo$wasCrawling() {
-      return System.currentTimeMillis() - this.lastCrawlingTime <= 150L;
+      return MonotonicTime.isWithin(
+         this.lastCrawlingAtNanos,
+         System.nanoTime(),
+         TimeUnit.MILLISECONDS.toNanos(150L)
+      );
    }
 
    @Override
