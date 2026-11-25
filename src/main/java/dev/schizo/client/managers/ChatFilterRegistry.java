@@ -12,7 +12,6 @@ package dev.schizo.client.managers;
 import dev.schizo.client.utils.chat.ChatFilterEntry;
 
 import dev.schizo.client.ClientAccess;
-import dev.schizo.client.ClientContext;
 import dev.schizo.client.modules.misc.ChatFilterModule;
 import dev.schizo.client.settings.JsonConfigurable;
 import dev.schizo.client.settings.Setting;
@@ -51,9 +50,11 @@ public class ChatFilterRegistry implements ClientAccess, JsonConfigurable {
       }
    }
 
-   static {
-
-      chatFilterModule = ClientContext.getModule(ChatFilterModule.class);
+   public static void bindModules(ModuleRegistry registry) {
+      chatFilterModule = (ChatFilterModule)java.util.Objects.requireNonNull(
+         registry.getModule(ChatFilterModule.class),
+         "Required module is not registered: ChatFilterModule"
+      );
    }
 
    public boolean isEmpty() {
