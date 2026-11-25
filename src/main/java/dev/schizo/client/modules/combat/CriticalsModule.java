@@ -66,9 +66,7 @@ public class CriticalsModule extends Module {
       return Math.clamp(pitch, lowerBound, upperBound);
    }
 
-   static {
-      auraModule = (AuraModule)ClientContext.getModule(AuraModule.class);
-   }
+   
 
    @Override
    public String getInfo() {
