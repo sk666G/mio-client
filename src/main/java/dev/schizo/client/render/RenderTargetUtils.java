@@ -124,7 +124,7 @@ public final class RenderTargetUtils implements ClientAccess {
          assert stream != null;
          return IOUtils.toString(stream, StandardCharsets.UTF_8);
       } catch (IOException | AssertionError failure) {
-         failure.printStackTrace();
+         dev.schizo.client.ClientAccess.logger.error("Could not read bundled shader source {}", resourcePath, failure);
          return "";
       }
    }
