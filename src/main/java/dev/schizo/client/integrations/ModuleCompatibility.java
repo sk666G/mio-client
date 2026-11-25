@@ -916,6 +916,69 @@ public final class ModuleCompatibility {
       ))
    );
 
+   private static final Map<SettingKey, SettingReview> REVIEWED_SETTINGS = Map.ofEntries(
+      Map.entry(setting(TridentModule.class, "Always"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls whether the TridentItem mixin permits riptide use outside vanilla water/rain conditions."
+      )),
+      Map.entry(setting(TridentModule.class, "Boost"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Scales the riptide push vector applied by the TridentItem mixin."
+      )),
+      Map.entry(setting(TimerModule.class, "Mode"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Selects the tick-rate scheduling mode used by Timer."
+      )),
+      Map.entry(setting(TimerModule.class, "Physics"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Chooses whether Timer applies its multiplier to player-physics ticks instead of the broader client tick controller."
+      )),
+      Map.entry(setting(TimerModule.class, "Shift"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls the requested tick-rate multiplier in non-pulse Timer modes."
+      )),
+      Map.entry(setting(TimerModule.class, "PulseMin"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls one endpoint of Timer's alternating tick-rate multiplier."
+      )),
+      Map.entry(setting(TimerModule.class, "PulseMax"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls one endpoint of Timer's alternating tick-rate multiplier."
+      )),
+      Map.entry(setting(TimerModule.class, "MinDelay"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls the duration of one Timer pulse phase."
+      )),
+      Map.entry(setting(TimerModule.class, "MaxDelay"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls the duration of the alternate Timer pulse phase."
+      )),
+      Map.entry(setting(TimerModule.class, "DisableDelay"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls how long Timer keeps its configured multiplier before disabling in Disable mode."
+      )),
+      Map.entry(setting(SwingModule.class, "Hand"), settingAssessed(
+         Classification.VISUAL_ONLY,
+         "Selects the locally rendered swinging arm; the reviewed SwingModule path does not rewrite the outgoing swing packet."
+      )),
+      Map.entry(setting(SwingModule.class, "Type"), settingAssessed(
+         Classification.VISUAL_ONLY,
+         "Selects the local legacy swing-animation style."
+      )),
+      Map.entry(setting(SwingModule.class, "Shake"), settingAssessed(
+         Classification.VISUAL_ONLY,
+         "Enables local legacy swing shake animation state."
+      )),
+      Map.entry(setting(SwingModule.class, "Speed"), settingAssessed(
+         Classification.VISUAL_ONLY,
+         "Changes the local rendered swing duration."
+      )),
+      Map.entry(setting(NoPacketKickModule.class, "Message"), settingAssessed(
+         Classification.CLIENT_ONLY,
+         "Only controls whether intercepted connection exceptions are reported locally; it does not control interception itself."
+      ))
+   );
+
    private ModuleCompatibility() {}
 
    public static Assessment assess(Class<?> moduleType) {
@@ -925,13 +988,18 @@ public final class ModuleCompatibility {
       return REVIEWED.getOrDefault(moduleType, UNVERIFIED);
    }
 
-   /**
-    * No setting has been individually certified yet. The parent module classification is
-    * included only as inherited context and is not a setting-level compatibility claim.
-    */
    public static SettingAssessment assessSetting(Class<?> moduleType, String settingName) {
       Assessment module = assess(moduleType);
       String name = settingName == null || settingName.isBlank() ? "unnamed setting" : settingName;
+      SettingReview review = moduleType == null ? null : REVIEWED_SETTINGS.get(setting(moduleType, name));
+      if (review != null) {
+         return new SettingAssessment(
+            review.classification(),
+            module.classification(),
+            true,
+            review.reason()
+         );
+      }
       return new SettingAssessment(
          Classification.UNVERIFIED,
          module.classification(),
@@ -943,6 +1011,14 @@ public final class ModuleCompatibility {
 
    private static Assessment assessed(Classification classification, String reason) {
       return new Assessment(classification, true, reason);
+   }
+
+   private static SettingKey setting(Class<?> moduleType, String settingName) {
+      return new SettingKey(moduleType, settingName);
+   }
+
+   private static SettingReview settingAssessed(Classification classification, String reason) {
+      return new SettingReview(classification, reason);
    }
 
    public enum Classification {
@@ -965,6 +1041,12 @@ public final class ModuleCompatibility {
       }
    }
 
+   private record SettingKey(Class<?> moduleType, String settingName) {
+   }
+
+   private record SettingReview(Classification classification, String reason) {
+   }
+
    public record SettingAssessment(
       Classification classification,
       Classification inheritedModuleClassification,
@@ -972,7 +1054,9 @@ public final class ModuleCompatibility {
       String reason
    ) {
       public boolean requiresWarning() {
-         return this.inheritedModuleClassification().requiresMultiplayerWarning();
+         return this.individuallyReviewed()
+            ? this.classification().requiresMultiplayerWarning()
+            : this.inheritedModuleClassification().requiresMultiplayerWarning();
       }
    }
 }
