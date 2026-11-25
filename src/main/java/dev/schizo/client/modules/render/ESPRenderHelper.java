@@ -9,6 +9,7 @@
 
 package dev.schizo.client.modules.render;
 
+import dev.schizo.client.diagnostics.RuntimeDiagnostics;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.WorldRenderEvent;
@@ -141,7 +142,12 @@ public class ESPRenderHelper implements ClientAccess {
          if (profileJson.has("name")) {
             this.ownerNames.put(ownerUuid, profileJson.get("name").getAsString());
          }
-      } catch (Exception ignoredLookupFailure) {
+      } catch (RuntimeException lookupFailure) {
+         RuntimeDiagnostics.record(
+            RuntimeDiagnostics.Area.INTEGRATION,
+            "ESP owner profile lookup",
+            lookupFailure
+         );
       }
    }
 
