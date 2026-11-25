@@ -10,6 +10,7 @@
 package dev.schizo.client.bootstrap;
 
 import dev.schizo.client.managers.ModuleRegistry;
+import dev.schizo.client.modules.Module;
 import dev.schizo.client.modules.client.DiscordModule;
 import dev.schizo.client.modules.client.UIModule;
 import dev.schizo.client.modules.combat.ArrowsModule;
@@ -46,7 +47,22 @@ import java.util.Objects;
 
 /** Cached module references consumed by mixin hooks without adding synthetic methods to Minecraft classes. */
 public final class MixinModuleRegistry {
+   private static volatile ModuleRegistry boundRegistry;
+
    private MixinModuleRegistry() {}
+
+   public static <T extends Module> T require(Class<T> moduleType) {
+      Objects.requireNonNull(moduleType, "Module type");
+      ModuleRegistry registry = boundRegistry;
+      if (registry == null) {
+         throw new IllegalStateException("Mixin module registry is not bound");
+      }
+      T module = moduleType.cast(registry.getModule(moduleType));
+      return Objects.requireNonNull(
+         module,
+         "Required module is not registered: " + moduleType.getSimpleName()
+      );
+   }
 
    public static volatile NoSlowModule blockNoslow;
    public static volatile PingSpoofModule connectionPingSpoofModule;
@@ -93,6 +109,7 @@ public final class MixinModuleRegistry {
 
    public static void bind(ModuleRegistry registry) {
       Objects.requireNonNull(registry, "Module registry is not initialized");
+      boundRegistry = registry;
       blockNoslow = (NoSlowModule)Objects.requireNonNull(registry.getModule(NoSlowModule.class), "Required module is not registered: NoSlowModule");
       connectionPingSpoofModule = (PingSpoofModule)Objects.requireNonNull(registry.getModule(PingSpoofModule.class), "Required module is not registered: PingSpoofModule");
       connectionNoPacketKickModule = (NoPacketKickModule)Objects.requireNonNull(registry.getModule(NoPacketKickModule.class), "Required module is not registered: NoPacketKickModule");
