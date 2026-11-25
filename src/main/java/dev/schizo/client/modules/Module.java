@@ -96,12 +96,31 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
       }
       this.compatibilityPolicySuppressed = false;
       this.enabled = true;
-      ClientAccess.eventBus.subscribe(this);
       EventBus eventBus = ClientAccess.eventBus;
-      ModuleToggleEvent toggleEvent = new ModuleToggleEvent(this);
-      eventBus.post(toggleEvent);
-      this.onToggle();
-      this.onEnable();
+      boolean enableHookStarted = false;
+      try {
+         eventBus.subscribe(this);
+         ModuleToggleEvent toggleEvent = new ModuleToggleEvent(this);
+         eventBus.post(toggleEvent);
+         this.onToggle();
+         enableHookStarted = true;
+         this.onEnable();
+      } catch (RuntimeException | Error enableFailure) {
+         if (enableHookStarted) {
+            try {
+               this.onDisable();
+            } catch (RuntimeException | Error cleanupFailure) {
+               if (cleanupFailure != enableFailure) {
+                  enableFailure.addSuppressed(cleanupFailure);
+               }
+            }
+         }
+         eventBus.unsubscribe(this);
+         this.enabled = false;
+         this.compatibilityPolicySuppressed = false;
+         ClientAccess.logger.error("Module {} failed while enabling and was rolled back", this.getName(), enableFailure);
+         throw enableFailure;
+      }
    }
 
    public boolean unregister(Setting<?> setting) {
@@ -279,13 +298,50 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
       if (!this.isToggled()) {
          return;
       }
-      ClientAccess.eventBus.unsubscribe(this);
-      this.enabled = false;
       EventBus eventBus = ClientAccess.eventBus;
-      ModuleToggleEvent toggleEvent = new ModuleToggleEvent(this);
-      eventBus.post(toggleEvent);
-      this.onToggle();
-      this.onDisable();
+      eventBus.unsubscribe(this);
+      this.enabled = false;
+
+      RuntimeException runtimeFailure = null;
+      Error errorFailure = null;
+      try {
+         ModuleToggleEvent toggleEvent = new ModuleToggleEvent(this);
+         eventBus.post(toggleEvent);
+         this.onToggle();
+      } catch (RuntimeException failure) {
+         runtimeFailure = failure;
+      } catch (Error failure) {
+         errorFailure = failure;
+      }
+
+      try {
+         this.onDisable();
+      } catch (RuntimeException cleanupFailure) {
+         if (runtimeFailure != null && runtimeFailure != cleanupFailure) {
+            runtimeFailure.addSuppressed(cleanupFailure);
+         } else if (errorFailure != null && errorFailure != cleanupFailure) {
+            errorFailure.addSuppressed(cleanupFailure);
+         } else {
+            runtimeFailure = cleanupFailure;
+         }
+      } catch (Error cleanupFailure) {
+         if (runtimeFailure != null && runtimeFailure != cleanupFailure) {
+            runtimeFailure.addSuppressed(cleanupFailure);
+         } else if (errorFailure != null && errorFailure != cleanupFailure) {
+            errorFailure.addSuppressed(cleanupFailure);
+         } else {
+            errorFailure = cleanupFailure;
+         }
+      }
+
+      if (runtimeFailure != null) {
+         ClientAccess.logger.error("Module {} failed while disabling", this.getName(), runtimeFailure);
+         throw runtimeFailure;
+      }
+      if (errorFailure != null) {
+         ClientAccess.logger.error("Module {} failed while disabling", this.getName(), errorFailure);
+         throw errorFailure;
+      }
    }
 
    public String getInfoString() {
