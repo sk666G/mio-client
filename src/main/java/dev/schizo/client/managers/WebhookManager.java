@@ -178,7 +178,10 @@ public final class WebhookManager implements JsonConfigurable {
    }
 
    List<HttpRequest> createRequests(String content) {
-      Destination target = this.destination;
+      return createRequests(content, this.destination);
+   }
+
+   private static List<HttpRequest> createRequests(String content, Destination target) {
       if ((target.telegram() && (target.telegramToken() == null || target.chatId().isBlank()))
          || (!target.telegram() && target.uri() == null) || content == null || content.isEmpty()) return List.of();
       String text = target.telegram() ? ANSI_COLOR.matcher(content).replaceAll("") : content;
@@ -209,10 +212,11 @@ public final class WebhookManager implements JsonConfigurable {
    }
 
    public CompletableFuture<Void> sendContent(String content) {
-      List<HttpRequest> requests = this.createRequests(content);
+      Destination target = this.destination;
+      List<HttpRequest> requests = createRequests(content, target);
       CompletableFuture<Void> delivery = CompletableFuture.completedFuture(null);
       for (HttpRequest request : requests) {
-         delivery = delivery.thenCompose(ignored -> this.sendWithRetry(request, 0));
+         delivery = delivery.thenCompose(ignored -> this.sendWithRetry(target, request, 0));
       }
       return delivery.exceptionallyCompose(failure -> {
          Throwable cause = failure;
@@ -226,7 +230,10 @@ public final class WebhookManager implements JsonConfigurable {
       });
    }
 
-   private CompletableFuture<Void> sendWithRetry(HttpRequest request, int attempt) {
+   private CompletableFuture<Void> sendWithRetry(Destination target, HttpRequest request, int attempt) {
+      if (this.destination != target) {
+         return CompletableFuture.failedFuture(new IOException("Notification destination changed"));
+      }
       CompletableFuture<java.net.http.HttpResponse<String>> responseFuture;
       try {
          responseFuture = this.requestSender.send(request);
@@ -254,7 +261,7 @@ public final class WebhookManager implements JsonConfigurable {
          long delayMillis = attempt == 0 ? 250L : 750L;
          return CompletableFuture.runAsync(() -> { },
             CompletableFuture.delayedExecutor(delayMillis, TimeUnit.MILLISECONDS))
-            .thenCompose(ignored -> this.sendWithRetry(request, attempt + 1));
+            .thenCompose(ignored -> this.sendWithRetry(target, request, attempt + 1));
       });
    }
 
