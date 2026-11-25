@@ -23,7 +23,6 @@ import net.minecraft.util.Mth;
 
 public class HudTextListRenderer extends HudWidgetRenderer {
 
-   private static final HUDModule hudSettings = ClientContext.getModule(HUDModule.class);
    private final List<? extends HudTextRow> rows;
    private final float[] dimensionBuffer = new float[2];
 
@@ -59,8 +58,8 @@ public class HudTextListRenderer extends HudWidgetRenderer {
          width = 50.0F;
          height = this.getHeight();
       }
-      width *= hudSettings.getTextScale();
-      height *= hudSettings.getTextScale();
+      width *= schizo$hudSettings().getTextScale();
+      height *= schizo$hudSettings().getTextScale();
       this.dimensionBuffer[0] = width;
       this.dimensionBuffer[1] = height;
       return this.dimensionBuffer;
@@ -69,7 +68,7 @@ public class HudTextListRenderer extends HudWidgetRenderer {
    @Override
    public void render(PoseStack poses, double mouseX, double mouseY) {
       super.render(poses, mouseX, mouseY);
-      float scale = hudSettings.getTextScale();
+      float scale = schizo$hudSettings().getTextScale();
       float rowY = this.getContentY(
          this.getHeight() * scale
       );
@@ -93,7 +92,7 @@ public class HudTextListRenderer extends HudWidgetRenderer {
                   0.0F
                );
                poses.scale(scale, scale, 1.0F);
-               row.renderRow(poses, 0.0F, 0.0F, rowColor, hudSettings.shouldDrawTextShadow());
+               row.renderRow(poses, 0.0F, 0.0F, rowColor, schizo$hudSettings().shouldDrawTextShadow());
                rowY += (this.getHeight() * easedVisibility + 1)
                   * this.getVerticalDirection()
                   * scale;
@@ -113,4 +112,8 @@ public class HudTextListRenderer extends HudWidgetRenderer {
       return this.rows;
    }
 
+
+   private static HUDModule schizo$hudSettings() {
+      return ClientContext.requireModule(HUDModule.class);
+   }
 }
