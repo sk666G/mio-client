@@ -54,6 +54,18 @@ class AutoPresetRegistryConfigTest {
    }
 
    @Test
+   void reconnectToSameServerAppliesAgainAfterDisconnectReset() {
+      AutoPresetRegistry registry = new AutoPresetRegistry();
+
+      assertTrue(registry.beginConnection("Example.org"));
+      assertFalse(registry.beginConnection("example.ORG"));
+
+      registry.resetConnectionState();
+
+      assertTrue(registry.beginConnection("example.org"));
+   }
+
+   @Test
    void skipsMalformedServersAndValuesButKeepsOtherEntries() {
       JsonObject root = new JsonObject();
       root.addProperty("not-an-object", "bad");
