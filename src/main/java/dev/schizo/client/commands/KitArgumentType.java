@@ -19,7 +19,6 @@ import com.mojang.brigadier.arguments.ArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.DynamicCommandExceptionType;
 import com.mojang.brigadier.suggestion.SuggestionsBuilder;
-import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
@@ -34,14 +33,9 @@ public class KitArgumentType implements ArgumentType {
 
       String requestedKitName = CommandStringReader.readString(reader);
       KitRegistry kitRegistry = ClientContext.kitRegistry;
-      Iterator kits = ((List)kitRegistry.getRegistry()).iterator();
-
-      while (kits.hasNext()) {
-         Kit kit = (Kit)kits.next();
-         String kitName = kit.getName();
-         if (kitName.equalsIgnoreCase(requestedKitName)) {
-            return kit;
-         }
+      Kit matchingKit = kitRegistry.findByName(requestedKitName).orElse(null);
+      if (matchingKit != null) {
+         return matchingKit;
       }
 
       DynamicCommandExceptionType unknownKitException = new DynamicCommandExceptionType(argument -> {
