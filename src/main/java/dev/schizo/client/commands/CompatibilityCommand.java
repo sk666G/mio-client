@@ -39,6 +39,11 @@ public final class CompatibilityCommand extends Command {
 
    @Override
    public void exec(LiteralArgumentBuilder root) {
+      root.then(literal("evidence")
+         .then(literal("template").then(argument("module", StringArgumentType.word())
+            .then(argument("name", StringArgumentType.string()).executes(context -> this.createEvidence(context)))))
+         .then(literal("validate").then(argument("name", StringArgumentType.string())
+            .executes(context -> this.validateEvidence(context)))));
       root.executes(context -> this.showStatus());
       root.then(literal("status").executes(context -> this.showStatus()));
       root.then(literal("list")
@@ -58,6 +63,40 @@ public final class CompatibilityCommand extends Command {
          .then(literal("reset")
             .then(argument("name", StringArgumentType.word()).executes(this::resetModulePreference)))
          .then(literal("clear").executes(context -> this.clearPolicyExceptions())));
+   }
+
+   private dev.schizo.client.config.CompatibilityEvidenceStore evidenceStore() {
+      return new dev.schizo.client.config.CompatibilityEvidenceStore(
+         dev.schizo.client.managers.ConfigurationManager.ROOT_DIRECTORY.resolve("compatibility-evidence"));
+   }
+
+   private int createEvidence(CommandContext<?> context) {
+      Module module = this.findModule(StringArgumentType.getString(context, "module"));
+      if (module == null) { this.print("Module not found."); return 0; }
+      try {
+         byte[] digest = java.security.MessageDigest.getInstance("SHA-256").digest(
+            module.toJson().toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+         this.evidenceStore().createTemplate(StringArgumentType.getString(context, "name"), module.getName(),
+            java.util.HexFormat.of().formatHex(digest), "1.21.11", dev.schizo.client.SchizoClient.VERSION);
+         this.print("Created an UNTESTED receipt in schizo/compatibility-evidence. Complete the build, server, plugins, scenario and observations after testing.");
+         return 1;
+      } catch (java.io.IOException | java.security.NoSuchAlgorithmException | IllegalArgumentException failure) {
+         this.print("Could not create evidence: " + failure.getMessage());
+         return 0;
+      }
+   }
+
+   private int validateEvidence(CommandContext<?> context) {
+      try {
+         var receipt = this.evidenceStore().load(StringArgumentType.getString(context, "name"));
+         dev.schizo.client.config.CompatibilityEvidenceStore.validate(receipt);
+         this.print("Receipt format valid. Operator-reported result: " + receipt.get("result").getAsString()
+            + ". Module certification is unchanged.");
+         return 1;
+      } catch (java.io.IOException | RuntimeException failure) {
+         this.print("Evidence incomplete or invalid: " + failure.getMessage());
+         return 0;
+      }
    }
 
    private int showPolicy() {

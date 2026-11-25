@@ -35,6 +35,7 @@ public final class ExpeditionScreen extends Screen {
    private int left, panelWidth, visibleRows;
    private boolean localOnly = true;
    private boolean showCoordinates;
+   private boolean privacyAtRefresh;
    private long refreshedAt;
    private DiscoveryEntry destination;
    private String message = "";
@@ -109,6 +110,7 @@ public final class ExpeditionScreen extends Screen {
 
    private void refresh() {
       Row previousSelection = this.selected >= 0 && this.selected < this.rows.size() ? this.rows.get(this.selected) : null;
+      this.privacyAtRefresh = dev.schizo.client.utils.CoordinatePrivacy.isEnabled();
       this.refreshedAt = System.nanoTime();
       List<Row> result = new ArrayList<>();
       switch (this.tab) {
@@ -148,6 +150,13 @@ public final class ExpeditionScreen extends Screen {
          if (waypoint == null || waypoint.getName() == null || waypoint.getServer() == null || waypoint.getDimension() == null) continue;
          entries.add(new DiscoveryEntry("Waypoint", waypoint.getName(), waypoint.getServer(), waypoint.getDimension(),
             waypoint.getX(), waypoint.getY(), waypoint.getZ(), 0, 0));
+      }
+      var chunks = ClientContext.getModule(dev.schizo.client.modules.exploit.NewChunksModule.class);
+      if (chunks != null && this.minecraft.level != null) {
+         for (var chunk : chunks.getVisibleChunks()) {
+            entries.add(new DiscoveryEntry("Chunk", "NewChunks " + chunk.kind().getName(), this.server(), chunk.dimension().getName(),
+               chunk.chunkPosition().getMiddleBlockX(), null, chunk.chunkPosition().getMiddleBlockZ(), 0, 0));
+         }
       }
       entries.sort(Comparator.comparing(DiscoveryEntry::server, String.CASE_INSENSITIVE_ORDER)
          .thenComparing(DiscoveryEntry::dimension).thenComparing(DiscoveryEntry::name));
@@ -277,6 +286,7 @@ public final class ExpeditionScreen extends Screen {
 
    @Override
    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+      if (this.privacyAtRefresh != dev.schizo.client.utils.CoordinatePrivacy.isEnabled()) this.refresh();
       graphics.fill(0, 0, this.width, this.height, 0xee080c12);
       graphics.drawString(this.font, this.fit("Schizo Expedition / " + TABS[this.tab], this.panelWidth), this.left, 10, 0xffa4d5ff);
       int visible = Math.min(this.visibleRows, this.rows.size() - this.offset);
