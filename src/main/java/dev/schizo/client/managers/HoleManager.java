@@ -192,9 +192,8 @@ public final class HoleManager implements ClientAccess {
          return;
       }
 
-      BlockPos origin = player.blockPosition();
-      if (this.scanLevel != level || this.scanPlayer != player || !origin.equals(this.scanOrigin)) {
-         this.startScan(level, player, origin);
+      if (this.scanLevel != level || this.scanPlayer != player || this.scanOrigin == null) {
+         this.startScan(level, player, player.blockPosition());
       }
 
       this.scanSlice();
@@ -247,7 +246,7 @@ public final class HoleManager implements ClientAccess {
 
       if (this.scanIndex >= TOTAL_SCAN_POSITIONS) {
          this.holes = List.copyOf(this.pendingHoles);
-         this.startScan(this.scanLevel, this.scanPlayer, this.scanOrigin);
+         this.startScan(this.scanLevel, this.scanPlayer, this.scanPlayer.blockPosition());
       }
    }
 
