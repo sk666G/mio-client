@@ -104,11 +104,18 @@ loom {
 processResources {
     inputs.property 'version', project.version
     filesMatching('fabric.mod.json') { expand version: project.version }
+    from('LICENSES') { into 'LICENSES' }
+    from('THIRD_PARTY_NOTICES.md')
 }
 
 java {
     toolchain { languageVersion = JavaLanguageVersion.of(21) }
     withSourcesJar()
+}
+
+tasks.named('sourcesJar') {
+    from('LICENSES') { into 'LICENSES' }
+    from('THIRD_PARTY_NOTICES.md')
 }
 
 tasks.withType(Test).configureEach {
