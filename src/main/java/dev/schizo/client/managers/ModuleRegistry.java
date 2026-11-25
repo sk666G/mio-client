@@ -13,6 +13,7 @@ import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.config.ModuleConfigLoadReport;
 import dev.schizo.client.NamedFeature;
+import dev.schizo.client.profiling.RuntimeDiagnostics;
 import dev.schizo.client.events.InputPressEvent;
 import dev.schizo.client.events.WorldRenderEvent;
 import dev.schizo.client.events.EventHandler;
@@ -314,6 +315,11 @@ public final class ModuleRegistry extends Registry<Module> implements ClientAcce
                JsonElement moduleConfig = module.toJson();
                config.add(moduleConfigName, moduleConfig);
             } catch (Exception serializationFailure) {
+               RuntimeDiagnostics.GLOBAL.record(
+                  RuntimeDiagnostics.Area.CONFIG_SERIALIZATION,
+                  module.getName(),
+                  serializationFailure
+               );
                ClientAccess.logger.error(
                   "Could not serialize module {} into modules.json",
                   module.getName(),
