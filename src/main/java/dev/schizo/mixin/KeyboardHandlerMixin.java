@@ -12,6 +12,7 @@ package dev.schizo.mixin;
 import dev.schizo.client.modules.misc.BetterChatModule;
 import dev.schizo.client.gui.screens.CommandPaletteScreen;
 import dev.schizo.client.ClientAccess;
+import dev.schizo.client.diagnostics.MixinHealthRegistry;
 import dev.schizo.client.events.InputPressEvent;
 import dev.schizo.client.events.KeyboardHandlerCharTypedEvent;
 import net.minecraft.client.KeyboardHandler;
@@ -38,6 +39,7 @@ public class KeyboardHandlerMixin {
    private void postKeyPressEvent(
       long windowHandle, int action, KeyEvent keyEvent, CallbackInfo callback
    ) {
+      MixinHealthRegistry.markSeen("keyboard.keyPress");
       if (this.minecraft.screen == null
          && action == GLFW.GLFW_PRESS
          && keyEvent.key() == GLFW.GLFW_KEY_K
