@@ -22,6 +22,7 @@ import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.LocalPlayerTickEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.events.bus.EventBus;
 import dev.schizo.client.modules.combat.AutoCrystalModule;
 import dev.schizo.client.modules.misc.SwingModule;
@@ -109,10 +110,18 @@ public class CrystalInteractionManager implements ClientAccess {
          return;
       }
       var eventLoop = ClientAccess.schizoMinecraft;
+      var expectedLevel = ClientAccess.schizoMinecraft.level;
+      var expectedPlayer = ClientAccess.schizoMinecraft.player;
       Runnable attackTask = () -> {
-         Entity targetEntity = ClientAccess.schizoMinecraft.level.getEntity(entityId);
+         if (ClientAccess.schizoMinecraft.level != expectedLevel
+            || ClientAccess.schizoMinecraft.player != expectedPlayer
+            || expectedLevel == null
+            || expectedPlayer == null) {
+            return;
+         }
+         Entity targetEntity = expectedLevel.getEntity(entityId);
          if (targetEntity != null) {
-            ClientAccess.schizoMinecraft.player.attack(targetEntity);
+            expectedPlayer.attack(targetEntity);
          }
       };
 
@@ -209,6 +218,13 @@ public class CrystalInteractionManager implements ClientAccess {
 
    public boolean attackEntity(int entityId) {
       return this.attackEntity(entityId, false);
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.lastAttackedEntityId = -1;
+      this.additionalCooldownMillis = 0L;
+      this.attackCooldownTimer.clear();
    }
 
    @EventHandler(priority = -300)

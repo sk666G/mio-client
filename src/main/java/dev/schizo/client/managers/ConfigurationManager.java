@@ -59,6 +59,8 @@ public final class ConfigurationManager implements ClientAccess {
    private final BundledResourceInstaller bundledResources = new BundledResourceInstaller();
    private final PresetUndoState presetUndoState = new PresetUndoState();
    private final ConfigurableRegistry configurables = new ConfigurableRegistry();
+   private final Object asyncSaveLock = new Object();
+   private volatile long asyncSaveVersion;
 
    public ModulePresetCodec getModulePresetCodec() {
       return this.modulePresetCodec;
@@ -229,6 +231,81 @@ public final class ConfigurationManager implements ClientAccess {
    private static boolean isSafeRootDirectory() {
       return !Files.isSymbolicLink(ROOT_DIRECTORY)
          && Files.isDirectory(ROOT_DIRECTORY, LinkOption.NOFOLLOW_LINKS);
+   }
+
+   public void saveAsyncSnapshot() {
+      if (!isSafeRootDirectory()) {
+         ClientAccess.logger.error("Skipping configuration save because the data root is not a real directory");
+         return;
+      }
+      if (PanicCommand.unloaded) {
+         return;
+      }
+
+      long saveVersion = ++this.asyncSaveVersion;
+      List<ConfigSnapshot> snapshots = new ArrayList<>();
+      Iterator<?> configurableIterator = this.configurables.iterator();
+      while (configurableIterator.hasNext()) {
+         JsonConfigurable configurable = (JsonConfigurable)configurableIterator.next();
+         if (SafeModeManager.GLOBAL.isActive() && "modules.json".equals(configurable.getConfigName())) {
+            ClientAccess.logger.info("Preserving module enablement state while Safe Mode is active");
+            continue;
+         }
+         try {
+            JsonElement serialized = configurable.toJson();
+            snapshots.add(new ConfigSnapshot(configurable.getConfigName(), serialized.getAsJsonObject().deepCopy()));
+         } catch (Exception snapshotFailure) {
+            ClientAccess.logger.error("Could not snapshot configuration {}", configurable.getConfigName(), snapshotFailure);
+         }
+      }
+
+      ClientAccess.executorService.submit(() -> this.writeSnapshots(snapshots, saveVersion));
+   }
+
+   private void writeSnapshots(List<ConfigSnapshot> snapshots, long saveVersion) {
+      synchronized (this.asyncSaveLock) {
+         if (saveVersion != this.asyncSaveVersion) {
+            return;
+         }
+         this.writeSnapshotsLocked(snapshots);
+      }
+   }
+
+   private void writeSnapshotsLocked(List<ConfigSnapshot> snapshots) {
+      if (!isSafeRootDirectory()) {
+         ClientAccess.logger.error("Skipping configuration save because the data root is not a real directory");
+         return;
+      }
+      Gson gsonSnapshot = ClientAccess.gson;
+      for (ConfigSnapshot snapshot : snapshots) {
+         try {
+            Path configPath = ROOT_DIRECTORY.resolve(snapshot.name());
+            if (Files.exists(configPath, LinkOption.NOFOLLOW_LINKS)
+               && (Files.isSymbolicLink(configPath)
+                  || !Files.isRegularFile(configPath, LinkOption.NOFOLLOW_LINKS))) {
+               ClientAccess.logger.warn(
+                  "Skipping configuration save because {} is not a regular file",
+                  snapshot.name()
+               );
+               continue;
+            }
+            try {
+               this.backupManager.backupBeforeSave(snapshot.name());
+            } catch (IOException | IllegalArgumentException backupFailure) {
+               ClientAccess.logger.warn(
+                  "Could not back up configuration {} before saving",
+                  snapshot.name(),
+                  backupFailure
+               );
+            }
+            FileUtils.writeUtf8Atomically(configPath, gsonSnapshot.toJson(snapshot.json()));
+         } catch (Exception saveFailure) {
+            ClientAccess.logger.error("Could not save configuration {}", snapshot.name(), saveFailure);
+         }
+      }
+   }
+
+   private record ConfigSnapshot(String name, JsonObject json) {
    }
 
    public void save() {

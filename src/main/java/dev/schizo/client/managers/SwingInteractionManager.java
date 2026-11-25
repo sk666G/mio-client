@@ -21,6 +21,7 @@ import dev.schizo.client.events.PacketEvent;
 import dev.schizo.client.events.CrystalPlacementEvent;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.LocalPlayerTickEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.events.bus.EventBus;
 import dev.schizo.client.modules.client.AntiCheatModule;
 import dev.schizo.client.modules.misc.SwingModule;
@@ -30,6 +31,7 @@ import dev.schizo.mixin.LivingEntityAccessor;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.protocol.game.ClientboundAddEntityPacket;
@@ -39,9 +41,11 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.phys.AABB;
 
 public final class SwingInteractionManager implements ClientAccess {
+   private static final long PENDING_CRYSTAL_TTL_NANOS = TimeUnit.MILLISECONDS.toNanos(300L);
    private static final AntiCheatModule antiCheat;
    private static final SwingModule swingModule;
    private final List<PendingCrystalPlacement> pendingCrystals;
+   private volatile long sessionGeneration;
 
    public SwingInteractionManager() {
       List<PendingCrystalPlacement> pending = new ArrayList<>(initialCrystalCapacity());
@@ -64,7 +68,9 @@ public final class SwingInteractionManager implements ClientAccess {
          return false;
       }
 
-      this.pendingCrystals.add(new PendingCrystalPlacement(position, System.currentTimeMillis() + 300L));
+      this.pendingCrystals.add(
+         new PendingCrystalPlacement(position.immutable(), System.nanoTime() + PENDING_CRYSTAL_TTL_NANOS)
+      );
       ClientAccess.eventBus.post(new CrystalPlacementEvent(position));
       return true;
    }
@@ -72,8 +78,8 @@ public final class SwingInteractionManager implements ClientAccess {
    @EventHandler
    private void onLocalPlayerTickEvent(LocalPlayerTickEvent event) {
       this.pendingCrystals.removeIf(pending -> {
-         long expiresAt = pending.expiresAtMillis();
-         return expiresAt <= System.currentTimeMillis();
+         long expiresAt = pending.expiresAtNanos();
+         return expiresAt <= System.nanoTime();
       });
    }
 
@@ -160,14 +166,26 @@ public final class SwingInteractionManager implements ClientAccess {
             AABB spawnBoundsSnapshot = spawnTypeSnapshot.getSpawnAABB(spawnXSnapshot, spawnYSnapshot, spawnZ);
             double inset = -BoundingBoxUtils.blockCornerInset;
             AABB crystalBounds = spawnBoundsSnapshot.inflate(inset);
+            long expectedGeneration = this.sessionGeneration;
             BlockableEventLoop<?> executor = ClientAccess.schizoMinecraft;
-            Runnable removePlacement = () -> this.pendingCrystals.removeIf(pending -> {
-               AABB placementBounds = new AABB(capturePlacementPosition(pending));
-               return crystalBounds.intersects(placementBounds);
-            });
+            Runnable removePlacement = () -> {
+               if (this.sessionGeneration != expectedGeneration) {
+                  return;
+               }
+               this.pendingCrystals.removeIf(pending -> {
+                  AABB placementBounds = new AABB(capturePlacementPosition(pending));
+                  return crystalBounds.intersects(placementBounds);
+               });
+            };
             executor.execute(removePlacement);
          }
       }
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.sessionGeneration++;
+      this.pendingCrystals.clear();
    }
 
    private static BlockPos capturePlacementPosition(PendingCrystalPlacement pending) {
@@ -176,7 +194,7 @@ public final class SwingInteractionManager implements ClientAccess {
 
    private record PendingCrystalPlacement(
       BlockPos position,
-      long expiresAtMillis
+      long expiresAtNanos
    ) {
    }
 }

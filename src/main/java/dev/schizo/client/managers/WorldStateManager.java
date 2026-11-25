@@ -101,6 +101,8 @@ public final class WorldStateManager implements ClientAccess {
 
    private int chunkRadius;
 
+   private volatile long packetGeneration;
+
    public DimensionType getDimension() {
       return this.dimension;
    }
@@ -333,6 +335,7 @@ public final class WorldStateManager implements ClientAccess {
 
    @EventHandler
    private void onMinecraftDisconnectEvent(MinecraftDisconnectEvent event) {
+      this.packetGeneration++;
       this.pendingPlacements.clear();
       this.confirmedPlacements.clear();
       this.blockEntities.clear();
@@ -375,48 +378,69 @@ public final class WorldStateManager implements ClientAccess {
          || this.pendingPlacements.containsKey(position);
    }
 
+   private void dispatchPacketUpdate(long expectedGeneration, Runnable action) {
+      ClientAccess.schizoMinecraft.executeIfPossible(() -> {
+         if (this.packetGeneration == expectedGeneration) {
+            action.run();
+         }
+      });
+   }
+
+   private void applyBlockUpdate(BlockPos position, BlockState state) {
+      this.rollbackBlocks.remove(position);
+      if (state.isAir()) {
+         this.confirmedPlacements.remove(position);
+         this.pendingPlacements.remove(position);
+         this.glassUpdateWindows.remove(position);
+      } else if (this.pendingPlacements.remove(position) != null) {
+         this.confirmedPlacements.add(position);
+      }
+      this.trackGlassUpdate(position, state);
+   }
+
+   private void applySectionUpdate(BlockPos position, BlockState state) {
+      this.rollbackBlocks.remove(position);
+      if (state.isAir()) {
+         this.glassUpdateWindows.remove(position);
+      } else {
+         this.trackGlassUpdate(position, state);
+      }
+   }
+
    @EventHandler
    private void onPacketReceive(
       PacketEvent.Receive event
    ) {
+      long expectedGeneration = this.packetGeneration;
       if (event.getPacket() instanceof ClientboundBlockUpdatePacket blockUpdate) {
-         this.rollbackBlocks.remove(blockUpdate.getPos());
+         BlockPos position = blockUpdate.getPos().immutable();
          BlockState state = blockUpdate.getBlockState();
-         if (state.isAir()) {
-            this.confirmedPlacements.remove(blockUpdate.getPos());
-            Map<BlockPos, PendingPlacement> pending = this.pendingPlacements;
-            pending.remove(blockUpdate.getPos());
-            Map<BlockPos, GlassUpdateWindow> windows = this.glassUpdateWindows;
-            windows.remove(blockUpdate.getPos());
-         } else {
-            Map<BlockPos, PendingPlacement> pending = this.pendingPlacements;
-            if (pending.remove(blockUpdate.getPos()) != null) {
-               this.confirmedPlacements.add(blockUpdate.getPos());
-            }
-         }
-         BlockPos updatePosition = blockUpdate.getPos();
-         BlockState updateState = blockUpdate.getBlockState();
-         this.trackGlassUpdate(updatePosition, updateState);
+         this.dispatchPacketUpdate(expectedGeneration, () -> this.applyBlockUpdate(position, state));
       }
+
       if (event.getPacket() instanceof ClientboundSectionBlocksUpdatePacket sectionUpdate) {
-         synchronized (this.rollbackBlocks) {
-            BiConsumer<BlockPos, BlockState> sectionUpdates = (position, state) -> {
-               this.rollbackBlocks.remove(position);
-               if (state.isAir()) {
-                  Map<BlockPos, GlassUpdateWindow> windows = this.glassUpdateWindows;
-                  windows.remove(position.immutable());
-               } else {
-                  this.trackGlassUpdate(position, state);
+         ArrayList<PacketBlockUpdate> updates = new ArrayList<>();
+         sectionUpdate.runUpdates((position, state) ->
+            updates.add(new PacketBlockUpdate(position.immutable(), state))
+         );
+         if (!updates.isEmpty()) {
+            List<PacketBlockUpdate> updateSnapshot = List.copyOf(updates);
+            this.dispatchPacketUpdate(expectedGeneration, () -> {
+               for (PacketBlockUpdate update : updateSnapshot) {
+                  this.applySectionUpdate(update.position(), update.state());
                }
-            };
-            sectionUpdate.runUpdates(sectionUpdates);
+            });
          }
       }
+
       if (event.getPacket() instanceof ClientboundLoginPacket login) {
-         this.chunkRadius = login.chunkRadius();
+         int radius = login.chunkRadius();
+         this.dispatchPacketUpdate(expectedGeneration, () -> this.chunkRadius = radius);
       }
+
       if (event.getPacket() instanceof ClientboundSetChunkCacheRadiusPacket radiusUpdate) {
-         this.chunkRadius = radiusUpdate.getRadius();
+         int radius = radiusUpdate.getRadius();
+         this.dispatchPacketUpdate(expectedGeneration, () -> this.chunkRadius = radius);
       }
    }
 
@@ -426,6 +450,9 @@ public final class WorldStateManager implements ClientAccess {
             BlockStateSnapshot.captureState(position), position, System.currentTimeMillis()
          ));
       }
+   }
+
+   private record PacketBlockUpdate(BlockPos position, BlockState state) {
    }
 
    private record GlassUpdateWindow(

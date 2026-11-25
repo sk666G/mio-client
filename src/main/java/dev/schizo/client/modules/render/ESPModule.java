@@ -22,6 +22,7 @@ import dev.schizo.client.events.WorldRenderEvent;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.LocalPlayerTickEvent;
 import dev.schizo.client.events.MultiPlayerGameModeUseItemOnEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.render.GuiDrawUtils;
 import dev.schizo.client.render.WorldBoxRenderer;
 import dev.schizo.client.render.VertexGeometry;
@@ -85,6 +86,7 @@ import net.minecraft.core.Holder;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket;
 import net.minecraft.network.protocol.game.ClientboundSectionBlocksUpdatePacket;
+import net.minecraft.network.protocol.game.ClientboundRespawnPacket;
 import net.minecraft.network.protocol.game.ClientboundSoundPacket;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.sounds.SoundEvent;
@@ -177,6 +179,8 @@ public class ESPModule extends Module {
    private final ElapsedTimer blockRefreshTimer;
    public final ESPRenderHelper renderHelper;
    private final LootedStorageTracker lootedStorage;
+   private ClientLevel lootedLevel;
+   private volatile long lootedGeneration;
    private Block currentlyRenderingBlock;
    private void refreshBlockEntityCache() {
       Vec3 cameraPosition = ClientAccess.schizoMinecraft.gameRenderer.getMainCamera().position();
@@ -237,7 +241,35 @@ public class ESPModule extends Module {
 
    @EventHandler
    private void expireChorusPositions(LocalPlayerTickEvent event) {
-      this.chorusPositions.entrySet().removeIf(chorusEntry -> System.currentTimeMillis() - chorusEntry.getValue() > 3500L);
+      this.chorusPositions.entrySet().removeIf(
+         chorusEntry -> System.currentTimeMillis() - chorusEntry.getValue() > 3500L
+      );
+
+      ClientLevel currentLevel = ClientAccess.schizoMinecraft.level;
+      if (currentLevel != this.lootedLevel) {
+         this.resetTransientState(currentLevel);
+      }
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.resetTransientState(null);
+   }
+
+   @Override
+   public void onDisable() {
+      this.resetTransientState(null);
+   }
+
+   private void resetTransientState(ClientLevel level) {
+      this.lootedGeneration++;
+      this.lootedStorage.clear();
+      this.lootedLevel = level;
+      this.chorusPositions.clear();
+      this.renderEntities.clear();
+      this.visibleBlockEntities.clear();
+      this.currentlyRenderingBlock = null;
+      this.renderingBlockEntities = false;
    }
 
    private void renderGroupedItemLabels(WorldRenderEvent event, List<ESPItemGroup> groups) {
@@ -516,97 +548,112 @@ public class ESPModule extends Module {
          }
       }
 
-      if (event.getPacket() instanceof ClientboundBlockUpdatePacket blockPacket) {
-         Boolean configuredLooted = this.lootedSetting.getValue();
-         if (configuredLooted) {
-            Minecraft blockUpdateTaskClient = ClientAccess.schizoMinecraft;
-            Runnable blockUpdateTask = () -> {
-               LootedStorageTracker blockTrackerSnapshot = this.lootedStorage;
-               BlockPos deferredPosition = blockPacket.getPos();
-               BlockState updatedState = blockPacket.getBlockState();
-               blockTrackerSnapshot.onBlockUpdate(deferredPosition, updatedState);
-            };
-            blockUpdateTaskClient.execute(blockUpdateTask);
-         }
+      if (event.getPacket() instanceof ClientboundRespawnPacket) {
+         ClientAccess.schizoMinecraft.executeIfPossible(() ->
+            this.resetTransientState(ClientAccess.schizoMinecraft.level)
+         );
+         return;
       }
+
+      if (event.getPacket() instanceof ClientboundBlockUpdatePacket blockPacket) {
+         BlockPos position = blockPacket.getPos().immutable();
+         BlockState state = blockPacket.getBlockState();
+         long expectedGeneration = this.lootedGeneration;
+         ClientAccess.schizoMinecraft.executeIfPossible(() -> {
+            if (this.isToggled()
+               && this.lootedGeneration == expectedGeneration
+               && this.lootedSetting.getValue()) {
+               this.lootedStorage.onBlockUpdate(position, state);
+            }
+         });
+      }
+
       if (event.getPacket() instanceof ClientboundSectionBlocksUpdatePacket sectionPacket) {
-         Boolean configuredLooted2 = this.lootedSetting.getValue();
-         if (configuredLooted2) {
-            Minecraft sectionUpdateTaskClient = ClientAccess.schizoMinecraft;
-            Runnable sectionUpdateTask = () -> {
-               LootedStorageTracker sectionTrackerForCallback = this.lootedStorage;
-               sectionPacket.runUpdates(sectionTrackerForCallback::onBlockUpdate);
-            };
-            sectionUpdateTaskClient.execute(sectionUpdateTask);
-         }
+         long expectedGeneration = this.lootedGeneration;
+         ClientAccess.schizoMinecraft.executeIfPossible(() -> {
+            if (this.isToggled()
+               && this.lootedGeneration == expectedGeneration
+               && this.lootedSetting.getValue()) {
+               sectionPacket.runUpdates(this.lootedStorage::onBlockUpdate);
+            }
+         });
       }
    }
 
    private void renderBlockEntities(WorldRenderEvent event) {
-      (event.getPoseStack()).pushPose();
-
+      PoseStack poses = event.getPoseStack();
+      poses.pushPose();
       this.renderingBlockEntities = true;
-      CameraRenderState cameraRenderState = ClientAccess.schizoMinecraft.gameRenderer.getLevelRenderState().cameraRenderState;
-      Vec3 cameraPosition = ClientAccess.schizoMinecraft.gameRenderer.getMainCamera().position();
-      ColorOutlineBufferSource renderTarget = ShaderRegistry.getBufferSource();
       EntityCullingOverrides.disableCulling();
-      if (this.blockRefreshTimer.hasElapsedAndReset(10L)) {
-         this.refreshBlockEntityCache();
-      }
-      for (BlockEntityRenderEntry entry : this.visibleBlockEntities) {
-         BlockEntity blockEntity = entry.blockEntity();
-         ESPRenderHelper colorHelperSnapshot = this.renderHelper;
-         Color highlightColor = colorHelperSnapshot.getBlockEntityColor(blockEntity);
-         Boolean configuredLooted = this.lootedSetting.getValue();
-         if (configuredLooted) {
-            if (this.lootedStorage.isLooted(blockEntity)) {
+      try {
+         CameraRenderState cameraRenderState = ClientAccess.schizoMinecraft.gameRenderer.getLevelRenderState().cameraRenderState;
+         Vec3 cameraPosition = ClientAccess.schizoMinecraft.gameRenderer.getMainCamera().position();
+         ColorOutlineBufferSource renderTarget = ShaderRegistry.getBufferSource();
+         if (this.blockRefreshTimer.hasElapsedAndReset(10L)) {
+            this.refreshBlockEntityCache();
+         }
+
+         for (BlockEntityRenderEntry entry : this.visibleBlockEntities) {
+            BlockEntity blockEntity = entry.blockEntity();
+            ESPRenderHelper colorHelperSnapshot = this.renderHelper;
+            Color highlightColor = colorHelperSnapshot.getBlockEntityColor(blockEntity);
+            if (this.lootedSetting.getValue() && this.lootedStorage.isLooted(blockEntity)) {
                highlightColor = LootedStorageTracker.getLootedColor();
             }
-         }
-         blockRender: {
 
             Color opaqueColor = new Color(
                (colorsModule.schemeSetting.getValue()).transform(highlightColor).hashCode(), false
             );
-            BlockPos xPosition = blockEntity.getBlockPos();
-            double relativeX = xPosition.getX() - cameraPosition.x;
-            BlockPos yPosition = blockEntity.getBlockPos();
-            double relativeY = yPosition.getY() - cameraPosition.y;
-            BlockPos zPosition = blockEntity.getBlockPos();
-            double relativeZ = zPosition.getZ() - cameraPosition.z;
-            (event.getPoseStack()).pushPose();
-            (event.getPoseStack()).translate(relativeX, relativeY, relativeZ);
-            ColorSubmitNodeStorage colorBuffer = ShaderRegistry.getSubmitNodes();
-            colorBuffer.setColorArgb(opaqueColor.hashCode());
-            renderTarget.setColorArgb(opaqueColor.hashCode());
-            BlockEntityRenderDispatcher extractDispatcherSnapshot = ClientAccess.schizoMinecraft.getBlockEntityRenderDispatcher();
-            float partialTick = event.getPartialTick();
-            BlockEntityRenderState blockRenderState = extractDispatcherSnapshot.tryExtractRenderState(blockEntity, partialTick, null);
-            if (blockRenderState != null) {
-               BlockEntityRenderDispatcher rendererLookupDispatcherSnapshot = ClientAccess.schizoMinecraft.getBlockEntityRenderDispatcher();
-               if (rendererLookupDispatcherSnapshot.getRenderer(blockRenderState) != null) {
-                  BlockEntityRenderDispatcher submitDispatcher = ClientAccess.schizoMinecraft.getBlockEntityRenderDispatcher();
-                  PoseStack submitPoses = event.getPoseStack();
-                  ColorSubmitNodeStorage submitNodes = ShaderRegistry.getSubmitNodes();
-                  submitDispatcher.submit(blockRenderState, submitPoses, submitNodes, cameraRenderState);
+            BlockPos blockPosition = blockEntity.getBlockPos();
+            double relativeX = blockPosition.getX() - cameraPosition.x;
+            double relativeY = blockPosition.getY() - cameraPosition.y;
+            double relativeZ = blockPosition.getZ() - cameraPosition.z;
+
+            poses.pushPose();
+            try {
+               poses.translate(relativeX, relativeY, relativeZ);
+               ColorSubmitNodeStorage colorBuffer = ShaderRegistry.getSubmitNodes();
+               colorBuffer.setColorArgb(opaqueColor.hashCode());
+               renderTarget.setColorArgb(opaqueColor.hashCode());
+
+               BlockEntityRenderDispatcher dispatcher = ClientAccess.schizoMinecraft.getBlockEntityRenderDispatcher();
+               BlockEntityRenderState blockRenderState = dispatcher.tryExtractRenderState(
+                  blockEntity, event.getPartialTick(), null
+               );
+               if (blockRenderState != null && dispatcher.getRenderer(blockRenderState) != null) {
+                  dispatcher.submit(
+                     blockRenderState,
+                     poses,
+                     ShaderRegistry.getSubmitNodes(),
+                     cameraRenderState
+                  );
                   ShaderRegistry.finishFeatureRendering();
-                  break blockRender;
+                  continue;
                }
+
+               BlockState fallbackState = blockEntity.getBlockState();
+               this.currentlyRenderingBlock = fallbackState.getBlock();
+               try {
+                  ClientAccess.schizoMinecraft.getBlockRenderer().renderSingleBlock(
+                     fallbackState, poses, renderTarget, 16711935, 0
+                  );
+               } finally {
+                  this.currentlyRenderingBlock = null;
+               }
+            } finally {
+               poses.popPose();
             }
-            BlockState fallbackState = blockEntity.getBlockState();
-            this.currentlyRenderingBlock = fallbackState.getBlock();
-            BlockRenderDispatcher fallbackRenderer = ClientAccess.schizoMinecraft.getBlockRenderer();
-            BlockState fallbackDrawState = blockEntity.getBlockState();
-            PoseStack fallbackPoses = event.getPoseStack();
-            fallbackRenderer.renderSingleBlock(fallbackDrawState, fallbackPoses, renderTarget, 16711935, 0);
-            this.currentlyRenderingBlock = null;
          }
-         (event.getPoseStack()).popPose();
+      } finally {
+         this.currentlyRenderingBlock = null;
+         try {
+            ShaderRegistry.finishFeatureRendering();
+         } finally {
+            EntityCullingOverrides.restoreCulling();
+            this.renderingBlockEntities = false;
+            poses.popPose();
+         }
       }
-      ShaderRegistry.finishFeatureRendering();
-      EntityCullingOverrides.restoreCulling();
-      this.renderingBlockEntities = false;
-      (event.getPoseStack()).popPose();
    }
 
    public static void bindModules(ModuleRegistry modules) {

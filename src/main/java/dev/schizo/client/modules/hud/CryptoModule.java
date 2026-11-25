@@ -36,6 +36,7 @@ import java.time.Duration;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 
@@ -48,83 +49,121 @@ public class CryptoModule extends HudWidgetModule {
    private boolean priceIncreased;
    private String formattedPrice;
    private String coinSlug;
+   private final AtomicBoolean refreshInProgress = new AtomicBoolean();
+   private long refreshGeneration;
 
-   private void refreshPrice() {
-      if (!this.isCoinSymbolValid()) {
+   private void schedulePriceRefresh() {
+      String coinSymbol = this.coinSetting.getValue().toUpperCase(Locale.ROOT);
+      if (!isCoinSymbolValid(coinSymbol)) {
          this.coinSlug = null;
-         this.coinSetting.setValue("UNKNOWN");
-         this.formattedPrice = "0.00";
+         this.formattedPrice = "UNKNOWN";
          this.priceChangeAnimation.setValue(0.0F);
          return;
       }
 
-      String cachedCoinSlug = this.coinSlug;
-      String coinSymbol = (this.coinSetting.getValue()).toUpperCase(Locale.ROOT);
-      FiatCurrency fiatCurrency = this.fiatSetting.getValue();
-      String fiatSymbol = fiatCurrency.getName().toUpperCase(Locale.ROOT);
-
-      if (cachedCoinSlug == null) {
-         try {
-            URI uri = new URI("https://api.alternative.me/v2/ticker/?convert=%s".formatted(fiatSymbol));
-            JsonObject prices = this.requestPrices(uri);
-            if (prices == null || prices.isEmpty()) {
-               return;
-            }
-
-            for (String key : prices.keySet()) {
-               if (!prices.get(key).isJsonObject()) {
-                  continue;
-               }
-               JsonObject coin = prices.get(key).getAsJsonObject();
-               if (!coin.has("symbol") || !coin.has("website_slug")) {
-                  continue;
-               }
-               String responseCoinSymbol = coin.get("symbol").getAsString();
-               if (coinSymbol.equals(responseCoinSymbol)) {
-                  JsonObject quotes = coin.getAsJsonObject("quotes");
-                  if (!quotes.has(fiatSymbol)) {
-                     break;
-                  }
-                  JsonObject quote = quotes.getAsJsonObject(fiatSymbol);
-                  this.updateQuotedPrice(quote.get("price").getAsFloat());
-                  this.coinSlug = coin.get("website_slug").getAsString();
-                  return;
-               }
-            }
-
-            if (this.coinSlug == null) {
-               this.formattedPrice = "UNKNOWN";
-               this.priceChangeAnimation.setValue(0.0F);
-               return;
-            }
-         } catch (Exception ignoredException) {
-            return;
-         }
+      if (!this.refreshInProgress.compareAndSet(false, true)) {
+         return;
       }
 
+      FiatCurrency fiatCurrency = this.fiatSetting.getValue();
+      String fiatSymbol = fiatCurrency.getName().toUpperCase(Locale.ROOT);
+      String cachedCoinSlug = this.coinSlug;
+      long generation = this.refreshGeneration;
+      ExecutorService executor = ClientAccess.executorService;
       try {
+         executor.submit(() -> {
+            PriceFetchResult result = null;
+            try {
+               result = this.fetchPrice(coinSymbol, fiatSymbol, cachedCoinSlug);
+            } catch (Exception ignoredException) {
+            } finally {
+               this.refreshInProgress.set(false);
+            }
 
-         String conversionUrl = "https://api.alternative.me/v2/ticker/%s/?convert=%s";
-         URI uri = new URI(conversionUrl.formatted(cachedCoinSlug, fiatSymbol));
+            PriceFetchResult completed = result;
+            if (completed != null) {
+               ClientAccess.schizoMinecraft.executeIfPossible(() -> {
+                  if (this.isToggled() && this.refreshGeneration == generation) {
+                     this.applyPriceResult(completed);
+                  }
+               });
+            }
+         });
+      } catch (java.util.concurrent.RejectedExecutionException rejected) {
+         this.refreshInProgress.set(false);
+      }
+   }
+
+   private PriceFetchResult fetchPrice(String coinSymbol, String fiatSymbol, String cachedCoinSlug) throws Exception {
+      if (cachedCoinSlug == null) {
+         URI uri = new URI("https://api.alternative.me/v2/ticker/?convert=%s".formatted(fiatSymbol));
          JsonObject prices = this.requestPrices(uri);
          if (prices == null || prices.isEmpty()) {
-            return;
+            return PriceFetchResult.unknown(null);
          }
+
          for (String key : prices.keySet()) {
             if (!prices.get(key).isJsonObject()) {
                continue;
             }
             JsonObject coin = prices.get(key).getAsJsonObject();
-            if (!coin.has("quotes")) {
+            if (!coin.has("symbol") || !coin.has("website_slug") || !coin.has("quotes")) {
                continue;
             }
+            if (!coinSymbol.equalsIgnoreCase(coin.get("symbol").getAsString())) {
+               continue;
+            }
+
             JsonObject quotes = coin.getAsJsonObject("quotes");
+            if (!quotes.has(fiatSymbol) || !quotes.get(fiatSymbol).isJsonObject()) {
+               return PriceFetchResult.unknown(null);
+            }
             JsonObject quote = quotes.getAsJsonObject(fiatSymbol);
-            this.updateQuotedPrice(quote.get("price").getAsFloat());
-            break;
+            if (!quote.has("price")) {
+               return PriceFetchResult.unknown(null);
+            }
+            return PriceFetchResult.quote(
+               quote.get("price").getAsFloat(),
+               coin.get("website_slug").getAsString()
+            );
          }
-      } catch (Exception ignoredException) {
+         return PriceFetchResult.unknown(null);
       }
+
+      String conversionUrl = "https://api.alternative.me/v2/ticker/%s/?convert=%s";
+      URI uri = new URI(conversionUrl.formatted(cachedCoinSlug, fiatSymbol));
+      JsonObject prices = this.requestPrices(uri);
+      if (prices == null || prices.isEmpty()) {
+         return PriceFetchResult.unknown(cachedCoinSlug);
+      }
+      for (String key : prices.keySet()) {
+         if (!prices.get(key).isJsonObject()) {
+            continue;
+         }
+         JsonObject coin = prices.get(key).getAsJsonObject();
+         if (!coin.has("quotes")) {
+            continue;
+         }
+         JsonObject quotes = coin.getAsJsonObject("quotes");
+         if (!quotes.has(fiatSymbol) || !quotes.get(fiatSymbol).isJsonObject()) {
+            continue;
+         }
+         JsonObject quote = quotes.getAsJsonObject(fiatSymbol);
+         if (quote.has("price")) {
+            return PriceFetchResult.quote(quote.get("price").getAsFloat(), cachedCoinSlug);
+         }
+      }
+      return PriceFetchResult.unknown(cachedCoinSlug);
+   }
+
+   private void applyPriceResult(PriceFetchResult result) {
+      this.coinSlug = result.coinSlug();
+      if (result.unknown()) {
+         this.formattedPrice = "UNKNOWN";
+         this.priceChangeAnimation.setValue(0.0F);
+         return;
+      }
+      this.updateQuotedPrice(result.price());
    }
 
    private JsonObject requestPrices(URI uri) {
@@ -134,31 +173,16 @@ public class CryptoModule extends HudWidgetModule {
          .build();
       HttpResponse<String> response = this.httpClient.sendAsync(request, BodyHandlers.ofString())
          .orTimeout(15L, TimeUnit.SECONDS).join();
-      int statusCode = response.statusCode();
-
-      if (statusCode != 200) {
-
-         this.formattedPrice = "UNKNOWN";
-         FloatAnimation statusFailureAnimation = this.priceChangeAnimation;
-
-         statusFailureAnimation.setValue(0.0F);
+      if (response.statusCode() != 200) {
          return null;
       }
 
-      Gson gson = ClientAccess.gson;
-      String responseBody = response.body();
-      Class<JsonObject> responseType = JsonObject.class;
-      JsonObject responseJson = gson.fromJson(responseBody, responseType);
-
-      if (!responseJson.has("data") || !responseJson.has("metadata")) {
-         this.formattedPrice = "UNKNOWN";
-         this.priceChangeAnimation.setValue(0.0F);
+      JsonObject responseJson = ClientAccess.gson.fromJson(response.body(), JsonObject.class);
+      if (responseJson == null || !responseJson.has("data") || !responseJson.has("metadata")) {
          return null;
       }
       JsonObject metadata = responseJson.getAsJsonObject("metadata");
       if (metadata.has("error") && !metadata.get("error").isJsonNull()) {
-         this.formattedPrice = "UNKNOWN";
-         this.priceChangeAnimation.setValue(0.0F);
          return null;
       }
       return responseJson.getAsJsonObject("data");
@@ -176,9 +200,8 @@ public class CryptoModule extends HudWidgetModule {
       this.formattedPrice = priceText;
    }
 
-   private boolean isCoinSymbolValid() {
-      String coinSymbol = this.coinSetting.getValue();
-      return !coinSymbol.isEmpty() && coinSymbol.matches("[a-zA-Z]+");
+   private static boolean isCoinSymbolValid(String coinSymbol) {
+      return coinSymbol != null && !coinSymbol.isEmpty() && coinSymbol.matches("[a-zA-Z]+");
    }
 
    private Component getDisplayText() {
@@ -217,17 +240,15 @@ public class CryptoModule extends HudWidgetModule {
 
    @EventHandler
    private void onLocalPlayerTickEvent(LocalPlayerTickEvent ignoredEvent) {
-      ElapsedTimer timer = this.updateTimer;
-
-      TimeUnit intervalUnit = TimeUnit.SECONDS;
-      if (timer.hasElapsed(5.0D, intervalUnit)) {
-         ExecutorService executor = ClientAccess.executorService;
-         Runnable refreshTask = this::refreshPrice;
-         executor.submit(refreshTask);
-         timer = this.updateTimer;
-
-         timer.reset();
+      if (this.updateTimer.hasElapsed(5.0D, TimeUnit.SECONDS)) {
+         this.updateTimer.reset();
+         this.schedulePriceRefresh();
       }
+   }
+
+   @Override
+   public void onDisable() {
+      this.refreshGeneration++;
    }
 
    private void updatePriceChangeAnimation(float price) {
@@ -276,23 +297,36 @@ public class CryptoModule extends HudWidgetModule {
          )
       );
       this.coinSetting.setChangeCallback(() -> {
+         this.refreshGeneration++;
          this.coinSlug = null;
-         FloatAnimation callbackAnimation = this.priceChangeAnimation;
-
-         callbackAnimation.setValue(0.0F);
-
+         this.priceChangeAnimation.setValue(0.0F);
          this.formattedPrice = "0.00";
 
-         if (!this.isCoinSymbolValid()) {
-            Setting<String> invalidCoinOption = this.coinSetting;
-
-            invalidCoinOption.setValue("UNKNOWN");
+         String coinSymbol = this.coinSetting.getValue();
+         if (!isCoinSymbolValid(coinSymbol)) {
+            if (!"UNKNOWN".equals(coinSymbol)) {
+               this.coinSetting.setValue("UNKNOWN");
+            }
          } else {
-            ElapsedTimer timerForImmediateUpdate = this.updateTimer;
-
-            timerForImmediateUpdate.setTime(5000L);
+            this.updateTimer.setTime(5000L);
          }
       });
+      this.fiatSetting.setChangeCallback(() -> {
+         this.refreshGeneration++;
+         this.priceChangeAnimation.setValue(0.0F);
+         this.formattedPrice = "0.00";
+         this.updateTimer.setTime(5000L);
+      });
+   }
+
+   private record PriceFetchResult(float price, String coinSlug, boolean unknown) {
+      static PriceFetchResult quote(float price, String coinSlug) {
+         return new PriceFetchResult(price, coinSlug, false);
+      }
+
+      static PriceFetchResult unknown(String coinSlug) {
+         return new PriceFetchResult(0.0F, coinSlug, true);
+      }
    }
 
    private enum FiatCurrency implements NamedEntry {

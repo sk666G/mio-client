@@ -84,7 +84,7 @@ public class SkeletonModule extends Module {
          AbstractClientPlayer player = players.next();
          FreecamModule freecam = freecamModule;
          boolean selfVisible = true;
-         if (!freecam.isToggled()) {
+         if (freecam == null || !freecam.isToggled()) {
             Options options = ClientAccess.schizoMinecraft.options;
             selfVisible = options.getCameraType() != CameraType.FIRST_PERSON;
          }
@@ -274,8 +274,11 @@ public class SkeletonModule extends Module {
       RenderTargetUtils.setMainRenderTarget(
          MaskShaderRenderer.MASK_TARGET
       );
-      LineMeshRenderer.draw();
-      RenderTargetUtils.setMainRenderTarget(mainTarget);
+      try {
+         LineMeshRenderer.draw();
+      } finally {
+         RenderTargetUtils.setMainRenderTarget(mainTarget);
+      }
       RenderUtils.blitToMain(
          MaskShaderRenderer.MASK_TARGET
       );

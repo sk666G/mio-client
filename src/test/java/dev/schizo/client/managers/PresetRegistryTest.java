@@ -123,6 +123,43 @@ class PresetRegistryTest {
    }
 
    @Test
+   void failedDirectoryRefreshPreservesLastCompleteRegistry() throws IOException {
+      Path root = Files.createDirectory(directory.resolve("presets"));
+      preset("known").saveToDirectory(root);
+      PresetRegistry registry = new PresetRegistry(root);
+      registry.loadPresets();
+      Files.move(root, directory.resolve("moved"));
+      registry.loadPresets();
+      assertNotNull(registry.getPreset("known"));
+      Files.createDirectory(root);
+      registry.loadPresets();
+      assertNull(registry.getPreset("known"));
+   }
+
+   @Test
+   void restoreRollsBackExactBytesWhenReplacementCannotBeRemoved() throws IOException {
+      byte[] original = {(byte)0xff, 42};
+      Path target = directory.resolve("before.json");
+      Files.write(target, original);
+      Files.createDirectory(directory.resolve("after.json"));
+      PresetRegistry registry = new PresetRegistry(directory);
+      assertThrows(IOException.class, () -> registry.restorePreset(preset("before"), "after"));
+      assertArrayEquals(original, Files.readAllBytes(target));
+      assertNull(registry.getPreset("before"));
+   }
+
+   @Test
+   void restoreRemovesReplacedEntryFromMemoryAndDisk() throws IOException {
+      preset("after").saveToDirectory(directory);
+      PresetRegistry registry = new PresetRegistry(directory);
+      registry.loadPresets();
+      registry.restorePreset(preset("before"), "after");
+      assertFalse(Files.exists(directory.resolve("after.json")));
+      assertNull(registry.getPreset("after"));
+      assertNotNull(registry.getPreset("before"));
+   }
+
+   @Test
    void transactionalApplyPublishesSuccessfulState() {
       JsonObject before = json("value", "before");
       JsonObject desired = json("value", "after");

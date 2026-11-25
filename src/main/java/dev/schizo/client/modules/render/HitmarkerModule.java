@@ -35,6 +35,7 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import dev.schizo.mixin.ServerboundInteractPacketAccessor;
 import java.awt.Color;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 import net.minecraft.client.Camera;
 import net.minecraft.client.multiplayer.ClientLevel;
@@ -63,6 +64,7 @@ public class HitmarkerModule extends Module {
    private final Setting<Boolean> playersSetting;
    private final Setting<Boolean> crystalsSetting;
    public long lastHitTime;
+   private long lastHitNanos = -1L;
    public boolean soundPending;
 
    public boolean isEligibleTarget(Entity entity) {
@@ -88,7 +90,7 @@ public class HitmarkerModule extends Module {
       secondsCapture = (this.fadeTimeSetting.getValue());
 
       long fadeMillis = (long)(secondsCapture * 1e+03F);
-      long elapsedMillis = System.currentTimeMillis() - this.lastHitTime;
+      long elapsedMillis = this.elapsedHitMillis();
       if (elapsedMillis < durationMillis - fadeMillis) {
 
          return 1.0F;
@@ -96,6 +98,13 @@ public class HitmarkerModule extends Module {
 
          return 1.0F - (float)(elapsedMillis - (durationMillis - fadeMillis)) / (float)fadeMillis;
       }
+   }
+
+   private long elapsedHitMillis() {
+      if (this.lastHitNanos < 0L) {
+         return Long.MAX_VALUE;
+      }
+      return TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - this.lastHitNanos);
    }
 
    static {
@@ -107,6 +116,7 @@ public class HitmarkerModule extends Module {
    public void onToggle() {
 
       this.lastHitTime = -1L;
+      this.lastHitNanos = -1L;
       this.soundPending = false;
    }
 
@@ -133,20 +143,18 @@ public class HitmarkerModule extends Module {
       if (camera.isDetached()) {
          return;
       }
-      long hitTimeCapture = this.lastHitTime;
-
-      if (hitTimeCapture == -1L) {
+      if (this.lastHitNanos < 0L) {
          return;
       }
 
-      long elapsedMillis = System.currentTimeMillis()
-         - this.lastHitTime;
+      long elapsedMillis = this.elapsedHitMillis();
       float durationCapture = (this.timeSetting.getValue());
 
       long durationMillis = (long)(durationCapture * 1e+03F);
       if (elapsedMillis > durationMillis) {
 
          this.lastHitTime = -1L;
+         this.lastHitNanos = -1L;
          return;
       }
 
@@ -167,7 +175,8 @@ public class HitmarkerModule extends Module {
 
       float centerY = halfHeight - 0.5F;
       CrosshairModule crosshairForOffset = crosshair;
-      if (!crosshairForOffset.isToggled()) {
+      boolean customCrosshair = crosshairForOffset != null && crosshairForOffset.isToggled();
+      if (!customCrosshair) {
 
          centerX -= 0.5F;
       } else {
@@ -182,16 +191,14 @@ public class HitmarkerModule extends Module {
          colorOption.getValue(), opacity
       );
       VertexConsumer buffer = GuiDrawUtils.getLineVertices();
-      PoseStack poseStackForPush = event.getPoseStack();
-      poseStackForPush.pushPose();
-      CrosshairModule crosshairForTranslation = crosshair;
-      if (crosshairForTranslation.isToggled()) {
-         PoseStack translationStackCapture = event.getPoseStack();
+      PoseStack markerPoseStack = event.getPoseStack();
+      markerPoseStack.pushPose();
+      try {
+         if (customCrosshair) {
+            markerPoseStack.translate(-0.6D, 0.0D, 0.0D);
+         }
 
-         translationStackCapture.translate(-0.6D, 0.0D, 0.0D);
-      }
-
-      PoseStack topLeftStackCapture = event.getPoseStack();
+      PoseStack topLeftStackCapture = markerPoseStack;
       float topLeftOuterX = centerX - outerOffset;
       float lineYCapture = centerY - outerOffset;
 
@@ -201,7 +208,7 @@ public class HitmarkerModule extends Module {
       drawMarkerLine(
          topLeftStackCapture, buffer, markerColor, topLeftOuterX, lineYCapture, lineXCapture, topLeftEndY
       );
-      PoseStack bottomLeftStackCapture = event.getPoseStack();
+      PoseStack bottomLeftStackCapture = markerPoseStack;
       float bottomLeftOuterX = centerX - outerOffset;
       lineYCapture = centerY + outerOffset;
 
@@ -211,7 +218,7 @@ public class HitmarkerModule extends Module {
       drawMarkerLine(
          bottomLeftStackCapture, buffer, markerColor, bottomLeftOuterX, lineYCapture, lineXCapture, bottomLeftEndY
       );
-      PoseStack topRightStackCapture = event.getPoseStack();
+      PoseStack topRightStackCapture = markerPoseStack;
 
       float topRightInnerX = centerX + 2.0F;
 
@@ -221,7 +228,7 @@ public class HitmarkerModule extends Module {
       drawMarkerLine(
          topRightStackCapture, buffer, markerColor, topRightInnerX, lineYCapture, lineXCapture, topRightEndY
       );
-      PoseStack bottomRightStackCapture = event.getPoseStack();
+      PoseStack bottomRightStackCapture = markerPoseStack;
 
       float bottomRightInnerX = centerX + 2.0F;
 
@@ -231,8 +238,9 @@ public class HitmarkerModule extends Module {
       drawMarkerLine(
          bottomRightStackCapture, buffer, markerColor, bottomRightInnerX, lineYCapture, lineXCapture, bottomRightEndY
       );
-      PoseStack poseStackForPop = event.getPoseStack();
-      poseStackForPop.popPose();
+      } finally {
+         markerPoseStack.popPose();
+      }
 
    }
 
@@ -258,8 +266,7 @@ public class HitmarkerModule extends Module {
       ClientLevel levelCapture = ClientAccess.schizoMinecraft.level;
       int entityId = ((ServerboundInteractPacketAccessor)packet).getEntityId();
       Entity target = levelCapture.getEntity(entityId);
-      long elapsedMillis = System.currentTimeMillis()
-         - this.lastHitTime;
+      long elapsedMillis = this.elapsedHitMillis();
 
       if (elapsedMillis <= 100L) {
          return;
@@ -282,6 +289,7 @@ public class HitmarkerModule extends Module {
       }
       if (this.isEligibleTarget(target)) {
          this.lastHitTime = System.currentTimeMillis();
+         this.lastHitNanos = System.nanoTime();
          this.soundPending = true;
       }
    }

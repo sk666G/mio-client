@@ -16,10 +16,17 @@ final class PaletteMatcher {
    private PaletteMatcher() {
    }
 
-   static int score(String title, String subtitle, String requestedQuery) {
-      String query = requestedQuery == null
+   static String normalizeQuery(String requestedQuery) {
+      return requestedQuery == null
          ? ""
          : requestedQuery.strip().toLowerCase(Locale.ROOT);
+   }
+
+   static int score(String title, String subtitle, String requestedQuery) {
+      return scoreNormalized(title, subtitle, normalizeQuery(requestedQuery));
+   }
+
+   static int scoreNormalized(String title, String subtitle, String query) {
       if (query.isEmpty()) {
          return 0;
       }
