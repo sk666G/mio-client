@@ -23,6 +23,7 @@ import com.google.gson.JsonObject;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.stream.Stream;
 import net.minecraft.ChatFormatting;
@@ -129,20 +130,14 @@ public class ChatFilterRegistry implements ClientAccess, JsonConfigurable {
    }
 
    public boolean matchesMessage(String message) {
-      Setting<Boolean> messageCaseSetting = chatFilterModule.caseSensitiveSetting;
-      Boolean messageCaseSensitive = messageCaseSetting.getValue();
-      if (!messageCaseSensitive) {
-         message = message.toLowerCase();
-      }
+      boolean caseSensitive = Boolean.TRUE.equals(chatFilterModule.caseSensitiveSetting.getValue());
+      String comparedMessage = caseSensitive ? message : message.toLowerCase(Locale.ROOT);
 
       synchronized (this.filters) {
          for (ChatFilterEntry entry : this.filters) {
             String filter = entry.filter();
-            Boolean filterCaseSensitive = chatFilterModule.caseSensitiveSetting.getValue();
-            if (!filterCaseSensitive) {
-               filter = filter.toLowerCase();
-            }
-            if (message.contains(filter)) {
+            String comparedFilter = caseSensitive ? filter : filter.toLowerCase(Locale.ROOT);
+            if (comparedMessage.contains(comparedFilter)) {
                return true;
             }
          }
@@ -152,9 +147,8 @@ public class ChatFilterRegistry implements ClientAccess, JsonConfigurable {
 
    public boolean containsId(String id) {
       synchronized (this.filters) {
-         String lowercaseId = id.toLowerCase();
          for (ChatFilterEntry entry : this.filters) {
-            if (entry.id().toLowerCase().equals(lowercaseId)) {
+            if (entry.id().equalsIgnoreCase(id)) {
                return true;
             }
          }
