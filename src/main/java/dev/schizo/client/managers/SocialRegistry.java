@@ -117,7 +117,7 @@ public final class SocialRegistry extends Registry<SocialEntry> implements Clien
 
          try {
             String name = entryObject.get("name").getAsString();
-            SocialRole role = roleConverter.fromJson(entryObject.get("role"));
+            SocialRole role = parseRole(entryObject.get("role"));
             if (name == null || name.isBlank() || role == null) {
                continue;
             }
@@ -139,6 +139,22 @@ public final class SocialRegistry extends Registry<SocialEntry> implements Clien
       for (SocialEntry entry : loaded) {
          this.updatePlayerRole(entry.getName(), entry.role());
       }
+   }
+
+   static SocialRole parseRole(JsonElement value) {
+      if (value == null
+         || !value.isJsonPrimitive()
+         || !value.getAsJsonPrimitive().isString()) {
+         return null;
+      }
+
+      String requested = value.getAsString();
+      for (SocialRole role : SocialRole.values()) {
+         if (role.getName().equalsIgnoreCase(requested)) {
+            return role;
+         }
+      }
+      return null;
    }
 
    @Override
