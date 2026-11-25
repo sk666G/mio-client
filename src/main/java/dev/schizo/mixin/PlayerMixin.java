@@ -265,11 +265,12 @@ public abstract class PlayerMixin extends LivingEntity implements PlayerState {
 
    @Override
    public boolean schizo$wasCrawling() {
-      return MonotonicTime.isWithin(
-         this.lastCrawlingAtNanos,
-         System.nanoTime(),
-         TimeUnit.MILLISECONDS.toNanos(150L)
-      );
+      return this.lastCrawlingAtNanos != 0L
+         && MonotonicTime.isWithin(
+            this.lastCrawlingAtNanos,
+            System.nanoTime(),
+            TimeUnit.MILLISECONDS.toNanos(150L)
+         );
    }
 
    @Override
