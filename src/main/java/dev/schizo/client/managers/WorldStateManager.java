@@ -150,11 +150,11 @@ public final class WorldStateManager implements ClientAccess {
    }
 
    public WorldStateManager() {
+      antiCheatModule = (AntiCheatModule)java.util.Objects.requireNonNull(
+         ClientContext.getModule(AntiCheatModule.class),
+         "Required module is not registered: AntiCheatModule"
+      );
       ClientAccess.eventBus.subscribe(this);
-   }
-
-   static {
-      antiCheatModule = (AntiCheatModule)ClientContext.getModule(AntiCheatModule.class);
    }
 
    public boolean isPlacementOccupied(BlockPos position) {
