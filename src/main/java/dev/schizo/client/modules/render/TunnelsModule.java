@@ -9,6 +9,7 @@
 
 package dev.schizo.client.modules.render;
 
+import dev.schizo.client.diagnostics.RuntimeDiagnostics;
 import dev.schizo.client.utils.IncrementalWorkBudget;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.events.WorldRenderEvent;
@@ -446,7 +447,12 @@ public class TunnelsModule extends Module {
                this.tunnels = snapshot;
             }
          });
-      } catch (Exception ignoredFailure) {
+      } catch (RuntimeException mergeFailure) {
+         RuntimeDiagnostics.record(
+            RuntimeDiagnostics.Area.RENDER,
+            "Tunnel scan merge",
+            mergeFailure
+         );
       } finally {
          if (this.runtimeGeneration == expectedGeneration) {
             this.mergeInProgress.set(false);
