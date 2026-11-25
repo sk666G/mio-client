@@ -173,6 +173,7 @@ public final class CompatibilityCommand extends Command {
       for (ModuleCompatibility.Classification classification : ModuleCompatibility.Classification.values()) {
          output.append("\n").append(classification).append(": ").append(counts.getOrDefault(classification, 0));
       }
+      output.append("\nExplicitly reviewed settings: ").append(ModuleCompatibility.reviewedSettingCount());
       output.append("\nAll registered modules are source-reviewed. Individual settings remain UNVERIFIED unless explicitly marked reviewed. This report does not certify server compatibility.");
       this.print(output.toString());
       return 1;
