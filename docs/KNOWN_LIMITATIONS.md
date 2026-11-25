@@ -17,16 +17,16 @@ This file separates verified behavior from work that still needs runtime or arch
 - Frame timing and profiler data require in-game capture to diagnose actual performance. No benchmark or module hot spot is claimed from static inspection.
 - GC pressure, allocation rates, render cost and entity-loop costs have not been benchmarked in a live client.
 - The frame graph uses sample order horizontally and has no elapsed-seconds axis; pause and focus-loss behavior still needs runtime validation.
-- The Gradle build reports deprecated Gradle features that will not be compatible with Gradle 10 without cleanup. The Schizo-generated `schizo$bind…` remapping warnings are resolved; other warnings remain for Minecraft synthetic lambda/method names and a Lithium hook, and have not been suppressed.
+- Diagnostic Build #709 traced the Gradle-10 `Task.project` deprecation to Schizo's `processResources` closure. The v7 candidate captures the mod version during configuration instead of reading `project` during task execution; the final v7 build must confirm that warning is gone. Remapping warnings for Minecraft synthetic lambda/method names and a Lithium hook remain and have not been suppressed.
 
 ## Persistence and rebuild
 
-- Atomic configuration writes, safe preset naming, directory migration and rebuild staging have unit coverage, but power-loss behavior and cross-filesystem edge cases need platform testing.
+- Atomic configuration writes, safe preset naming, directory migration and rebuild staging have unit coverage. Preset application and each startup JSON configurable now snapshot and roll back on uncaught application failure, while tolerated per-setting/module issues retain their existing report-and-continue semantics. Power-loss behavior and cross-filesystem edge cases still need platform testing.
 - The rebuild script now refuses a dirty or non-root destination checkout and requires `--replace-existing`. Dedicated fresh-upstream rebuild run #6 successfully fetched the pinned Open Zio commit, ran security tests, rebuilt the staging tree, built the remapped client and uploaded its JAR against the v5 precursor. The final v6 lineage still needs the same staging run repeated after candidate integration settles.
 - Context profile restoration failures are retained and retried. `ContextProfileRestoreStateTest` now covers all-or-nothing capture, partial restore, retained failed categories, retry success and missing-baseline behavior. Full registry/event ordering still needs initialized-client runtime coverage.
 
 ## Release
 
-- A GitHub Actions build is the available build verification; local runtime verification and artifact launch verification remain outstanding.
-- The vendored DiscordIPC source carries Apache-2.0 attribution and the full license in `LICENSES/DiscordIPC-APACHE-2.0.txt`. Unix framing uses the original Schizo MIT codec; two helpers with unverified provenance were removed.
+- GitHub Actions is the available build verification; local runtime verification and artifact launch verification remain outstanding. The v7 workflow verifies exactly one runnable remapped JAR, records `COMMIT_SHA.txt` and `SHA256SUMS.txt`, and verifies required license/notice files inside both runtime and source JARs.
+- The vendored DiscordIPC source carries Apache-2.0 attribution and the full license in `LICENSES/DiscordIPC-APACHE-2.0.txt`; `THIRD_PARTY_NOTICES.md` and that license are packaged with runtime/source artifacts. Unix framing uses the original Schizo MIT codec; two helpers with unverified provenance were removed.
 - No public release was created. The branch is not merged.
