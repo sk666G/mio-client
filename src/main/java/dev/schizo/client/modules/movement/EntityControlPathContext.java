@@ -9,6 +9,7 @@
 
 package dev.schizo.client.modules.movement;
 
+import dev.schizo.client.diagnostics.RuntimeDiagnostics;
 import baritone.api.event.events.BlockChangeEvent;
 import baritone.api.utils.BetterBlockPos;
 import dev.babbaj.pathfinder.NetherPathfinder;
@@ -120,6 +121,12 @@ final class EntityControlPathContext {
             try {
                NetherPathfinder.cullFarChunks(this.pointer, center.x, center.z, 5000);
             } catch (Throwable failure) {
+               RuntimeDiagnostics.record(
+                  RuntimeDiagnostics.Area.INTEGRATION,
+                  "EntityControl native chunk cull",
+                  failure
+               );
+               if (failure instanceof Error fatal) throw fatal;
             }
          });
       }
@@ -163,6 +170,12 @@ final class EntityControlPathContext {
          try {
             NetherPathfinder.cancel(this.pointer);
          } catch (Throwable failure) {
+            RuntimeDiagnostics.record(
+               RuntimeDiagnostics.Area.INTEGRATION,
+               "EntityControl native cancel",
+               failure
+            );
+            if (failure instanceof Error fatal) throw fatal;
          }
       }
    }
@@ -174,6 +187,12 @@ final class EntityControlPathContext {
             try {
                NetherPathfinder.freeContext(this.pointer);
             } catch (Throwable failure) {
+               RuntimeDiagnostics.record(
+                  RuntimeDiagnostics.Area.INTEGRATION,
+                  "EntityControl native context free",
+                  failure
+               );
+               if (failure instanceof Error fatal) throw fatal;
             }
          }
       });
@@ -189,6 +208,12 @@ final class EntityControlPathContext {
                Octree.setBlock(chunk, position.getX() & 15, y, position.getZ() & 15, solid);
             }
          } catch (Throwable failure) {
+            RuntimeDiagnostics.record(
+               RuntimeDiagnostics.Area.INTEGRATION,
+               "EntityControl native block update",
+               failure
+            );
+            if (failure instanceof Error fatal) throw fatal;
          }
       }
    }
@@ -223,6 +248,12 @@ final class EntityControlPathContext {
             }
          }
       } catch (Throwable failure) {
+         RuntimeDiagnostics.record(
+            RuntimeDiagnostics.Area.INTEGRATION,
+            "EntityControl native chunk packing",
+            failure
+         );
+         if (failure instanceof Error fatal) throw fatal;
       }
    }
 
