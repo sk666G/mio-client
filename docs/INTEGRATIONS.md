@@ -34,9 +34,8 @@ The Telegram bot token is runtime-only and is not written into the normal client
 
 ## Integration state meanings
 
-- **Discord IPC** reports disabled, connecting, connected, disconnected or failed based on the local IPC connection future.
+- **Discord IPC** reports through the shared integration-health vocabulary (disabled, connecting, connected, unavailable or failed) based on the local IPC connection future.
 - **Webhook / Telegram** reports the configured destination using only its destination type and, for ordinary webhooks, its host. Telegram credentials are not shown.
-- **Baritone** reports whether Schizo loaded its Baritone adapter.
-- **Xaero Waypoints** reports whether the waypoint adapter is active. An inactive adapter does not prove that Xaero itself is absent; it means Schizo is not currently connected to that adapter.
+- **Baritone** and **Xaero Waypoints** expose the same typed available/unavailable health state to commands and future GUI diagnostics. Xaero's unavailable state does not prove that Xaero itself is absent; it means Schizo is not currently connected to that adapter.
 
 No integration is enabled merely by displaying its status. Network activity remains governed by its corresponding feature/module and explicit configuration.
