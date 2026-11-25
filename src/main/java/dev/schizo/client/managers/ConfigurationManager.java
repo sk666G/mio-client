@@ -294,8 +294,14 @@ public final class ConfigurationManager implements ClientAccess {
       }
    }
 
+   static boolean usesTopLevelBackup(String configName) {
+      return configName != null
+         && configName.indexOf('/') < 0
+         && configName.indexOf('\\') < 0;
+   }
+
    private void backupBeforeSaveIfSupported(String configName) {
-      if (configName.indexOf('/') >= 0 || configName.indexOf('\\') >= 0) {
+      if (!usesTopLevelBackup(configName)) {
          return;
       }
       try {
