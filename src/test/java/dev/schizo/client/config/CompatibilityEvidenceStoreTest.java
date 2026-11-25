@@ -24,6 +24,6 @@ class CompatibilityEvidenceStoreTest {
       receipt.addProperty("result", "FAILED");
       receipt.getAsJsonArray("observations").add("Movement continued unexpectedly");
       assertDoesNotThrow(() -> CompatibilityEvidenceStore.validate(receipt));
-      assertThrows(IllegalArgumentException.class, () -> store.load("../outside"));
+      assertThrows(java.io.IOException.class, () -> store.load("../outside"));
    }
 }
