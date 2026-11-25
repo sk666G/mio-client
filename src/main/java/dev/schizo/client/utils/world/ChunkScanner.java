@@ -17,6 +17,7 @@ import dev.schizo.client.events.EventHandler;
 import java.util.Iterator;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.function.BiConsumer;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
@@ -32,12 +33,17 @@ public class ChunkScanner implements ClientAccess {
    private final BiConsumer chunkLoadCallback;
    private final BiConsumer chunkUnloadCallback;
    private final BiConsumer blockUpdateCallback;
-   private ExecutorService executor;
+   private volatile ExecutorService executor;
+   private volatile boolean running;
 
-   public void start() {
-      int requestedWorkers = this.workerCount;
-
-      this.executor = createExecutor(requestedWorkers);
+   public synchronized void start() {
+      if (this.running) {
+         return;
+      }
+      this.running = true;
+      if (this.workerCount > 0) {
+         this.executor = createExecutor(this.workerCount);
+      }
       ClientAccess.eventBus.subscribe(this);
    }
 
@@ -55,11 +61,14 @@ public class ChunkScanner implements ClientAccess {
       }
    }
 
-   public void restartExecutor() {
-      this.executor.shutdownNow();
-      int requestedWorkers = this.workerCount;
-
-      this.executor = createExecutor(requestedWorkers);
+   public synchronized void restartExecutor() {
+      ExecutorService previous = this.executor;
+      if (previous != null) {
+         previous.shutdownNow();
+      }
+      this.executor = this.running && this.workerCount > 0
+         ? createExecutor(this.workerCount)
+         : null;
    }
 
    public ChunkScanner(int workerCount, BiConsumer chunkLoadCallback, BiConsumer chunkUnloadCallback, BiConsumer blockUpdateCallback) {
@@ -146,22 +155,40 @@ public class ChunkScanner implements ClientAccess {
    }
 
    private void dispatch(Runnable action) {
+      if (!this.running) {
+         return;
+      }
       if (this.workerCount == 0) {
          action.run();
-      } else {
-         this.executor.execute(action);
+         return;
+      }
+
+      ExecutorService target = this.executor;
+      if (target == null || target.isShutdown()) {
+         return;
+      }
+      try {
+         target.execute(action);
+      } catch (RejectedExecutionException ignoredDuringShutdown) {
+         // A concurrent stop/restart owns cancellation of work that has not started yet.
       }
    }
 
-   public void stop() {
+   public synchronized void stop() {
+      if (!this.running) {
+         return;
+      }
+      this.running = false;
       ClientAccess.eventBus.unsubscribe(this);
-      this.executor.shutdownNow();
+      ExecutorService previous = this.executor;
       this.executor = null;
+      if (previous != null) {
+         previous.shutdownNow();
+      }
    }
 
    private static ExecutorService createExecutor(int requestedWorkers) {
-      int workers = Math.max(requestedWorkers, 1);
-      return Executors.newFixedThreadPool(workers);
+      return Executors.newFixedThreadPool(requestedWorkers);
    }
 
    public interface Listener {
