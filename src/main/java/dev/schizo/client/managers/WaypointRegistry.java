@@ -128,36 +128,36 @@ public final class WaypointRegistry extends AbstractRegistry<Waypoint> implement
    }
 
    public boolean registerWaypoint(Waypoint waypoint) {
-      Iterator<Waypoint> iterator = this.getRegistry().iterator();
-      while (iterator.hasNext()) {
-         Waypoint existingWaypoint = iterator.next();
-         String existingName = existingWaypoint.getName();
-         String requestedName = waypoint.getName();
-         if (existingName.equalsIgnoreCase(requestedName)) {
-            String existingServer = existingWaypoint.getServer();
-            String requestedServer = waypoint.getServer();
-            if (existingServer.equalsIgnoreCase(requestedServer)) {
-               return false;
-            }
+      if (waypoint == null) {
+         return false;
+      }
+
+      for (Waypoint existingWaypoint : this.getRegistry()) {
+         if (hasSameIdentity(existingWaypoint, waypoint)) {
+            return false;
          }
       }
       return this.getRegistry().add(waypoint);
    }
 
    public boolean unregisterWaypoint(Waypoint waypoint) {
-      return this.getRegistry().removeIf((java.util.function.Predicate<Waypoint>)candidate -> {
-         if (candidate != null && waypoint != null) {
-            String candidateName = candidate.getName();
-            String requestedName = waypoint.getName();
-            if (candidateName.equalsIgnoreCase(requestedName)) {
-               String candidateServer = candidate.getServer();
-               String requestedNameComparison = waypoint.getName();
-               if (candidateServer.equalsIgnoreCase(requestedNameComparison)) {
-                  return true;
-               }
-            }
-         }
+      return waypoint != null && this.getRegistry().removeIf(candidate -> hasSameIdentity(candidate, waypoint));
+   }
+
+   static boolean hasSameIdentity(Waypoint first, Waypoint second) {
+      if (first == null || second == null) {
          return false;
-      });
+      }
+
+      String firstName = first.getName();
+      String secondName = second.getName();
+      String firstServer = first.getServer();
+      String secondServer = second.getServer();
+      return firstName != null
+         && secondName != null
+         && firstServer != null
+         && secondServer != null
+         && firstName.equalsIgnoreCase(secondName)
+         && firstServer.equalsIgnoreCase(secondServer);
    }
 }
