@@ -22,6 +22,7 @@ import dev.schizo.client.events.WorldRenderEvent;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.LocalPlayerTickEvent;
 import dev.schizo.client.events.MultiPlayerGameModeUseItemOnEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.render.GuiDrawUtils;
 import dev.schizo.client.render.WorldBoxRenderer;
 import dev.schizo.client.render.VertexGeometry;
@@ -85,6 +86,7 @@ import net.minecraft.core.Holder;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket;
 import net.minecraft.network.protocol.game.ClientboundSectionBlocksUpdatePacket;
+import net.minecraft.network.protocol.game.ClientboundRespawnPacket;
 import net.minecraft.network.protocol.game.ClientboundSoundPacket;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.sounds.SoundEvent;
@@ -177,6 +179,8 @@ public class ESPModule extends Module {
    private final ElapsedTimer blockRefreshTimer;
    public final ESPRenderHelper renderHelper;
    private final LootedStorageTracker lootedStorage;
+   private ClientLevel lootedLevel;
+   private volatile long lootedGeneration;
    private Block currentlyRenderingBlock;
    private void refreshBlockEntityCache() {
       Vec3 cameraPosition = ClientAccess.schizoMinecraft.gameRenderer.getMainCamera().position();
@@ -237,7 +241,30 @@ public class ESPModule extends Module {
 
    @EventHandler
    private void expireChorusPositions(LocalPlayerTickEvent event) {
-      this.chorusPositions.entrySet().removeIf(chorusEntry -> System.currentTimeMillis() - chorusEntry.getValue() > 3500L);
+      this.chorusPositions.entrySet().removeIf(
+         chorusEntry -> System.currentTimeMillis() - chorusEntry.getValue() > 3500L
+      );
+
+      ClientLevel currentLevel = ClientAccess.schizoMinecraft.level;
+      if (currentLevel != this.lootedLevel) {
+         this.resetLootedStorage(currentLevel);
+      }
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.resetLootedStorage(null);
+   }
+
+   @Override
+   public void onDisable() {
+      this.resetLootedStorage(null);
+   }
+
+   private void resetLootedStorage(ClientLevel level) {
+      this.lootedGeneration++;
+      this.lootedStorage.clear();
+      this.lootedLevel = level;
    }
 
    private void renderGroupedItemLabels(WorldRenderEvent event, List<ESPItemGroup> groups) {
@@ -516,29 +543,35 @@ public class ESPModule extends Module {
          }
       }
 
-      if (event.getPacket() instanceof ClientboundBlockUpdatePacket blockPacket) {
-         Boolean configuredLooted = this.lootedSetting.getValue();
-         if (configuredLooted) {
-            Minecraft blockUpdateTaskClient = ClientAccess.schizoMinecraft;
-            Runnable blockUpdateTask = () -> {
-               LootedStorageTracker blockTrackerSnapshot = this.lootedStorage;
-               BlockPos deferredPosition = blockPacket.getPos();
-               BlockState updatedState = blockPacket.getBlockState();
-               blockTrackerSnapshot.onBlockUpdate(deferredPosition, updatedState);
-            };
-            blockUpdateTaskClient.execute(blockUpdateTask);
-         }
+      if (event.getPacket() instanceof ClientboundRespawnPacket) {
+         ClientAccess.schizoMinecraft.executeIfPossible(() ->
+            this.resetLootedStorage(ClientAccess.schizoMinecraft.level)
+         );
+         return;
       }
+
+      if (event.getPacket() instanceof ClientboundBlockUpdatePacket blockPacket) {
+         BlockPos position = blockPacket.getPos().immutable();
+         BlockState state = blockPacket.getBlockState();
+         long expectedGeneration = this.lootedGeneration;
+         ClientAccess.schizoMinecraft.executeIfPossible(() -> {
+            if (this.isToggled()
+               && this.lootedGeneration == expectedGeneration
+               && this.lootedSetting.getValue()) {
+               this.lootedStorage.onBlockUpdate(position, state);
+            }
+         });
+      }
+
       if (event.getPacket() instanceof ClientboundSectionBlocksUpdatePacket sectionPacket) {
-         Boolean configuredLooted2 = this.lootedSetting.getValue();
-         if (configuredLooted2) {
-            Minecraft sectionUpdateTaskClient = ClientAccess.schizoMinecraft;
-            Runnable sectionUpdateTask = () -> {
-               LootedStorageTracker sectionTrackerForCallback = this.lootedStorage;
-               sectionPacket.runUpdates(sectionTrackerForCallback::onBlockUpdate);
-            };
-            sectionUpdateTaskClient.execute(sectionUpdateTask);
-         }
+         long expectedGeneration = this.lootedGeneration;
+         ClientAccess.schizoMinecraft.executeIfPossible(() -> {
+            if (this.isToggled()
+               && this.lootedGeneration == expectedGeneration
+               && this.lootedSetting.getValue()) {
+               sectionPacket.runUpdates(this.lootedStorage::onBlockUpdate);
+            }
+         });
       }
    }
 
