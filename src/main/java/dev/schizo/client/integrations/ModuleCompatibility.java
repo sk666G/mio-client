@@ -62,6 +62,22 @@ import dev.schizo.client.modules.render.TrailsModule;
 import dev.schizo.client.modules.render.TrajectoriesModule;
 import dev.schizo.client.modules.render.VoidESPModule;
 import dev.schizo.client.modules.render.ZoomModule;
+import dev.schizo.client.modules.misc.BetterChatModule;
+import dev.schizo.client.modules.misc.AntiCyrillicModule;
+import dev.schizo.client.modules.misc.AntiSpamModule;
+import dev.schizo.client.modules.misc.NoNarratorModule;
+import dev.schizo.client.modules.misc.SoundBlockerModule;
+import dev.schizo.client.modules.misc.VisualRangeModule;
+import dev.schizo.client.modules.player.NameProtectModule;
+import dev.schizo.client.modules.client.NotificationsModule;
+import dev.schizo.client.modules.client.UIModule;
+import dev.schizo.client.modules.client.DiscordModule;
+import dev.schizo.client.modules.misc.WebhookNotifsModule;
+import dev.schizo.client.modules.misc.ExtraScreenshotModule;
+import dev.schizo.client.modules.misc.ExtraTabModule;
+import dev.schizo.client.modules.misc.ChestSearchBarModule;
+import dev.schizo.client.modules.misc.CustomDeathTextModule;
+import dev.schizo.client.modules.render.TunnelsModule;
 import java.util.Map;
 
 /**
@@ -95,6 +111,70 @@ public final class ModuleCompatibility {
       Map.entry(HUDModule.class, assessed(
          Classification.CLIENT_ONLY,
          "Local HUD rendering and editor presentation only; no outgoing gameplay packet path was found."
+      )),
+      Map.entry(BetterChatModule.class, assessed(
+         Classification.CLIENT_ONLY,
+         "Observes outgoing chat sends only to correlate local chat presentation; formatting, timestamps, sounds and message display changes remain client-side."
+      )),
+      Map.entry(AntiSpamModule.class, assessed(
+         Classification.CLIENT_ONLY,
+         "Filters, stacks and rewrites only the local displayed chat event; no outbound packet mutation or world interaction was found."
+      )),
+      Map.entry(NoNarratorModule.class, assessed(
+         Classification.CLIENT_ONLY,
+         "Disables the local narrator feature only."
+      )),
+      Map.entry(SoundBlockerModule.class, assessed(
+         Classification.CLIENT_ONLY,
+         "Cancels selected local sound playback events without changing server state or gameplay packets."
+      )),
+      Map.entry(VisualRangeModule.class, assessed(
+         Classification.CLIENT_ONLY,
+         "Observes clientbound entity-add information to produce local enter/leave notifications; it does not modify packets."
+      )),
+      Map.entry(NameProtectModule.class, assessed(
+         Classification.CLIENT_ONLY,
+         "Changes locally rendered/displayed player-name text without modifying authentication, player identity or gameplay packets."
+      )),
+      Map.entry(UIModule.class, assessed(
+         Classification.CLIENT_ONLY,
+         "Owns the local ClickGUI lifecycle and reacts to disconnect state only to close/reset UI."
+      )),
+      Map.entry(DiscordModule.class, assessed(
+         Classification.CLIENT_ONLY,
+         "Publishes local activity to Discord IPC; no Minecraft gameplay packet or server-state mutation path was found."
+      )),
+      Map.entry(WebhookNotifsModule.class, assessed(
+         Classification.CLIENT_ONLY,
+         "Forwards locally observed notification/chat information to configured webhooks without modifying Minecraft gameplay packets."
+      )),
+      Map.entry(ExtraScreenshotModule.class, assessed(
+         Classification.CLIENT_ONLY,
+         "Extends local screenshot capture/export/upload behavior; no Minecraft gameplay packet path was found."
+      )),
+      Map.entry(ExtraTabModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Customizes the local player-list/TAB presentation only."
+      )),
+      Map.entry(ChestSearchBarModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Adds local inventory-container search/highlighting UI without sending container interactions."
+      )),
+      Map.entry(CustomDeathTextModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Changes only the local death-screen text."
+      )),
+      Map.entry(TunnelsModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Incrementally scans already-loaded client block state and renders tunnel overlays; no outgoing packet or world interaction path was found."
+      )),
+      Map.entry(AntiCyrillicModule.class, assessed(
+         Classification.PACKET_AFFECTING,
+         "Rewrites outbound chat-command packet command text by normalizing Cyrillic characters before the packet is sent."
+      )),
+      Map.entry(NotificationsModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Most notifications are local, but configured totem-pop behavior can send chat text or commands through the normal client chat/command path."
       )),
       Map.entry(AmbienceModule.class, assessed(
          Classification.VISUAL_ONLY,
