@@ -9,6 +9,8 @@
 
 package dev.schizo.client.media;
 
+import dev.schizo.client.integrations.IntegrationHealth;
+
 import java.io.IOException;
 import java.util.Locale;
 import java.util.Objects;
@@ -60,6 +62,14 @@ public final class PortableMediaSessionProvider implements AutoCloseable {
     public MediaSnapshot latest() { return latest; }
     public Backend backend() { return backend; }
     public Availability availability() { return !closed && windows != null && windows.lastFailure() != null ? Availability.UNAVAILABLE : availability; }
+    public IntegrationHealth health() {
+        return switch (availability()) {
+            case NOT_STARTED -> IntegrationHealth.IDLE;
+            case AVAILABLE -> IntegrationHealth.AVAILABLE;
+            case UNAVAILABLE, UNSUPPORTED -> IntegrationHealth.UNAVAILABLE;
+            case CLOSED -> IntegrationHealth.DISABLED;
+        };
+    }
     public String lastFailure() { WindowsBackend w = windows; return w != null ? w.lastFailure() : lastFailure; }
 
     public synchronized void start() {
