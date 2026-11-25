@@ -60,7 +60,7 @@ public class BlockerModule extends PlacementModule {
    private final Map<BlockPos, Long> destroyedPositionExpiries;
 
    static {
-      speedMineModule = (SpeedMineModule)ClientContext.getModule(SpeedMineModule.class);
+
    }
 
    @Override
