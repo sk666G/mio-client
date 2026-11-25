@@ -101,7 +101,6 @@ public final class UIModule extends Module {
          return;
       }
       if (ClientAccess.schizoMinecraft.screen instanceof ChatScreen chatScreen) {
-         TaskScheduler guiScheduler = ClientContext.taskScheduler;
          Runnable guiOpenTask = () -> {
             if (!this.isToggled()
                || this.guiOpenGeneration != generation
@@ -111,7 +110,7 @@ public final class UIModule extends Module {
             ClickGuiScreen deferredScreen = ClientContext.getClickGui();
             deferredScreen.open();
          };
-         if (!guiScheduler.scheduleRotationTask(guiOpenTask, 0)) {
+         if (!this.scheduleRotationTask(guiOpenTask, 0)) {
             guiOpenTask.run();
          }
       } else {
