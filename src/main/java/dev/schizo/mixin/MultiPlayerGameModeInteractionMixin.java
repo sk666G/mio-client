@@ -66,12 +66,12 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(MultiPlayerGameMode.class)
 public abstract class MultiPlayerGameModeInteractionMixin implements ClientAccess, BlockBreakingState {
-   private static final AutoToolModule autoToolModule = ClientContext.getModule(AutoToolModule.class);
-   private static final AutoClickerModule autoClickerModule = ClientContext.getModule(AutoClickerModule.class);
-   private static final NoInteractModule noInteractModule = ClientContext.getModule(NoInteractModule.class);
-   private static final InventoryTweaksModule inventoryTweaksModule = ClientContext.getModule(InventoryTweaksModule.class);
-   private static final AntiCheatModule antiCheatModule = ClientContext.getModule(AntiCheatModule.class);
-   private static SpeedMineModule speedmine = ClientContext.getModule(SpeedMineModule.class);
+
+
+
+
+
+
    @Shadow
    private boolean isDestroying;
    @Shadow
@@ -119,9 +119,9 @@ public abstract class MultiPlayerGameModeInteractionMixin implements ClientAcces
    public void applyInventoryClickTweaks(
       int containerId, int slotId, int mouseButton, ClickType clickType, Player actingPlayer, CallbackInfo callback
    ) {
-      if (inventoryTweaksModule.isToggled()) {
+      if (schizo$inventoryTweaksModule().isToggled()) {
          AbstractContainerMenu menu = actingPlayer.containerMenu;
-         if (inventoryTweaksModule.fastArmorSetting.getValue()
+         if (schizo$inventoryTweaksModule().fastArmorSetting.getValue()
             && mouseButton == 1
             && clickType == ClickType.QUICK_MOVE) {
             Slot clickedSlot = menu.getSlot(slotId);
@@ -138,7 +138,7 @@ public abstract class MultiPlayerGameModeInteractionMixin implements ClientAcces
             }
          }
 
-         if (inventoryTweaksModule.xCarryTweaksSetting.getValue()
+         if (schizo$inventoryTweaksModule().xCarryTweaksSetting.getValue()
             && mouseButton == 1
             && clickType == ClickType.QUICK_MOVE
             && slotId > 4
@@ -193,12 +193,12 @@ public abstract class MultiPlayerGameModeInteractionMixin implements ClientAcces
             .getItemInHand(
                NoInteractModule.selectUsableHand()
             );
-         if (noInteractModule.shouldBlockInteraction(
+         if (schizo$noInteractModule().shouldBlockInteraction(
             heldStack, hit.getBlockPos()
          )) {
-            if (noInteractModule.modeSetting.getValue()
+            if (schizo$noInteractModule().modeSetting.getValue()
                == NoInteractModule.ModeChoice.SHIFT) {
-               noInteractModule.shouldStopSneaking = !ClientContext.serverStateManager.isServerSneaking();
+               schizo$noInteractModule().shouldStopSneaking = !ClientContext.serverStateManager.isServerSneaking();
                ClientContext.playerStateTracker
                   .setSneaking(true);
             } else {
@@ -237,12 +237,12 @@ public abstract class MultiPlayerGameModeInteractionMixin implements ClientAcces
    private void restoreSneakingAfterUseItemOn(
       LocalPlayer actingPlayer, InteractionHand hand, BlockHitResult hit, CallbackInfoReturnable<InteractionResult> callback
    ) {
-      if (noInteractModule.shouldStopSneaking
+      if (schizo$noInteractModule().shouldStopSneaking
          )
        {
          ClientContext.playerStateTracker
             .setSneaking(false);
-         noInteractModule.shouldStopSneaking = false;
+         schizo$noInteractModule().shouldStopSneaking = false;
       }
    }
 
@@ -275,7 +275,7 @@ public abstract class MultiPlayerGameModeInteractionMixin implements ClientAcces
    private void protectFriendsFromAttack(
       Player actingPlayer, Entity attackedEntity, CallbackInfo callback
    ) {
-      if (autoClickerModule.shouldProtectFriend(
+      if (schizo$autoClickerModule().shouldProtectFriend(
             attackedEntity)
          && actingPlayer == ClientAccess.schizoMinecraft.player) {
          callback.cancel();
@@ -284,14 +284,14 @@ public abstract class MultiPlayerGameModeInteractionMixin implements ClientAcces
 
    @WrapWithCondition(method = "stopDestroyBlock", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/multiplayer/ClientPacketListener;send(Lnet/minecraft/network/protocol/Packet;)V"))
    private boolean allowStopDestroyBlockPacket(ClientPacketListener connection, Packet packet) {
-      return !speedmine.isToggled();
+      return !schizo$speedmine().isToggled();
    }
 
    @Inject(method = "continueDestroyBlock", at = @At("HEAD"))
    private void clearDestroyDelayForSpeedMine(
       BlockPos blockPos, Direction face, CallbackInfoReturnable<Boolean> callback
    ) {
-      if (speedmine.isToggled()) {
+      if (schizo$speedmine().isToggled()) {
          this.destroyDelay = 0;
       }
    }
@@ -308,16 +308,16 @@ public abstract class MultiPlayerGameModeInteractionMixin implements ClientAcces
 
    @ModifyExpressionValue(method = "continueDestroyBlock", at = @At(value = "CONSTANT", args = "floatValue=1.0"), require = 0)
    private float modifyContinueDestroyBlockDamageThreshold(float originalThreshold) {
-      return autoToolModule.isBlockDamageOverrideActive()
-         ? autoToolModule.blockDamageSetting.getValue()
+      return schizo$autoToolModule().isBlockDamageOverrideActive()
+         ? schizo$autoToolModule().blockDamageSetting.getValue()
          : originalThreshold;
    }
 
    // Mojang leaves the block-break prediction lambda unnamed.
    @ModifyExpressionValue(method = "method_41930(Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/core/BlockPos;Lnet/minecraft/core/Direction;I)Lnet/minecraft/network/protocol/Packet;", at = @At(value = "CONSTANT", args = "floatValue=1.0"), require = 0)
    private float modifyPredictedBlockDamageThreshold(float originalThreshold) {
-      return autoToolModule.isBlockDamageOverrideActive()
-         ? autoToolModule.blockDamageSetting.getValue()
+      return schizo$autoToolModule().isBlockDamageOverrideActive()
+         ? schizo$autoToolModule().blockDamageSetting.getValue()
          : originalThreshold;
    }
 
@@ -333,8 +333,8 @@ public abstract class MultiPlayerGameModeInteractionMixin implements ClientAcces
    private void finishBlockAfterStartPrediction(
       BlockPos blockPos, Direction face, CallbackInfoReturnable<Boolean> callback, @Local BlockState blockState
    ) {
-      float damageThreshold = autoToolModule.blockDamageSetting.getValue();
-      if (autoToolModule.isBlockDamageOverrideActive()) {
+      float damageThreshold = schizo$autoToolModule().blockDamageSetting.getValue();
+      if (schizo$autoToolModule().isBlockDamageOverrideActive()) {
          if (blockState.getDestroyProgress(
                   ClientAccess.schizoMinecraft.player,
                   ClientAccess.schizoMinecraft.player.level(),
@@ -346,7 +346,7 @@ public abstract class MultiPlayerGameModeInteractionMixin implements ClientAcces
                ClientAccess.schizoMinecraft.level,
                sequence -> new ServerboundPlayerActionPacket(Action.STOP_DESTROY_BLOCK, blockPos, face, sequence)
             );
-            if (antiCheatModule.is2b2tEnabled()) {
+            if (schizo$antiCheatModule().is2b2tEnabled()) {
                this.startPrediction(
                   ClientAccess.schizoMinecraft.level,
                   sequence -> new ServerboundPlayerActionPacket(Action.ABORT_DESTROY_BLOCK, blockPos, face, sequence)
@@ -358,8 +358,8 @@ public abstract class MultiPlayerGameModeInteractionMixin implements ClientAcces
 
    @ModifyExpressionValue(method = "continueDestroyBlock", at = @At(value = "FIELD", target = "Lnet/minecraft/client/multiplayer/MultiPlayerGameMode;destroyDelay:I", ordinal = 0))
    private int modifyDestroyDelayForAutoTool(int originalDelay) {
-      return autoToolModule.isToggled()
-            && autoToolModule.noBreakDelaySetting.getValue()
+      return schizo$autoToolModule().isToggled()
+            && schizo$autoToolModule().noBreakDelaySetting.getValue()
          ? 0
          : originalDelay;
    }
@@ -392,5 +392,35 @@ public abstract class MultiPlayerGameModeInteractionMixin implements ClientAcces
    @Override
    public void setCurrentBreakingBlock(BlockPos blockPos) {
       this.destroyBlockPos = blockPos;
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static AutoToolModule schizo$autoToolModule() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(AutoToolModule.class);
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static AutoClickerModule schizo$autoClickerModule() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(AutoClickerModule.class);
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static NoInteractModule schizo$noInteractModule() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(NoInteractModule.class);
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static InventoryTweaksModule schizo$inventoryTweaksModule() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(InventoryTweaksModule.class);
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static AntiCheatModule schizo$antiCheatModule() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(AntiCheatModule.class);
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static SpeedMineModule schizo$speedmine() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(SpeedMineModule.class);
    }
 }

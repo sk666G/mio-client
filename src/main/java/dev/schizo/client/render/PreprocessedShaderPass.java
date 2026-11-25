@@ -15,11 +15,18 @@ import dev.schizo.client.modules.render.ShaderModule;
 import com.mojang.blaze3d.pipeline.RenderTarget;
 
 public abstract class PreprocessedShaderPass extends PostProcessShaderPass {
-   private static final ShaderModule shaderModule = ClientContext.getModule(ShaderModule.class);
    private static final RenderTarget PRE_TARGET = RenderTargetRegistry.createRenderTarget("zio_pre_pass");
    protected static final PrePass COVERAGE_PASS = new PrePass("multi/coverage.frag", "u_Coverage", true);
    protected static final PrePass DISTANCE_PASS = new PrePass("multi/distance.frag", "u_Distance", false);
    private final PrePass prePass;
+
+   private static ShaderModule shaderModule() {
+      ShaderModule module = ClientContext.getModule(ShaderModule.class);
+      if (module == null) {
+         throw new IllegalStateException("Shader module is not initialized");
+      }
+      return module;
+   }
 
    protected PreprocessedShaderPass(String vertexResource, String fragmentResource, PrePass prePass) {
       super(vertexResource, fragmentResource);
@@ -28,6 +35,7 @@ public abstract class PreprocessedShaderPass extends PostProcessShaderPass {
 
    @Override
    protected void prepareOutput() {
+      ShaderModule shaderModule = shaderModule();
       if (!shaderModule.shouldSkipHandOutline() && shaderModule.lineWidthSetting.getValue() > 0 && this.prePass != null) {
          this.prePass.apply(POST_TARGET);
       }
@@ -54,6 +62,7 @@ public abstract class PreprocessedShaderPass extends PostProcessShaderPass {
       @Override
       public void updateUniforms() {
          super.updateUniforms();
+         ShaderModule shaderModule = shaderModule();
          this.uniforms.set("u_Width", shaderModule.lineWidthSetting.getValue());
          if (this.coverage) {
             this.uniforms.set("u_Step", shaderModule.qualitySetting.getValue());

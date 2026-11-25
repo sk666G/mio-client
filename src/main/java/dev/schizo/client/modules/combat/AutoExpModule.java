@@ -91,8 +91,8 @@ public class AutoExpModule extends Module {
    }
 
    static {
-      antiAim = (AntiAimModule)ClientContext.getModule(AntiAimModule.class);
-      elytraFly = (ElytraFlyModule)ClientContext.getModule(ElytraFlyModule.class);
+
+
    }
 
    public boolean isActive() {

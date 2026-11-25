@@ -243,6 +243,36 @@ class BoundedCountdownTaskQueueTest {
    }
 
    @Test
+   void cancelOwnedRemovesOnlyMatchingPendingTasks() {
+      BoundedCountdownTaskQueue queue = new BoundedCountdownTaskQueue(6, 6);
+      Object firstOwner = new Object();
+      Object secondOwner = new Object();
+      List<Integer> executed = new ArrayList<>();
+
+      assertTrue(queue.offer(firstOwner, () -> executed.add(1), 0));
+      assertTrue(queue.offer(secondOwner, () -> executed.add(2), 0));
+      BoundedCountdownTaskQueue.Reservation reserved =
+         queue.reserve(firstOwner, () -> executed.add(3), 0);
+      assertNotNull(reserved);
+
+      assertEquals(2, queue.cancelOwned(firstOwner));
+      assertEquals(1, queue.outstandingCount());
+      assertEquals(1, queue.queuedCount());
+      assertFalse(queue.enqueue(reserved));
+
+      queue.runPass(failure -> fail(failure));
+      assertEquals(1, queue.runPass(failure -> fail(failure)));
+      assertEquals(List.of(2), executed);
+      assertEquals(0, queue.outstandingCount());
+   }
+
+   @Test
+   void cancelOwnedRejectsNullOwner() {
+      BoundedCountdownTaskQueue queue = new BoundedCountdownTaskQueue(1, 1);
+      assertThrows(NullPointerException.class, () -> queue.cancelOwned(null));
+   }
+
+   @Test
    void clearCancelsQueuedAndReservedTasksWithoutClosingTheQueue() {
       BoundedCountdownTaskQueue queue = new BoundedCountdownTaskQueue(4, 4);
       BoundedCountdownTaskQueue.Reservation reserved = queue.reserve(() -> fail("must not run"), 0);

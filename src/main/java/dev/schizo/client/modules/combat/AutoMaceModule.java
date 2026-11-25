@@ -403,11 +403,11 @@ public final class AutoMaceModule extends Module {
    }
 
    static {
-      aura = (AuraModule)ClientContext.getModule(AuraModule.class);
-      elytraFly = (ElytraFlyModule)ClientContext.getModule(ElytraFlyModule.class);
-      autoArmor = (AutoArmorModule)ClientContext.getModule(AutoArmorModule.class);
-      noSlow = (NoSlowModule)ClientContext.getModule(NoSlowModule.class);
-      fireworks = ClientContext.getModule(FireworksModule.class);
+
+
+
+
+
    }
 
    @Override

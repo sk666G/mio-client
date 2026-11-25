@@ -25,6 +25,7 @@ public final class MethodEventListener implements EventListener {
    private final int priority;
    private final Consumer<Object> consumer;
    private final EventProfiler.CallbackHandle profileHandle;
+   private final String diagnosticLabel;
 
    @SuppressWarnings("unchecked")
    public MethodEventListener(Class<?> declaringClass, Object subscriber, Method handlerMethod) {
@@ -38,6 +39,7 @@ public final class MethodEventListener implements EventListener {
       this.staticListener = Modifier.isStatic(handlerMethod.getModifiers());
       this.priority = handlerMethod.getAnnotation(EventHandler.class).priority();
       this.profileHandle = profiler.registerCallback(ownerName, moduleName, handlerMethod.getName(), this.eventType.getSimpleName());
+      this.diagnosticLabel = ownerName + "#" + handlerMethod.getName();
       try {
          MethodHandles.Lookup lookup = MethodHandles.privateLookupIn(declaringClass, MethodHandles.lookup());
          MethodType handlerType = MethodType.methodType(void.class, this.eventType);
@@ -77,6 +79,11 @@ public final class MethodEventListener implements EventListener {
    @Override
    public EventProfiler.CallbackHandle profileHandle() {
       return this.profileHandle;
+   }
+
+   @Override
+   public String diagnosticLabel() {
+      return this.diagnosticLabel;
    }
 
    @Override

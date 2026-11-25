@@ -264,8 +264,8 @@ public class AutoArmorModule extends Module {
    }
 
    static {
-      elytraFlyModule = (ElytraFlyModule)ClientContext.getModule(ElytraFlyModule.class);
-      noSlowModule = (NoSlowModule)ClientContext.getModule(NoSlowModule.class);
+
+
    }
 
    private void performArmorUpdates() {

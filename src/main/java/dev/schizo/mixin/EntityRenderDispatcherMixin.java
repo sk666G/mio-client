@@ -32,20 +32,19 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(EntityRenderDispatcher.class)
 public class EntityRenderDispatcherMixin {
-   private static final NoRenderModule noRenderModule = ClientContext.getModule(NoRenderModule.class);
-   private static final ChamsModule chamsModule = ClientContext.getModule(ChamsModule.class);
+
 
    @ModifyExpressionValue(method = "submit", at = @At(value = "INVOKE", target = "Ljava/util/List;isEmpty()Z"))
    private static boolean applyEntityGlintAndShadow(
       boolean originalShadowFlag, @Local(argsOnly = true) EntityRenderState renderState
    ) {
-      if (chamsModule.shouldRenderGlintForEntity(
+      if (schizo$chamsModule().shouldRenderGlintForEntity(
          EntityRenderStateAccess.getEntity(renderState)
       )) {
          return true;
       }
       return ClientContext.shaderRegistry.renderingIntoTarget
-         || noRenderModule.shouldHideEntityShadow()
+         || schizo$noRenderModule().shouldHideEntityShadow()
          || originalShadowFlag;
    }
 
@@ -83,20 +82,30 @@ public class EntityRenderDispatcherMixin {
       EntityRenderState renderState, CameraRenderState cameraState, double x, double y, double z, PoseStack poses, SubmitNodeCollector collector, CallbackInfo callback
    ) {
       Entity entity = EntityRenderStateAccess.getEntity(renderState);
-      if (chamsModule.shouldRenderGlintForEntity(
+      if (schizo$chamsModule().shouldRenderGlintForEntity(
          entity
       )) {
          renderState.displayFireAnimation = false;
       }
 
-      if (noRenderModule.isToggled()
-         && noRenderModule.fireSetting.getValue()
+      if (schizo$noRenderModule().isToggled()
+         && schizo$noRenderModule().fireSetting.getValue()
          && (
-            noRenderModule.othersSetting.getValue()
+            schizo$noRenderModule().othersSetting.getValue()
                || entity instanceof LocalPlayer
                || entity instanceof EndCrystal
          )) {
          renderState.displayFireAnimation = false;
       }
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static NoRenderModule schizo$noRenderModule() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(NoRenderModule.class);
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static ChamsModule schizo$chamsModule() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(ChamsModule.class);
    }
 }

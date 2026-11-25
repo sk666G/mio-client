@@ -50,7 +50,7 @@ import net.minecraft.world.entity.player.Player;
 
 public final class ServerStateManager implements ClientAccess {
    private static FastLatencyModule fastLatency;
-   private static final Pattern LATENCY_PATTERN;
+   private static final Pattern LATENCY_PATTERN = Pattern.compile("\\d+ ping");
    private final ServerTickRateWindow tickRateWindow = new ServerTickRateWindow();
    private final ElapsedTimer setbackTimer;
    private final ElapsedTimer teleportAckTimer;
@@ -115,7 +115,7 @@ public final class ServerStateManager implements ClientAccess {
          return 0;
       }
       FastLatencyModule fastLatencyModule = fastLatency;
-      if (fastLatencyModule.isToggled()) {
+      if (fastLatencyModule != null && fastLatencyModule.isToggled()) {
          return fastLatency.getLatencyMillis();
       }
       LocalPlayer latencyPlayer = ClientAccess.schizoMinecraft.player;
@@ -141,11 +141,6 @@ public final class ServerStateManager implements ClientAccess {
       this.packetFlowTimer = new ElapsedTimer();
       this.peakLatencyTimer = new ElapsedTimer();
       ClientAccess.eventBus.subscribe(this);
-   }
-
-   static {
-      fastLatency = ClientContext.getModule(FastLatencyModule.class);
-      LATENCY_PATTERN = Pattern.compile("\\d+ ping");
    }
 
    public boolean hasElapsedSinceSetback(long durationMillis) {
@@ -346,8 +341,9 @@ public final class ServerStateManager implements ClientAccess {
    }
 
    public static void bindModules(ModuleRegistry registry) {
-      fastLatency = (FastLatencyModule)registry.getModule(
-         FastLatencyModule.class
+      fastLatency = java.util.Objects.requireNonNull(
+         (FastLatencyModule)registry.getModule(FastLatencyModule.class),
+         "Required module is not registered: FastLatencyModule"
       );
    }
 

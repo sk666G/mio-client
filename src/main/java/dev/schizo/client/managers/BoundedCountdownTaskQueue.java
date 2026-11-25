@@ -46,6 +46,10 @@ final class BoundedCountdownTaskQueue {
    }
 
    Reservation reserve(Runnable action, int delayPasses) {
+      return this.reserve(null, action, delayPasses);
+   }
+
+   Reservation reserve(Object taskOwner, Runnable action, int delayPasses) {
       Objects.requireNonNull(action, "action");
       if (delayPasses < 0) {
          throw new IllegalArgumentException("Task delay must not be negative");
@@ -54,7 +58,7 @@ final class BoundedCountdownTaskQueue {
          if (this.closed || this.outstanding >= this.capacity) {
             return null;
          }
-         Reservation reservation = new Reservation(this, action, delayPasses);
+         Reservation reservation = new Reservation(this, taskOwner, action, delayPasses);
          this.reservations.add(reservation);
          this.outstanding++;
          return reservation;
@@ -90,8 +94,32 @@ final class BoundedCountdownTaskQueue {
    }
 
    boolean offer(Runnable action, int delayPasses) {
-      Reservation reservation = this.reserve(action, delayPasses);
+      return this.offer(null, action, delayPasses);
+   }
+
+   boolean offer(Object taskOwner, Runnable action, int delayPasses) {
+      Reservation reservation = this.reserve(taskOwner, action, delayPasses);
       return reservation != null && this.enqueue(reservation);
+   }
+
+   int cancelOwned(Object taskOwner) {
+      Objects.requireNonNull(taskOwner, "taskOwner");
+      synchronized (this.lock) {
+         int cancelled = 0;
+         var iterator = this.reservations.iterator();
+         while (iterator.hasNext()) {
+            Reservation reservation = iterator.next();
+            if (reservation.taskOwner != taskOwner || reservation.state == ReservationState.RUNNING) {
+               continue;
+            }
+            this.queue.remove(reservation);
+            reservation.state = ReservationState.CANCELLED;
+            iterator.remove();
+            this.outstanding--;
+            cancelled++;
+         }
+         return cancelled;
+      }
    }
 
    /**
@@ -215,20 +243,22 @@ final class BoundedCountdownTaskQueue {
 
    private void requireOwner(Reservation reservation) {
       Objects.requireNonNull(reservation, "reservation");
-      if (reservation.owner != this) {
+      if (reservation.queueOwner != this) {
          throw new IllegalArgumentException("Reservation belongs to another queue");
       }
    }
 
    static final class Reservation {
-      private final BoundedCountdownTaskQueue owner;
+      private final BoundedCountdownTaskQueue queueOwner;
+      private final Object taskOwner;
       private final Runnable action;
       private final int delayPasses;
       private long readyAtPass;
       private ReservationState state = ReservationState.RESERVED;
 
-      private Reservation(BoundedCountdownTaskQueue owner, Runnable action, int delayPasses) {
-         this.owner = owner;
+      private Reservation(BoundedCountdownTaskQueue queueOwner, Object taskOwner, Runnable action, int delayPasses) {
+         this.queueOwner = queueOwner;
+         this.taskOwner = taskOwner;
          this.action = action;
          this.delayPasses = delayPasses;
       }

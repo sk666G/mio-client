@@ -26,14 +26,13 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(ItemBlockRenderTypes.class)
 public class ItemBlockRenderTypesMixin {
-   private static final NoRenderModule noRenderModule = ClientContext.getModule(NoRenderModule.class);
-   private static final XrayModule xrayModule = ClientContext.getModule(XrayModule.class);
+
 
    @Inject(method = "getRenderType", at = @At("HEAD"), cancellable = true)
    private static void applyTranslucentHandRenderType(
       BlockState blockState, CallbackInfoReturnable<RenderType> callback
    ) {
-      if (noRenderModule.getHandOpacity()
+      if (schizo$noRenderModule().getHandOpacity()
             != 1.0F
          && RenderUtils.getRenderColor()[3]
             != 255) {
@@ -45,16 +44,26 @@ public class ItemBlockRenderTypesMixin {
    private static void applyXrayTranslucentChunkLayer(
       BlockState blockState, CallbackInfoReturnable<ChunkSectionLayer> callback
    ) {
-      if (xrayModule.isToggled()
-         && !xrayModule.alphaSetting
+      if (schizo$xrayModule().isToggled()
+         && !schizo$xrayModule().alphaSetting
             .isAtMinimum()
-         && !xrayModule.alphaSetting
+         && !schizo$xrayModule().alphaSetting
             .isAtMaximum()
-         && !xrayModule.shouldRenderBlock(
+         && !schizo$xrayModule().shouldRenderBlock(
             BlockPos.ZERO,
             blockState.getBlock()
          )) {
          callback.setReturnValue(ChunkSectionLayer.TRANSLUCENT);
       }
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static NoRenderModule schizo$noRenderModule() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(NoRenderModule.class);
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static XrayModule schizo$xrayModule() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(XrayModule.class);
    }
 }

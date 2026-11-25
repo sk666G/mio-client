@@ -31,12 +31,12 @@ public final class StashRegistry extends Registry<StashEntry> implements ClientA
    private static StashFinderModule stashFinderModule;
 
    public StashRegistry() {
+      stashFinderModule = java.util.Objects.requireNonNull(
+         ClientContext.getModule(StashFinderModule.class),
+         "Required module is not registered: StashFinderModule"
+      );
       EventBus eventBus = ClientAccess.eventBus;
       eventBus.subscribe(this);
-   }
-
-   static {
-      stashFinderModule = ClientContext.getModule(StashFinderModule.class);
    }
 
    @Override

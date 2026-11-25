@@ -64,8 +64,8 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 
 public class FastPlaceModule extends Module {
-   private static SpeedMineModule speedMine = (SpeedMineModule)ClientContext.getModule(SpeedMineModule.class);
-   private static MultiTaskModule multiTask = (MultiTaskModule)ClientContext.getModule(MultiTaskModule.class);
+
+
    public final Setting<Integer> delaySetting;
    private final Setting<Boolean> autoPlaceSetting;
    private final Setting<Boolean> randomBlockSetting;
@@ -288,9 +288,9 @@ public class FastPlaceModule extends Module {
    private void onRotationRequest(RotationRequestEvent event) {
       if (this.autoReplaceSetting.getValue()) {
          if (this.enderChestsSetting.getValue()) {
-            BlockPos miningPosition = speedMine.getMiningPos();
+            BlockPos miningPosition = schizo$speedMine().getMiningPos();
 
-            boolean miningReady = speedMine.getRenderProgress() >= 1.0F;
+            boolean miningReady = schizo$speedMine().getRenderProgress() >= 1.0F;
             if (miningPosition == null) {
                return;
             }
@@ -320,8 +320,8 @@ public class FastPlaceModule extends Module {
                return;
             }
 
-            if (multiTask.isAutoReplaceDisabled()) {
-               if (multiTask.isItemUseRestricted()) {
+            if (schizo$multiTask().isAutoReplaceDisabled()) {
+               if (schizo$multiTask().isItemUseRestricted()) {
                   return;
                }
             }
@@ -404,10 +404,10 @@ public class FastPlaceModule extends Module {
    }
 
    public static void bindModules(ModuleRegistry registry) {
-      speedMine = (SpeedMineModule)registry.getModule(
+      schizo$speedMine() = (SpeedMineModule)registry.getModule(
          SpeedMineModule.class
       );
-      multiTask = (MultiTaskModule)registry.getModule(
+      schizo$multiTask() = (MultiTaskModule)registry.getModule(
          MultiTaskModule.class
       );
    }
@@ -448,5 +448,13 @@ public class FastPlaceModule extends Module {
       itemSettings[5] = this.toolsSetting;
       this.hideItemSettingsWhenAllEnabled(itemSettings);
       this.setDrawn(false);
+   }
+
+   private static SpeedMineModule schizo$speedMine() {
+      return ClientContext.requireModule(SpeedMineModule.class);
+   }
+
+   private static MultiTaskModule schizo$multiTask() {
+      return ClientContext.requireModule(MultiTaskModule.class);
    }
 }

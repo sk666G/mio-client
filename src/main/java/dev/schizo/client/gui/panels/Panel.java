@@ -273,7 +273,7 @@ public class Panel implements RegistryContainer, GuiElement, NamedEntry {
    public boolean unregister(Object child) {
       GuiElement element = (GuiElement)child;
 
-      return this.getRegistry().add(element);
+      return this.getRegistry().remove(element);
    }
 
    public int getY() {

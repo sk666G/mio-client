@@ -286,9 +286,9 @@ public abstract class PlacementModule extends Module {
    }
 
    static {
-      antiCheatModule = (AntiCheatModule)ClientContext.getModule(AntiCheatModule.class);
-      chorusControlModule = (ChorusControlModule)ClientContext.getModule(ChorusControlModule.class);
-      multiTaskModule = (MultiTaskModule)ClientContext.getModule(MultiTaskModule.class);
+
+
+
    }
 
    @Override

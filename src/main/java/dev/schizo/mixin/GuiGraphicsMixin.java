@@ -41,7 +41,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public abstract class GuiGraphicsMixin {
    @Unique
    private boolean renderingPreviewItemCount;
-   private static TooltipsModule tooltips = ClientContext.getModule(TooltipsModule.class);
 
    @Shadow
    public abstract void renderItemCount(Font font, ItemStack stack, int x, int y, @Nullable String countText);
@@ -53,14 +52,14 @@ public abstract class GuiGraphicsMixin {
    private void renderContainerItemPreview(
       Font font, ItemStack stack, int x, int y, @Nullable String countText, CallbackInfo callback
    ) {
-      if (!tooltips.isToggled() || !tooltips.majorityItemSetting.getValue()) {
+      if (!schizo$tooltips().isToggled() || !schizo$tooltips().majorityItemSetting.getValue()) {
          return;
       }
-      for (ShulkerBoxItemPreview preview : tooltips.inventoryContainerSnapshots) {
+      for (ShulkerBoxItemPreview preview : schizo$tooltips().inventoryContainerSnapshots) {
          if (preview.containerStack() != stack || preview.previewStack() == null) {
             continue;
          }
-         tooltips.renderItemPreview((GuiGraphics)(Object)this, preview.previewStack(), x, y);
+         schizo$tooltips().renderItemPreview((GuiGraphics)(Object)this, preview.previewStack(), x, y);
          break;
       }
    }
@@ -104,5 +103,10 @@ public abstract class GuiGraphicsMixin {
          FontActiveTextCollector collector = new FontActiveTextCollector(this.createDefaultTextParameters(1.0F), (GuiGraphics)(Object)this, hoverEffects, submission);
          callback.setReturnValue(collector);
       }
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static TooltipsModule schizo$tooltips() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(TooltipsModule.class);
    }
 }

@@ -36,7 +36,7 @@ public final class ColorSetting extends Setting<Color> {
    }
 
    static {
-      colorsModule = (ColorsModule)ClientContext.getModule(ColorsModule.class);
+
    }
 
    @Override

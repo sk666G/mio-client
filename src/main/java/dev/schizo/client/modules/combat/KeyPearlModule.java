@@ -51,7 +51,7 @@ public class KeyPearlModule extends Module {
    private final Setting<Boolean> awaitSetting;
 
    static {
-      elytrafly = (ElytraFlyModule)ClientContext.getModule(ElytraFlyModule.class);
+
    }
 
    @Override

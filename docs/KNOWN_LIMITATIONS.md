@@ -4,6 +4,8 @@ This file separates source-verified behavior from work that still needs live Min
 
 ## Runtime and multiplayer
 
+- The post-v8 quality pass adds rollback-safe module lifecycle transitions, owner-scoped scheduled-task cancellation, listener/runtime failure diagnostics, safer render-state restoration and deferred static module binding. These are source/CI-verified contracts; they still need a real Minecraft launch, reconnect and disable-mid-action smoke pass.
+
 - No live Minecraft client session was available during the v8 hardening passes. ClickGUI/HUD interaction, command-palette navigation, theme switching, startup/shutdown, resource reload, reconnect/respawn and long-session behavior still need manual runtime testing.
 - No controlled Minecraft server was available. No claim is made that every movement, combat, interaction or packet-facing module is accepted by vanilla servers or specific plugins. The source audit removed `GrimDisablerModule` and `RaytraceBypassModule`, including registration and rebuild-script reinjection; no new anti-cheat evasion mode was added by the v8 quality work.
 - Context Profile baseline capture/partial-restore retry bookkeeping has isolated regression coverage, but connect/disconnect, server switch, dimension/game-mode changes and AutoPreset ordering still need initialized-client runtime validation.
@@ -16,7 +18,7 @@ This file separates source-verified behavior from work that still needs live Min
 ## Performance
 
 - Event profiling is disabled by default. Callback timings can include nested event dispatch; sums are inclusive and must not be treated as total frame time.
-- No live benchmark has been run for allocation rate, GC pressure, entity-loop cost, render cost or scan latency. Static hot-path cleanups are not FPS claims.
+- No live benchmark has been run for allocation rate, GC pressure, entity-loop cost, render cost or scan latency. Static hot-path cleanups are not FPS claims. Performance Center now also reports bounded scheduler pressure and runtime-failure counts/latest identity, but those diagnostics are not a substitute for a representative in-game profile.
 - AutoCrystal, AnchorAura, Hole, Search and Tunnels use bounded client-thread scan work. VoidESP now visits only the minimum-Y floor slice that can satisfy its existing sphere test instead of traversing the full 3-D sphere. These source changes still need profiler comparison in representative worlds.
 - Non-fading Trails history is bounded and batch-pruned instead of growing for the entire session. Long-session retention limits still need runtime confirmation.
 - The command palette now normalizes its query once per refresh, snapshots quick-access ranks once per refresh and fits its result window to short/narrow viewports. Extreme GUI scales and window sizes still need visual/input QA.
@@ -34,7 +36,7 @@ This file separates source-verified behavior from work that still needs live Min
 
 ## Release and artifact boundary
 
-- GitHub Actions verifies clean Gradle tests/builds, access widener/remap tasks, exactly one runnable remapped JAR, artifact provenance and required third-party notices. The v8 integration lineage has green component and combined builds recorded on Draft PR #110.
+- GitHub Actions verifies clean Gradle tests/builds, mixin inventory/Java compatibility metadata, access widener/remap tasks, exactly one runnable remapped JAR, artifact provenance, the project MIT license and required third-party notices. The v8 integration lineage has green component and combined builds recorded on Draft PR #110.
 - Build #845's uploaded artifact was inspected directly: its SHA-256 matched `SHA256SUMS.txt`, its `COMMIT_SHA.txt` pointed to GitHub's synthetic PR merge whose Git tree exactly matched the tested v8 branch tree, `NESTED_JARS.txt` was empty, and the runtime JAR contained `fabric.mod.json`, `THIRD_PARTY_NOTICES.md` and `LICENSES/DiscordIPC-APACHE-2.0.txt`.
 - A successful CI build does not prove that the remapped JAR launches in the target Minecraft/Fabric environment. Final launch, visual/input QA, controlled-server scenarios and the fresh-upstream rebuild remain release gates.
 - No public release has been created and no v8 integration branch has been merged into `main`.

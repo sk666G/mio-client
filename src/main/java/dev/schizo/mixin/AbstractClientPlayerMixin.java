@@ -39,7 +39,7 @@ public abstract class AbstractClientPlayerMixin extends Player {
    private static final Identifier protectedSkinTexture = Identifier.fromNamespaceAndPath(
       "schizo-mount", "textures/skin_protect.png"
    );
-   private static final NameProtectModule nameProtectModule = ClientContext.getModule(NameProtectModule.class);
+
    @Unique
    private static final List<CapeEntry> playerCapes = List.of(
       new CapeEntry("cattyyyn", "pepsi.png"), new CapeEntry("u3o", "tetris.png"), new CapeEntry("asphyxia1337", "suckmy.png")
@@ -58,11 +58,11 @@ public abstract class AbstractClientPlayerMixin extends Player {
       PlayerModelType modelType = originalSkin.model();
       String playerName = this.getGameProfile().name();
       if (localPlayer != null
-         && nameProtectModule.isToggled()
-         && nameProtectModule.skinSetting.getValue()
+         && schizo$nameProtectModule().isToggled()
+         && schizo$nameProtectModule().skinSetting.getValue()
          && localPlayer.getGameProfile().name().equals(playerName)) {
          bodyTexture = new ResourceTexture(protectedSkinTexture, protectedSkinTexture);
-         modelType = nameProtectModule.slimSetting.getValue() ? PlayerModelType.SLIM : PlayerModelType.WIDE;
+         modelType = schizo$nameProtectModule().slimSetting.getValue() ? PlayerModelType.SLIM : PlayerModelType.WIDE;
       }
 
       CapesModule capesModule = ClientAccess.isLocalPlayer(this) ? ClientContext.getModule(CapesModule.class) : null;
@@ -89,5 +89,10 @@ public abstract class AbstractClientPlayerMixin extends Player {
          ClientAccess.eventBus
             .post(new AbstractClientPlayerTickEvent());
       }
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static NameProtectModule schizo$nameProtectModule() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(NameProtectModule.class);
    }
 }

@@ -31,7 +31,9 @@ public interface ClientAccess {
       .setPrettyPrinting()
       .create();
    EventBus eventBus = new EventBus();
-   ExecutorService executorService = Executors.newCachedThreadPool();
+   ExecutorService executorService = Executors.newCachedThreadPool(
+      Thread.ofPlatform().daemon().name("Schizo-Worker-", 0).factory()
+   );
 
    default boolean isWorldUnavailable() {
       return ClientAccess.schizoMinecraft.player == null

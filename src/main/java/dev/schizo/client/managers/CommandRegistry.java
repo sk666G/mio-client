@@ -59,8 +59,8 @@ import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.network.chat.Component;
 
 public final class CommandRegistry extends Registry<Command> implements ClientAccess, JsonConfigurable {
+   public static final int CURRENT_SCHEMA_VERSION = 1;
 
-   private static final SettingsModule settingsModule = ClientContext.getModule(SettingsModule.class);
    public static final SharedSuggestionProvider suggestionSource = new ClientSuggestionProvider(
       null, ClientAccess.schizoMinecraft, ignored -> true
    );
@@ -171,6 +171,12 @@ public final class CommandRegistry extends Registry<Command> implements ClientAc
    @Override
    public void fromJson(JsonElement config) {
       JsonObject objectForPresence = config.getAsJsonObject();
+      if (objectForPresence.has("version")
+         && (!objectForPresence.get("version").isJsonPrimitive()
+            || !objectForPresence.get("version").getAsJsonPrimitive().isNumber()
+            || objectForPresence.get("version").getAsInt() != CURRENT_SCHEMA_VERSION)) {
+         throw new IllegalArgumentException("Unsupported commands.json schema version");
+      }
       if (objectForPresence.has("prefix")) {
          JsonObject objectForValue = config.getAsJsonObject();
          JsonElement prefixElement = objectForValue.get("prefix");
@@ -183,6 +189,7 @@ public final class CommandRegistry extends Registry<Command> implements ClientAc
    @Override
    public JsonElement toJson() {
       JsonObject config = new JsonObject();
+      config.addProperty("version", CURRENT_SCHEMA_VERSION);
       String prefix = commandPrefix;
       config.addProperty("prefix", prefix);
       return config;
@@ -237,6 +244,10 @@ public final class CommandRegistry extends Registry<Command> implements ClientAc
       }
       String updatedPrefix = prefix.substring(0, 1);
       commandPrefix = updatedPrefix;
+      SettingsModule settingsModule = ClientContext.getModule(SettingsModule.class);
+      if (settingsModule == null) {
+         throw new IllegalStateException("Settings module is not initialized");
+      }
       Setting<String> prefixSetting = settingsModule.prefixSetting;
       prefixSetting.setValue(updatedPrefix);
    }

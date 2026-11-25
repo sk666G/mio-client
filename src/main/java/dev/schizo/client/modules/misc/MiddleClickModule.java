@@ -157,8 +157,7 @@ public class MiddleClickModule extends Module {
 
    static {
 
-      fireworksModule = ClientContext.getModule(FireworksModule.class);
-      rocketExtenderModule = ClientContext.getModule(RocketExtenderModule.class);
+
    }
 
    private void selectOrSwapRocket(int hotbarSlot, int inventorySlot, boolean useInventorySwap) {

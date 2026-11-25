@@ -29,8 +29,8 @@ import org.spongepowered.asm.mixin.injection.At;
 
 @Mixin(EndCrystalModel.class)
 public class EndCrystalModelMixin {
-   private static final AutoCrystalModule autoCrystalModule = ClientContext.getModule(AutoCrystalModule.class);
-   private static final AnimationsModule animationsModule = ClientContext.getModule(AnimationsModule.class);
+
+
    @Shadow
    @Final
    public ModelPart base;
@@ -56,22 +56,32 @@ public class EndCrystalModelMixin {
       Entity entity = EntityRenderStateAccess.getEntity(renderState);
       float speedMultiplier = 1.0F;
       if (entity.tickCount < 10
-         && autoCrystalModule.isToggled()
-         && (autoCrystalModule.instantSetting
+         && schizo$autoCrystalModule().isToggled()
+         && (schizo$autoCrystalModule().instantSetting
                .getValue())
             .isEnabled()
          && ((EndCrystalState)entity).isClientAttacked()) {
          speedMultiplier *= 1.5F;
       }
 
-      if (animationsModule.isToggled()
-         && animationsModule.crystalsSetting.getValue()) {
-         speedMultiplier *= animationsModule.rotationSpeedSetting.getValue();
-         this.base.skipDraw = animationsModule.shouldHideCrystalPart(0);
-         this.outerGlass.skipDraw = animationsModule.shouldHideCrystalPart(1);
-         this.innerGlass.skipDraw = animationsModule.shouldHideCrystalPart(2);
-         this.cube.skipDraw = animationsModule.shouldHideCrystalPart(3);
+      if (schizo$animationsModule().isToggled()
+         && schizo$animationsModule().crystalsSetting.getValue()) {
+         speedMultiplier *= schizo$animationsModule().rotationSpeedSetting.getValue();
+         this.base.skipDraw = schizo$animationsModule().shouldHideCrystalPart(0);
+         this.outerGlass.skipDraw = schizo$animationsModule().shouldHideCrystalPart(1);
+         this.innerGlass.skipDraw = schizo$animationsModule().shouldHideCrystalPart(2);
+         this.cube.skipDraw = schizo$animationsModule().shouldHideCrystalPart(3);
       }
       return speedMultiplier;
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static AutoCrystalModule schizo$autoCrystalModule() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(AutoCrystalModule.class);
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static AnimationsModule schizo$animationsModule() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(AnimationsModule.class);
    }
 }

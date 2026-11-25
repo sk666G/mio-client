@@ -23,7 +23,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(ElytraOnPlayerSoundInstance.class)
 public abstract class ElytraOnPlayerSoundInstanceMixin extends AbstractTickableSoundInstance {
-   private static ElytraFlyModule elytrafly = ClientContext.getModule(ElytraFlyModule.class);
 
    protected ElytraOnPlayerSoundInstanceMixin(SoundEvent sound, SoundSource source, RandomSource random) {
       super(sound, source, random);
@@ -31,9 +30,14 @@ public abstract class ElytraOnPlayerSoundInstanceMixin extends AbstractTickableS
 
    @Inject(method = "tick", at = @At("HEAD"), cancellable = true)
    private void muteElytraFlightSound(CallbackInfo callback) {
-      if (elytrafly.isToggled() && elytrafly.muteElytraSetting.getValue()) {
+      if (schizo$elytrafly().isToggled() && schizo$elytrafly().muteElytraSetting.getValue()) {
          this.volume = 0.0F;
          callback.cancel();
       }
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static ElytraFlyModule schizo$elytrafly() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(ElytraFlyModule.class);
    }
 }

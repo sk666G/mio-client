@@ -24,14 +24,14 @@ public enum CrystalDamagePolicy implements ClientAccess, NamedEntry {
    PLACE("Place"),
    HIT("Hit");
    private final String displayName;
-   private static final AutoCrystalModule autoCrystal = (AutoCrystalModule)ClientContext.getModule(AutoCrystalModule.class);
+
    CrystalDamagePolicy(String displayName) {
       this.displayName = displayName;
    }
 
    public double getMinimumDamage(LivingEntity target) {
-      boolean obsidianDropNearTarget = autoCrystal.obsidianDropNearTarget;
-      boolean quiverThreatActive = autoCrystal.quiverThreatActive;
+      boolean obsidianDropNearTarget = schizo$autoCrystal().obsidianDropNearTarget;
+      boolean quiverThreatActive = schizo$autoCrystal().quiverThreatActive;
       if (obsidianDropNearTarget || quiverThreatActive) {
          return new CrystalDamageThresholds(
             obsidianDropNearTarget,
@@ -48,16 +48,16 @@ public enum CrystalDamagePolicy implements ClientAccess, NamedEntry {
       }
 
       boolean facePlaceOverride = false;
-      if (autoCrystal.isFacePlaceEnabled()) {
+      if (schizo$autoCrystal().isFacePlaceEnabled()) {
          float health = EntityUtils.getHealthWithAbsorption(target);
-         Float healthLimit = autoCrystal.facePlaceHealthSetting.getValue();
+         Float healthLimit = schizo$autoCrystal().facePlaceHealthSetting.getValue();
          if (health <= healthLimit) {
             facePlaceOverride = true;
          }
 
          if (!facePlaceOverride && target instanceof Player player) {
             float armor = InventoryUtils.getLowestArmorDurabilityPercent(player);
-            Integer armorLimit = autoCrystal.facePlaceArmorThresholdSetting.getValue();
+            Integer armorLimit = schizo$autoCrystal().facePlaceArmorThresholdSetting.getValue();
             if (armor <= armorLimit.intValue()) {
                facePlaceOverride = true;
             }
@@ -65,7 +65,7 @@ public enum CrystalDamagePolicy implements ClientAccess, NamedEntry {
 
          if (!facePlaceOverride && target.isUsingItem()) {
             ItemStack activeStack = target.getUseItem();
-            if (activeStack.is(Items.SHIELD) && autoCrystal.facePlaceShieldBreakerSetting.getValue()) {
+            if (activeStack.is(Items.SHIELD) && schizo$autoCrystal().facePlaceShieldBreakerSetting.getValue()) {
                facePlaceOverride = true;
             }
          }
@@ -88,11 +88,11 @@ public enum CrystalDamagePolicy implements ClientAccess, NamedEntry {
          ).minimumDamage(this == HIT);
       }
 
-      double placeMinimum = autoCrystal.minPlaceDamageSetting.getValue().floatValue();
-      double hitMinimum = autoCrystal.minBreakDamageSetting.getValue().floatValue();
-      boolean placeMinimumUsesTargetHealth = autoCrystal.minPlaceDamageSetting.shouldDisplayBoundaryLabel();
-      boolean ignoreMiningBlock = autoCrystal.shouldIgnoreMiningBlock();
-      boolean alwaysIgnoreMining = autoCrystal.alwaysIgnoreMiningSetting.getValue();
+      double placeMinimum = schizo$autoCrystal().minPlaceDamageSetting.getValue().floatValue();
+      double hitMinimum = schizo$autoCrystal().minBreakDamageSetting.getValue().floatValue();
+      boolean placeMinimumUsesTargetHealth = schizo$autoCrystal().minPlaceDamageSetting.shouldDisplayBoundaryLabel();
+      boolean ignoreMiningBlock = schizo$autoCrystal().shouldIgnoreMiningBlock();
+      boolean alwaysIgnoreMining = schizo$autoCrystal().alwaysIgnoreMiningSetting.getValue();
 
       CrystalDamageThresholds thresholds = new CrystalDamageThresholds(
          false,
@@ -110,15 +110,15 @@ public enum CrystalDamagePolicy implements ClientAccess, NamedEntry {
    }
 
    public double getMaximumSelfDamage() {
-      if (autoCrystal.isSelfInvulnerable()) {
+      if (schizo$autoCrystal().isSelfInvulnerable()) {
          return 999.0;
       }
 
       Float selectedMaximum;
       if (this == HIT) {
-         selectedMaximum = autoCrystal.maxBreakSelfDamageSetting.getValue();
+         selectedMaximum = schizo$autoCrystal().maxBreakSelfDamageSetting.getValue();
       } else {
-         selectedMaximum = autoCrystal.maxPlaceSelfDamageSetting.getValue();
+         selectedMaximum = schizo$autoCrystal().maxPlaceSelfDamageSetting.getValue();
       }
 
       return selectedMaximum.floatValue();
@@ -128,18 +128,18 @@ public enum CrystalDamagePolicy implements ClientAccess, NamedEntry {
       LivingEntity target, double selfDamage, double targetDamage, CrystalLethality lethality
    ) {
       boolean selfHoldingTotem = ClientAccess.schizoMinecraft.player.isHolding(Items.TOTEM_OF_UNDYING);
-      if (autoCrystal.isSelfInvulnerable()) {
+      if (schizo$autoCrystal().isSelfInvulnerable()) {
          selfDamage = 0.0D;
       }
 
       // Preserve the original early return: Force Suicide must not read the
       // anti-suicide, health, minimum-damage or ratio settings below.
-      if (autoCrystal.forceSuicideSetting.getValue()) {
+      if (schizo$autoCrystal().forceSuicideSetting.getValue()) {
          return false;
       }
 
       double selfHealth = EntityUtils.getPlayerHealthWithAbsorption();
-      if (selfDamage >= selfHealth && autoCrystal.antiSuicideSetting.getValue()
+      if (selfDamage >= selfHealth && schizo$autoCrystal().antiSuicideSetting.getValue()
          && CrystalDamageSafetyInputs.shouldRejectAntiSuicide(
             selfDamage,
             selfHealth,
@@ -159,7 +159,7 @@ public enum CrystalDamagePolicy implements ClientAccess, NamedEntry {
 
       // The ratio applies only to PLACE and only with positive self damage.
       if (this == PLACE && selfDamage > 0.0D) {
-         double minimumRatio = autoCrystal.placeDamageRatioSetting.getValue().floatValue();
+         double minimumRatio = schizo$autoCrystal().placeDamageRatioSetting.getValue().floatValue();
          if (CrystalDamageSafetyInputs.shouldRejectPlaceRatio(
             false,
             selfDamage,
@@ -187,5 +187,9 @@ public enum CrystalDamagePolicy implements ClientAccess, NamedEntry {
    @Override
    public String getName() {
       return this.displayName;
+   }
+
+   private static AutoCrystalModule schizo$autoCrystal() {
+      return ClientContext.requireModule(AutoCrystalModule.class);
    }
 }

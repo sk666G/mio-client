@@ -24,7 +24,6 @@ import org.spongepowered.asm.mixin.injection.invoke.arg.Args;
 @Pseudo
 @Mixin(targets = "baritone/command/defaults/ComeCommand", remap = false)
 public class BaritoneComeCommandMixin {
-   private static final FreecamModule freecam = ClientContext.getModule(FreecamModule.class);
 
    @ModifyArgs(
       method = "execute",
@@ -32,7 +31,7 @@ public class BaritoneComeCommandMixin {
       remap = false
    )
    private void useFreecamGoal(Args args) {
-      if (freecam.isToggled()) {
+      if (schizo$freecam().isToggled()) {
          BlockPos cameraPosition = ClientAccess.schizoMinecraft.gameRenderer.getMainCamera().blockPosition();
          if (WorldUtils.isAir(cameraPosition)
             && WorldUtils.isAir(cameraPosition.below())
@@ -42,5 +41,10 @@ public class BaritoneComeCommandMixin {
             args.set(0, new GoalBlock(cameraPosition));
          }
       }
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static FreecamModule schizo$freecam() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(FreecamModule.class);
    }
 }

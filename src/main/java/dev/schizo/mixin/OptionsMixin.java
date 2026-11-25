@@ -22,7 +22,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(Options.class)
 public abstract class OptionsMixin {
-   private static final ViewClipModule viewClip = ClientContext.getModule(ViewClipModule.class);
 
    @Shadow
    public abstract void setCameraType(CameraType cameraType);
@@ -34,10 +33,15 @@ public abstract class OptionsMixin {
 
    @Inject(method = "setCameraType", at = @At("HEAD"), cancellable = true)
    public void skipConfiguredCameraType(CameraType cameraType, CallbackInfo callback) {
-      if (viewClip.shouldSkipCameraType(cameraType)) {
+      if (schizo$viewClip().shouldSkipCameraType(cameraType)) {
          CameraType[] cameraTypes = CameraType.values();
          this.setCameraType(cameraTypes[(cameraType.ordinal() + 1) % cameraTypes.length]);
          callback.cancel();
       }
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static ViewClipModule schizo$viewClip() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(ViewClipModule.class);
    }
 }

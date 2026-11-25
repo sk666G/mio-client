@@ -39,7 +39,6 @@ import org.joml.Vector2f;
 
 public class FreeLookModule extends Module {
 
-   private static FreecamModule freecamModule = (FreecamModule)ClientContext.getModule(FreecamModule.class);
    private final InterpolatedFloat cameraDistanceAnimation;
    private final Vector2f cameraRotation;
    private CameraType cameraType;
@@ -114,7 +113,7 @@ public class FreeLookModule extends Module {
 
    @EventHandler(priority = -200)
    private void onLocalPlayerPreTick(LocalPlayerPreTickEvent event) {
-      FreecamModule freecam = freecamModule;
+      FreecamModule freecam = schizo$freecamModule();
       if (freecam.isToggled()) {
          return;
       }
@@ -167,7 +166,7 @@ public class FreeLookModule extends Module {
    }
 
    public static void bindReferencedModules(ModuleRegistry registry) {
-      freecamModule = (FreecamModule)registry.getModule(
+      schizo$freecamModule() = (FreecamModule)registry.getModule(
          FreecamModule.class
       );
    }
@@ -182,4 +181,8 @@ public class FreeLookModule extends Module {
       this.scrollSetting = this.add(scroll);
    }
 
+
+   private static FreecamModule schizo$freecamModule() {
+      return ClientContext.requireModule(FreecamModule.class);
+   }
 }

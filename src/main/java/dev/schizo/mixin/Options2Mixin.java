@@ -18,7 +18,6 @@ import org.spongepowered.asm.mixin.injection.At;
 
 @Mixin(targets = "net/minecraft/client/Options$2")
 public class Options2Mixin {
-   private static final AmbienceModule ambienceModule = ClientContext.getModule(AmbienceModule.class);
 
    // Mojang leaves the option parse error lambda unnamed.
    @WrapWithCondition(
@@ -28,7 +27,12 @@ public class Options2Mixin {
    private static boolean shouldLogOptionParseError(
       Logger logger, String message, Object[] arguments
    ) {
-      return ambienceModule.brightnessSetting.getValue()
+      return schizo$ambienceModule().brightnessSetting.getValue()
          != AmbienceModule.BrightnessChoice.GAMMA;
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static AmbienceModule schizo$ambienceModule() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(AmbienceModule.class);
    }
 }

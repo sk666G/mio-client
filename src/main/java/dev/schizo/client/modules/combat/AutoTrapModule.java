@@ -58,7 +58,7 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 public class AutoTrapModule extends PlacementModule {
-   private static LogoutSpotsModule logoutSpotsModule = (LogoutSpotsModule)ClientContext.getModule(LogoutSpotsModule.class);
+
    protected final Setting<Float> rangeSetting;
    private final Setting<Boolean> sequentialSetting;
    protected final Setting<Boolean> targetsSetting;
@@ -626,9 +626,9 @@ public class AutoTrapModule extends PlacementModule {
    protected Player selectTarget() {
       ObjectArrayList<Player> players = new ObjectArrayList<>(this.getWorldPlayers());
 
-      if (logoutSpotsModule.isToggled()) {
+      if (schizo$logoutSpotsModule().isToggled()) {
          if (this.logoutsSetting.getValue()) {
-            players.addAll(logoutSpotsModule.getSpotPlayers());
+            players.addAll(schizo$logoutSpotsModule().getSpotPlayers());
          }
       }
 
@@ -730,9 +730,13 @@ public class AutoTrapModule extends PlacementModule {
    }
 
    public static void bindReferencedModules(ModuleRegistry modules) {
-      logoutSpotsModule = (LogoutSpotsModule)modules.getModule(
+      schizo$logoutSpotsModule() = (LogoutSpotsModule)modules.getModule(
          LogoutSpotsModule.class
       );
       TrapMiningSupport.bindReferencedModules(modules);
+   }
+
+   private static LogoutSpotsModule schizo$logoutSpotsModule() {
+      return ClientContext.requireModule(LogoutSpotsModule.class);
    }
 }

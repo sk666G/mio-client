@@ -173,9 +173,6 @@ public class AntiCheatModule extends PermanentModule {
 
    static {
 
-      speedMineModule = ClientContext.getModule(SpeedMineModule.class);
-      velocityModule = ClientContext.getModule(VelocityModule.class);
-
       double exponent = 3.0D;
       double base = 0.20000000298023224D;
       double basePower = Math.pow(base, exponent);
@@ -380,11 +377,13 @@ public class AntiCheatModule extends PermanentModule {
    }
 
    public static void bindReferencedModules(ModuleRegistry modules) {
-      speedMineModule = (SpeedMineModule)modules.getModule(
-         SpeedMineModule.class
+      speedMineModule = (SpeedMineModule)java.util.Objects.requireNonNull(
+         modules.getModule(SpeedMineModule.class),
+         "Required module is not registered: SpeedMineModule"
       );
-      velocityModule = (VelocityModule)modules.getModule(
-         VelocityModule.class
+      velocityModule = (VelocityModule)java.util.Objects.requireNonNull(
+         modules.getModule(VelocityModule.class),
+         "Required module is not registered: VelocityModule"
       );
    }
 

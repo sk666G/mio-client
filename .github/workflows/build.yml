@@ -2,12 +2,20 @@ name: Build
 
 on:
   push:
-    branches: [main, codex/reliability-hardening, codex/schizo-master-integration, lunyx/integration-candidate, lunyx/verified-candidate-v7]
+    branches:
+      - main
+      - 'lunyx/**'
+      - 'codex/**'
+      - 'astra/**'
   pull_request:
   workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: build-${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -63,10 +71,10 @@ jobs:
 
           jar_file="${jars[0]}"
           source_jar="${source_jars[0]}"
-          for required in fabric.mod.json THIRD_PARTY_NOTICES.md LICENSES/DiscordIPC-APACHE-2.0.txt; do
+          for required in fabric.mod.json LICENSE THIRD_PARTY_NOTICES.md LICENSES/DiscordIPC-APACHE-2.0.txt; do
             jar tf "$jar_file" | grep -Fqx "$required"
           done
-          for required in THIRD_PARTY_NOTICES.md LICENSES/DiscordIPC-APACHE-2.0.txt; do
+          for required in LICENSE THIRD_PARTY_NOTICES.md LICENSES/DiscordIPC-APACHE-2.0.txt; do
             jar tf "$source_jar" | grep -Fqx "$required"
           done
 

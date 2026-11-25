@@ -53,11 +53,11 @@ import org.spongepowered.asm.mixin.injection.invoke.arg.Args;
 
 @Mixin(LocalPlayer.class)
 public abstract class LocalPlayerMovementMixin extends AbstractClientPlayer implements ClientAccess, LocalPlayerTickAccess {
-   private static final SwingModule swingModule = ClientContext.getModule(SwingModule.class);
-   private static final NoSlowModule noSlowModule = ClientContext.getModule(NoSlowModule.class);
-   private static final EntityControlModule entityControlModule = ClientContext.getModule(EntityControlModule.class);
-   private static final SprintModule sprintModule = ClientContext.getModule(SprintModule.class);
-   private static final ReachModule reachModule = ClientContext.getModule(ReachModule.class);
+
+
+
+
+
    @Unique
    private LocalPlayerSendPositionEvent sendPositionEvent;
    @Shadow
@@ -78,13 +78,13 @@ public abstract class LocalPlayerMovementMixin extends AbstractClientPlayer impl
 
    @Inject(method = "swing(Lnet/minecraft/world/InteractionHand;)V", at = @At("HEAD"), cancellable = true)
    public void applySwingOverride(InteractionHand hand, CallbackInfo callback) {
-      if (swingModule.isToggled()
-         && swingModule.handSetting.getValue()
+      if (schizo$swingModule().isToggled()
+         && schizo$swingModule().handSetting.getValue()
             != SwingModule.HandChoice.VANILLA) {
-         if (swingModule.handSetting.getValue()
+         if (schizo$swingModule().handSetting.getValue()
             != SwingModule.HandChoice.PACKET) {
             super.swing(
-               (swingModule.handSetting
+               (schizo$swingModule().handSetting
                      .getValue())
                   .getHand()
             );
@@ -239,13 +239,13 @@ public abstract class LocalPlayerMovementMixin extends AbstractClientPlayer impl
 
    @ModifyExpressionValue(method = "aiStep", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/player/Input;sprint()Z"))
    private boolean overrideSprintInput(boolean vanillaSprint) {
-      return (sprintModule.isToggled() && sprintModule.shouldDeferToVanillaSprinting()) || vanillaSprint;
+      return (schizo$sprintModule().isToggled() && schizo$sprintModule().shouldDeferToVanillaSprinting()) || vanillaSprint;
    }
 
    @ModifyArgs(method = "aiStep", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/player/LocalPlayer;setSprinting(Z)V"), require = 0)
    private void forceSprintingWhenAllowed(Args arguments) {
-      if (sprintModule.isToggled()
-         && sprintModule.canStartSprinting()) {
+      if (schizo$sprintModule().isToggled()
+         && schizo$sprintModule().canStartSprinting()) {
          arguments.set(0, true);
       }
    }
@@ -272,15 +272,15 @@ public abstract class LocalPlayerMovementMixin extends AbstractClientPlayer impl
 
    @Inject(method = "getJumpRidingScale", at = @At("HEAD"), cancellable = true)
    private void maximizeRidingJumpScale(CallbackInfoReturnable<Float> callback) {
-      if (entityControlModule.isToggled()
-         && entityControlModule.horseJumpSetting.getValue()) {
+      if (schizo$entityControlModule().isToggled()
+         && schizo$entityControlModule().horseJumpSetting.getValue()) {
          callback.setReturnValue(1.0F);
       }
    }
 
    @Inject(method = "handlePortalTransitionEffect", at = @At("HEAD"))
    private void suppressPortalTransitionEffect(CallbackInfo callback) {
-      if (noSlowModule.isToggled() && this.portalProcess != null) {
+      if (schizo$noSlowModule().isToggled() && this.portalProcess != null) {
          this.portalProcess.setAsInsidePortalThisTick(false);
       }
    }
@@ -288,18 +288,18 @@ public abstract class LocalPlayerMovementMixin extends AbstractClientPlayer impl
    @Inject(method = "isMovingSlowly", at = @At("HEAD"), cancellable = true)
    private void overrideMovingSlowly(CallbackInfoReturnable<Boolean> callback) {
       boolean bypassCrawl = ClientAccess.schizoMinecraft.player.isVisuallyCrawling()
-         && noSlowModule.crawlSetting.getValue();
+         && schizo$noSlowModule().crawlSetting.getValue();
       boolean bypassSneak = !bypassCrawl
          && ClientAccess.schizoMinecraft.player.isShiftKeyDown()
-         && noSlowModule.sneakSetting.getValue();
-      if (noSlowModule.isToggled() && (bypassCrawl || bypassSneak)) {
+         && schizo$noSlowModule().sneakSetting.getValue();
+      if (schizo$noSlowModule().isToggled() && (bypassCrawl || bypassSneak)) {
          callback.setReturnValue(false);
       }
    }
 
    @ModifyExpressionValue(method = "isSlowDueToUsingItem", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/player/LocalPlayer;isUsingItem()Z"))
    private boolean overrideItemUseForSlowdown(boolean originalUsingItem) {
-      return !(noSlowModule.isToggled() && noSlowModule.itemsSetting.getValue()) && originalUsingItem;
+      return !(schizo$noSlowModule().isToggled() && schizo$noSlowModule().itemsSetting.getValue()) && originalUsingItem;
    }
 
    @Inject(
@@ -313,7 +313,7 @@ public abstract class LocalPlayerMovementMixin extends AbstractClientPlayer impl
    private static void useBlockHitWhenEntityTraceIgnored(
       Entity entity, double blockRange, double entityRange, float partialTick, CallbackInfoReturnable<HitResult> callback, @Local HitResult blockHit
    ) {
-      if (reachModule.shouldIgnoreEntityTrace()) {
+      if (schizo$reachModule().shouldIgnoreEntityTrace()) {
          callback.setReturnValue(blockHit);
       }
    }
@@ -355,5 +355,30 @@ public abstract class LocalPlayerMovementMixin extends AbstractClientPlayer impl
       if (this.getXRot() == this.sendPositionEvent.getCurrentPitch()) {
          this.setXRot(this.sendPositionEvent.getOriginalPitch());
       }
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static SwingModule schizo$swingModule() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(SwingModule.class);
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static NoSlowModule schizo$noSlowModule() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(NoSlowModule.class);
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static EntityControlModule schizo$entityControlModule() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(EntityControlModule.class);
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static SprintModule schizo$sprintModule() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(SprintModule.class);
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static ReachModule schizo$reachModule() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(ReachModule.class);
    }
 }

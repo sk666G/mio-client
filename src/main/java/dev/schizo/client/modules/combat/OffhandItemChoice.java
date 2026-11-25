@@ -37,12 +37,11 @@ public enum OffhandItemChoice implements ClientAccess, NamedEntry {
    Custom("Custom", Items.SHIELD) {
       @Override
       public Item getItem(boolean useCrapple) {
-         return (OffhandItemChoice.offhandModule.customSetting.getValue()).stream().findAny().orElse(null);
+         return (OffhandItemChoice.schizo$offhandModule().customSetting.getValue()).stream().findAny().orElse(null);
       }
    };
 
-   private static XCarryModule xCarryModule = (XCarryModule)ClientContext.getModule(XCarryModule.class);
-   private static OffhandModule offhandModule = (OffhandModule)ClientContext.getModule(OffhandModule.class);
+
    private final String displayName;
    private final Item defaultItem;
 
@@ -72,16 +71,24 @@ public enum OffhandItemChoice implements ClientAccess, NamedEntry {
             if (slotStack.is(itemToFind)) return slot.index;
          }
       }
-      boolean includeXCarry = xCarryModule.isToggled();
+      boolean includeXCarry = schizo$xCarryModule().isToggled();
       return InventoryUtils.findMenuSlot(itemToFind, includeXCarry);
    }
 
    public static void bindModuleRegistry(ModuleRegistry modules) {
-      xCarryModule = (XCarryModule)modules.getModule(
+      schizo$xCarryModule() = (XCarryModule)modules.getModule(
          XCarryModule.class
       );
-      offhandModule = (OffhandModule)modules.getModule(
+      schizo$offhandModule() = (OffhandModule)modules.getModule(
          OffhandModule.class
       );
+   }
+
+   private static XCarryModule schizo$xCarryModule() {
+      return ClientContext.requireModule(XCarryModule.class);
+   }
+
+   private static OffhandModule schizo$offhandModule() {
+      return ClientContext.requireModule(OffhandModule.class);
    }
 }

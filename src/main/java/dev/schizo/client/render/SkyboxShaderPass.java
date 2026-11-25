@@ -31,7 +31,6 @@ import org.lwjgl.opengl.GL32C;
 import org.lwjgl.system.MemoryStack;
 
 public class SkyboxShaderPass extends BaseShaderPass implements ReloadableShaderPass {
-   private static final SkyboxModule SKYBOX_MODULE;
    private static final int CONFIG_BINDING = 0;
    private static final int CONFIG_SIZE = 48;
    private int configBlock = GL31C.GL_INVALID_INDEX;
@@ -55,11 +54,15 @@ public class SkyboxShaderPass extends BaseShaderPass implements ReloadableShader
       int screenHeight = target.height;
       float aspectRatio = (float)screenWidth / screenHeight;
       Camera camera = client.gameRenderer.getMainCamera();
-      float parallax = SKYBOX_MODULE.getParallax();
+      SkyboxModule skyboxModule = ClientContext.getModule(SkyboxModule.class);
+      if (skyboxModule == null) {
+         throw new IllegalStateException("Skybox module is not initialized");
+      }
+      float parallax = skyboxModule.getParallax();
       float mouseX = camera.yRot() / 180.0F * aspectRatio * parallax;
       float mouseY = -camera.xRot() / 90.0F * parallax;
       float elapsedTime = (float)(System.currentTimeMillis() - START_TIME_MILLIS) / 1000.0F;
-      Color color = SKYBOX_MODULE.getShaderColor();
+      Color color = skyboxModule.getShaderColor();
 
       if (this.configBlock == GL31C.GL_INVALID_INDEX) {
          this.uniforms.set("u_Scale", 1.0F);
@@ -138,9 +141,5 @@ public class SkyboxShaderPass extends BaseShaderPass implements ReloadableShader
       this.reload(this);
    }
 
-   static {
-
-      SKYBOX_MODULE = (SkyboxModule)ClientContext.getModule(SkyboxModule.class);
-   }
 
 }

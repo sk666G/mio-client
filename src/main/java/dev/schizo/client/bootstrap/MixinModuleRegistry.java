@@ -10,6 +10,7 @@
 package dev.schizo.client.bootstrap;
 
 import dev.schizo.client.managers.ModuleRegistry;
+import dev.schizo.client.modules.Module;
 import dev.schizo.client.modules.client.DiscordModule;
 import dev.schizo.client.modules.client.UIModule;
 import dev.schizo.client.modules.combat.ArrowsModule;
@@ -17,9 +18,11 @@ import dev.schizo.client.modules.combat.AutoClickerModule;
 import dev.schizo.client.modules.combat.AutoCrystalModule;
 import dev.schizo.client.modules.combat.NoHitDelayModule;
 import dev.schizo.client.modules.exploit.MultiTaskModule;
+import dev.schizo.client.modules.exploit.PingSpoofModule;
 import dev.schizo.client.modules.exploit.ReachModule;
 import dev.schizo.client.modules.exploit.TridentModule;
 import dev.schizo.client.modules.misc.AntiQuitModule;
+import dev.schizo.client.modules.misc.NoPacketKickModule;
 import dev.schizo.client.modules.misc.SwingModule;
 import dev.schizo.client.modules.movement.ElytraFlyModule;
 import dev.schizo.client.modules.movement.EntityControlModule;
@@ -44,9 +47,26 @@ import java.util.Objects;
 
 /** Cached module references consumed by mixin hooks without adding synthetic methods to Minecraft classes. */
 public final class MixinModuleRegistry {
+   private static volatile ModuleRegistry boundRegistry;
+
    private MixinModuleRegistry() {}
 
+   public static <T extends Module> T require(Class<T> moduleType) {
+      Objects.requireNonNull(moduleType, "Module type");
+      ModuleRegistry registry = boundRegistry;
+      if (registry == null) {
+         throw new IllegalStateException("Mixin module registry is not bound");
+      }
+      T module = moduleType.cast(registry.getModule(moduleType));
+      return Objects.requireNonNull(
+         module,
+         "Required module is not registered: " + moduleType.getSimpleName()
+      );
+   }
+
    public static volatile NoSlowModule blockNoslow;
+   public static volatile PingSpoofModule connectionPingSpoofModule;
+   public static volatile NoPacketKickModule connectionNoPacketKickModule;
    public static volatile ReachModule liquidBlockReach;
    public static volatile FastWebModule webBlockFastWebModule;
    public static volatile NoSlowModule slimeBlockNoslow;
@@ -89,7 +109,10 @@ public final class MixinModuleRegistry {
 
    public static void bind(ModuleRegistry registry) {
       Objects.requireNonNull(registry, "Module registry is not initialized");
+      boundRegistry = registry;
       blockNoslow = (NoSlowModule)Objects.requireNonNull(registry.getModule(NoSlowModule.class), "Required module is not registered: NoSlowModule");
+      connectionPingSpoofModule = (PingSpoofModule)Objects.requireNonNull(registry.getModule(PingSpoofModule.class), "Required module is not registered: PingSpoofModule");
+      connectionNoPacketKickModule = (NoPacketKickModule)Objects.requireNonNull(registry.getModule(NoPacketKickModule.class), "Required module is not registered: NoPacketKickModule");
       liquidBlockReach = (ReachModule)Objects.requireNonNull(registry.getModule(ReachModule.class), "Required module is not registered: ReachModule");
       webBlockFastWebModule = (FastWebModule)Objects.requireNonNull(registry.getModule(FastWebModule.class), "Required module is not registered: FastWebModule");
       slimeBlockNoslow = (NoSlowModule)Objects.requireNonNull(registry.getModule(NoSlowModule.class), "Required module is not registered: NoSlowModule");

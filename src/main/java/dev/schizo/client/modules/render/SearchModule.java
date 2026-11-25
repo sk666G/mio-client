@@ -414,7 +414,6 @@ public class SearchModule extends Module {
 
    static {
 
-      colorsModule = (ColorsModule)ClientContext.getModule(ColorsModule.class);
       scanPosition = new MutableBlockPos();
    }
 

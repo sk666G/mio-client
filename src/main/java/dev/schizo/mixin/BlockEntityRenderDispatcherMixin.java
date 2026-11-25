@@ -25,25 +25,24 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(BlockEntityRenderDispatcher.class)
 public class BlockEntityRenderDispatcherMixin {
-   private static final ESPModule espModule = ClientContext.getModule(ESPModule.class);
-   private static final NoRenderModule noRenderModule = ClientContext.getModule(NoRenderModule.class);
+
 
    @Inject(method = "submit", at = @At("HEAD"), cancellable = true)
    private void suppressBlockEntitySubmission(
       BlockEntityRenderState renderState, PoseStack poses, SubmitNodeCollector collector, CameraRenderState cameraState, CallbackInfo callback
    ) {
-      if (!espModule.isRenderingBlockEntities()) {
-         if (noRenderModule.shouldHideBlockEntityType(
+      if (!schizo$espModule().isRenderingBlockEntities()) {
+         if (schizo$noRenderModule().shouldHideBlockEntityType(
             renderState.blockEntityType
          )) {
             callback.cancel();
          } else {
-            if (noRenderModule.isToggled()
-               && noRenderModule.tileEntitiesSetting.getValue()
+            if (schizo$noRenderModule().isToggled()
+               && schizo$noRenderModule().tileEntitiesSetting.getValue()
                && renderState.blockPos.distSqr(Minecraft.getInstance().gameRenderer.getMainCamera().blockPosition())
-                  > noRenderModule.tileDistanceSetting
+                  > schizo$noRenderModule().tileDistanceSetting
                         .getValue()
-                     * noRenderModule.tileDistanceSetting
+                     * schizo$noRenderModule().tileDistanceSetting
                         .getValue()) {
                callback.cancel();
             }
@@ -51,4 +50,14 @@ public class BlockEntityRenderDispatcherMixin {
       }
    }
 
+
+   @org.spongepowered.asm.mixin.Unique
+   private static ESPModule schizo$espModule() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(ESPModule.class);
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static NoRenderModule schizo$noRenderModule() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(NoRenderModule.class);
+   }
 }

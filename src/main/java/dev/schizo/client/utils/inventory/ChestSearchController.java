@@ -57,7 +57,7 @@ public class ChestSearchController {
    private static final int NO_MATCH_TEXT_COLOR = 0xFFFF5555;
    private static final boolean replaymodLoaded;
    public static final ChestSearchController INSTANCE = new ChestSearchController();
-   private static ChestSearchBarModule chestSearchBarModule = ClientContext.getModule(ChestSearchBarModule.class);
+
    public static EditBox searchBox;
    public static String text = "";
    public static int matchedSlotCount = 0;
@@ -73,7 +73,7 @@ public class ChestSearchController {
    }
 
    public static boolean isFull(ItemStack stack, String query) {
-      if (!chestSearchBarModule.highlightFullSetting.getValue()) return false;
+      if (!schizo$chestSearchBarModule().highlightFullSetting.getValue()) return false;
       query = normalize(query);
       if (query == null || query.isEmpty() || stack.isEmpty()) return false;
       if (!stack.getItem().getDescriptionId().contains("shulker_box")) return false;
@@ -155,7 +155,7 @@ public class ChestSearchController {
    }
 
    public void onDrawGui(GuiGraphics graphics, Screen screen, PoseStack poseStack, float mouseX, float mouseY, float partialTick) {
-      if (!chestSearchBarModule.isToggled() || searchBox == null) return;
+      if (!schizo$chestSearchBarModule().isToggled() || searchBox == null) return;
       poseStack.pushPose();
       graphics.nextStratum();
       AbstractContainerScreenAccessor accessor = (AbstractContainerScreenAccessor)screen;
@@ -195,7 +195,7 @@ public class ChestSearchController {
    }
 
    public static void bindReferencedModules(ModuleRegistry registry) {
-      chestSearchBarModule = (ChestSearchBarModule)registry.getModule(ChestSearchBarModule.class);
+      schizo$chestSearchBarModule() = (ChestSearchBarModule)registry.getModule(ChestSearchBarModule.class);
    }
 
    public static class SearchScreenInitializer implements AfterInit {
@@ -203,7 +203,7 @@ public class ChestSearchController {
 
       @Override
       public void afterInit(Minecraft minecraft, Screen screen, int scaledWidth, int scaledHeight) {
-         if (!chestSearchBarModule.isToggled()) {
+         if (!schizo$chestSearchBarModule().isToggled()) {
             searchBox = null;
             return;
          }
@@ -226,5 +226,9 @@ public class ChestSearchController {
          searchBox.setResponder(newText -> text = newText);
          Screens.getButtons(screen).add(searchBox);
       }
+   }
+
+   private static ChestSearchBarModule schizo$chestSearchBarModule() {
+      return ClientContext.requireModule(ChestSearchBarModule.class);
    }
 }

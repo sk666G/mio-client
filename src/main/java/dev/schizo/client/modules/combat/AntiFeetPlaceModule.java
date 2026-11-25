@@ -55,8 +55,8 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 
 public class AntiFeetPlaceModule extends Module {
-   private static SpeedMineModule speedMine = (SpeedMineModule)ClientContext.getModule(SpeedMineModule.class);
-   private static MultiTaskModule multiTask = (MultiTaskModule)ClientContext.getModule(MultiTaskModule.class);
+
+
    private final Setting<ModeChoice> modeSetting;
    private final Setting<Integer> delaySetting;
    private final Setting<Boolean> airPlaceSetting;
@@ -71,25 +71,25 @@ public class AntiFeetPlaceModule extends Module {
    private final ElapsedTimer placementTimer;
 
    private boolean shouldPauseReplacement() {
-      SpeedMineModule positionCheckSource = speedMine;
+      SpeedMineModule positionCheckSource = schizo$speedMine();
 
       BlockPos miningPosition;
       if (positionCheckSource.getMiningPos() != null) {
-         miningPosition = speedMine.getMiningPos();
+         miningPosition = schizo$speedMine().getMiningPos();
       } else {
-         miningPosition = speedMine.getRebreakPos();
+         miningPosition = schizo$speedMine().getRebreakPos();
       }
 
-      if (!speedMine.isToggled() || miningPosition == null) {
+      if (!schizo$speedMine().isToggled() || miningPosition == null) {
          return true;
       }
 
-      double miningProgress = speedMine.getRenderProgress();
+      double miningProgress = schizo$speedMine().getRenderProgress();
       if (miningProgress < 0.95D && !WorldUtils.isAir(miningPosition)) {
          return true;
       }
 
-      if (multiTask.shouldPauseModule(this)) {
+      if (schizo$multiTask().shouldPauseModule(this)) {
          return true;
       }
       ElapsedTimer timerSnapshot = this.placementTimer;
@@ -107,13 +107,13 @@ public class AntiFeetPlaceModule extends Module {
 
    private void replaceMinedBlock() {
       if (!this.shouldPauseReplacement()) {
-         SpeedMineModule positionCheckSource = speedMine;
+         SpeedMineModule positionCheckSource = schizo$speedMine();
 
          BlockPos miningPosition;
          if (positionCheckSource.getMiningPos() != null) {
-            miningPosition = speedMine.getMiningPos();
+            miningPosition = schizo$speedMine().getMiningPos();
          } else {
-            miningPosition = speedMine.getRebreakPos();
+            miningPosition = schizo$speedMine().getRebreakPos();
          }
          AABB placementBounds = new AABB(miningPosition);
 
@@ -258,10 +258,10 @@ public class AntiFeetPlaceModule extends Module {
    }
 
    public static void bindModules(ModuleRegistry modules) {
-      speedMine = (SpeedMineModule)modules.getModule(
+      schizo$speedMine() = (SpeedMineModule)modules.getModule(
          SpeedMineModule.class
       );
-      multiTask = (MultiTaskModule)modules.getModule(
+      schizo$multiTask() = (MultiTaskModule)modules.getModule(
          MultiTaskModule.class
       );
    }
@@ -340,5 +340,13 @@ public class AntiFeetPlaceModule extends Module {
          this.displayName = displayName;
          this.itemPredicate = itemPredicate;
       }
+   }
+
+   private static SpeedMineModule schizo$speedMine() {
+      return ClientContext.requireModule(SpeedMineModule.class);
+   }
+
+   private static MultiTaskModule schizo$multiTask() {
+      return ClientContext.requireModule(MultiTaskModule.class);
    }
 }

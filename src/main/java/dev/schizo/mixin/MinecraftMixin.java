@@ -68,19 +68,22 @@ public class MinecraftMixin {
       if (!shutdownSaveStarted
          && ClientContext.configurationManager != null) {
          shutdownSaveStarted = true;
-         if (ClientContext.taskScheduler != null) {
-            ClientContext.taskScheduler.shutdown();
+         try {
+            if (ClientContext.taskScheduler != null) {
+               ClientContext.taskScheduler.shutdown();
+            }
+            if (ClientContext.contextProfileRegistry != null
+               && !ClientContext.contextProfileRegistry.restoreBeforeShutdown()) {
+               ClientAccess.logger.error(
+                  "Skipping shutdown configuration save to protect the user's pre-profile settings"
+               );
+               return;
+            }
+            MixinModuleRegistry.minecraftUiModule.disable();
+            ClientContext.configurationManager.save();
+         } finally {
+            ClientAccess.executorService.shutdown();
          }
-         if (ClientContext.contextProfileRegistry != null
-            && !ClientContext.contextProfileRegistry.restoreBeforeShutdown()) {
-            ClientAccess.logger.error(
-               "Skipping shutdown configuration save to protect the user's pre-profile settings"
-            );
-            return;
-         }
-         MixinModuleRegistry.minecraftUiModule.disable();
-         ClientContext.configurationManager
-            .save();
       }
    }
 

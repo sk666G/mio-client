@@ -48,11 +48,11 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 
 public class MainhandModule extends Module implements LethalDamageTracker.LethalCheckPolicy {
-   private static NoInteractModule noInteractModule = (NoInteractModule)ClientContext.getModule(NoInteractModule.class);
-   private static AutoCrystalModule autoCrystalModule = (AutoCrystalModule)ClientContext.getModule(AutoCrystalModule.class);
-   private static AutoEatModule autoEatModule = (AutoEatModule)ClientContext.getModule(AutoEatModule.class);
-   private static AutoExpModule autoExpModule = (AutoExpModule)ClientContext.getModule(AutoExpModule.class);
-   private static OffhandModule offhandModule = (OffhandModule)ClientContext.getModule(OffhandModule.class);
+
+
+
+
+
    final Setting<Integer> slotSetting;
    final Setting<Integer> delaySetting;
    private final Setting<Float> safeSetting;
@@ -125,9 +125,9 @@ public class MainhandModule extends Module implements LethalDamageTracker.Lethal
    private boolean shouldTemporarilySelectGapple() {
       ItemStack mainhandStack = ClientAccess.schizoMinecraft.player.getMainHandItem();
 
-      if (offhandModule.isToggled()) {
-         if (offhandModule.isGappleBindSafeInBlocks()) {
-            OffhandModule bindOwner = offhandModule;
+      if (schizo$offhandModule().isToggled()) {
+         if (schizo$offhandModule().isGappleBindSafeInBlocks()) {
+            OffhandModule bindOwner = schizo$offhandModule();
             Item heldItem = mainhandStack.getItem();
             if (bindOwner.canUseGappleBind(heldItem)) {
                return false;
@@ -160,7 +160,7 @@ public class MainhandModule extends Module implements LethalDamageTracker.Lethal
       HitResult hitResult = ClientAccess.schizoMinecraft.hitResult;
       if (WorldUtils.isInteractive(hitResult)) {
          if (!ClientAccess.schizoMinecraft.player.isShiftKeyDown()) {
-            if (!noInteractModule.isToggled()) {
+            if (!schizo$noInteractModule().isToggled()) {
                if (!ClientAccess.schizoMinecraft.player.isUsingItem()) return false;
 
                if (ClientAccess.schizoMinecraft.player.getUsedItemHand() != InteractionHand.MAIN_HAND) return false;
@@ -290,20 +290,20 @@ public class MainhandModule extends Module implements LethalDamageTracker.Lethal
          return;
       }
 
-      if (autoCrystalModule.isToggled()) {
-         if (autoCrystalModule.forceSuicideSetting.getValue()) {
+      if (schizo$autoCrystalModule().isToggled()) {
+         if (schizo$autoCrystalModule().forceSuicideSetting.getValue()) {
             return;
          }
       }
 
-      if (autoEatModule.isToggled()) {
-         if (autoEatModule.isEating()) {
+      if (schizo$autoEatModule().isToggled()) {
+         if (schizo$autoEatModule().isEating()) {
             return;
          }
       }
 
-      if (autoExpModule.isToggled()) {
-         if (autoExpModule.isActive()) {
+      if (schizo$autoExpModule().isToggled()) {
+         if (schizo$autoExpModule().isActive()) {
             return;
          }
       }
@@ -343,7 +343,7 @@ public class MainhandModule extends Module implements LethalDamageTracker.Lethal
          return;
       }
 
-      if (!noInteractModule.isToggled() && !event.isCancelled()) {
+      if (!schizo$noInteractModule().isToggled() && !event.isCancelled()) {
          this.interactionCooldownTimer.reset();
       }
    }
@@ -408,19 +408,19 @@ public class MainhandModule extends Module implements LethalDamageTracker.Lethal
    }
 
    public static void bindModuleConnections(ModuleRegistry registry) {
-      noInteractModule = (NoInteractModule)registry.getModule(
+      schizo$noInteractModule() = (NoInteractModule)registry.getModule(
          NoInteractModule.class
       );
-      autoCrystalModule = (AutoCrystalModule)registry.getModule(
+      schizo$autoCrystalModule() = (AutoCrystalModule)registry.getModule(
          AutoCrystalModule.class
       );
-      autoEatModule = (AutoEatModule)registry.getModule(
+      schizo$autoEatModule() = (AutoEatModule)registry.getModule(
          AutoEatModule.class
       );
-      autoExpModule = (AutoExpModule)registry.getModule(
+      schizo$autoExpModule() = (AutoExpModule)registry.getModule(
          AutoExpModule.class
       );
-      offhandModule = (OffhandModule)registry.getModule(
+      schizo$offhandModule() = (OffhandModule)registry.getModule(
          OffhandModule.class
       );
    }
@@ -448,5 +448,25 @@ public class MainhandModule extends Module implements LethalDamageTracker.Lethal
       this.interactionCooldownTimer = new ElapsedTimer();
       this.lethalDamageTracker = new LethalDamageTracker(this);
       this.autoSelectDelaySetting.setConfigName("SwapDelay");
+   }
+
+   private static NoInteractModule schizo$noInteractModule() {
+      return ClientContext.requireModule(NoInteractModule.class);
+   }
+
+   private static AutoCrystalModule schizo$autoCrystalModule() {
+      return ClientContext.requireModule(AutoCrystalModule.class);
+   }
+
+   private static AutoEatModule schizo$autoEatModule() {
+      return ClientContext.requireModule(AutoEatModule.class);
+   }
+
+   private static AutoExpModule schizo$autoExpModule() {
+      return ClientContext.requireModule(AutoExpModule.class);
+   }
+
+   private static OffhandModule schizo$offhandModule() {
+      return ClientContext.requireModule(OffhandModule.class);
    }
 }

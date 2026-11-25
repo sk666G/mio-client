@@ -10,7 +10,6 @@
 package dev.schizo.client.modules.client;
 
 import dev.schizo.client.utils.math.MathConstants;
-import dev.schizo.client.ClientContext;
 import dev.schizo.client.render.ColorUtils;
 import dev.schizo.client.render.FontRenderer;
 import dev.schizo.client.managers.ModuleRegistry;
@@ -50,7 +49,7 @@ public enum HudColorMode implements NamedEntry {
       }
    },
    RAINBOW("Rainbow") {
-      private static ColorsModule colorsModule = ClientContext.getModule(ColorsModule.class);
+      private static ColorsModule colorsModule;
 
       @Override
       public Color getColor(HUDModule hud, float position) {
@@ -74,8 +73,9 @@ public enum HudColorMode implements NamedEntry {
 
       @Override
       public void bindColorsModule(ModuleRegistry registry) {
-         colorsModule = (ColorsModule)registry.getModule(
-            ColorsModule.class
+         colorsModule = (ColorsModule)java.util.Objects.requireNonNull(
+            registry.getModule(ColorsModule.class),
+            "Required module is not registered: ColorsModule"
          );
       }
    },

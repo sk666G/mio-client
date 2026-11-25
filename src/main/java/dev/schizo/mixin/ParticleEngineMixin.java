@@ -26,7 +26,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(ParticleEngine.class)
 public abstract class ParticleEngineMixin {
-   private static final NoRenderModule noRenderModule = ClientContext.getModule(NoRenderModule.class);
 
    @Shadow
    @Nullable
@@ -48,11 +47,16 @@ public abstract class ParticleEngineMixin {
    private void suppressSelectedParticle(
       ParticleOptions options, double x, double y, double z, double velocityX, double velocityY, double velocityZ, CallbackInfoReturnable<Particle> callback
    ) {
-      if (noRenderModule.shouldHideParticle(
+      if (schizo$noRenderModule().shouldHideParticle(
          options
       )) {
          callback.setReturnValue(this.makeParticle(options, x, y, z, velocityX, velocityY, velocityZ));
          callback.cancel();
       }
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static NoRenderModule schizo$noRenderModule() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(NoRenderModule.class);
    }
 }

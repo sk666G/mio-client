@@ -40,9 +40,9 @@ import org.spongepowered.asm.mixin.injection.invoke.arg.Args;
 
 @Mixin(EndCrystalRenderer.class)
 public class EndCrystalRendererMixin {
-   private static final AutoCrystalModule autoCrystalModule = ClientContext.getModule(AutoCrystalModule.class);
-   private static final ChamsModule chamsModule = ClientContext.getModule(ChamsModule.class);
-   private static final AnimationsModule animationsModule = ClientContext.getModule(AnimationsModule.class);
+
+
+
    @Shadow
    @Final
    private static Identifier END_CRYSTAL_LOCATION;
@@ -51,33 +51,33 @@ public class EndCrystalRendererMixin {
 
    @ModifyArgs(method = "submit*", at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/vertex/PoseStack;scale(FFF)V", ordinal = 0))
    private void applyCrystalScale(Args arguments) {
-      if (animationsModule.isToggled()
-         && animationsModule.crystalsSetting.getValue()) {
+      if (schizo$animationsModule().isToggled()
+         && schizo$animationsModule().crystalsSetting.getValue()) {
          arguments.set(
             0,
             arguments.<Float>get(0)
-               * animationsModule.crystalScaleSetting.getValue()
+               * schizo$animationsModule().crystalScaleSetting.getValue()
          );
          arguments.set(
             1,
             arguments.<Float>get(1)
-               * animationsModule.crystalScaleSetting.getValue()
+               * schizo$animationsModule().crystalScaleSetting.getValue()
          );
          arguments.set(
             2,
             arguments.<Float>get(2)
-               * animationsModule.crystalScaleSetting.getValue()
+               * schizo$animationsModule().crystalScaleSetting.getValue()
          );
       }
    }
 
    @ModifyExpressionValue(method = "submit(Lnet/minecraft/client/renderer/entity/state/EndCrystalRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/renderer/state/CameraRenderState;)V", at = @At(value = "FIELD", target = "Lnet/minecraft/client/renderer/entity/EndCrystalRenderer;RENDER_TYPE:Lnet/minecraft/client/renderer/rendertype/RenderType;"))
    private RenderType selectCrystalRenderType(RenderType originalType) {
-      return chamsModule.isToggled()
-            && chamsModule.shouldRenderEntityInRange(
+      return schizo$chamsModule().isToggled()
+            && schizo$chamsModule().shouldRenderEntityInRange(
                renderedCrystal
             )
-            && chamsModule.xQZSetting.getValue()
+            && schizo$chamsModule().xQZSetting.getValue()
             && !ClientContext.shaderRegistry.renderingIntoTarget
          ? ClientRenderTypes.armorCutoutNoCull(END_CRYSTAL_LOCATION)
          : originalType;
@@ -100,8 +100,8 @@ public class EndCrystalRendererMixin {
                )
             && renderedCrystal.tickCount
                < 10
-            && autoCrystalModule.isToggled()
-            && (autoCrystalModule.instantSetting
+            && schizo$autoCrystalModule().isToggled()
+            && (schizo$autoCrystalModule().instantSetting
                   .getValue())
                .isEnabled()
             && ((EndCrystalState)renderedCrystal).isClientAttacked()) {
@@ -114,20 +114,20 @@ public class EndCrystalRendererMixin {
    private static void applyCrystalBobOffset(
       float age, CallbackInfoReturnable<Float> callback
    ) {
-      if (animationsModule.isToggled()
-         && animationsModule.crystalsSetting.getValue()) {
+      if (schizo$animationsModule().isToggled()
+         && schizo$animationsModule().crystalsSetting.getValue()) {
          float bobOffset = Mth.sin(age * 0.2F) / 2.0F + 0.5F;
          float floatFactor = 1.0F;
-         if (animationsModule.isToggled()
-            && animationsModule.crystalsSetting.getValue()) {
-            floatFactor = animationsModule.floatFactorSetting.getValue();
+         if (schizo$animationsModule().isToggled()
+            && schizo$animationsModule().crystalsSetting.getValue()) {
+            floatFactor = schizo$animationsModule().floatFactorSetting.getValue();
          }
 
          if (age < 10.0F
-            && autoCrystalModule.isToggled()
-            && animationsModule.floatFactorSetting.getValue()
+            && schizo$autoCrystalModule().isToggled()
+            && schizo$animationsModule().floatFactorSetting.getValue()
                != 0.0F
-            && (autoCrystalModule.instantSetting
+            && (schizo$autoCrystalModule().instantSetting
                   .getValue())
                .isEnabled()
             && ((EndCrystalState)renderedCrystal).isClientAttacked()) {
@@ -141,5 +141,20 @@ public class EndCrystalRendererMixin {
          callback.cancel();
          callback.setReturnValue(bobOffset - 1.4F);
       }
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static AutoCrystalModule schizo$autoCrystalModule() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(AutoCrystalModule.class);
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static ChamsModule schizo$chamsModule() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(ChamsModule.class);
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static AnimationsModule schizo$animationsModule() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(AnimationsModule.class);
    }
 }

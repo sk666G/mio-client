@@ -64,7 +64,6 @@ public class ParticlesModule extends Module {
 
    static {
 
-      colors = (ColorsModule)ClientContext.getModule(ColorsModule.class);
    }
 
    private void setParticleColor(SingleQuadParticle particle, int argb) {

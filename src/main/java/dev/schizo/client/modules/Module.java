@@ -17,6 +17,7 @@ import dev.schizo.client.integrations.MultiplayerCompatibilityPolicy;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.NamedFeature;
 import dev.schizo.client.events.bus.EventBus;
+import dev.schizo.client.profiling.RuntimeDiagnostics;
 import dev.schizo.client.utils.Toggleable;
 import dev.schizo.client.render.text.LanguageTable;
 import dev.schizo.client.managers.AliasRegistry;
@@ -97,11 +98,21 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
       this.compatibilityPolicySuppressed = false;
       this.enabled = true;
       ClientAccess.eventBus.subscribe(this);
-      EventBus eventBus = ClientAccess.eventBus;
-      ModuleToggleEvent toggleEvent = new ModuleToggleEvent(this);
-      eventBus.post(toggleEvent);
-      this.onToggle();
-      this.onEnable();
+      try {
+         EventBus eventBus = ClientAccess.eventBus;
+         eventBus.post(new ModuleToggleEvent(this));
+         this.onToggle();
+         this.onEnable();
+      } catch (RuntimeException | Error enableFailure) {
+         this.rollbackFailedEnable(enableFailure);
+         RuntimeDiagnostics.GLOBAL.record(
+            RuntimeDiagnostics.Area.MODULE_LIFECYCLE,
+            this.getName() + " enable",
+            enableFailure
+         );
+         ClientAccess.logger.error("Module {} failed while enabling; state was rolled back", this.getName(), enableFailure);
+         throw enableFailure;
+      }
    }
 
    public boolean unregister(Setting<?> setting) {
@@ -157,6 +168,22 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
    }
 
    public void onDisable() {
+   }
+
+   protected boolean scheduleRotationTask(Runnable task, int delay) {
+      return ClientContext.taskScheduler != null
+         && ClientContext.taskScheduler.scheduleRotationTask(this, task, delay);
+   }
+
+   protected boolean scheduleRunTickTask(Runnable task) {
+      return ClientContext.taskScheduler != null
+         && ClientContext.taskScheduler.scheduleRunTickTask(this, task);
+   }
+
+   protected int cancelScheduledTasks() {
+      return ClientContext.taskScheduler == null
+         ? 0
+         : ClientContext.taskScheduler.cancelTasks(this);
    }
 
    public void setDrawn(boolean drawn) {
@@ -281,11 +308,74 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
       }
       ClientAccess.eventBus.unsubscribe(this);
       this.enabled = false;
-      EventBus eventBus = ClientAccess.eventBus;
-      ModuleToggleEvent toggleEvent = new ModuleToggleEvent(this);
-      eventBus.post(toggleEvent);
-      this.onToggle();
-      this.onDisable();
+      this.cancelScheduledTasks();
+
+      Throwable failure = null;
+      try {
+         ClientAccess.eventBus.post(new ModuleToggleEvent(this));
+      } catch (RuntimeException | Error toggleEventFailure) {
+         failure = toggleEventFailure;
+      }
+      try {
+         this.onToggle();
+      } catch (RuntimeException | Error toggleFailure) {
+         failure = appendFailure(failure, toggleFailure);
+      }
+      try {
+         this.onDisable();
+      } catch (RuntimeException | Error disableFailure) {
+         failure = appendFailure(failure, disableFailure);
+      }
+
+      if (failure != null) {
+         RuntimeDiagnostics.GLOBAL.record(
+            RuntimeDiagnostics.Area.MODULE_LIFECYCLE,
+            this.getName() + " disable",
+            failure
+         );
+         ClientAccess.logger.error("Module {} failed while disabling; disabled state was preserved", this.getName(), failure);
+         rethrowUnchecked(failure);
+      }
+   }
+
+   private void rollbackFailedEnable(Throwable enableFailure) {
+      ClientAccess.eventBus.unsubscribe(this);
+      this.enabled = false;
+      this.compatibilityPolicySuppressed = false;
+      this.cancelScheduledTasks();
+
+      try {
+         ClientAccess.eventBus.post(new ModuleToggleEvent(this));
+      } catch (RuntimeException | Error rollbackFailure) {
+         enableFailure.addSuppressed(rollbackFailure);
+      }
+      try {
+         this.onToggle();
+      } catch (RuntimeException | Error rollbackFailure) {
+         enableFailure.addSuppressed(rollbackFailure);
+      }
+      try {
+         this.onDisable();
+      } catch (RuntimeException | Error rollbackFailure) {
+         enableFailure.addSuppressed(rollbackFailure);
+      }
+   }
+
+   private static Throwable appendFailure(Throwable current, Throwable next) {
+      if (current == null) {
+         return next;
+      }
+      if (current != next) {
+         current.addSuppressed(next);
+      }
+      return current;
+   }
+
+   private static void rethrowUnchecked(Throwable failure) {
+      if (failure instanceof Error error) {
+         throw error;
+      }
+      throw (RuntimeException)failure;
    }
 
    public String getInfoString() {

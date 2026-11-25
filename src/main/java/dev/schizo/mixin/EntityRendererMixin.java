@@ -29,7 +29,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(EntityRenderer.class)
 public abstract class EntityRendererMixin {
-   private static final NameTagsModule nameTagsModule = ClientContext.getModule(NameTagsModule.class);
 
    @Inject(method = "submitNameTag", at = @At("HEAD"), cancellable = true)
    private void postNameTagRenderCheck(
@@ -52,7 +51,7 @@ public abstract class EntityRendererMixin {
    private void suppressVanillaPlayerNameTag(
       Entity entity, double distanceSquared, CallbackInfoReturnable<Boolean> callback
    ) {
-      if (entity instanceof Player && nameTagsModule.isToggled()) {
+      if (entity instanceof Player && schizo$nameTagsModule().isToggled()) {
          callback.cancel();
          callback.setReturnValue(entity.hasCustomName());
       }
@@ -63,5 +62,10 @@ public abstract class EntityRendererMixin {
       Entity entity, EntityRenderState renderState, float partialTick, CallbackInfo callback
    ) {
       EntityRenderStateAccess.setEntity(renderState, entity);
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static NameTagsModule schizo$nameTagsModule() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(NameTagsModule.class);
    }
 }

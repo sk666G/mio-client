@@ -55,7 +55,7 @@ public final class AutoMineMiningTracker implements ClientAccess {
    }
 
    static {
-      speedMine = (SpeedMineModule)ClientContext.getModule(SpeedMineModule.class);
+
    }
 
 

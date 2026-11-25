@@ -38,7 +38,7 @@ import org.spongepowered.asm.mixin.injection.invoke.arg.Args;
 @Mixin(EquipmentLayerRenderer.class)
 public class EquipmentLayerRendererMixin {
    @Unique
-   private static final NoRenderModule noRenderModule = ClientContext.getModule(NoRenderModule.class);
+
    @Unique
    private LayerType currentLayerType;
 
@@ -72,8 +72,8 @@ public class EquipmentLayerRendererMixin {
          Color originalColor = new Color(
             arguments.<Integer>get(6)
          );
-         float opacity = noRenderModule.getArmorOpacity()
-            * noRenderModule.getEntityAlpha();
+         float opacity = schizo$noRenderModule().getArmorOpacity()
+            * schizo$noRenderModule().getEntityAlpha();
          arguments.set(
             6,
             ColorUtils.withAlpha(originalColor, opacity).hashCode()
@@ -92,8 +92,8 @@ public class EquipmentLayerRendererMixin {
          return originalType;
       }
 
-      float opacity = noRenderModule.getArmorOpacity()
-         * noRenderModule.getEntityAlpha();
+      float opacity = schizo$noRenderModule().getArmorOpacity()
+         * schizo$noRenderModule().getEntityAlpha();
       return opacity == 1.0F ? originalType : RenderTypes.entityTranslucent(texture);
    }
 
@@ -102,8 +102,8 @@ public class EquipmentLayerRendererMixin {
       at = @At(value = "INVOKE", target = "Lnet/minecraft/world/item/ItemStack;get(Lnet/minecraft/core/component/DataComponentType;)Ljava/lang/Object;")
    )
    private Object suppressArmorTrim(Object originalTrim) {
-      return noRenderModule.isToggled()
-            && noRenderModule.armorTrimSetting.getValue()
+      return schizo$noRenderModule().isToggled()
+            && schizo$noRenderModule().armorTrimSetting.getValue()
          ? null
          : originalTrim;
    }
@@ -114,5 +114,10 @@ public class EquipmentLayerRendererMixin {
          ? false
          : this.currentLayerType != LayerType.HUMANOID
             && this.currentLayerType != LayerType.HUMANOID_LEGGINGS;
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static NoRenderModule schizo$noRenderModule() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(NoRenderModule.class);
    }
 }

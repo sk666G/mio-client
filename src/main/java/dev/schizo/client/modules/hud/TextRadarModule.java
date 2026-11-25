@@ -70,8 +70,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
 public class TextRadarModule extends HudWidgetModule {
-   private static final FontsModule fonts;
-   private static final NameProtectModule nameProtect;
+
    private static final Color SNEAKING_COLOR;
    private final Setting<SortMode> sortSetting;
    private final Setting<Boolean> healthSetting;
@@ -95,8 +94,6 @@ public class TextRadarModule extends HudWidgetModule {
 
    static {
 
-      fonts = ClientContext.getModule(FontsModule.class);
-      nameProtect = ClientContext.getModule(NameProtectModule.class);
 
       SNEAKING_COLOR = new Color(
          10945959,
@@ -124,12 +121,12 @@ public class TextRadarModule extends HudWidgetModule {
       }
       GameProfile profile = player.getGameProfile();
       String playerName = profile.name();
-      NameProtectModule nameProtectForToggle = nameProtect;
+      NameProtectModule nameProtectForToggle = schizo$nameProtect();
       if (nameProtectForToggle.isToggled()) {
          boolean previousNameProtectState = NameProtectModule.replacementBypassed;
          try {
             NameProtectModule.replacementBypassed = !previousNameProtectState;
-            playerName = nameProtect.protectNames(playerName);
+            playerName = schizo$nameProtect().protectNames(playerName);
          } finally {
             NameProtectModule.replacementBypassed = previousNameProtectState;
          }
@@ -334,7 +331,7 @@ public class TextRadarModule extends HudWidgetModule {
 
    @Override
    public void renderContent(PoseStack poses) {
-      FontsModule fontsForToggle = fonts;
+      FontsModule fontsForToggle = schizo$fonts();
       float headSpacing;
       if (fontsForToggle.isToggled()) {
          headSpacing = 0.0F;
@@ -636,5 +633,13 @@ public class TextRadarModule extends HudWidgetModule {
       SortMode(String displayNameArgument) {
          this.displayName = displayNameArgument;
       }
+   }
+
+   private static FontsModule schizo$fonts() {
+      return ClientContext.requireModule(FontsModule.class);
+   }
+
+   private static NameProtectModule schizo$nameProtect() {
+      return ClientContext.requireModule(NameProtectModule.class);
    }
 }

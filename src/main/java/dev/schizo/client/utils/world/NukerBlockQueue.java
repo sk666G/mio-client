@@ -27,7 +27,7 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 public final class NukerBlockQueue implements ClientAccess {
-   private static SpeedMineModule speedMineModule = ClientContext.getModule(SpeedMineModule.class);
+
    private final List<BlockPos> positions = new ArrayList<>();
    private final NukerModule nukerModule;
 
@@ -44,9 +44,9 @@ public final class NukerBlockQueue implements ClientAccess {
    }
 
    private boolean shouldRemovePosition(BlockPos blockPos) {
-      SpeedMineModule speedMineForToggle = speedMineModule;
+      SpeedMineModule speedMineForToggle = schizo$speedMineModule();
       if (speedMineForToggle.isToggled()) {
-         SpeedMineModule speedMineSnapshot = speedMineModule;
+         SpeedMineModule speedMineSnapshot = schizo$speedMineModule();
 
          ExtraBreakTracker pendingTaskSnapshot = speedMineSnapshot.getExtraBreakTracker();
 
@@ -89,9 +89,13 @@ public final class NukerBlockQueue implements ClientAccess {
    }
 
    public static void bindModules(ModuleRegistry modules) {
-      speedMineModule = (SpeedMineModule)modules.getModule(
+      schizo$speedMineModule() = (SpeedMineModule)modules.getModule(
          SpeedMineModule.class
       );
    }
 
+
+   private static SpeedMineModule schizo$speedMineModule() {
+      return ClientContext.requireModule(SpeedMineModule.class);
+   }
 }

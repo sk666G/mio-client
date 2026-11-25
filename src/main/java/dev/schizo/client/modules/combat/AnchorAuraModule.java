@@ -73,10 +73,10 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 
 public class AnchorAuraModule extends Module {
-   private static AntiCheatModule antiCheat = (AntiCheatModule)ClientContext.getModule(AntiCheatModule.class);
-   private static OffhandModule offhand = (OffhandModule)ClientContext.getModule(OffhandModule.class);
-   private static AutoCrystalModule autoCrystal = (AutoCrystalModule)ClientContext.getModule(AutoCrystalModule.class);
-   private static SpeedMineModule speedMine = (SpeedMineModule)ClientContext.getModule(SpeedMineModule.class);
+
+
+
+
    private static final long SCAN_BUDGET_NANOS = TimeUnit.MILLISECONDS.toNanos(2L);
    private static final int MAX_SCAN_CANDIDATES_PER_TICK = 64;
    private final Setting<Integer> delaySetting;
@@ -110,8 +110,8 @@ public class AnchorAuraModule extends Module {
    private InteractionHand selectAnchorHand() {
       boolean offhandFlag = false;
 
-      if (offhand.isToggled()) {
-         offhandFlag = (offhand.itemSetting.getValue()).getItem(false) == Items.RESPAWN_ANCHOR;
+      if (schizo$offhand().isToggled()) {
+         offhandFlag = (schizo$offhand().itemSetting.getValue()).getItem(false) == Items.RESPAWN_ANCHOR;
       }
 
       Item anchorItemSnapshot = Items.RESPAWN_ANCHOR;
@@ -185,9 +185,9 @@ public class AnchorAuraModule extends Module {
          }
       }
 
-      if (autoCrystal.isToggled()) {
-         if (autoCrystal.placementData.get() != null && this.targetDamage != null) {
-            double crystalDamage = ((CrystalPlacementResult)autoCrystal.placementData.get()).damage();
+      if (schizo$autoCrystal().isToggled()) {
+         if (schizo$autoCrystal().placementData.get() != null && this.targetDamage != null) {
+            double crystalDamage = ((CrystalPlacementResult)schizo$autoCrystal().placementData.get()).damage();
             AnchorTargetDamage anchorDamageSnapshot = this.targetDamage;
 
             if (crystalDamage > anchorDamageSnapshot.damage()) {
@@ -205,15 +205,15 @@ public class AnchorAuraModule extends Module {
    boolean shouldIgnoreMiningBlock() {
       boolean miningThresholdReached = false;
 
-      double miningDamage = speedMine.getMiningProgress();
-      SpeedMineModule progressSnapshot = speedMine;
+      double miningDamage = schizo$speedMine().getMiningProgress();
+      SpeedMineModule progressSnapshot = schizo$speedMine();
 
       double projectedDamage = miningDamage + progressSnapshot.getTickBreakProgress() * 2.0F;
-      Setting<Float> thresholdSetting = speedMine.damageSetting;
+      Setting<Float> thresholdSetting = schizo$speedMine().damageSetting;
       Float threshold = thresholdSetting.getValue();
       if (projectedDamage >= threshold.floatValue()) {
-         if (speedMine.getMiningOrNearlyBrokenPos() != null) {
-            BlockPos miningPositionSnapshot = speedMine.getMiningOrNearlyBrokenPos();
+         if (schizo$speedMine().getMiningOrNearlyBrokenPos() != null) {
+            BlockPos miningPositionSnapshot = schizo$speedMine().getMiningOrNearlyBrokenPos();
 
             if (WorldUtils.canMineBlock(miningPositionSnapshot)) {
                miningThresholdReached = true;
@@ -226,7 +226,7 @@ public class AnchorAuraModule extends Module {
             return true;
          }
 
-         if (!(speedMine.hasCrystalDelayElapsed(100L))) {
+         if (!(schizo$speedMine().hasCrystalDelayElapsed(100L))) {
             return true;
          }
       }
@@ -289,7 +289,7 @@ public class AnchorAuraModule extends Module {
 
       BlockPos miningBlockSnapshot;
       if (this.shouldIgnoreMiningBlock()) {
-         miningBlockSnapshot = speedMine.getMiningPos();
+         miningBlockSnapshot = schizo$speedMine().getMiningPos();
       } else {
          miningBlockSnapshot = null;
       }
@@ -445,7 +445,7 @@ public class AnchorAuraModule extends Module {
          Item anchorItemSnapshot = Items.RESPAWN_ANCHOR;
          int anchorSlot = InventoryUtils.findHotbarSlot(anchorItemSnapshot);
          boolean offhandSwap = BlockInteractionUtils.findSupportDirection(position) == null
-            && antiCheat.is2b2tEnabled() && this.airPlaceSetting.getValue();
+            && schizo$antiCheat().is2b2tEnabled() && this.airPlaceSetting.getValue();
 
          if (anchorSlot != -1 || hand != InteractionHand.MAIN_HAND) {
             if (this.rotateSetting.getValue()) {
@@ -512,7 +512,7 @@ public class AnchorAuraModule extends Module {
       }
 
       boolean miningBlockIgnored = false;
-      if (this.shouldIgnoreMiningBlock() && scanPosition.equals(speedMine.getMiningPos())) {
+      if (this.shouldIgnoreMiningBlock() && scanPosition.equals(schizo$speedMine().getMiningPos())) {
          miningBlockIgnored = true;
       }
 
@@ -822,16 +822,16 @@ public class AnchorAuraModule extends Module {
    }
 
    public static void bindReferencedModules(ModuleRegistry registry) {
-      antiCheat = (AntiCheatModule)registry.getModule(
+      schizo$antiCheat() = (AntiCheatModule)registry.getModule(
          AntiCheatModule.class
       );
-      offhand = (OffhandModule)registry.getModule(
+      schizo$offhand() = (OffhandModule)registry.getModule(
          OffhandModule.class
       );
-      autoCrystal = (AutoCrystalModule)registry.getModule(
+      schizo$autoCrystal() = (AutoCrystalModule)registry.getModule(
          AutoCrystalModule.class
       );
-      speedMine = (SpeedMineModule)registry.getModule(
+      schizo$speedMine() = (SpeedMineModule)registry.getModule(
          SpeedMineModule.class
       );
    }
@@ -877,5 +877,21 @@ public class AnchorAuraModule extends Module {
          450
       );
       renderer.register(renderConfiguration);
+   }
+
+   private static AntiCheatModule schizo$antiCheat() {
+      return ClientContext.requireModule(AntiCheatModule.class);
+   }
+
+   private static OffhandModule schizo$offhand() {
+      return ClientContext.requireModule(OffhandModule.class);
+   }
+
+   private static AutoCrystalModule schizo$autoCrystal() {
+      return ClientContext.requireModule(AutoCrystalModule.class);
+   }
+
+   private static SpeedMineModule schizo$speedMine() {
+      return ClientContext.requireModule(SpeedMineModule.class);
    }
 }

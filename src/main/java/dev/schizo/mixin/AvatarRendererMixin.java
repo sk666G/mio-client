@@ -50,9 +50,9 @@ import org.spongepowered.asm.mixin.injection.invoke.arg.Args;
 
 @Mixin(AvatarRenderer.class)
 public abstract class AvatarRendererMixin extends LivingEntityRenderer {
-   private static final AnimationsModule avatarAnimationsModule = ClientContext.getModule(AnimationsModule.class);
-   private static final NoRenderModule noRenderModule = ClientContext.getModule(NoRenderModule.class);
-   private static final ElytraFlyModule elytraFlyModule = ClientContext.getModule(ElytraFlyModule.class);
+
+
+
    @Unique
    AbstractClientPlayer cachedScalingPlayer;
 
@@ -64,7 +64,7 @@ public abstract class AvatarRendererMixin extends LivingEntityRenderer {
    private void applyRemotePlayerSneakOffset(
       AvatarRenderState renderState, CallbackInfoReturnable<Vec3> callback
    ) {
-      if (avatarAnimationsModule.isSneakingAnimationEnabled()
+      if (schizo$avatarAnimationsModule().isSneakingAnimationEnabled()
          && !ClientAccess.isLocalPlayer(
             EntityRenderStateAccess.getEntity(renderState)
          )) {
@@ -85,27 +85,27 @@ public abstract class AvatarRendererMixin extends LivingEntityRenderer {
    private void applyPlayerScaleAndSneakState(
       Args arguments, @Local(argsOnly = true) AvatarRenderState renderState
    ) {
-      if (avatarAnimationsModule.isToggled()
-         && avatarAnimationsModule.isPlayerScalingEnabled()
+      if (schizo$avatarAnimationsModule().isToggled()
+         && schizo$avatarAnimationsModule().isPlayerScalingEnabled()
          && this.cachedScalingPlayer != Minecraft.getInstance().player) {
          arguments.set(
             0,
             arguments.<Float>get(0)
-               * avatarAnimationsModule.playerScaleSetting.getValue()
+               * schizo$avatarAnimationsModule().playerScaleSetting.getValue()
          );
          arguments.set(
             1,
             arguments.<Float>get(1)
-               * avatarAnimationsModule.playerScaleSetting.getValue()
+               * schizo$avatarAnimationsModule().playerScaleSetting.getValue()
          );
          arguments.set(
             2,
             arguments.<Float>get(2)
-               * avatarAnimationsModule.playerScaleSetting.getValue()
+               * schizo$avatarAnimationsModule().playerScaleSetting.getValue()
          );
       }
 
-      if (avatarAnimationsModule.isSneakingAnimationEnabled()
+      if (schizo$avatarAnimationsModule().isSneakingAnimationEnabled()
          && !ClientAccess.isLocalPlayer(
             this.cachedScalingPlayer
          )) {
@@ -116,12 +116,12 @@ public abstract class AvatarRendererMixin extends LivingEntityRenderer {
 
    @ModifyArgs(method = "setupRotations", at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/vertex/PoseStack;mulPose(Lorg/joml/Quaternionfc;)V"))
    private void applySilentElytraPitch(Args arguments) {
-      if (elytraFlyModule.isToggled()) {
-         if (elytraFlyModule.modeSetting.getValue()
+      if (schizo$elytraFlyModule().isToggled()) {
+         if (schizo$elytraFlyModule().modeSetting.getValue()
                == ElytraFlyModule.ModeChoice.BOUNCE
-            && elytraFlyModule.canStartFlightFromJump()
-            && elytraFlyModule.pitchLockSetting.getValue()
-            && elytraFlyModule.silentSetting.getValue()) {
+            && schizo$elytraFlyModule().canStartFlightFromJump()
+            && schizo$elytraFlyModule().pitchLockSetting.getValue()
+            && schizo$elytraFlyModule().silentSetting.getValue()) {
             arguments.set(
                0,
                Axis.XP
@@ -138,8 +138,8 @@ public abstract class AvatarRendererMixin extends LivingEntityRenderer {
    private RenderType applyAvatarHandShaderType(
       RenderType originalType, @Local(argsOnly = true) Identifier texture
    ) {
-      return noRenderModule.isToggled()
-            && noRenderModule.handsSetting.getValue()
+      return schizo$noRenderModule().isToggled()
+            && schizo$noRenderModule().handsSetting.getValue()
             && ClientContext.shaderRegistry.renderingIntoTarget
          ? RenderTypes.entitySolid(texture)
          : originalType;
@@ -152,7 +152,7 @@ public abstract class AvatarRendererMixin extends LivingEntityRenderer {
    private RenderType applyAvatarHandOpacity(
       RenderType originalType, @Local(argsOnly = true) Identifier texture
    ) {
-      return noRenderModule.getHandOpacity()
+      return schizo$noRenderModule().getHandOpacity()
             != 1.0F
          ? ClientRenderTypes.entitySolid(texture)
          : originalType;
@@ -178,5 +178,20 @@ public abstract class AvatarRendererMixin extends LivingEntityRenderer {
    @Override
    protected float getShadowRadius(EntityRenderState renderState) {
       return super.getShadowRadius((LivingEntityRenderState)renderState);
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static AnimationsModule schizo$avatarAnimationsModule() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(AnimationsModule.class);
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static NoRenderModule schizo$noRenderModule() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(NoRenderModule.class);
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static ElytraFlyModule schizo$elytraFlyModule() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(ElytraFlyModule.class);
    }
 }

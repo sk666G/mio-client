@@ -13,6 +13,7 @@ import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.config.ModuleConfigLoadReport;
 import dev.schizo.client.NamedFeature;
+import dev.schizo.client.profiling.RuntimeDiagnostics;
 import dev.schizo.client.events.InputPressEvent;
 import dev.schizo.client.events.WorldRenderEvent;
 import dev.schizo.client.events.EventHandler;
@@ -39,6 +40,7 @@ import java.util.List;
 import java.util.function.Function;
 
 public final class ModuleRegistry extends Registry<Module> implements ClientAccess, JsonConfigurable {
+   public static final int CURRENT_SCHEMA_VERSION = 1;
    private final Object2ObjectOpenHashMap<Class<?>, Module> modulesByClass = new Object2ObjectOpenHashMap<>();
    private final ModuleConfigLoadReport lastConfigLoadReport = new ModuleConfigLoadReport();
 
@@ -272,6 +274,13 @@ public final class ModuleRegistry extends Registry<Module> implements ClientAcce
 
    @Override
    public void fromJson(JsonElement config) {
+      JsonObject configObject = config.getAsJsonObject();
+      if (configObject.has("version")
+         && (!configObject.get("version").isJsonPrimitive()
+            || !configObject.get("version").getAsJsonPrimitive().isNumber()
+            || configObject.get("version").getAsInt() != CURRENT_SCHEMA_VERSION)) {
+         throw new IllegalArgumentException("Unsupported modules.json schema version");
+      }
       this.lastConfigLoadReport.clear();
       List<Module> registeredModules = (List<Module>)this.getRegistry();
       Iterator<Module> modulesIterator = registeredModules.iterator();
@@ -280,7 +289,6 @@ public final class ModuleRegistry extends Registry<Module> implements ClientAcce
          Module module = modulesIterator.next();
          if (module instanceof HudWidgetModule) continue;
          try {
-            JsonObject configObject = config.getAsJsonObject();
             String moduleConfigName = module.getConfigName();
             JsonElement moduleConfig = dev.schizo.client.config.LegacyBranding.findModuleConfig(configObject, moduleConfigName);
             module.fromJson(moduleConfig);
@@ -300,6 +308,7 @@ public final class ModuleRegistry extends Registry<Module> implements ClientAcce
    public JsonElement toJson() {
       JsonObject config = new JsonObject();
 
+      config.addProperty("version", CURRENT_SCHEMA_VERSION);
       config.addProperty("client", "schizo");
 
       config.addProperty("category", "all");
@@ -313,7 +322,22 @@ public final class ModuleRegistry extends Registry<Module> implements ClientAcce
                String moduleConfigName = module.getConfigName();
                JsonElement moduleConfig = module.toJson();
                config.add(moduleConfigName, moduleConfig);
-            } catch (Exception ignoredFailure) {
+            } catch (Exception serializationFailure) {
+               RuntimeDiagnostics.GLOBAL.record(
+                  RuntimeDiagnostics.Area.CONFIG_SERIALIZATION,
+                  module.getName(),
+                  serializationFailure
+               );
+               ClientAccess.logger.error(
+                  "Could not serialize module {} into modules.json",
+                  module.getName(),
+                  serializationFailure
+               );
+               throw new IllegalStateException(
+                  "Refusing to write a partial modules.json after module serialization failure: "
+                     + module.getName(),
+                  serializationFailure
+               );
             }
          }
       }

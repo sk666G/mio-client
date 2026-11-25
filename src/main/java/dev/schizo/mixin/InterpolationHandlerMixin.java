@@ -23,7 +23,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(InterpolationHandler.class)
 public abstract class InterpolationHandlerMixin {
-   private static final NoRenderModule noRenderModule = ClientContext.getModule(NoRenderModule.class);
+
    @Shadow
    @Final
    private Entity entity;
@@ -35,11 +35,16 @@ public abstract class InterpolationHandlerMixin {
    private void suppressEntityInterpolation(
       Vec3 position, float yaw, float pitch, CallbackInfo callback
    ) {
-      if (noRenderModule.isToggled()
-         && noRenderModule.interpolationSetting.getValue()) {
+      if (schizo$noRenderModule().isToggled()
+         && schizo$noRenderModule().interpolationSetting.getValue()) {
          this.entity.snapTo(position, yaw, pitch);
          this.cancel();
          callback.cancel();
       }
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static NoRenderModule schizo$noRenderModule() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(NoRenderModule.class);
    }
 }

@@ -17,6 +17,14 @@ class NumberSettingTest {
    }
 
    @Test
+   void fractionalJsonDoesNotSilentlyTruncateIntegralSettings() {
+      var setting = new NumberSetting<>("Count", 4, 0, 10);
+      assertThrows(IllegalArgumentException.class, () -> setting.fromJson(new JsonPrimitive(4.75D)));
+      assertEquals(4, setting.getValue().intValue());
+      assertEquals(4, setting.getStagedValue().intValue());
+   }
+
+   @Test
    void oversizedIntegerInJsonClampsAtTheCorrectEnd() {
       var setting = new NumberSetting<>("Limit", 0, -10, 10);
       setting.fromJson(new JsonPrimitive(2147483648L));

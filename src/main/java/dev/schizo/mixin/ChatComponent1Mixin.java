@@ -29,13 +29,12 @@ import org.spongepowered.asm.mixin.injection.At;
 
 @Mixin(targets = "net/minecraft/client/gui/components/ChatComponent$1")
 public class ChatComponent1Mixin {
-   private static final NoRenderModule noRenderModule = ClientContext.getModule(NoRenderModule.class);
-   private static final BetterChatModule betterChatModule = ClientContext.getModule(BetterChatModule.class);
+
 
    @ModifyExpressionValue(method = "accept", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/GuiMessage$Line;tag()Lnet/minecraft/client/GuiMessageTag;"))
    private GuiMessageTag hideMessageIndicator(GuiMessageTag originalTag) {
-      return noRenderModule.isToggled()
-            && noRenderModule.messageIndicatorSetting.getValue()
+      return schizo$noRenderModule().isToggled()
+            && schizo$noRenderModule().messageIndicatorSetting.getValue()
          ? null
          : originalTag;
    }
@@ -47,35 +46,35 @@ public class ChatComponent1Mixin {
       ChatLineAccess lineAccess = (ChatLineAccess)(Object)line;
       Minecraft minecraft = Minecraft.getInstance();
       int offsetX = 0;
-      offsetX -= noRenderModule.isToggled()
-            && noRenderModule.messageIndicatorSetting.getValue()
+      offsetX -= schizo$noRenderModule().isToggled()
+            && schizo$noRenderModule().messageIndicatorSetting.getValue()
          ? 3
          : 0;
-      if (betterChatModule.isAnimationEnabled()) {
+      if (schizo$betterChatModule().isAnimationEnabled()) {
          lineAccess.getProgress()
             .setTarget(
                true
             );
          float progress = lineAccess.getProgress().updateAndGet();
          long addedAtMillis = lineAccess.schizo$getAddTime();
-         boolean animateBothAxes = betterChatModule.typeSetting.getValue()
+         boolean animateBothAxes = schizo$betterChatModule().typeSetting.getValue()
             == BetterChatModule.TypeChoice.BOTH;
-         if (betterChatModule.typeSetting.getValue()
+         if (schizo$betterChatModule().typeSetting.getValue()
                == BetterChatModule.TypeChoice.VERTICAL
             || animateBothAxes) {
             messageY = (int)(messageY + 9.0F * (1.0F - progress));
          }
 
-         if (betterChatModule.typeSetting.getValue()
+         if (schizo$betterChatModule().typeSetting.getValue()
                == BetterChatModule.TypeChoice.HORIZONTAL
             || animateBothAxes) {
             offsetX = (int)(offsetX - minecraft.font.width(text) * (1.0F - progress));
          }
 
-         if (betterChatModule.alphaSetting.getValue() != 0) {
+         if (schizo$betterChatModule().alphaSetting.getValue() != 0) {
             float fadeProgress = Mth.clamp(
                (float)(System.currentTimeMillis() - addedAtMillis)
-                  / (betterChatModule.alphaSetting.getValue())
+                  / (schizo$betterChatModule().alphaSetting.getValue())
                      .intValue(),
                0.0F,
                1.0F
@@ -92,5 +91,15 @@ public class ChatComponent1Mixin {
       }
 
       return (Boolean)original.call(graphics, messageY, opacity, text);
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static NoRenderModule schizo$noRenderModule() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(NoRenderModule.class);
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static BetterChatModule schizo$betterChatModule() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(BetterChatModule.class);
    }
 }

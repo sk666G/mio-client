@@ -83,13 +83,13 @@ import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import org.slf4j.Logger;
 public class OffhandModule extends Module implements LethalDamageTracker.LethalCheckPolicy {
-   private static AutoCrystalModule autoCrystalModule = (AutoCrystalModule)ClientContext.getModule(AutoCrystalModule.class);
-   private static OffhandModule offhandModule = (OffhandModule)ClientContext.getModule(OffhandModule.class);
-   private static NoInteractModule noInteractModule = (NoInteractModule)ClientContext.getModule(NoInteractModule.class);
-   private static AntiCheatModule antiCheatModule = (AntiCheatModule)ClientContext.getModule(AntiCheatModule.class);
-   private static NoSlowModule noSlowModule = (NoSlowModule)ClientContext.getModule(NoSlowModule.class);
-   private static MainhandModule mainhandModule = (MainhandModule)ClientContext.getModule(MainhandModule.class);
-   private static NoFallModule noFallModule = (NoFallModule)ClientContext.getModule(NoFallModule.class);
+
+
+
+
+
+
+
    public final Setting<OffhandItemChoice> itemSetting;
    final Setting<Set<Item>> customSetting;
    private final Setting<Integer> delaySetting;
@@ -185,7 +185,7 @@ public class OffhandModule extends Module implements LethalDamageTracker.LethalC
    public static boolean isRecentSwapWindowActive() {
       if (RECENT_SWAP_TIMER.hasElapsed(50L)) return false;
 
-      return offhandModule.isToggled();
+      return schizo$offhandModule().isToggled();
    }
    public OffhandItemChoice applyGappleBind(OffhandItemChoice incomingChoice) {
       return applyGappleBind(this, incomingChoice);
@@ -198,7 +198,7 @@ public class OffhandModule extends Module implements LethalDamageTracker.LethalC
       HitResult hitResult = ClientAccess.schizoMinecraft.hitResult;
       if (WorldUtils.isInteractive(hitResult)) {
          if (!ClientAccess.schizoMinecraft.player.isShiftKeyDown()) {
-            if (!noInteractModule.isToggled()) return incomingChoice;
+            if (!schizo$noInteractModule().isToggled()) return incomingChoice;
          }
       }
       float currentHealthWithAbsorption = EntityUtils.getPlayerHealthWithAbsorption();
@@ -345,7 +345,7 @@ public class OffhandModule extends Module implements LethalDamageTracker.LethalC
    private static boolean shouldUseStrictTick() {
       if (RotationManager.isSilentRotationMode()) return false;
 
-      return noSlowModule.getStrictInventoryMode() == NoSlowStrictInventoryChoice.GRIM_STRICT;
+      return schizo$noSlowModule().getStrictInventoryMode() == NoSlowStrictInventoryChoice.GRIM_STRICT;
    }
    private MutableComponent withGameLogTooltip(MutableComponent component) {
       return component.withStyle(style -> style.withHoverEvent(new ShowText(Component.literal("More info in the game log."))));
@@ -363,7 +363,7 @@ public class OffhandModule extends Module implements LethalDamageTracker.LethalC
       Object noIncomingChoice = null;
       if (this.applyGappleBind((OffhandItemChoice)noIncomingChoice) == null) return;
 
-      if (antiCheatModule.is2b2tEnabled()) return;
+      if (schizo$antiCheatModule().is2b2tEnabled()) return;
       MultiPlayerGameMode gameMode = ClientAccess.schizoMinecraft.gameMode;
       LocalPlayer player = ClientAccess.schizoMinecraft.player;
       InteractionHand offhand = InteractionHand.OFF_HAND;
@@ -424,9 +424,9 @@ public class OffhandModule extends Module implements LethalDamageTracker.LethalC
       }
    }
    private boolean shouldDiscardTotem() {
-      if (!autoCrystalModule.isToggled()) return false;
+      if (!schizo$autoCrystalModule().isToggled()) return false;
 
-      if (!autoCrystalModule.forceSuicideSetting.getValue()) return false;
+      if (!schizo$autoCrystalModule().forceSuicideSetting.getValue()) return false;
 
       return this.itemSetting.getValue() == OffhandItemChoice.Totem;
    }
@@ -479,7 +479,7 @@ public class OffhandModule extends Module implements LethalDamageTracker.LethalC
    void beginInventorySwap() {
       ClientContext.inventoryStateManager.setClickBatching(true);
 
-      noSlowModule.prepareForInventoryAction();
+      schizo$noSlowModule().prepareForInventoryAction();
    }
    private boolean isServerLagging() {
       int latencyMillis = ClientContext.serverStateManager.getLatencyMillis();
@@ -499,7 +499,7 @@ public class OffhandModule extends Module implements LethalDamageTracker.LethalC
 
       if (ClientAccess.schizoMinecraft.player.hasEffect(MobEffects.SLOW_FALLING)) return true;
 
-      if (noFallModule.isToggled()) return true;
+      if (schizo$noFallModule().isToggled()) return true;
       float trackedDownwardDistance = PlayerStateUtils.getTrackedFallDistance();
       return trackedDownwardDistance < 16.0F;
    }
@@ -539,8 +539,8 @@ public class OffhandModule extends Module implements LethalDamageTracker.LethalC
       this.swapToChosenItem();
    }
    private OffhandItemChoice selectOffhandChoice() {
-      if (autoCrystalModule.isToggled()) {
-         if (autoCrystalModule.forceSuicideSetting.getValue()) {
+      if (schizo$autoCrystalModule().isToggled()) {
+         if (schizo$autoCrystalModule().forceSuicideSetting.getValue()) {
             if (this.itemSetting.getValue() != OffhandItemChoice.Totem) return OffhandItemChoice.Crystal;
          }
       }
@@ -573,10 +573,10 @@ public class OffhandModule extends Module implements LethalDamageTracker.LethalC
       return this.applyGappleBind(choiceBeforeGappleBind);
    }
    boolean isMainhandManagingTotemOrFood() {
-      if (!mainhandModule.isToggled()) return false;
+      if (!schizo$mainhandModule().isToggled()) return false;
 
       int selectedHotbarSlot = ClientAccess.schizoMinecraft.player.getInventory().getSelectedSlot();
-      MainhandModule mainhandForSlot = mainhandModule;
+      MainhandModule mainhandForSlot = schizo$mainhandModule();
       if (selectedHotbarSlot != mainhandForSlot.getConfiguredHotbarSlot()) return false;
 
       ItemStack mainhandStack = ClientAccess.schizoMinecraft.player.getMainHandItem();
@@ -601,25 +601,25 @@ public class OffhandModule extends Module implements LethalDamageTracker.LethalC
       owner.hasInventoryTotem = totemFound;
    }
    public static void bindModuleConnections(ModuleRegistry modules) {
-      autoCrystalModule = (AutoCrystalModule)modules.getModule(
+      schizo$autoCrystalModule() = (AutoCrystalModule)modules.getModule(
          AutoCrystalModule.class
       );
-      offhandModule = (OffhandModule)modules.getModule(
+      schizo$offhandModule() = (OffhandModule)modules.getModule(
          OffhandModule.class
       );
-      noInteractModule = (NoInteractModule)modules.getModule(
+      schizo$noInteractModule() = (NoInteractModule)modules.getModule(
          NoInteractModule.class
       );
-      antiCheatModule = (AntiCheatModule)modules.getModule(
+      schizo$antiCheatModule() = (AntiCheatModule)modules.getModule(
          AntiCheatModule.class
       );
-      noSlowModule = (NoSlowModule)modules.getModule(
+      schizo$noSlowModule() = (NoSlowModule)modules.getModule(
          NoSlowModule.class
       );
-      mainhandModule = (MainhandModule)modules.getModule(
+      schizo$mainhandModule() = (MainhandModule)modules.getModule(
          MainhandModule.class
       );
-      noFallModule = (NoFallModule)modules.getModule(
+      schizo$noFallModule() = (NoFallModule)modules.getModule(
          NoFallModule.class
       );
       OffhandItemChoice.bindModuleRegistry(modules);
@@ -680,5 +680,33 @@ public class OffhandModule extends Module implements LethalDamageTracker.LethalC
          Setting<OffhandItemChoice> itemOption = this.itemSetting;
          return itemOption.getValue() == OffhandItemChoice.Custom;
       });
+   }
+
+   private static AutoCrystalModule schizo$autoCrystalModule() {
+      return ClientContext.requireModule(AutoCrystalModule.class);
+   }
+
+   private static OffhandModule schizo$offhandModule() {
+      return ClientContext.requireModule(OffhandModule.class);
+   }
+
+   private static NoInteractModule schizo$noInteractModule() {
+      return ClientContext.requireModule(NoInteractModule.class);
+   }
+
+   private static AntiCheatModule schizo$antiCheatModule() {
+      return ClientContext.requireModule(AntiCheatModule.class);
+   }
+
+   private static NoSlowModule schizo$noSlowModule() {
+      return ClientContext.requireModule(NoSlowModule.class);
+   }
+
+   private static MainhandModule schizo$mainhandModule() {
+      return ClientContext.requireModule(MainhandModule.class);
+   }
+
+   private static NoFallModule schizo$noFallModule() {
+      return ClientContext.requireModule(NoFallModule.class);
    }
 }

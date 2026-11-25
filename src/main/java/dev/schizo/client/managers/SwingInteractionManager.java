@@ -42,12 +42,20 @@ import net.minecraft.world.phys.AABB;
 
 public final class SwingInteractionManager implements ClientAccess {
    private static final long PENDING_CRYSTAL_TTL_NANOS = TimeUnit.MILLISECONDS.toNanos(300L);
-   private static final AntiCheatModule antiCheat;
-   private static final SwingModule swingModule;
+   private final AntiCheatModule antiCheat;
+   private final SwingModule swingModule;
    private final List<PendingCrystalPlacement> pendingCrystals;
    private volatile long sessionGeneration;
 
    public SwingInteractionManager() {
+      this.antiCheat = java.util.Objects.requireNonNull(
+         ClientContext.getModule(AntiCheatModule.class),
+         "Required module is not registered: AntiCheatModule"
+      );
+      this.swingModule = java.util.Objects.requireNonNull(
+         ClientContext.getModule(SwingModule.class),
+         "Required module is not registered: SwingModule"
+      );
       List<PendingCrystalPlacement> pending = new ArrayList<>(initialCrystalCapacity());
       this.pendingCrystals = Collections.synchronizedList(pending);
       EventBus eventBus = ClientAccess.eventBus;
@@ -56,11 +64,6 @@ public final class SwingInteractionManager implements ClientAccess {
 
    private static int initialCrystalCapacity() {
       return 10;
-   }
-
-   static {
-      antiCheat = ClientContext.getModule(AntiCheatModule.class);
-      swingModule = ClientContext.getModule(SwingModule.class);
    }
 
    public boolean tryTrackCrystalPlacement(BlockPos position) {
@@ -86,7 +89,7 @@ public final class SwingInteractionManager implements ClientAccess {
    public void swing(
       InteractionHand hand, SwingAction action, boolean packetOnly
    ) {
-      AntiCheatModule antiCheatSnapshot = antiCheat;
+      AntiCheatModule antiCheatSnapshot = this.antiCheat;
       if (!action.isEnabled(antiCheatSnapshot)) {
          if (!packetOnly) {
             this.swingClientSide(hand);
@@ -125,13 +128,13 @@ public final class SwingInteractionManager implements ClientAccess {
 
       ClientAccess.schizoMinecraft.player.swingTime = -1;
       ClientAccess.schizoMinecraft.player.swinging = true;
-      SwingModule moduleSnapshot = swingModule;
+      SwingModule moduleSnapshot = this.swingModule;
       if (moduleSnapshot.isToggled()) {
-         Setting<HandChoice> handSetting = swingModule.handSetting;
+         Setting<HandChoice> handSetting = this.swingModule.handSetting;
          SwingModule.HandChoice handChoice = handSetting.getValue();
          if (handChoice.getHand() != null) {
             LocalPlayer player = ClientAccess.schizoMinecraft.player;
-            Setting<HandChoice> overrideSetting = swingModule.handSetting;
+            Setting<HandChoice> overrideSetting = this.swingModule.handSetting;
             SwingModule.HandChoice overrideChoice = overrideSetting.getValue();
             player.swingingArm = overrideChoice.getHand();
             return;
@@ -142,7 +145,7 @@ public final class SwingInteractionManager implements ClientAccess {
    }
 
    public boolean isCrystalPlacementLimited() {
-      AntiCheatModule antiCheatSnapshot = antiCheat;
+      AntiCheatModule antiCheatSnapshot = this.antiCheat;
       if (!antiCheatSnapshot.isPaperPlacement()) {
          return false;
       }

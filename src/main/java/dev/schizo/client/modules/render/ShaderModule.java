@@ -77,9 +77,8 @@ import org.joml.Quaternionf;
 
 public class ShaderModule extends Module {
 
-   private static NameTagsModule nameTagsModule = (NameTagsModule)ClientContext.getModule(NameTagsModule.class);
-   private static FreecamModule freecamModule = (FreecamModule)ClientContext.getModule(FreecamModule.class);
-   private static NoRenderModule noRenderModule = (NoRenderModule)ClientContext.getModule(NoRenderModule.class);
+
+
    public final Setting<ShaderChoice> shaderSetting;
    private final Setting<Integer> rangeSetting;
    public final Setting<Float> fadeSetting;
@@ -291,7 +290,7 @@ public class ShaderModule extends Module {
 
       Boolean nameTagsEnabled = this.nameTagsSetting.getValue();
       if (nameTagsEnabled) {
-         NameTagsModule nameTagsForBlit = nameTagsModule;
+         NameTagsModule nameTagsForBlit = schizo$nameTagsModule();
          if (nameTagsForBlit.isToggled()) {
             GpuTextureView mainColorTexture = (ClientAccess.schizoMinecraft.getMainRenderTarget()).getColorTextureView();
             nameTagTarget.blitAndBlendToTexture(mainColorTexture);
@@ -302,7 +301,7 @@ public class ShaderModule extends Module {
       Runnable mainPass = () -> {
          Boolean callbackNameTagsEnabled = this.nameTagsSetting.getValue();
          if (callbackNameTagsEnabled) {
-            NameTagsModule callbackNameTagsModule = nameTagsModule;
+            NameTagsModule callbackNameTagsModule = schizo$nameTagsModule();
             if (callbackNameTagsModule.isToggled()) {
                ShaderRegistry.getBufferSource()
                   .setColorArgb(-1);
@@ -369,9 +368,9 @@ public class ShaderModule extends Module {
    private float getTargetClusterAlpha(ShaderModule.RenderTargetEntry target) {
       Entity entity = target.entity();
       if (entity != null) {
-         NoRenderModule noRenderForToggle = noRenderModule;
+         NoRenderModule noRenderForToggle = schizo$noRenderModule();
          if (noRenderForToggle.isToggled()) {
-            Boolean noClusterEnabled = noRenderModule.noClusterSetting.getValue();
+            Boolean noClusterEnabled = schizo$noRenderModule().noClusterSetting.getValue();
             if (noClusterEnabled) {
                Vec3 playerPositionValue = ClientAccess.schizoMinecraft.player.position();
                Vec3 entityPosition = entity.position();
@@ -379,7 +378,7 @@ public class ShaderModule extends Module {
                float entityWidth = entity.getBbWidth();
                if (distance <= entityWidth && entity != ClientAccess.schizoMinecraft.player) {
                   float distanceFraction = (float)(distance / entityWidth);
-                  float rawClusterAlphaPercent = (noRenderModule.clusterAlphaSetting.getValue()).intValue();
+                  float rawClusterAlphaPercent = (schizo$noRenderModule().clusterAlphaSetting.getValue()).intValue();
 
                   float clusterAlpha = rawClusterAlphaPercent / 255.0F;
 
@@ -496,7 +495,7 @@ public class ShaderModule extends Module {
 
       boolean detachedView = (ClientAccess.schizoMinecraft.gameRenderer.getMainCamera()).isDetached();
       if (!detachedView) {
-         FreecamModule freecamForToggle = freecamModule;
+         FreecamModule freecamForToggle = schizo$freecamModule();
          detachedView = freecamForToggle.isToggled();
       }
 
@@ -528,13 +527,13 @@ public class ShaderModule extends Module {
    }
 
    public static void bindModules(ModuleRegistry registry) {
-      nameTagsModule = (NameTagsModule)registry.getModule(
+      schizo$nameTagsModule() = (NameTagsModule)registry.getModule(
          NameTagsModule.class
       );
-      freecamModule = (FreecamModule)registry.getModule(
+      schizo$freecamModule() = (FreecamModule)registry.getModule(
          FreecamModule.class
       );
-      noRenderModule = (NoRenderModule)registry.getModule(
+      schizo$noRenderModule() = (NoRenderModule)registry.getModule(
          NoRenderModule.class
       );
    }
@@ -667,5 +666,17 @@ public class ShaderModule extends Module {
          this.displayName = displayName;
       }
 
+   }
+
+   private static NameTagsModule schizo$nameTagsModule() {
+      return ClientContext.requireModule(NameTagsModule.class);
+   }
+
+   private static FreecamModule schizo$freecamModule() {
+      return ClientContext.requireModule(FreecamModule.class);
+   }
+
+   private static NoRenderModule schizo$noRenderModule() {
+      return ClientContext.requireModule(NoRenderModule.class);
    }
 }

@@ -67,7 +67,7 @@ public class CriticalsModule extends Module {
    }
 
    static {
-      auraModule = (AuraModule)ClientContext.getModule(AuraModule.class);
+
    }
 
    @Override

@@ -23,7 +23,6 @@ import org.spongepowered.asm.mixin.injection.At;
 
 @Mixin(TooltipRenderUtil.class)
 public class TooltipRenderUtilMixin {
-   private static final TooltipsModule tooltipsModule = ClientContext.getModule(TooltipsModule.class);
 
    @WrapWithCondition(
       method = "renderTooltipBackground",
@@ -36,8 +35,8 @@ public class TooltipRenderUtilMixin {
    private static boolean renderColoredTooltipSprite(
       GuiGraphics graphics, RenderPipeline pipeline, Identifier sprite, int x, int y, int width, int height
    ) {
-      Color tooltipColor = tooltipsModule.getTooltipColor();
-      if (tooltipsModule.isToggled() && tooltipColor != null) {
+      Color tooltipColor = schizo$tooltipsModule().getTooltipColor();
+      if (schizo$tooltipsModule().isToggled() && tooltipColor != null) {
          graphics.blitSprite(
             ClientRenderPipelines.POSITION_TEX_COLOR,
             sprite,
@@ -51,5 +50,10 @@ public class TooltipRenderUtilMixin {
       } else {
          return true;
       }
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static TooltipsModule schizo$tooltipsModule() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(TooltipsModule.class);
    }
 }
