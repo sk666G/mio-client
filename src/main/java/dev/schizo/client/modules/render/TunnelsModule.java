@@ -72,6 +72,7 @@ public class TunnelsModule extends Module {
    private final Queue<ChunkPos> pendingChunkScans;
    private final Set<Long> queuedChunkScans;
    private TunnelsChunkScanCursor activeChunkScan;
+   private ChunkPos activeChunkPosition;
    private ClientLevel scanLevel;
    private volatile long runtimeGeneration;
 
@@ -302,16 +303,19 @@ public class TunnelsModule extends Module {
             if (nextChunk == null) {
                return;
             }
+            this.activeChunkPosition = nextChunk;
             this.activeChunkScan = new TunnelsChunkScanCursor(
-               nextChunk,
+               nextChunk.getMinBlockX(),
+               nextChunk.getMinBlockZ(),
                level.getMinY() + 1,
                (int)WorldUtils.getTopY() - 2
             );
          }
 
          if (!this.activeChunkScan.next(this.scanPosition)) {
-            this.queuedChunkScans.remove(this.activeChunkScan.chunkPosition.toLong());
+            this.queuedChunkScans.remove(this.activeChunkPosition.toLong());
             this.activeChunkScan = null;
+            this.activeChunkPosition = null;
             continue;
          }
 
@@ -337,8 +341,9 @@ public class TunnelsModule extends Module {
       long key = chunkPosition.toLong();
       this.queuedChunkScans.remove(key);
       this.pendingChunkScans.removeIf(queued -> queued.toLong() == key);
-      if (this.activeChunkScan != null && this.activeChunkScan.chunkPosition.toLong() == key) {
+      if (this.activeChunkPosition != null && this.activeChunkPosition.toLong() == key) {
          this.activeChunkScan = null;
+         this.activeChunkPosition = null;
       }
 
       List<Tunnel> current = this.tunnels;
@@ -356,6 +361,7 @@ public class TunnelsModule extends Module {
       this.pendingChunkScans.clear();
       this.queuedChunkScans.clear();
       this.activeChunkScan = null;
+      this.activeChunkPosition = null;
       this.pendingTunnels = new ConcurrentLinkedQueue<>();
       this.mergeInProgress.set(false);
       if (clearTunnels) {
