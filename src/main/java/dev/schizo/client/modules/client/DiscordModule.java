@@ -10,6 +10,7 @@
 package dev.schizo.client.modules.client;
 
 import dev.schizo.client.ClientAccess;
+import dev.schizo.client.integrations.IntegrationHealth;
 import dev.schizo.client.SchizoClient;
 import dev.schizo.client.events.MinecraftTickEvent;
 import dev.schizo.client.events.EventHandler;
@@ -154,22 +155,26 @@ public class DiscordModule extends Module {
       }
    }
 
-   /** Returns the local IPC lifecycle state without waiting for the connection future. */
-   public String getConnectionStatus() {
+   public IntegrationHealth getConnectionHealth() {
       if (!this.isToggled()) {
-         return "disabled";
+         return IntegrationHealth.DISABLED;
       }
       CompletableFuture<IPCClient> pending = this.connectionFuture;
       if (pending == null) {
-         return "not started";
+         return IntegrationHealth.UNAVAILABLE;
       }
       if (!pending.isDone()) {
-         return "connecting";
+         return IntegrationHealth.CONNECTING;
       }
       if (pending.isCompletedExceptionally() || pending.isCancelled()) {
-         return "failed";
+         return IntegrationHealth.FAILED;
       }
-      return pending.getNow(null) == null ? "disconnected" : "connected";
+      return pending.getNow(null) == null ? IntegrationHealth.UNAVAILABLE : IntegrationHealth.CONNECTED;
+   }
+
+   /** Returns the local IPC lifecycle state without waiting for the connection future. */
+   public String getConnectionStatus() {
+      return this.getConnectionHealth().label();
    }
 
    public void closeClient() {
