@@ -34,12 +34,11 @@ public class ColorsModule extends PermanentModule {
       return 1.0F / this.rainbowSpeedSetting.getValue();
    }
 
-   static {
-      searchModule = ClientContext.getModule(SearchModule.class);
-   }
-
    public static void bindSearchModule(ModuleRegistry registry) {
-      searchModule = (SearchModule)registry.getModule(SearchModule.class);
+      searchModule = (SearchModule)java.util.Objects.requireNonNull(
+         registry.getModule(SearchModule.class),
+         "Required module is not registered: SearchModule"
+      );
    }
 
    public ColorsModule() {
