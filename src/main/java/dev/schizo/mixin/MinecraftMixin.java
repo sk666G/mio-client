@@ -71,17 +71,23 @@ public class MinecraftMixin {
          if (ClientContext.taskScheduler != null) {
             ClientContext.taskScheduler.shutdown();
          }
-         if (ClientContext.contextProfileRegistry != null
-            && !ClientContext.contextProfileRegistry.restoreBeforeShutdown()) {
-            ClientAccess.logger.error(
-               "Skipping shutdown configuration save to protect the user's pre-profile settings"
-            );
-            return;
+         try {
+            if (ClientContext.contextProfileRegistry != null
+               && !ClientContext.contextProfileRegistry.restoreBeforeShutdown()) {
+               ClientAccess.logger.error(
+                  "Skipping shutdown configuration save to protect the user's pre-profile settings"
+               );
+               return;
+            }
+            try {
+               MixinModuleRegistry.minecraftUiModule.disable();
+            } catch (RuntimeException | Error uiShutdownFailure) {
+               ClientAccess.logger.error("Could not cleanly close the Schizo UI during shutdown", uiShutdownFailure);
+            }
+            ClientContext.configurationManager.save();
+         } finally {
+            ClientAccess.executorService.shutdown();
          }
-         MixinModuleRegistry.minecraftUiModule.disable();
-         ClientContext.configurationManager
-            .save();
-         ClientAccess.executorService.shutdown();
       }
    }
 
