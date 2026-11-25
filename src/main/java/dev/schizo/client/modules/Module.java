@@ -170,6 +170,22 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
    public void onDisable() {
    }
 
+   protected boolean scheduleRotationTask(Runnable task, int delay) {
+      return ClientContext.taskScheduler != null
+         && ClientContext.taskScheduler.scheduleRotationTask(this, task, delay);
+   }
+
+   protected boolean scheduleRunTickTask(Runnable task) {
+      return ClientContext.taskScheduler != null
+         && ClientContext.taskScheduler.scheduleRunTickTask(this, task);
+   }
+
+   protected int cancelScheduledTasks() {
+      return ClientContext.taskScheduler == null
+         ? 0
+         : ClientContext.taskScheduler.cancelTasks(this);
+   }
+
    public void setDrawn(boolean drawn) {
       this.drawn = drawn;
    }
@@ -292,6 +308,7 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
       }
       ClientAccess.eventBus.unsubscribe(this);
       this.enabled = false;
+      this.cancelScheduledTasks();
 
       Throwable failure = null;
       try {
@@ -325,6 +342,7 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
       ClientAccess.eventBus.unsubscribe(this);
       this.enabled = false;
       this.compatibilityPolicySuppressed = false;
+      this.cancelScheduledTasks();
 
       try {
          ClientAccess.eventBus.post(new ModuleToggleEvent(this));
