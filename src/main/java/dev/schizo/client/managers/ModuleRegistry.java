@@ -12,6 +12,7 @@ package dev.schizo.client.managers;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.config.ModuleConfigLoadReport;
+import dev.schizo.client.config.ModuleConfigSchema;
 import dev.schizo.client.NamedFeature;
 import dev.schizo.client.events.InputPressEvent;
 import dev.schizo.client.events.WorldRenderEvent;
@@ -272,6 +273,8 @@ public final class ModuleRegistry extends Registry<Module> implements ClientAcce
 
    @Override
    public void fromJson(JsonElement config) {
+      JsonObject configObject = config.getAsJsonObject();
+      ModuleConfigSchema.validate(configObject);
       this.lastConfigLoadReport.clear();
       List<Module> registeredModules = (List<Module>)this.getRegistry();
       Iterator<Module> modulesIterator = registeredModules.iterator();
@@ -280,7 +283,6 @@ public final class ModuleRegistry extends Registry<Module> implements ClientAcce
          Module module = modulesIterator.next();
          if (module instanceof HudWidgetModule) continue;
          try {
-            JsonObject configObject = config.getAsJsonObject();
             String moduleConfigName = module.getConfigName();
             JsonElement moduleConfig = dev.schizo.client.config.LegacyBranding.findModuleConfig(configObject, moduleConfigName);
             module.fromJson(moduleConfig);
@@ -300,6 +302,7 @@ public final class ModuleRegistry extends Registry<Module> implements ClientAcce
    public JsonElement toJson() {
       JsonObject config = new JsonObject();
 
+      config.addProperty("version", ModuleConfigSchema.CURRENT_VERSION);
       config.addProperty("client", "schizo");
 
       config.addProperty("category", "all");
