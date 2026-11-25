@@ -59,8 +59,8 @@ import net.minecraft.world.level.block.Blocks;
 
 public final class InventoryStateManager implements ClientAccess {
    private static final long CLICK_WINDOW_NANOS = java.util.concurrent.TimeUnit.SECONDS.toNanos(4L);
-   private static final AntiCheatModule antiCheat;
-   private static final XCarryModule xCarry;
+   private static volatile AntiCheatModule antiCheat;
+   private static volatile XCarryModule xCarry;
    private final Map<Integer, DeferredSlotUpdate> deferredSlotUpdates = Collections.synchronizedMap(new HashMap<>());
    private final Queue<Long> clickTimestamps = new ArrayDeque<>();
    private final ElapsedTimer lastClickTimer = new ElapsedTimer();
@@ -95,9 +95,15 @@ public final class InventoryStateManager implements ClientAccess {
       eventBus.subscribe(this);
    }
 
-   static {
-      antiCheat = (AntiCheatModule)ClientContext.getModule(AntiCheatModule.class);
-      xCarry = (XCarryModule)ClientContext.getModule(XCarryModule.class);
+   public static void bindModules(ModuleRegistry registry) {
+      antiCheat = (AntiCheatModule)java.util.Objects.requireNonNull(
+         registry.getModule(AntiCheatModule.class),
+         "Required module is not registered: AntiCheatModule"
+      );
+      xCarry = (XCarryModule)java.util.Objects.requireNonNull(
+         registry.getModule(XCarryModule.class),
+         "Required module is not registered: XCarryModule"
+      );
    }
 
    public void close() {

@@ -15,6 +15,7 @@ import dev.schizo.client.NamedFeature;
 import dev.schizo.client.commands.BaritoneCommand;
 import dev.schizo.client.commands.ModuleCommand;
 import dev.schizo.client.commands.Command;
+import dev.schizo.client.commands.CommandPrefix;
 import dev.schizo.client.commands.ContextProfileCommand;
 import dev.schizo.client.commands.CompatibilityCommand;
 import dev.schizo.client.commands.ConfigBackupCommand;
@@ -60,7 +61,6 @@ import net.minecraft.network.chat.Component;
 
 public final class CommandRegistry extends Registry<Command> implements ClientAccess, JsonConfigurable {
 
-   private static final SettingsModule settingsModule = ClientContext.getModule(SettingsModule.class);
    public static final SharedSuggestionProvider suggestionSource = new ClientSuggestionProvider(
       null, ClientAccess.schizoMinecraft, ignored -> true
    );
@@ -107,6 +107,7 @@ public final class CommandRegistry extends Registry<Command> implements ClientAc
       this.registerCommand(new dev.schizo.client.commands.GlintCommand());
       this.registerCommand(new dev.schizo.client.commands.GlobalCommand());
       this.registerCommand(new dev.schizo.client.commands.HelpCommand());
+      this.registerCommand(new dev.schizo.client.commands.HealthCommand());
       this.registerCommand(new HudLayoutCommand());
       this.registerCommand(new IntegrationCommand());
       this.registerCommand(new dev.schizo.client.commands.HighlightCommand());
@@ -232,13 +233,13 @@ public final class CommandRegistry extends Registry<Command> implements ClientAc
    }
 
    public static void setPrefix(String prefix) {
-      if (prefix.isBlank()) {
-         return;
-      }
-      String updatedPrefix = prefix.substring(0, 1);
+      String updatedPrefix = CommandPrefix.normalize(prefix, commandPrefix);
       commandPrefix = updatedPrefix;
-      Setting<String> prefixSetting = settingsModule.prefixSetting;
-      prefixSetting.setValue(updatedPrefix);
+      SettingsModule settingsModule = ClientContext.getModule(SettingsModule.class);
+      if (settingsModule != null) {
+         Setting<String> prefixSetting = settingsModule.prefixSetting;
+         prefixSetting.setValue(updatedPrefix);
+      }
    }
 
    public boolean registerCommand(Command command) {

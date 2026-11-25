@@ -12,6 +12,7 @@ package dev.schizo.client.utils;
 import dev.schizo.client.utils.math.MathConstants;
 import dev.schizo.client.utils.FrameTiming;
 import dev.schizo.client.ClientContext;
+import dev.schizo.client.gui.UiMotionPolicy;
 
 import java.util.function.Supplier;
 
@@ -49,6 +50,10 @@ public class InterpolatedFloat {
    }
 
    public float updateAndGet() {
+      if (UiMotionPolicy.isReducedMotion()) {
+         this.setValue(this.targetValue);
+         return this.currentValue;
+      }
       FrameTiming frameTiming = ClientContext.frameTiming;
       float frameArgument = 0.5F;
 

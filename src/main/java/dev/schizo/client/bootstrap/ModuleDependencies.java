@@ -14,6 +14,13 @@ import dev.schizo.client.utils.inventory.ChestSearchController;
 import dev.schizo.client.modules.PlacementModule;
 import dev.schizo.client.managers.RotationManager;
 import dev.schizo.client.managers.ServerStateManager;
+import dev.schizo.client.managers.WorldStateManager;
+import dev.schizo.client.managers.SwingInteractionManager;
+import dev.schizo.client.managers.StashRegistry;
+import dev.schizo.client.managers.SocialRegistry;
+import dev.schizo.client.managers.InventoryStateManager;
+import dev.schizo.client.managers.CrystalInteractionManager;
+import dev.schizo.client.managers.ChatFilterRegistry;
 import dev.schizo.client.managers.ModuleRegistry;
 import dev.schizo.client.modules.client.AntiCheatModule;
 import dev.schizo.client.modules.client.BaritoneModule;
@@ -97,6 +104,13 @@ public final class ModuleDependencies {
    public static void bind(ModuleRegistry registry) {
       Objects.requireNonNull(registry, "Module manager is not initialized");
       ServerStateManager.bindModules(registry);
+      WorldStateManager.bindModules(registry);
+      ChatFilterRegistry.bindModules(registry);
+      CrystalInteractionManager.bindModules(registry);
+      InventoryStateManager.bindModules(registry);
+      SocialRegistry.bindModules(registry);
+      StashRegistry.bindModules(registry);
+      SwingInteractionManager.bindModules(registry);
       BlockBreakTracker.bindModules(registry);
       RotationManager.bindReferencedModules(registry);
       SprintModule.bindReferencedModules(registry);

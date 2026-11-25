@@ -26,6 +26,16 @@ class NumberSettingTest {
    }
 
    @Test
+   void fractionalIntegerValuesAreRejectedWithoutMutation() {
+      var setting = new NumberSetting<>("Count", 2, 0, 10);
+
+      assertThrows(IllegalArgumentException.class, () -> setting.fromJson(new JsonPrimitive(2.5D)));
+      assertThrows(IllegalArgumentException.class, () -> setting.setNumber(3.25D));
+      assertEquals(2, setting.getValue().intValue());
+      assertEquals(2, setting.getStagedValue().intValue());
+   }
+
+   @Test
    void doubleBoundsRemainDistinctAtFloatPrecisionLimit() {
       var setting = new NumberSetting<>("Height", 1.0, 0.0, 1.0);
       setting.setValue(Math.nextUp(1.0));

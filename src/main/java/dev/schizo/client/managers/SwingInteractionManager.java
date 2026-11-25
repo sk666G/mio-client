@@ -42,8 +42,8 @@ import net.minecraft.world.phys.AABB;
 
 public final class SwingInteractionManager implements ClientAccess {
    private static final long PENDING_CRYSTAL_TTL_NANOS = TimeUnit.MILLISECONDS.toNanos(300L);
-   private static final AntiCheatModule antiCheat;
-   private static final SwingModule swingModule;
+   private static volatile AntiCheatModule antiCheat;
+   private static volatile SwingModule swingModule;
    private final List<PendingCrystalPlacement> pendingCrystals;
    private volatile long sessionGeneration;
 
@@ -58,9 +58,15 @@ public final class SwingInteractionManager implements ClientAccess {
       return 10;
    }
 
-   static {
-      antiCheat = ClientContext.getModule(AntiCheatModule.class);
-      swingModule = ClientContext.getModule(SwingModule.class);
+   public static void bindModules(ModuleRegistry registry) {
+      antiCheat = (AntiCheatModule)java.util.Objects.requireNonNull(
+         registry.getModule(AntiCheatModule.class),
+         "Required module is not registered: AntiCheatModule"
+      );
+      swingModule = (SwingModule)java.util.Objects.requireNonNull(
+         registry.getModule(SwingModule.class),
+         "Required module is not registered: SwingModule"
+      );
    }
 
    public boolean tryTrackCrystalPlacement(BlockPos position) {

@@ -10,6 +10,10 @@
 package dev.schizo.client.events.bus;
 
 public interface EventListener {
+   default String diagnosticName() {
+      return this.getClass().getSimpleName();
+   }
+
    default dev.schizo.client.profiling.EventProfiler.CallbackHandle profileHandle() {
       return null;
    }

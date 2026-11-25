@@ -34,3 +34,10 @@ Samples are stored in a bounded primitive ring sized to the graph width. The gra
 - Variance is expressed in `ms²`; a larger value means frame durations are more spread out, not that the average frame is slower by that number.
 
 Frame timing covers the whole rendered frame. It does not identify Minecraft, GPU, other-mod or Schizo module cost. Profile in game before changing hot loops; static inspection is not a benchmark.
+
+
+## Performance Center diagnostics
+
+The Performance Center status line also reports the bounded event-listener failure count and scheduler pressure as `TASKS queued/outstanding`. Reset clears profiler counters and the event-failure diagnostic window. These values are diagnostics, not frame-time components and must not be added to callback timings.
+
+Incremental AutoCrystal, Search, Tunnels and VoidESP scanning uses a conservative frame-pressure budget. Healthy frame pacing retains the configured base throughput; lower FPS, slower average frame time or repeated hitches reduce work per client tick. The candidate order and scoring rules are unchanged, so the tradeoff under pressure is scan freshness/latency rather than different selection logic.

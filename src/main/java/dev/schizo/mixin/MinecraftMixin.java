@@ -63,7 +63,7 @@ public class MinecraftMixin {
       }
    }
 
-   @Inject(method = "destroy", at = @At("HEAD"))
+   @Inject(method = "destroy", at = @At("HEAD"), require = 1)
    public void saveConfigurationOnDestroy(CallbackInfo callback) {
       if (!shutdownSaveStarted
          && ClientContext.configurationManager != null) {
@@ -71,20 +71,27 @@ public class MinecraftMixin {
          if (ClientContext.taskScheduler != null) {
             ClientContext.taskScheduler.shutdown();
          }
-         if (ClientContext.contextProfileRegistry != null
-            && !ClientContext.contextProfileRegistry.restoreBeforeShutdown()) {
-            ClientAccess.logger.error(
-               "Skipping shutdown configuration save to protect the user's pre-profile settings"
-            );
-            return;
+         try {
+            if (ClientContext.contextProfileRegistry != null
+               && !ClientContext.contextProfileRegistry.restoreBeforeShutdown()) {
+               ClientAccess.logger.error(
+                  "Skipping shutdown configuration save to protect the user's pre-profile settings"
+               );
+               return;
+            }
+            try {
+               MixinModuleRegistry.minecraftUiModule.disable();
+            } catch (RuntimeException | Error uiShutdownFailure) {
+               ClientAccess.logger.error("Could not cleanly close the Schizo UI during shutdown", uiShutdownFailure);
+            }
+            ClientContext.configurationManager.save();
+         } finally {
+            ClientAccess.executorService.shutdown();
          }
-         MixinModuleRegistry.minecraftUiModule.disable();
-         ClientContext.configurationManager
-            .save();
       }
    }
 
-   @Inject(method = "disconnect(Lnet/minecraft/client/gui/screens/Screen;ZZ)V", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/multiplayer/ClientPacketListener;close()V"))
+   @Inject(method = "disconnect(Lnet/minecraft/client/gui/screens/Screen;ZZ)V", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/multiplayer/ClientPacketListener;close()V"), require = 1)
    public void postDisconnectEvent(
       Screen screen, boolean ignoredDisconnectFlag1, boolean ignoredDisconnectFlag2, CallbackInfo callback
    ) {
@@ -103,7 +110,7 @@ public class MinecraftMixin {
       return MixinModuleRegistry.minecraftMultiTaskModule.isToggled() ? false : originalDestroying;
    }
 
-   @Inject(method = "setScreen", at = @At("HEAD"), cancellable = true)
+   @Inject(method = "setScreen", at = @At("HEAD"), cancellable = true, require = 1)
    private void postBeforeScreenChange(Screen newScreen, CallbackInfo callback) {
       this.previousScreen = this.screen;
       ScreenChangeEvent.Before event = new ScreenChangeEvent.Before(
@@ -116,7 +123,7 @@ public class MinecraftMixin {
       }
    }
 
-   @Inject(method = "setScreen", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/screens/Screen;init(II)V", shift = Shift.AFTER), cancellable = true)
+   @Inject(method = "setScreen", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/screens/Screen;init(II)V", shift = Shift.AFTER), cancellable = true, require = 1)
    private void postAfterScreenInit(Screen newScreen, CallbackInfo callback) {
       ScreenChangeEvent.AfterInit event = new ScreenChangeEvent.AfterInit(
          this.previousScreen, newScreen
@@ -128,7 +135,7 @@ public class MinecraftMixin {
       }
    }
 
-   @Inject(method = "tick", at = @At("HEAD"))
+   @Inject(method = "tick", at = @At("HEAD"), require = 1)
    private void postMinecraftTick(CallbackInfo callback) {
       ClientAccess.eventBus
          .post(
@@ -158,7 +165,7 @@ public class MinecraftMixin {
       }
    }
 
-   @Inject(method = "runTick", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/Minecraft;runAllTasks()V", shift = Shift.AFTER))
+   @Inject(method = "runTick", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/Minecraft;runAllTasks()V", shift = Shift.AFTER), require = 1)
    private void postMinecraftRunTick(
       boolean renderLevel, CallbackInfo callback, @Local int ticksToRun
    ) {

@@ -62,8 +62,12 @@ public final class NumberSetting<N extends Number> extends Setting<N> implements
    }
 
    public void setNumber(Number number) {
-      if (!Double.isFinite(number.doubleValue())) {
+      double raw = number.doubleValue();
+      if (!Double.isFinite(raw)) {
          throw new IllegalArgumentException("Numeric setting requires a finite value");
+      }
+      if (this.getValue() instanceof Integer && raw != Math.rint(raw)) {
+         throw new IllegalArgumentException("Integer setting requires a whole-number value");
       }
       N converted = this.convertToValueType(number);
       if (!Double.isFinite(converted.doubleValue())) {

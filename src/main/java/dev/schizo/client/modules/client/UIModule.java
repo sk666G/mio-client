@@ -23,6 +23,7 @@ import dev.schizo.client.gui.screens.ClickGuiScreen;
 import dev.schizo.client.gui.screens.ClientScreen;
 import dev.schizo.client.managers.TaskScheduler;
 import dev.schizo.client.gui.CursorType;
+import dev.schizo.client.gui.UiMotionPolicy;
 import dev.schizo.client.render.text.LanguageTable;
 import dev.schizo.client.utils.world.Season;
 import dev.schizo.client.audio.BuiltinSound;
@@ -59,6 +60,7 @@ public final class UIModule extends Module {
    private final Setting<Boolean> resetSetting;
    public final Setting<StyleChoice> styleSetting;
    public final Setting<Float> animSpeedSetting;
+   public final Setting<Boolean> reducedMotionSetting;
    public final Setting<Float> scaleSetting;
    public final Setting<Boolean> snowSetting;
    public final Setting<Boolean> gamesSetting;
@@ -111,7 +113,7 @@ public final class UIModule extends Module {
             ClickGuiScreen deferredScreen = ClientContext.getClickGui();
             deferredScreen.open();
          };
-         if (!guiScheduler.scheduleRotationTask(guiOpenTask, 0)) {
+         if (!guiScheduler.scheduleRotationTask(this, guiOpenTask, 0)) {
             guiOpenTask.run();
          }
       } else {
@@ -254,6 +256,11 @@ public final class UIModule extends Module {
       this.resetSetting = this.add(new BooleanSetting(("Reset"), true));
       this.styleSetting = this.add(new EnumSetting<>(("Style"), UIModule.StyleChoice.SCHIZO));
       this.animSpeedSetting = this.add(new NumberSetting<>("AnimSpeed", 1.0F, 0.5F, 2.5F));
+      this.reducedMotionSetting = this.add(new BooleanSetting("ReducedMotion", false));
+      this.reducedMotionSetting.setChangeCallback(
+         () -> UiMotionPolicy.setReducedMotion(this.reducedMotionSetting.getValue())
+      );
+      UiMotionPolicy.setReducedMotion(this.reducedMotionSetting.getValue());
       this.scaleSetting = this.add(new NumberSetting<>("Scale", 1.0F, 0.1F, 2.0F));
       this.snowSetting = this.add(new BooleanSetting("Snow", true));
       this.gamesSetting = this.add(new BooleanSetting("Games", true));

@@ -31,6 +31,7 @@ import dev.schizo.client.managers.CrystalInteractionManager;
 import dev.schizo.client.utils.inventory.ItemUtils;
 import dev.schizo.client.utils.combat.DamageUtils;
 import dev.schizo.client.utils.ElapsedTimer;
+import dev.schizo.client.utils.AdaptiveScanBudget;
 import dev.schizo.client.utils.combat.EndCrystalState;
 import dev.schizo.client.utils.network.PacketSender;
 import dev.schizo.client.managers.SocialRegistry;
@@ -500,8 +501,10 @@ public class AutoCrystalModule extends Module {
    private void advancePlacementScan(AutoCrystalScanState state) {
       long startedNanos = System.nanoTime();
       int processed = 0;
-      while (!state.cursor.isComplete() && processed < MAX_SCAN_CANDIDATES_PER_TICK) {
-         if (processed > 0 && System.nanoTime() - startedNanos >= SCAN_BUDGET_NANOS) {
+      int candidateBudget = AdaptiveScanBudget.limit(MAX_SCAN_CANDIDATES_PER_TICK, ClientContext.frameTiming);
+      long timeBudgetNanos = AdaptiveScanBudget.nanos(SCAN_BUDGET_NANOS, ClientContext.frameTiming);
+      while (!state.cursor.isComplete() && processed < candidateBudget) {
+         if (processed > 0 && System.nanoTime() - startedNanos >= timeBudgetNanos) {
             break;
          }
 

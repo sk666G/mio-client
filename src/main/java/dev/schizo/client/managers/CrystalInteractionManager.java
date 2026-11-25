@@ -44,8 +44,8 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
 public class CrystalInteractionManager implements ClientAccess {
-   private static final SwingModule swing;
-   private static final AutoCrystalModule autoCrystal;
+   private static volatile SwingModule swing;
+   private static volatile AutoCrystalModule autoCrystal;
    private final ElapsedTimer attackCooldownTimer = new ElapsedTimer();
    private long additionalCooldownMillis;
    private int lastAttackedEntityId;
@@ -133,9 +133,15 @@ public class CrystalInteractionManager implements ClientAccess {
       eventBus.subscribe(this);
    }
 
-   static {
-      swing = (SwingModule)ClientContext.getModule(SwingModule.class);
-      autoCrystal = (AutoCrystalModule)ClientContext.getModule(AutoCrystalModule.class);
+   public static void bindModules(ModuleRegistry registry) {
+      swing = (SwingModule)java.util.Objects.requireNonNull(
+         registry.getModule(SwingModule.class),
+         "Required module is not registered: SwingModule"
+      );
+      autoCrystal = (AutoCrystalModule)java.util.Objects.requireNonNull(
+         registry.getModule(AutoCrystalModule.class),
+         "Required module is not registered: AutoCrystalModule"
+      );
    }
 
    private void resetAttackCooldown(InteractionHand hand) {

@@ -96,12 +96,57 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
       }
       this.compatibilityPolicySuppressed = false;
       this.enabled = true;
-      ClientAccess.eventBus.subscribe(this);
       EventBus eventBus = ClientAccess.eventBus;
-      ModuleToggleEvent toggleEvent = new ModuleToggleEvent(this);
-      eventBus.post(toggleEvent);
-      this.onToggle();
-      this.onEnable();
+      eventBus.subscribe(this);
+
+      Throwable lifecycleFailure = null;
+      try {
+         eventBus.post(new ModuleToggleEvent(this));
+      } catch (RuntimeException | Error notificationFailure) {
+         lifecycleFailure = notificationFailure;
+      }
+      try {
+         this.onToggle();
+      } catch (RuntimeException | Error toggleFailure) {
+         if (lifecycleFailure != null && lifecycleFailure != toggleFailure) {
+            lifecycleFailure.addSuppressed(toggleFailure);
+         } else if (lifecycleFailure == null) {
+            lifecycleFailure = toggleFailure;
+         }
+      }
+
+      boolean enableHookStarted = false;
+      if (lifecycleFailure == null) {
+         try {
+            enableHookStarted = true;
+            this.onEnable();
+         } catch (RuntimeException | Error enableFailure) {
+            lifecycleFailure = enableFailure;
+         }
+      }
+
+      if (lifecycleFailure != null) {
+         if (enableHookStarted) {
+            try {
+               this.onDisable();
+            } catch (RuntimeException | Error cleanupFailure) {
+               if (cleanupFailure != lifecycleFailure) {
+                  lifecycleFailure.addSuppressed(cleanupFailure);
+               }
+            }
+         }
+         if (ClientContext.taskScheduler != null) {
+            ClientContext.taskScheduler.cancelOwnedTasks(this);
+         }
+         eventBus.unsubscribe(this);
+         this.enabled = false;
+         this.compatibilityPolicySuppressed = false;
+         ClientAccess.logger.error("Module {} failed while enabling and was rolled back", this.getName(), lifecycleFailure);
+         if (lifecycleFailure instanceof RuntimeException runtimeFailure) {
+            throw runtimeFailure;
+         }
+         throw (Error)lifecycleFailure;
+      }
    }
 
    public boolean unregister(Setting<?> setting) {
@@ -279,13 +324,48 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
       if (!this.isToggled()) {
          return;
       }
-      ClientAccess.eventBus.unsubscribe(this);
-      this.enabled = false;
       EventBus eventBus = ClientAccess.eventBus;
-      ModuleToggleEvent toggleEvent = new ModuleToggleEvent(this);
-      eventBus.post(toggleEvent);
-      this.onToggle();
-      this.onDisable();
+      if (ClientContext.taskScheduler != null) {
+         ClientContext.taskScheduler.cancelOwnedTasks(this);
+      }
+      eventBus.unsubscribe(this);
+      this.enabled = false;
+
+      Throwable lifecycleFailure = null;
+      try {
+         eventBus.post(new ModuleToggleEvent(this));
+      } catch (RuntimeException | Error notificationFailure) {
+         lifecycleFailure = notificationFailure;
+      }
+
+      try {
+         this.onToggle();
+      } catch (RuntimeException | Error toggleFailure) {
+         if (lifecycleFailure != null && lifecycleFailure != toggleFailure) {
+            lifecycleFailure.addSuppressed(toggleFailure);
+         } else if (lifecycleFailure == null) {
+            lifecycleFailure = toggleFailure;
+         }
+      }
+
+      try {
+         this.onDisable();
+      } catch (RuntimeException | Error cleanupFailure) {
+         if (lifecycleFailure != null && lifecycleFailure != cleanupFailure) {
+            lifecycleFailure.addSuppressed(cleanupFailure);
+         } else if (lifecycleFailure == null) {
+            lifecycleFailure = cleanupFailure;
+         }
+      }
+
+      if (lifecycleFailure instanceof RuntimeException runtimeFailure) {
+         ClientAccess.logger.error("Module {} failed while disabling", this.getName(), runtimeFailure);
+         throw runtimeFailure;
+      }
+      if (lifecycleFailure instanceof Error errorFailure) {
+         ClientAccess.logger.error("Module {} failed while disabling", this.getName(), errorFailure);
+         throw errorFailure;
+      }
    }
 
    public String getInfoString() {

@@ -52,7 +52,7 @@ public final class ConfigurationManager implements ClientAccess {
    public static final Path CHUNKS_DIRECTORY;
    public static final Path SOUNDS_DIRECTORY;
    public static final Path SHADERS_DIRECTORY;
-   public static final Path USER_HOME_MARKER_PATH;
+   public static final Path GAME_PANEL_UNLOCK_MARKER_PATH;
    private static final List<Path> directories;
    private final ConfigurationBackupManager backupManager = new ConfigurationBackupManager(ROOT_DIRECTORY);
    private final ModulePresetCodec modulePresetCodec = new ModulePresetCodec();
@@ -219,8 +219,7 @@ public final class ConfigurationManager implements ClientAccess {
 
       SHADERS_DIRECTORY = parentDirectory.resolve("shaders");
 
-      String userHome = System.getProperty("user.home");
-      USER_HOME_MARKER_PATH = Path.of(userHome, "_____a");
+      GAME_PANEL_UNLOCK_MARKER_PATH = ROOT_DIRECTORY.resolve(".game-panel-unlocked");
       directories = new ArrayList<>();
    }
 

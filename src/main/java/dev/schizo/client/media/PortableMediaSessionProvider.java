@@ -9,6 +9,8 @@
 
 package dev.schizo.client.media;
 
+import dev.schizo.client.integrations.IntegrationHealth;
+
 import java.io.IOException;
 import java.util.Locale;
 import java.util.Objects;
@@ -60,6 +62,14 @@ public final class PortableMediaSessionProvider implements AutoCloseable {
     public MediaSnapshot latest() { return latest; }
     public Backend backend() { return backend; }
     public Availability availability() { return !closed && windows != null && windows.lastFailure() != null ? Availability.UNAVAILABLE : availability; }
+    public IntegrationHealth health() {
+        return switch (availability()) {
+            case NOT_STARTED -> IntegrationHealth.IDLE;
+            case AVAILABLE -> IntegrationHealth.AVAILABLE;
+            case UNAVAILABLE, UNSUPPORTED -> IntegrationHealth.UNAVAILABLE;
+            case CLOSED -> IntegrationHealth.DISABLED;
+        };
+    }
     public String lastFailure() { WindowsBackend w = windows; return w != null ? w.lastFailure() : lastFailure; }
 
     public synchronized void start() {
@@ -77,16 +87,24 @@ public final class PortableMediaSessionProvider implements AutoCloseable {
 
         }
     }
-    private synchronized void publish(MediaSnapshot state) {
-        if (closed) return;
-        latest = Objects.requireNonNull(state); availability = Availability.AVAILABLE;
-        update.accept(state);
+    private void publish(MediaSnapshot state) {
+        MediaSnapshot published = Objects.requireNonNull(state);
+        synchronized (this) {
+            if (closed) return;
+            latest = published;
+            availability = Availability.AVAILABLE;
+        }
+        update.accept(published);
     }
-    private synchronized void publishFailure(Throwable failure) {
-        if (closed) return;
-        lastFailure = failure.getClass().getSimpleName() + ": " + failure.getMessage();
-        latest = MediaSnapshot.empty(); availability = Availability.UNAVAILABLE;
-        update.accept(latest);
+    private void publishFailure(Throwable failure) {
+        MediaSnapshot empty = MediaSnapshot.empty();
+        synchronized (this) {
+            if (closed) return;
+            lastFailure = failure.getClass().getSimpleName() + ": " + failure.getMessage();
+            latest = empty;
+            availability = Availability.UNAVAILABLE;
+        }
+        update.accept(empty);
     }
     private void poll() {
         while (!closed && !Thread.currentThread().isInterrupted()) {

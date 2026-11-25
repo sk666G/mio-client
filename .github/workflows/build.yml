@@ -2,7 +2,11 @@ name: Build
 
 on:
   push:
-    branches: [main, codex/reliability-hardening, codex/schizo-master-integration, lunyx/integration-candidate, lunyx/verified-candidate-v7]
+    branches:
+      - main
+      - 'lunyx/**'
+      - 'codex/**'
+      - 'astra/**'
   pull_request:
   workflow_dispatch:
 
@@ -40,7 +44,18 @@ jobs:
       - name: Build mod
         env:
           ORG_GRADLE_JAVA_INSTALLATIONS_PATHS: ${{ env.JAVA_HOME_21_X64 }}
-        run: ./gradlew --no-daemon clean build
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            if ./gradlew --no-daemon clean build; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              exit 1
+            fi
+            sleep $((attempt * 15))
+          done
 
       - name: Verify remapped artifacts and record provenance
         shell: bash
@@ -63,10 +78,10 @@ jobs:
 
           jar_file="${jars[0]}"
           source_jar="${source_jars[0]}"
-          for required in fabric.mod.json THIRD_PARTY_NOTICES.md LICENSES/DiscordIPC-APACHE-2.0.txt; do
+          for required in fabric.mod.json LICENSING.md THIRD_PARTY_NOTICES.md LICENSES/DiscordIPC-APACHE-2.0.txt; do
             jar tf "$jar_file" | grep -Fqx "$required"
           done
-          for required in THIRD_PARTY_NOTICES.md LICENSES/DiscordIPC-APACHE-2.0.txt; do
+          for required in LICENSING.md THIRD_PARTY_NOTICES.md LICENSES/DiscordIPC-APACHE-2.0.txt; do
             jar tf "$source_jar" | grep -Fqx "$required"
           done
 

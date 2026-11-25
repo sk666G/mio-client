@@ -35,8 +35,11 @@ public final class StashRegistry extends Registry<StashEntry> implements ClientA
       eventBus.subscribe(this);
    }
 
-   static {
-      stashFinderModule = ClientContext.getModule(StashFinderModule.class);
+   public static void bindModules(ModuleRegistry registry) {
+      stashFinderModule = (StashFinderModule)java.util.Objects.requireNonNull(
+         registry.getModule(StashFinderModule.class),
+         "Required module is not registered: StashFinderModule"
+      );
    }
 
    @Override

@@ -23,17 +23,23 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class EventBus implements EventDispatcher {
    private final EventProfiler profiler;
+   private final EventFailureTracker failureTracker;
    private final Map<Object, List<EventListener>> instanceListenerCache =
       Collections.synchronizedMap(new IdentityHashMap<>());
    private final Map<Class<?>, List<EventListener>> staticListenerCache = new ConcurrentHashMap<>();
    private final Map<Class<?>, EventListener[]> listenersByEventClass = new ConcurrentHashMap<>();
 
    public EventBus() {
-      this(EventProfiler.GLOBAL);
+      this(EventProfiler.GLOBAL, EventFailureTracker.GLOBAL);
    }
 
    public EventBus(EventProfiler profiler) {
+      this(profiler, EventFailureTracker.GLOBAL);
+   }
+
+   EventBus(EventProfiler profiler, EventFailureTracker failureTracker) {
       this.profiler = java.util.Objects.requireNonNull(profiler);
+      this.failureTracker = java.util.Objects.requireNonNull(failureTracker);
    }
 
    @Override
@@ -172,14 +178,8 @@ public class EventBus implements EventDispatcher {
    public Object post(Object event) {
       EventListener[] listeners = this.listenersByEventClass.get(event.getClass());
       if (listeners != null) {
-         if (!this.profiler.isEnabled()) {
-            for (int index = 0; index < listeners.length; index++) {
-               listeners[index].call(event);
-            }
-         } else {
-            for (int index = 0; index < listeners.length; index++) {
-               this.callProfiled(listeners[index], event);
-            }
+         for (int index = 0; index < listeners.length; index++) {
+            this.invokeListener(listeners[index], event);
          }
       }
       return event;
@@ -190,26 +190,29 @@ public class EventBus implements EventDispatcher {
       EventListener[] listeners = this.listenersByEventClass.get(event.getClass());
       if (listeners != null) {
          event.setCancelled(false);
-         if (!this.profiler.isEnabled()) {
-            for (int index = 0; index < listeners.length; index++) {
-               EventListener listener = listeners[index];
-               listener.call(event);
-               if (event.isCancelled()) {
-                  break;
-               }
-            }
-         } else {
-            for (int index = 0; index < listeners.length; index++) {
-               EventListener listener = listeners[index];
-               this.callProfiled(listener, event);
-               if (event.isCancelled()) {
-                  break;
-               }
+         for (int index = 0; index < listeners.length; index++) {
+            EventListener listener = listeners[index];
+            this.invokeListener(listener, event);
+            if (event.isCancelled()) {
+               break;
             }
          }
       }
       return event;
    }
+   private void invokeListener(EventListener listener, Object event) {
+      try {
+         if (this.profiler.isEnabled()) {
+            this.callProfiled(listener, event);
+         } else {
+            listener.call(event);
+         }
+      } catch (RuntimeException | Error failure) {
+         this.failureTracker.record(listener, event, failure);
+         throw failure;
+      }
+   }
+
    private void callProfiled(EventListener listener, Object event) {
       EventProfiler.CallbackHandle handle = listener.profileHandle();
       if (handle == null) {

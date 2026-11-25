@@ -1626,7 +1626,7 @@ public class SpeedMineModule extends Module {
                               restoreSlotTask.run();
                            }
                         };
-                        if (!scheduler.scheduleRotationTask(delayedBreak, 1)) {
+                        if (!scheduler.scheduleRotationTask(this, delayedBreak, 1)) {
                            delayedBreak.run();
                         }
                      } else {

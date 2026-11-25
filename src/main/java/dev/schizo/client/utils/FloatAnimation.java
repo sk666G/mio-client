@@ -9,6 +9,8 @@
 
 package dev.schizo.client.utils;
 
+import dev.schizo.client.gui.UiMotionPolicy;
+
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
@@ -57,6 +59,10 @@ public class FloatAnimation {
    }
 
    public void setTarget(float newTargetValue, long newDurationMillis) {
+      if (UiMotionPolicy.isReducedMotion()) {
+         this.setValue(newTargetValue);
+         return;
+      }
       if (this.targetValue != newTargetValue) {
          long nowNanos = this.nanoTime.getAsLong();
          this.startValue = this.valueAt(nowNanos);

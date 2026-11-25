@@ -81,7 +81,7 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
          if (this.secretSequenceIndex
             == GAME_PANEL_UNLOCK_SEQUENCE.length) {
             try {
-               Path markerPath = ConfigurationManager.USER_HOME_MARKER_PATH;
+               Path markerPath = ConfigurationManager.GAME_PANEL_UNLOCK_MARKER_PATH;
                markerPath.toFile().createNewFile();
                java.nio.file.attribute.DosFileAttributeView dos = Files.getFileAttributeView(
                   markerPath, java.nio.file.attribute.DosFileAttributeView.class, LinkOption.NOFOLLOW_LINKS
@@ -93,7 +93,8 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
 
                   }
                }
-            } catch (IOException ignoredIoException) {
+            } catch (IOException unlockFailure) {
+               ClientAccess.logger.warn("Could not persist game panel unlock state", unlockFailure);
             }
 
             this.gamePanelUnlocked = true;
@@ -180,7 +181,7 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
             );
             presetScreen.open();
          } catch (Exception pasteException) {
-            pasteException.printStackTrace();
+            ClientAccess.logger.warn("Could not import module preset from clipboard", pasteException);
          }
       }
    }
@@ -198,7 +199,7 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
    }
 
    public ClickGuiScreen() {
-      this.gamePanelUnlocked = ConfigurationManager.USER_HOME_MARKER_PATH
+      this.gamePanelUnlocked = ConfigurationManager.GAME_PANEL_UNLOCK_MARKER_PATH
          .toFile()
          .exists();
       int panelX = 10;

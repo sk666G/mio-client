@@ -18,6 +18,7 @@ import dev.schizo.client.render.GuiDrawUtils;
 import dev.schizo.client.utils.InterpolatedFloat;
 import dev.schizo.client.render.MaskShaderRenderer;
 import dev.schizo.client.gui.CursorType;
+import dev.schizo.client.gui.UiMotionPolicy;
 import dev.schizo.client.utils.world.Season;
 import dev.schizo.client.render.RenderUtils;
 import dev.schizo.client.render.ColorUtils;
@@ -123,6 +124,9 @@ public class ClientScreen extends Screen implements ClientAccess {
    }
 
    public float getTransitionOpacity() {
+      if (UiMotionPolicy.isReducedMotion()) {
+         return this.closing ? 0.0F : 1.0F;
+      }
       float opacity = (float)(System.nanoTime() - this.transitionStartedNanos)
          / TRANSITION_DURATION_NANOS;
       if (this.closing) {
@@ -180,7 +184,8 @@ public class ClientScreen extends Screen implements ClientAccess {
    @Override
    public void tick() {
       if (this.closing
-         && System.nanoTime() - this.transitionStartedNanos >= TRANSITION_DURATION_NANOS) {
+         && (UiMotionPolicy.isReducedMotion()
+            || System.nanoTime() - this.transitionStartedNanos >= TRANSITION_DURATION_NANOS)) {
          for (Panel panel : this.panels) {
             panel.setDragging(false);
          }
@@ -472,7 +477,7 @@ public class ClientScreen extends Screen implements ClientAccess {
       );
       cursor.apply();
       cursor = CursorType.STANDARD;
-      if (this.winterSeason) {
+      if (this.winterSeason && !UiMotionPolicy.isReducedMotion()) {
          this.seasonalParticles.removeIf(SnowflakeParticle::isExpired);
          if (this.seasonalParticles.size() < MAX_SEASONAL_PARTICLES) {
             this.seasonalParticles.add(new SnowflakeParticle());

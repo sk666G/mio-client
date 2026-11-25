@@ -30,11 +30,35 @@ public final class TaskScheduler implements ClientAccess {
    }
 
    public boolean scheduleRotationTask(Runnable task, int delay) {
-      return this.rotationTasks.enqueue(task, delay);
+      return this.rotationTasks.enqueue(null, task, delay);
+   }
+
+   public boolean scheduleRotationTask(Object owner, Runnable task, int delay) {
+      return this.rotationTasks.enqueue(owner, task, delay);
    }
 
    public boolean scheduleRunTickTask(Runnable task) {
-      return this.runTickTasks.enqueue(task, 1);
+      return this.runTickTasks.enqueue(null, task, 1);
+   }
+
+   public boolean scheduleRunTickTask(Object owner, Runnable task) {
+      return this.runTickTasks.enqueue(owner, task, 1);
+   }
+
+   public int cancelOwnedTasks(Object owner) {
+      if (owner == null) {
+         return 0;
+      }
+      return this.rotationTasks.cancelOwner(owner) + this.runTickTasks.cancelOwner(owner);
+   }
+
+   public Snapshot snapshot() {
+      return new Snapshot(
+         this.rotationTasks.queuedCount(),
+         this.rotationTasks.outstandingCount(),
+         this.runTickTasks.queuedCount(),
+         this.runTickTasks.outstandingCount()
+      );
    }
 
    @EventHandler(priority = -100)
@@ -75,8 +99,8 @@ public final class TaskScheduler implements ClientAccess {
          this.name = name;
       }
 
-      private boolean enqueue(Runnable task, int delay) {
-         BoundedCountdownTaskQueue.Reservation reservation = this.tasks.reserve(task, delay);
+      private boolean enqueue(Object owner, Runnable task, int delay) {
+         BoundedCountdownTaskQueue.Reservation reservation = this.tasks.reserve(owner, task, delay);
          if (reservation == null) {
             this.warnCapacity();
             return false;
@@ -113,6 +137,18 @@ public final class TaskScheduler implements ClientAccess {
          this.tasks.runPass(failure -> ClientAccess.logger.error("Scheduled {} task failed", this.name, failure));
       }
 
+      private int cancelOwner(Object owner) {
+         return this.tasks.cancelOwner(owner);
+      }
+
+      private int queuedCount() {
+         return this.tasks.queuedCount();
+      }
+
+      private int outstandingCount() {
+         return this.tasks.outstandingCount();
+      }
+
       private void clear() {
          this.tasks.clear();
          this.capacityWarningLogged.set(false);
@@ -130,6 +166,21 @@ public final class TaskScheduler implements ClientAccess {
                BoundedCountdownTaskQueue.DEFAULT_CAPACITY
             );
          }
+      }
+   }
+
+   public record Snapshot(
+      int rotationQueued,
+      int rotationOutstanding,
+      int runTickQueued,
+      int runTickOutstanding
+   ) {
+      public int totalQueued() {
+         return this.rotationQueued + this.runTickQueued;
+      }
+
+      public int totalOutstanding() {
+         return this.rotationOutstanding + this.runTickOutstanding;
       }
    }
 }

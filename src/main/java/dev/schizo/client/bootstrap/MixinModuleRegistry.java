@@ -12,14 +12,18 @@ package dev.schizo.client.bootstrap;
 import dev.schizo.client.managers.ModuleRegistry;
 import dev.schizo.client.modules.client.DiscordModule;
 import dev.schizo.client.modules.client.UIModule;
+import dev.schizo.client.modules.client.HUDModule;
 import dev.schizo.client.modules.combat.ArrowsModule;
 import dev.schizo.client.modules.combat.AutoClickerModule;
 import dev.schizo.client.modules.combat.AutoCrystalModule;
 import dev.schizo.client.modules.combat.NoHitDelayModule;
 import dev.schizo.client.modules.exploit.MultiTaskModule;
+import dev.schizo.client.modules.exploit.FastLatencyModule;
+import dev.schizo.client.modules.exploit.PingSpoofModule;
 import dev.schizo.client.modules.exploit.ReachModule;
 import dev.schizo.client.modules.exploit.TridentModule;
 import dev.schizo.client.modules.misc.AntiQuitModule;
+import dev.schizo.client.modules.misc.NoPacketKickModule;
 import dev.schizo.client.modules.misc.SwingModule;
 import dev.schizo.client.modules.movement.ElytraFlyModule;
 import dev.schizo.client.modules.movement.EntityControlModule;
@@ -40,6 +44,12 @@ import dev.schizo.client.modules.render.FreeLookModule;
 import dev.schizo.client.modules.render.GlintModule;
 import dev.schizo.client.modules.render.NoRenderModule;
 import dev.schizo.client.modules.render.TooltipsModule;
+import dev.schizo.client.modules.render.SkyboxModule;
+import dev.schizo.client.modules.render.ViewClipModule;
+import dev.schizo.client.modules.render.ShaderModule;
+import dev.schizo.client.modules.render.ViewModelModule;
+import dev.schizo.client.modules.render.ZoomModule;
+import dev.schizo.client.modules.render.NoBobModule;
 import java.util.Objects;
 
 /** Cached module references consumed by mixin hooks without adding synthetic methods to Minecraft classes. */
@@ -47,6 +57,8 @@ public final class MixinModuleRegistry {
    private MixinModuleRegistry() {}
 
    public static volatile NoSlowModule blockNoslow;
+   public static volatile NoPacketKickModule connectionNoPacketKickModule;
+   public static volatile PingSpoofModule connectionPingSpoofModule;
    public static volatile ReachModule liquidBlockReach;
    public static volatile FastWebModule webBlockFastWebModule;
    public static volatile NoSlowModule slimeBlockNoslow;
@@ -63,7 +75,23 @@ public final class MixinModuleRegistry {
    public static volatile NoRenderModule minecraftNoRenderModule;
    public static volatile DiscordModule minecraftDiscordModule;
    public static volatile TooltipsModule bundleContentsTooltipsModule;
+   public static volatile FastLatencyModule clientPacketFastLatency;
+   public static volatile NoRenderModule clientPacketNoRender;
+   public static volatile SprintModule localPlayerSprint;
+   public static volatile ZoomModule gameZoom;
+   public static volatile NoRenderModule gameNoRender;
+   public static volatile ShaderModule gameShader;
+   public static volatile FreecamModule gameFreecam;
+   public static volatile FreeLookModule gameFreeLook;
+   public static volatile ViewModelModule gameViewModel;
+   public static volatile NoBobModule gameNoBob;
+   public static volatile HUDModule gameHud;
    public static volatile AmbienceModule levelAmbience;
+   public static volatile ViewClipModule levelViewClip;
+   public static volatile NoRenderModule levelNoRender;
+   public static volatile FreecamModule levelFreecam;
+   public static volatile SkyboxModule levelSkybox;
+   public static volatile ChamsModule levelChams;
    public static volatile NoSlowModule entityNoSlowModule;
    public static volatile ElytraFlyModule entityElytraFlyModule;
    public static volatile FreecamModule entityFreecamModule;
@@ -90,6 +118,8 @@ public final class MixinModuleRegistry {
    public static void bind(ModuleRegistry registry) {
       Objects.requireNonNull(registry, "Module registry is not initialized");
       blockNoslow = (NoSlowModule)Objects.requireNonNull(registry.getModule(NoSlowModule.class), "Required module is not registered: NoSlowModule");
+      connectionNoPacketKickModule = (NoPacketKickModule)Objects.requireNonNull(registry.getModule(NoPacketKickModule.class), "Required module is not registered: NoPacketKickModule");
+      connectionPingSpoofModule = (PingSpoofModule)Objects.requireNonNull(registry.getModule(PingSpoofModule.class), "Required module is not registered: PingSpoofModule");
       liquidBlockReach = (ReachModule)Objects.requireNonNull(registry.getModule(ReachModule.class), "Required module is not registered: ReachModule");
       webBlockFastWebModule = (FastWebModule)Objects.requireNonNull(registry.getModule(FastWebModule.class), "Required module is not registered: FastWebModule");
       slimeBlockNoslow = (NoSlowModule)Objects.requireNonNull(registry.getModule(NoSlowModule.class), "Required module is not registered: NoSlowModule");
@@ -106,7 +136,23 @@ public final class MixinModuleRegistry {
       minecraftNoRenderModule = (NoRenderModule)Objects.requireNonNull(registry.getModule(NoRenderModule.class), "Required module is not registered: NoRenderModule");
       minecraftDiscordModule = (DiscordModule)Objects.requireNonNull(registry.getModule(DiscordModule.class), "Required module is not registered: DiscordModule");
       bundleContentsTooltipsModule = (TooltipsModule)Objects.requireNonNull(registry.getModule(TooltipsModule.class), "Required module is not registered: TooltipsModule");
+      clientPacketFastLatency = (FastLatencyModule)Objects.requireNonNull(registry.getModule(FastLatencyModule.class), "Required module is not registered: FastLatencyModule");
+      clientPacketNoRender = (NoRenderModule)Objects.requireNonNull(registry.getModule(NoRenderModule.class), "Required module is not registered: NoRenderModule");
+      localPlayerSprint = (SprintModule)Objects.requireNonNull(registry.getModule(SprintModule.class), "Required module is not registered: SprintModule");
+      gameZoom = (ZoomModule)Objects.requireNonNull(registry.getModule(ZoomModule.class), "Required module is not registered: ZoomModule");
+      gameNoRender = (NoRenderModule)Objects.requireNonNull(registry.getModule(NoRenderModule.class), "Required module is not registered: NoRenderModule");
+      gameShader = (ShaderModule)Objects.requireNonNull(registry.getModule(ShaderModule.class), "Required module is not registered: ShaderModule");
+      gameFreecam = (FreecamModule)Objects.requireNonNull(registry.getModule(FreecamModule.class), "Required module is not registered: FreecamModule");
+      gameFreeLook = (FreeLookModule)Objects.requireNonNull(registry.getModule(FreeLookModule.class), "Required module is not registered: FreeLookModule");
+      gameViewModel = (ViewModelModule)Objects.requireNonNull(registry.getModule(ViewModelModule.class), "Required module is not registered: ViewModelModule");
+      gameNoBob = (NoBobModule)Objects.requireNonNull(registry.getModule(NoBobModule.class), "Required module is not registered: NoBobModule");
+      gameHud = (HUDModule)Objects.requireNonNull(registry.getModule(HUDModule.class), "Required module is not registered: HUDModule");
       levelAmbience = (AmbienceModule)Objects.requireNonNull(registry.getModule(AmbienceModule.class), "Required module is not registered: AmbienceModule");
+      levelViewClip = (ViewClipModule)Objects.requireNonNull(registry.getModule(ViewClipModule.class), "Required module is not registered: ViewClipModule");
+      levelNoRender = (NoRenderModule)Objects.requireNonNull(registry.getModule(NoRenderModule.class), "Required module is not registered: NoRenderModule");
+      levelFreecam = (FreecamModule)Objects.requireNonNull(registry.getModule(FreecamModule.class), "Required module is not registered: FreecamModule");
+      levelSkybox = (SkyboxModule)Objects.requireNonNull(registry.getModule(SkyboxModule.class), "Required module is not registered: SkyboxModule");
+      levelChams = (ChamsModule)Objects.requireNonNull(registry.getModule(ChamsModule.class), "Required module is not registered: ChamsModule");
       entityNoSlowModule = (NoSlowModule)Objects.requireNonNull(registry.getModule(NoSlowModule.class), "Required module is not registered: NoSlowModule");
       entityElytraFlyModule = (ElytraFlyModule)Objects.requireNonNull(registry.getModule(ElytraFlyModule.class), "Required module is not registered: ElytraFlyModule");
       entityFreecamModule = (FreecamModule)Objects.requireNonNull(registry.getModule(FreecamModule.class), "Required module is not registered: FreecamModule");

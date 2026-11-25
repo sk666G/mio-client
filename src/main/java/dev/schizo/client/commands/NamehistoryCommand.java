@@ -203,7 +203,7 @@ public final class NamehistoryCommand extends Command {
 
             ChatUtils.printChat(message, ChatUtils.createSignature(-3));
          } catch (Exception formatFailure) {
-            formatFailure.printStackTrace();
+            dev.schizo.client.ClientAccess.logger.warn("Could not format name history response", formatFailure);
          }
       }
    }
