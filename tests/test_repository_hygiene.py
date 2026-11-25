@@ -81,6 +81,35 @@ class RepositoryHygieneTest(unittest.TestCase):
                 offenders.append(str(path.relative_to(source_root)))
         self.assertEqual([], sorted(offenders), f"Eager early-load module lookups remain: {offenders}")
 
+    def test_registered_modules_with_eager_module_caches_have_late_binding(self):
+        registry_text = (ROOT / "src/main/java/dev/schizo/client/managers/ModuleRegistry.java").read_text(encoding="utf-8")
+        dependencies = (ROOT / "src/main/java/dev/schizo/client/bootstrap/ModuleDependencies.java").read_text(encoding="utf-8")
+        registrations = re.findall(
+            r"registerModule\(new\s+(?:dev\.schizo\.client\.modules\.)?([A-Za-z0-9_\.]+)\(",
+            registry_text,
+        )
+        module_root = ROOT / "src/main/java/dev/schizo/client/modules"
+        offenders = []
+        for registered in registrations:
+            class_name = registered.split(".")[-1]
+            if "." in registered:
+                source = module_root / pathlib.Path(*registered.split(".")).with_suffix(".java")
+            else:
+                matches = list(module_root.rglob(f"{class_name}.java"))
+                source = matches[0] if len(matches) == 1 else None
+            if source is None or not source.is_file():
+                continue
+            text = source.read_text(encoding="utf-8")
+            if "ClientContext.getModule(" not in text:
+                continue
+            if re.search(rf"\b{re.escape(class_name)}\.bind[A-Za-z0-9_]*\(registry\)", dependencies) is None:
+                offenders.append(class_name)
+        self.assertEqual(
+            [],
+            sorted(set(offenders)),
+            f"Registered modules cache dependencies eagerly without post-registration binding: {offenders}",
+        )
+
     def test_explicit_module_registrations_resolve_without_duplicates(self):
         registry_path = ROOT / "src/main/java/dev/schizo/client/managers/ModuleRegistry.java"
         registry = registry_path.read_text(encoding="utf-8")
