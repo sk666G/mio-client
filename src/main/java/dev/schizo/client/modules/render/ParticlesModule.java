@@ -140,12 +140,13 @@ public class ParticlesModule extends Module {
    private int getParticleColor(Setting<Color> setting) {
       Color color = setting.getValue();
       ColorSetting colorSetting = (ColorSetting)setting;
-      if (!colorSetting.isRainbow()) {
+      ColorsModule colorsSnapshot = colors;
+      if (!colorSetting.isRainbow() || colorsSnapshot == null) {
          return color.getRGB();
       }
 
       float[] hsb = Color.RGBtoHSB(color.getRed(), color.getGreen(), color.getBlue(), null);
-      int period = (int)(MathConstants.FULL_TURN_DEGREES * colors.getRainbowPeriod());
+      int period = (int)(MathConstants.FULL_TURN_DEGREES * colorsSnapshot.getRainbowPeriod());
       period = Math.max(period, 1);
       int offset = this.random.nextInt(period);
       Color rainbow = ColorUtils.rainbow(period, offset, hsb[1], hsb[2], color.getAlpha());

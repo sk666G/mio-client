@@ -184,8 +184,9 @@ public class TracersModule extends Module {
          }
       }
 
-      if (distanceColor) {
-         Setting<ColorsSchemeChoice> schemeSetting = colorsModule.schemeSetting;
+      ColorsModule colors = colorsModule;
+      if (distanceColor && colors != null) {
+         Setting<ColorsSchemeChoice> schemeSetting = colors.schemeSetting;
          ColorsSchemeChoice configuredScheme = schemeSetting.getValue();
          color = configuredScheme.transform(color);
       }
