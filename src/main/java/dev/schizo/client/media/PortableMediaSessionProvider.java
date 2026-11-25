@@ -126,11 +126,12 @@ public final class PortableMediaSessionProvider implements AutoCloseable {
     }
     @Override public void close() {
         WindowsBackend w;
+        Thread thread;
         synchronized (this) {
             if (closed) return;
             closed = true;
             availability = Availability.CLOSED;
-            Thread thread = worker;
+            thread = worker;
             if (thread != null) thread.interrupt();
 
             MediaSessionSource current = source;
@@ -147,5 +148,12 @@ public final class PortableMediaSessionProvider implements AutoCloseable {
             windows = null;
         }
         if (w != null) w.close();
+        if (thread != null && thread != Thread.currentThread()) {
+            try {
+                thread.join(1_000L);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+            }
+        }
     }
 }
