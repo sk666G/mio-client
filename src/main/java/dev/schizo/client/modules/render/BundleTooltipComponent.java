@@ -44,7 +44,7 @@ public record BundleTooltipComponent(List entries, BundleContents bundleContents
    private static final int CELL_SIZE = 20;
    private static final int MAX_COLUMNS = 6;
    private static final int LEFT_ALT_KEY = GLFW.GLFW_KEY_LEFT_ALT;
-   private static final TooltipsModule TOOLTIPS = (TooltipsModule)ClientContext.getModule(TooltipsModule.class);
+
    private static final FloatAnimation weightWidthAnimation = new FloatAnimation();
    private static final FloatAnimation weightAlphaAnimation = new FloatAnimation();
 
@@ -99,7 +99,7 @@ public record BundleTooltipComponent(List entries, BundleContents bundleContents
       int mapId = mapIdComponent == null ? -1 : mapIdComponent.id();
       MapDataCache mapCache = ClientContext.mapDataCache;
       MapItemSavedData mapData = mapId == -1 ? null : mapCache.getMapData(item, mapId);
-      Setting<Boolean> mapOverlay = TOOLTIPS.mapOverlaySetting;
+      Setting<Boolean> mapOverlay = schizo$TOOLTIPS().mapOverlaySetting;
       if (mapOverlay.getValue() && mapData != null) {
          ContainerTooltipComponent.renderMapOverlay(graphics, mapData, mapId, x + 1, y + 1);
          if (!KeyUtils.isPhysicalKeyDown(LEFT_ALT_KEY)) {
@@ -156,4 +156,8 @@ public record BundleTooltipComponent(List entries, BundleContents bundleContents
    }
 
    record BundleEntry(ItemStack item, boolean selected) {}
+
+   private static TooltipsModule schizo$TOOLTIPS() {
+      return ClientContext.requireModule(TooltipsModule.class);
+   }
 }
