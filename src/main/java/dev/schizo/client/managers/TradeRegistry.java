@@ -46,11 +46,8 @@ public final class TradeRegistry extends Registry<TradeDefinition> implements Cl
       for (JsonElement element : trades) {
          try {
             TradeDefinition trade = ClientAccess.gson.fromJson(element, TradeDefinition.class);
-            if (trade == null
-               || trade.getName() == null
-               || trade.getName().isBlank()
-               || loaded.stream().anyMatch(existing -> hasSameName(existing, trade))
-               || (trade.from() != Items.EMERALD && trade.to() != Items.EMERALD)) {
+            if (!isValidTrade(trade)
+               || loaded.stream().anyMatch(existing -> hasSameName(existing, trade))) {
                continue;
             }
             loaded.add(trade);
@@ -70,8 +67,7 @@ public final class TradeRegistry extends Registry<TradeDefinition> implements Cl
       Iterator<TradeDefinition> iterator = this.getRegistry().iterator();
       while (iterator.hasNext()) {
          TradeDefinition trade = iterator.next();
-         Gson gson = ClientAccess.gson;
-         JsonElement tradeJson = gson.toJsonTree(trade);
+         JsonElement tradeJson = ClientAccess.gson.toJsonTree(trade);
          trades.add(tradeJson);
       }
       root.add("trades", trades);
@@ -106,17 +102,26 @@ public final class TradeRegistry extends Registry<TradeDefinition> implements Cl
    }
 
    public boolean registerTrade(TradeDefinition trade) {
-      if (trade == null || trade.getName() == null || trade.getName().isBlank()) {
+      if (!isValidTrade(trade)) {
          return false;
       }
       if (this.entries.stream().anyMatch(existing -> hasSameName(existing, trade))) {
          return false;
       }
-      if (trade.from() != Items.EMERALD && trade.to() != Items.EMERALD) {
-         return false;
-      }
 
       return this.entries.add(trade);
+   }
+
+   static boolean isValidTrade(TradeDefinition trade) {
+      return trade != null
+         && trade.getName() != null
+         && !trade.getName().isBlank()
+         && trade.from() != null
+         && trade.to() != null
+         && trade.enchants() != null
+         && trade.maxPrice() >= 1
+         && trade.maxPrice() <= 64
+         && (trade.from() == Items.EMERALD || trade.to() == Items.EMERALD);
    }
 
    static boolean hasSameName(TradeDefinition first, TradeDefinition second) {
