@@ -42,3 +42,10 @@ For `modules.json`, the report also checks values rejected while modules loaded.
 - Restore rejects invalid JSON, non-object documents, symbolic links, unsafe names and paths outside the expected directories.
 - Only config files registered by Schizo can be listed, backed up, restored or cleared through the command.
 - Backups may contain the same private settings as the source config. They remain local files and should not be shared publicly. In particular, protect your Schizo data directory as you would your original configuration files.
+
+
+## Schema and atomic serialization
+
+Every top-level Schizo JSON configuration document is stamped with `_schemaVersion`. Legacy unversioned files are treated as schema version 0 and migrated through the central configuration schema boundary before being applied. Files claiming a future, fractional, negative, or non-numeric schema version are rejected instead of being partially interpreted.
+
+Top-level saves are snapshot-based. In particular, `modules.json` is serialized as a complete document: if any module fails to serialize, Schizo preserves the previous on-disk file instead of silently omitting the failed module and overwriting the rest. Recoverable serialization failures are also recorded in Runtime Diagnostics.
