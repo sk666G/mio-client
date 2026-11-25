@@ -39,7 +39,9 @@ public final class JsonStateTransaction {
          try {
             applier.accept(previousState.deepCopy());
          } catch (RuntimeException rollbackFailure) {
-            applyFailure.addSuppressed(rollbackFailure);
+            if (rollbackFailure != applyFailure) {
+               applyFailure.addSuppressed(rollbackFailure);
+            }
          }
          throw applyFailure;
       }
