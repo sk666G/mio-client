@@ -194,13 +194,11 @@ public class HitmarkerModule extends Module {
       PoseStack markerPoseStack = event.getPoseStack();
       markerPoseStack.pushPose();
       try {
-      if (customCrosshair) {
-         PoseStack translationStackCapture = event.getPoseStack();
+         if (customCrosshair) {
+            markerPoseStack.translate(-0.6D, 0.0D, 0.0D);
+         }
 
-         translationStackCapture.translate(-0.6D, 0.0D, 0.0D);
-      }
-
-      PoseStack topLeftStackCapture = event.getPoseStack();
+      PoseStack topLeftStackCapture = markerPoseStack;
       float topLeftOuterX = centerX - outerOffset;
       float lineYCapture = centerY - outerOffset;
 
@@ -210,7 +208,7 @@ public class HitmarkerModule extends Module {
       drawMarkerLine(
          topLeftStackCapture, buffer, markerColor, topLeftOuterX, lineYCapture, lineXCapture, topLeftEndY
       );
-      PoseStack bottomLeftStackCapture = event.getPoseStack();
+      PoseStack bottomLeftStackCapture = markerPoseStack;
       float bottomLeftOuterX = centerX - outerOffset;
       lineYCapture = centerY + outerOffset;
 
@@ -220,7 +218,7 @@ public class HitmarkerModule extends Module {
       drawMarkerLine(
          bottomLeftStackCapture, buffer, markerColor, bottomLeftOuterX, lineYCapture, lineXCapture, bottomLeftEndY
       );
-      PoseStack topRightStackCapture = event.getPoseStack();
+      PoseStack topRightStackCapture = markerPoseStack;
 
       float topRightInnerX = centerX + 2.0F;
 
@@ -230,7 +228,7 @@ public class HitmarkerModule extends Module {
       drawMarkerLine(
          topRightStackCapture, buffer, markerColor, topRightInnerX, lineYCapture, lineXCapture, topRightEndY
       );
-      PoseStack bottomRightStackCapture = event.getPoseStack();
+      PoseStack bottomRightStackCapture = markerPoseStack;
 
       float bottomRightInnerX = centerX + 2.0F;
 
