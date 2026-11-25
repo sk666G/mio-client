@@ -115,10 +115,11 @@ public class ChunkScanner implements ClientAccess {
       if (ClientAccess.schizoMinecraft.level != null) {
          if (this.blockUpdateCallback != null) {
             if (event.getPacket() instanceof ClientboundBlockUpdatePacket blockPacket) {
-               this.dispatch(() -> {
+               BlockPos blockPosition = blockPacket.getPos().immutable();
+               BlockState blockState = blockPacket.getBlockState();
+               this.dispatchPacketCallback(() -> {
                   BiConsumer updateCallback = this.blockUpdateCallback;
-                  BlockPos blockPosition = blockPacket.getPos();
-                  updateCallback.accept(blockPosition, blockPacket.getBlockState());
+                  updateCallback.accept(blockPosition, blockState);
                });
                return;
             }
@@ -126,7 +127,7 @@ public class ChunkScanner implements ClientAccess {
 
          if (this.blockUpdateCallback != null) {
             if (event.getPacket() instanceof ClientboundSectionBlocksUpdatePacket sectionPacket) {
-               this.dispatch(() -> sectionPacket.runUpdates((position, state) -> {
+               this.dispatchPacketCallback(() -> sectionPacket.runUpdates((position, state) -> {
                   BiConsumer updateCallback = this.blockUpdateCallback;
                   updateCallback.accept(position.immutable(), state);
                }));
@@ -144,13 +145,29 @@ public class ChunkScanner implements ClientAccess {
                }
 
                ChunkPos copiedChunkPosition = new ChunkPos(extractedChunkPosition.x, extractedChunkPosition.z);
-               int chunkZ = copiedChunkPosition.z;
-               int chunkX = copiedChunkPosition.x;
-               ClientLevel level = ClientAccess.schizoMinecraft.level;
-               LevelChunk chunk = level.getChunk(chunkX, chunkZ);
-               this.dispatch(() -> this.chunkUnloadCallback.accept(copiedChunkPosition, chunk));
+               ClientAccess.schizoMinecraft.executeIfPossible(() -> {
+                  if (!this.running || ClientAccess.schizoMinecraft.level == null) {
+                     return;
+                  }
+                  int chunkZ = copiedChunkPosition.z;
+                  int chunkX = copiedChunkPosition.x;
+                  ClientLevel level = ClientAccess.schizoMinecraft.level;
+                  LevelChunk chunk = level.getChunk(chunkX, chunkZ);
+                  this.dispatch(() -> this.chunkUnloadCallback.accept(copiedChunkPosition, chunk));
+               });
             }
          }
+      }
+   }
+
+   private void dispatchPacketCallback(Runnable action) {
+      if (!this.running) {
+         return;
+      }
+      if (this.workerCount == 0) {
+         ClientAccess.schizoMinecraft.executeIfPossible(() -> this.dispatch(action));
+      } else {
+         this.dispatch(action);
       }
    }
 
