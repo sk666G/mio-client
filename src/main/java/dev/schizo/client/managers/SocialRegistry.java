@@ -207,7 +207,12 @@ public final class SocialRegistry extends Registry<SocialEntry> implements Clien
    }
 
    private void updatePlayerRole(String name, SocialRole role) {
-      if (!this.isWorldUnavailable()) {
+      if (ClientAccess.schizoMinecraft == null
+         || ClientAccess.schizoMinecraft.player == null
+         || ClientAccess.schizoMinecraft.level == null) {
+         return;
+      }
+      {
          ClientLevel level = ClientAccess.schizoMinecraft.level;
          Iterator playersIterator = level.players().iterator();
 
