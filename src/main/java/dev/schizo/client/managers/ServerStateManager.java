@@ -329,7 +329,8 @@ public final class ServerStateManager implements ClientAccess {
                int suffixEnd = textLength - 5;
                latencyText = latencyText.substring(0, suffixEnd).trim();
                this.footerLatencyMillis = Integer.parseInt(latencyText);
-            } catch (Throwable parseFailure) {
+            } catch (NumberFormatException | IndexOutOfBoundsException parseFailure) {
+               this.footerLatencyMillis = 0;
             }
          }
       }
