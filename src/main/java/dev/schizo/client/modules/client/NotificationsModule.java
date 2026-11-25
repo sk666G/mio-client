@@ -18,6 +18,7 @@ import dev.schizo.client.managers.SocialRegistry;
 import dev.schizo.client.events.ModuleToggleEvent;
 import dev.schizo.client.utils.chat.ChatUtils;
 import dev.schizo.client.managers.ConfigurationManager;
+import dev.schizo.client.config.ConfigFileReader;
 import dev.schizo.client.modules.Module;
 import dev.schizo.client.modules.ModuleCategory;
 import dev.schizo.client.settings.BooleanSetting;
@@ -27,14 +28,16 @@ import dev.schizo.client.settings.Setting;
 import dev.schizo.client.settings.StringSetting;
 
 import java.awt.Color;
-import java.io.File;
-import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.function.Predicate;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.OptionInstance;
 import net.minecraft.client.Options;
@@ -42,9 +45,9 @@ import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.world.entity.player.ChatVisiblity;
-import org.apache.commons.io.FileUtils;
 
 public class NotificationsModule extends Module {
+   private static final int MAX_TOTEM_MESSAGE_FILE_BYTES = 262_144;
    public final Setting<Color> watermarkSetting;
    public final Setting<Color> bracketsSetting;
    private final Setting<Boolean> commandsSetting;
@@ -63,6 +66,7 @@ public class NotificationsModule extends Module {
    private int totemMessageIndex;
    private final List<String> totemMessages;
    private final Random totemRandom;
+   private long totemGeneration;
 
    @Override
    public void onEnable() {
@@ -320,37 +324,76 @@ public class NotificationsModule extends Module {
    }
 
    private void reloadTotemMessages() {
+      String selectedPath = this.pathSetting.getValue();
+      long expectedGeneration = ++this.totemGeneration;
       try {
-         Path configuredPath = ConfigurationManager.ROOT_DIRECTORY;
-         Setting<String> pathOption = this.pathSetting;
-         configuredPath = configuredPath.resolve(pathOption.getValue());
-         Path messagePath = dev.schizo.client.utils.FileUtils.findExistingWithSuffixes(configuredPath, ".txt");
-         File messageFile = messagePath.toFile();
-         if (!messageFile.exists()) {
+         ClientAccess.executorService.submit(() -> {
+            List<String> loadedMessages = List.of();
+            Exception failure = null;
+            try {
+               Path root = ConfigurationManager.ROOT_DIRECTORY.toAbsolutePath().normalize();
+               Path requested = root.resolve(selectedPath).normalize();
+               if (!requested.startsWith(root)) {
+                  throw new IOException("Totem message path escapes the client data directory");
+               }
 
-            throw new RuntimeException("Invalid totem pop file path");
-         }
+               Path messagePath = requested;
+               if (!Files.exists(messagePath, LinkOption.NOFOLLOW_LINKS)
+                  && !selectedPath.endsWith(".txt")) {
+                  messagePath = Path.of(requested.toString() + ".txt").normalize();
+               }
+               if (!messagePath.startsWith(root)
+                  || Files.isSymbolicLink(messagePath)
+                  || !Files.isRegularFile(messagePath, LinkOption.NOFOLLOW_LINKS)) {
+                  throw new IOException("Totem message path is not a regular file");
+               }
 
-         this.totemMessageIndex = 0;
-         this.totemMessages.clear();
-         List<String> messages = this.totemMessages;
-         File messageReadFile = messagePath.toFile();
-         Charset charset = StandardCharsets.UTF_8;
-         messages.addAll(FileUtils.readLines(messageReadFile, charset));
-      } catch (Exception exception) {
-         Setting<Boolean> chatOption = this.sayChatSetting;
-         Boolean sayChat = chatOption.getValue();
-         if (sayChat) {
+               String text = ConfigFileReader.readUtf8(
+                  messagePath, MAX_TOTEM_MESSAGE_FILE_BYTES
+               );
+               loadedMessages = text.lines().toList();
+            } catch (Exception loadFailure) {
+               failure = loadFailure;
+            }
 
-            MutableComponent errorMessage = Component.literal("Failed to open totem pop file")
+            List<String> completedMessages = loadedMessages;
+            Exception completedFailure = failure;
+            ClientAccess.schizoMinecraft.executeIfPossible(() -> {
+               if (!this.isToggled() || this.totemGeneration != expectedGeneration) {
+                  return;
+               }
+
+               this.totemMessageIndex = 0;
+               this.totemMessages.clear();
+               if (completedFailure == null) {
+                  this.totemMessages.addAll(completedMessages);
+               } else if (this.sayChatSetting.getValue()) {
+                  MutableComponent errorMessage = Component.literal("Failed to open totem pop file")
+                     .withStyle(style -> style.withColor(ChatFormatting.RED));
+                  ChatUtils.printChat(
+                     errorMessage,
+                     ChatUtils.createSignature(completedFailure.toString().hashCode()),
+                     ChatUtils.MessagePriority.LOW
+                  );
+               }
+            });
+         });
+      } catch (java.util.concurrent.RejectedExecutionException rejected) {
+         if (this.sayChatSetting.getValue()) {
+            MutableComponent errorMessage = Component.literal("Failed to schedule totem message reload")
                .withStyle(style -> style.withColor(ChatFormatting.RED));
-            String errorDescription = exception.toString();
-            int errorHash = errorDescription.hashCode();
-
-            ChatUtils.printChat(errorMessage, ChatUtils.createSignature((errorHash)), ChatUtils.MessagePriority.LOW);
-            exception.printStackTrace();
+            ChatUtils.printChat(
+               errorMessage,
+               ChatUtils.createSignature(rejected.toString().hashCode()),
+               ChatUtils.MessagePriority.LOW
+            );
          }
       }
+   }
+
+   private void invalidateTotemWork() {
+      this.totemGeneration++;
+      this.totemMessageIndex = 0;
    }
 
    public int getBracketColor() {
