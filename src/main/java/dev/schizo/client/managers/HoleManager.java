@@ -12,21 +12,21 @@ package dev.schizo.client.managers;
 import dev.schizo.client.utils.entity.PlayerStateUtils;
 import dev.schizo.client.utils.world.BlockStateUtils;
 import dev.schizo.client.utils.world.HoleInfo;
-import dev.schizo.client.managers.HoleScanTask;
-
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.LocalPlayerTickEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.settings.options.DimensionType;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.Set;
 import java.util.function.IntFunction;
 import java.util.stream.Stream;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.BlockPos.MutableBlockPos;
 import net.minecraft.core.Direction;
@@ -43,12 +43,21 @@ public final class HoleManager implements ClientAccess {
 
    private static final Direction[] horizontalDirections;
 
-   private static final ScheduledExecutorService scanExecutor;
-
    private static final MutableBlockPos classificationCursor;
 
-   private volatile List<HoleInfo> holes = new ArrayList<>();
+   private static final int SCAN_MIN_OFFSET = -16;
+   private static final int SCAN_SIZE = 32;
+   private static final int TOTAL_SCAN_POSITIONS = SCAN_SIZE * SCAN_SIZE * SCAN_SIZE;
+   private static final int SCAN_BUDGET_PER_TICK = 2048;
 
+   private volatile List<HoleInfo> holes = List.of();
+   private final ArrayList<HoleInfo> pendingHoles = new ArrayList<>();
+   private final Set<Long> coveredPositions = new HashSet<>();
+   private final MutableBlockPos scanCursor = new MutableBlockPos();
+   private ClientLevel scanLevel;
+   private LocalPlayer scanPlayer;
+   private BlockPos scanOrigin;
+   private int scanIndex;
    private boolean inHole;
 
    public boolean intersectsHole(BlockPos position) {
@@ -85,16 +94,11 @@ public final class HoleManager implements ClientAccess {
 
    public HoleManager() {
       ClientAccess.eventBus.subscribe(this);
-      ScheduledExecutorService executor = scanExecutor;
-      HoleScanTask scanTask = new HoleScanTask(this);
-      TimeUnit scanTimeUnit = TimeUnit.MILLISECONDS;
-      executor.scheduleAtFixedRate(scanTask, 0L, 50L, scanTimeUnit);
    }
 
    static {
       Plane horizontalPlane = Plane.HORIZONTAL;
       horizontalDirections = horizontalPlane.stream().toArray((IntFunction<Direction[]>)Direction[]::new);
-      scanExecutor = Executors.newSingleThreadScheduledExecutor();
       classificationCursor = new MutableBlockPos();
    }
 
@@ -181,12 +185,94 @@ public final class HoleManager implements ClientAccess {
 
    @EventHandler
    private void onLocalPlayerTickEvent(LocalPlayerTickEvent event) {
+      ClientLevel level = ClientAccess.schizoMinecraft.level;
+      LocalPlayer player = ClientAccess.schizoMinecraft.player;
+      if (level == null || player == null) {
+         this.resetScanState(true);
+         return;
+      }
+
+      BlockPos origin = player.blockPosition();
+      if (this.scanLevel != level || this.scanPlayer != player || !origin.equals(this.scanOrigin)) {
+         this.startScan(level, player, origin);
+      }
+
+      this.scanSlice();
       BlockPos roundedPosition = PlayerStateUtils.getLocalRoundedBlockPosition();
       this.inHole = this.intersectsHole(roundedPosition);
    }
 
-   public void setHoles(List updatedHoles) {
-      this.holes = updatedHoles;
+   @EventHandler
+   private void onDisconnect(MinecraftDisconnectEvent event) {
+      this.resetScanState(true);
+   }
+
+   private void startScan(ClientLevel level, LocalPlayer player, BlockPos origin) {
+      this.scanLevel = level;
+      this.scanPlayer = player;
+      this.scanOrigin = origin.immutable();
+      this.scanIndex = 0;
+      this.pendingHoles.clear();
+      this.coveredPositions.clear();
+   }
+
+   private void scanSlice() {
+      if (this.scanOrigin == null) {
+         return;
+      }
+
+      int processed = 0;
+      while (processed < SCAN_BUDGET_PER_TICK && this.scanIndex < TOTAL_SCAN_POSITIONS) {
+         int index = this.scanIndex++;
+         int xOffset = index / (SCAN_SIZE * SCAN_SIZE) + SCAN_MIN_OFFSET;
+         int remainder = index % (SCAN_SIZE * SCAN_SIZE);
+         int yOffset = remainder / SCAN_SIZE + SCAN_MIN_OFFSET;
+         int zOffset = remainder % SCAN_SIZE + SCAN_MIN_OFFSET;
+
+         this.scanCursor.set(
+            this.scanOrigin.getX() + xOffset,
+            this.scanOrigin.getY() + yOffset,
+            this.scanOrigin.getZ() + zOffset
+         );
+         long positionKey = this.scanCursor.asLong();
+         if (!this.coveredPositions.contains(positionKey)) {
+            HoleInfo hole = classifyHole(this.scanCursor, null);
+            if (hole != null) {
+               this.pendingHoles.add(hole);
+               this.addCoveredPositions(hole.bounds());
+            }
+         }
+         processed++;
+      }
+
+      if (this.scanIndex >= TOTAL_SCAN_POSITIONS) {
+         this.holes = List.copyOf(this.pendingHoles);
+         this.startScan(this.scanLevel, this.scanPlayer, this.scanOrigin);
+      }
+   }
+
+   private void addCoveredPositions(AABB bounds) {
+      for (int x = (int)bounds.minX; x < (int)bounds.maxX; x++) {
+         for (int z = (int)bounds.minZ; z < (int)bounds.maxZ; z++) {
+            int y = (int)bounds.minY;
+            this.coveredPositions.add(BlockPos.asLong(x, y, z));
+            this.coveredPositions.add(BlockPos.asLong(x, y + 1, z));
+            this.coveredPositions.add(BlockPos.asLong(x, y + 2, z));
+         }
+      }
+   }
+
+   private void resetScanState(boolean clearPublishedHoles) {
+      this.scanLevel = null;
+      this.scanPlayer = null;
+      this.scanOrigin = null;
+      this.scanIndex = 0;
+      this.pendingHoles.clear();
+      this.coveredPositions.clear();
+      this.inHole = false;
+      if (clearPublishedHoles) {
+         this.holes = List.of();
+      }
    }
 
    private static AABB createHoleBounds(BlockPos position, Direction face) {
