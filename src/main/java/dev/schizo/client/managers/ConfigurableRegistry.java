@@ -15,6 +15,7 @@ import dev.schizo.client.integrations.MultiplayerCompatibilityPolicy;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
 
 public final class ConfigurableRegistry implements Iterable<JsonConfigurable> {
    private final List<JsonConfigurable> configurables = new ArrayList<>();
@@ -46,6 +47,27 @@ public final class ConfigurableRegistry implements Iterable<JsonConfigurable> {
    }
 
    private void register(JsonConfigurable configurable) {
-      this.configurables.add(configurable);
+      JsonConfigurable checked = Objects.requireNonNull(configurable, "Configurable must not be null");
+      String configName = requireValidConfigName(checked);
+      for (JsonConfigurable existing : this.configurables) {
+         if (existing.getConfigName().equalsIgnoreCase(configName)) {
+            throw new IllegalStateException("Duplicate configuration name: " + configName);
+         }
+      }
+      this.configurables.add(checked);
+   }
+
+   static String requireValidConfigName(JsonConfigurable configurable) {
+      String configName = Objects.requireNonNull(configurable.getConfigName(), "Configuration name must not be null");
+      String portable = configName.replace('\\', '/');
+      if (portable.isBlank()
+         || portable.startsWith("/")
+         || portable.contains("../")
+         || portable.contains("/..")
+         || portable.contains(":")
+         || !portable.toLowerCase(java.util.Locale.ROOT).endsWith(".json")) {
+         throw new IllegalStateException("Invalid configuration name: " + configName);
+      }
+      return configName;
    }
 }

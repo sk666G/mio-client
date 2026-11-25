@@ -286,19 +286,32 @@ public final class ConfigurationManager implements ClientAccess {
                );
                continue;
             }
-            try {
-               this.backupManager.backupBeforeSave(snapshot.name());
-            } catch (IOException | IllegalArgumentException backupFailure) {
-               ClientAccess.logger.warn(
-                  "Could not back up configuration {} before saving",
-                  snapshot.name(),
-                  backupFailure
-               );
-            }
+            this.backupBeforeSaveIfSupported(snapshot.name());
             FileUtils.writeUtf8Atomically(configPath, gsonSnapshot.toJson(snapshot.json()));
          } catch (Exception saveFailure) {
             ClientAccess.logger.error("Could not save configuration {}", snapshot.name(), saveFailure);
          }
+      }
+   }
+
+   static boolean usesTopLevelBackup(String configName) {
+      return configName != null
+         && configName.indexOf('/') < 0
+         && configName.indexOf('\\') < 0;
+   }
+
+   private void backupBeforeSaveIfSupported(String configName) {
+      if (!usesTopLevelBackup(configName)) {
+         return;
+      }
+      try {
+         this.backupManager.backupBeforeSave(configName);
+      } catch (IOException | IllegalArgumentException backupFailure) {
+         ClientAccess.logger.warn(
+            "Could not back up configuration {} before saving",
+            configName,
+            backupFailure
+         );
       }
    }
 
@@ -342,15 +355,7 @@ public final class ConfigurationManager implements ClientAccess {
                );
                continue;
             }
-            try {
-               this.backupManager.backupBeforeSave(configurable.getConfigName());
-            } catch (IOException | IllegalArgumentException backupFailure) {
-               ClientAccess.logger.warn(
-                  "Could not back up configuration {} before saving",
-                  configurable.getConfigName(),
-                  backupFailure
-               );
-            }
+            this.backupBeforeSaveIfSupported(configurable.getConfigName());
             Gson gsonSnapshot = ClientAccess.gson;
             JsonElement serialized = configurable.toJson();
             JsonObject object = serialized.getAsJsonObject();
