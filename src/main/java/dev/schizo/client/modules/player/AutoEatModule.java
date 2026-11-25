@@ -69,6 +69,7 @@ public class AutoEatModule extends Module {
    private final Setting<Boolean> swapBackSetting;
    private final Setting<Boolean> autoEscapeSetting;
    private final Setting<Boolean> autoDisableSetting;
+   private final dev.schizo.client.utils.inventory.TemporaryHotbarSelection selectionOwner = new dev.schizo.client.utils.inventory.TemporaryHotbarSelection();
    private int previousSelectedSlot = -1;
    private int temporarySelectedSlot = -1;
    private boolean eating;
@@ -117,14 +118,8 @@ public class AutoEatModule extends Module {
    }
 
    private void restoreTemporaryHotbarSelection() {
-      int restoreSlot = this.previousSelectedSlot;
-      int temporarySlot = this.temporarySelectedSlot;
       try {
-         if (this.autoSwapSetting.getValue() && this.swapBackSetting.getValue()
-            && restoreSlot >= 0 && temporarySlot >= 0 && !this.isWorldUnavailable()
-            && InventoryUtils.getSelectedSlot() == temporarySlot) {
-            InventoryUtils.selectHotbarSlot(restoreSlot);
-         }
+         this.selectionOwner.restore(this.autoSwapSetting.getValue() && this.swapBackSetting.getValue());
       } finally {
          this.previousSelectedSlot = -1;
          this.temporarySelectedSlot = -1;
@@ -155,6 +150,7 @@ public class AutoEatModule extends Module {
    }
 
    private void clearSwapState() {
+      this.selectionOwner.clear();
       this.previousSelectedSlot = -1;
       this.temporarySelectedSlot = -1;
       this.swappedContainerSlot = -1;
@@ -263,7 +259,7 @@ public class AutoEatModule extends Module {
             if (this.previousSelectedSlot == -1) {
                this.previousSelectedSlot = InventoryUtils.getSelectedSlot();
             }
-            InventoryUtils.selectHotbarSlotForPlacement(foodSlot);
+            this.selectionOwner.select(foodSlot);
             this.temporarySelectedSlot = foodSlot;
          }
       }
