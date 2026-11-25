@@ -224,7 +224,9 @@ public abstract class Setting<T> extends NamedFeature implements ValueProvider<T
       if (this.changeCallback != null) {
          try {
             this.changeCallback.run();
-         } catch (Throwable ignoredFailure) {
+         } catch (RuntimeException | Error callbackFailure) {
+            dev.schizo.client.ClientAccess.logger.error("Setting change callback failed for {}", this.getConfigName(), callbackFailure);
+            throw callbackFailure;
          }
       }
    }
