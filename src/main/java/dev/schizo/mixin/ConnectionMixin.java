@@ -12,7 +12,6 @@ package dev.schizo.mixin;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.events.PacketEvent;
-import dev.schizo.client.profiling.RuntimeDiagnostics;
 import dev.schizo.client.utils.network.PingSpoofDelayHandler;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFutureListener;
@@ -122,11 +121,6 @@ public class ConnectionMixin {
          || !LAST_EVENT_FAILURE_LOG_NANOS.compareAndSet(previous, now)) {
          return;
       }
-      RuntimeDiagnostics.GLOBAL.record(
-         RuntimeDiagnostics.Area.EVENT_DISPATCH,
-         "packet " + phase + " on " + Thread.currentThread().getName(),
-         failure
-      );
       ClientAccess.logger.error("Packet {} event dispatch failed on {}", phase, Thread.currentThread().getName(), failure);
    }
 }
