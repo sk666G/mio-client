@@ -132,7 +132,7 @@ public final class WaypointRegistry extends AbstractRegistry<Waypoint> implement
          return false;
       }
 
-      for (Waypoint existingWaypoint : this.getRegistry()) {
+      for (Waypoint existingWaypoint : this.entries) {
          if (hasSameIdentity(existingWaypoint, waypoint)) {
             return false;
          }
@@ -141,7 +141,7 @@ public final class WaypointRegistry extends AbstractRegistry<Waypoint> implement
    }
 
    public boolean unregisterWaypoint(Waypoint waypoint) {
-      return waypoint != null && this.getRegistry().removeIf(candidate -> hasSameIdentity(candidate, waypoint));
+      return waypoint != null && this.entries.removeIf(candidate -> hasSameIdentity(candidate, waypoint));
    }
 
    static boolean hasSameIdentity(Waypoint first, Waypoint second) {
