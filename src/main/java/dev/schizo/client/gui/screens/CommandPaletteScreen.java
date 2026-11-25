@@ -30,7 +30,6 @@ import java.awt.Color;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Locale;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.ChatScreen;
@@ -42,9 +41,6 @@ import org.lwjgl.glfw.GLFW;
 /** Global fuzzy-search launcher for modules, commands and settings. */
 public final class CommandPaletteScreen extends ClientScreen {
    private static final int MAX_RESULTS = 40;
-   private static final int this.visibleResults = 8;
-   private static final int CommandPaletteLayout.RESULT_ROW_HEIGHT = 22;
-   private static final int PANEL_WIDTH = 390;
 
    private enum EntryKind {
       MODULE,
@@ -153,7 +149,7 @@ public final class CommandPaletteScreen extends ClientScreen {
          ? ModuleQuickAccessRanking.emptySnapshot()
          : ModuleQuickAccessRanking.snapshot(preferences.getFavorites(), preferences.getRecentlyUsed());
       for (PaletteEntry entry : this.index) {
-         int score = PaletteMatcher.score(entry.title(), entry.subtitle(), query);
+         int score = PaletteMatcher.scoreNormalized(entry.title(), entry.subtitle(), query);
          if (score >= 0) {
             ModuleQuickAccessRanking.Rank rank = switch (entry.kind()) {
                case MODULE -> quickAccessRanks.rank(entry.module().getConfigName());
@@ -244,14 +240,15 @@ public final class CommandPaletteScreen extends ClientScreen {
       this.rebuildIndex();
       int screenWidth = GuiScaleUtils.getScaledWidth();
       int screenHeight = GuiScaleUtils.getScaledHeight();
-      int width = Math.round(CommandPaletteLayout.calculate(screenWidth, screenHeight).panelWidth());
-      int left = (screenWidth - width) / 2;
-      int top = Math.max(18, (int)(screenHeight * 0.22F));
+      CommandPaletteLayout.Layout layout = CommandPaletteLayout.calculate(screenWidth, screenHeight);
+      int width = Math.round(layout.panelWidth());
+      int left = Math.round(layout.panelLeft());
+      int top = Math.round(layout.panelTop());
       this.searchBox = new EditBox(
          ClientAccess.schizoMinecraft.font,
          left + 12,
          top + 32,
-         Math.max(100, width - 24),
+         Math.max(1, width - 24),
          18,
          Component.literal("Search modules, commands and settings")
       );
