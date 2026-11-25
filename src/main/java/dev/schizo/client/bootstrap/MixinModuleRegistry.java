@@ -42,6 +42,8 @@ import dev.schizo.client.modules.render.FreeLookModule;
 import dev.schizo.client.modules.render.GlintModule;
 import dev.schizo.client.modules.render.NoRenderModule;
 import dev.schizo.client.modules.render.TooltipsModule;
+import dev.schizo.client.modules.render.SkyboxModule;
+import dev.schizo.client.modules.render.ViewClipModule;
 import java.util.Objects;
 
 /** Cached module references consumed by mixin hooks without adding synthetic methods to Minecraft classes. */
@@ -68,6 +70,11 @@ public final class MixinModuleRegistry {
    public static volatile DiscordModule minecraftDiscordModule;
    public static volatile TooltipsModule bundleContentsTooltipsModule;
    public static volatile AmbienceModule levelAmbience;
+   public static volatile ViewClipModule levelViewClip;
+   public static volatile NoRenderModule levelNoRender;
+   public static volatile FreecamModule levelFreecam;
+   public static volatile SkyboxModule levelSkybox;
+   public static volatile ChamsModule levelChams;
    public static volatile NoSlowModule entityNoSlowModule;
    public static volatile ElytraFlyModule entityElytraFlyModule;
    public static volatile FreecamModule entityFreecamModule;
@@ -113,6 +120,11 @@ public final class MixinModuleRegistry {
       minecraftDiscordModule = (DiscordModule)Objects.requireNonNull(registry.getModule(DiscordModule.class), "Required module is not registered: DiscordModule");
       bundleContentsTooltipsModule = (TooltipsModule)Objects.requireNonNull(registry.getModule(TooltipsModule.class), "Required module is not registered: TooltipsModule");
       levelAmbience = (AmbienceModule)Objects.requireNonNull(registry.getModule(AmbienceModule.class), "Required module is not registered: AmbienceModule");
+      levelViewClip = (ViewClipModule)Objects.requireNonNull(registry.getModule(ViewClipModule.class), "Required module is not registered: ViewClipModule");
+      levelNoRender = (NoRenderModule)Objects.requireNonNull(registry.getModule(NoRenderModule.class), "Required module is not registered: NoRenderModule");
+      levelFreecam = (FreecamModule)Objects.requireNonNull(registry.getModule(FreecamModule.class), "Required module is not registered: FreecamModule");
+      levelSkybox = (SkyboxModule)Objects.requireNonNull(registry.getModule(SkyboxModule.class), "Required module is not registered: SkyboxModule");
+      levelChams = (ChamsModule)Objects.requireNonNull(registry.getModule(ChamsModule.class), "Required module is not registered: ChamsModule");
       entityNoSlowModule = (NoSlowModule)Objects.requireNonNull(registry.getModule(NoSlowModule.class), "Required module is not registered: NoSlowModule");
       entityElytraFlyModule = (ElytraFlyModule)Objects.requireNonNull(registry.getModule(ElytraFlyModule.class), "Required module is not registered: ElytraFlyModule");
       entityFreecamModule = (FreecamModule)Objects.requireNonNull(registry.getModule(FreecamModule.class), "Required module is not registered: FreecamModule");
