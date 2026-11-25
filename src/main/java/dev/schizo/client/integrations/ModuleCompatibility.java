@@ -109,6 +109,26 @@ import dev.schizo.client.modules.player.AutoBreedModule;
 import dev.schizo.client.modules.player.AutoTameModule;
 import dev.schizo.client.modules.player.AutoTradeModule;
 import dev.schizo.client.modules.player.AutoCraftModule;
+import dev.schizo.client.modules.combat.AnchorAuraModule;
+import dev.schizo.client.modules.misc.AntiAimModule;
+import dev.schizo.client.modules.combat.AntiBotModule;
+import dev.schizo.client.modules.combat.AntiFeetPlaceModule;
+import dev.schizo.client.modules.combat.AntiPearlModule;
+import dev.schizo.client.modules.combat.AuraModule;
+import dev.schizo.client.modules.combat.AutoArmorModule;
+import dev.schizo.client.modules.combat.AutoBowReleaseModule;
+import dev.schizo.client.modules.combat.AutoClickerModule;
+import dev.schizo.client.modules.combat.AutoCrystalModule;
+import dev.schizo.client.modules.combat.AutoDropModule;
+import dev.schizo.client.modules.combat.AutoExpModule;
+import dev.schizo.client.modules.combat.AutoLogModule;
+import dev.schizo.client.modules.combat.AutoMaceModule;
+import dev.schizo.client.modules.combat.AutoMineModule;
+import dev.schizo.client.modules.combat.AutoPotModule;
+import dev.schizo.client.modules.combat.AutoTrapModule;
+import dev.schizo.client.modules.combat.BedAuraModule;
+import dev.schizo.client.modules.combat.BlockerModule;
+import dev.schizo.client.modules.combat.BowAimModule;
 import java.util.Map;
 
 /**
@@ -330,6 +350,86 @@ public final class ModuleCompatibility {
       Map.entry(AutoCraftModule.class, assessed(
          Classification.WORLD_INTERACTION,
          "Automates crafting/container actions and ordinary placement/use-item steps required by its crafting flow."
+      )),
+      Map.entry(AnchorAuraModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automates respawn-anchor placement/charging/detonation interactions and associated inventory/rotation coordination."
+      )),
+      Map.entry(AntiAimModule.class, assessed(
+         Classification.SERVER_SENSITIVE,
+         "Requests non-vanilla server-side rotations and coordinates those rotations around outgoing use-item actions."
+      )),
+      Map.entry(AntiBotModule.class, assessed(
+         Classification.CLIENT_ONLY,
+         "Filters suspected bot players by removing matching entities from the local client world; no outgoing packet mutation was found."
+      )),
+      Map.entry(AntiFeetPlaceModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automatically replaces mined blocks near eligible targets through ordinary placement interaction helpers."
+      )),
+      Map.entry(AntiPearlModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Observes pearl trajectories and automatically places blocking/support blocks through the placement-module path."
+      )),
+      Map.entry(AuraModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automatically selects and attacks nearby entities while coordinating rotation/sprint state."
+      )),
+      Map.entry(AutoArmorModule.class, assessed(
+         Classification.SERVER_SENSITIVE,
+         "Automates armor/inventory changes and can emit start-fall-flying state while coordinating elytra equipment."
+      )),
+      Map.entry(AutoBowReleaseModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automatically releases and reuses bow/crossbow actions through ordinary release/use-item paths."
+      )),
+      Map.entry(AutoClickerModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automatically invokes the client's attack and interact actions at configured cadence."
+      )),
+      Map.entry(AutoCrystalModule.class, assessed(
+         Classification.PACKET_AFFECTING,
+         "Automates crystal placement/attack and can emit predicted crystal attack IDs plus explicit player-action packets outside ordinary game-mode sequencing."
+      )),
+      Map.entry(AutoDropModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Computes placement positions and automatically places gravity/support blocks around eligible targets."
+      )),
+      Map.entry(AutoExpModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automatically throws experience bottles using normal use-item/swing interaction paths."
+      )),
+      Map.entry(AutoLogModule.class, assessed(
+         Classification.PACKET_AFFECTING,
+         "Automatically disconnects under configured danger conditions and can delegate to the existing IllegalDisconnect mode when that module is enabled."
+      )),
+      Map.entry(AutoMaceModule.class, assessed(
+         Classification.SERVER_SENSITIVE,
+         "Coordinates mace attacks with movement/elytra state, forced rotations and automated item use."
+      )),
+      Map.entry(AutoMineModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automatically selects blocks and starts ordinary block-destroy interactions with optional rotation."
+      )),
+      Map.entry(AutoPotModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automatically selects and throws potions using the normal use-item interaction semantics with coordinated rotation."
+      )),
+      Map.entry(AutoTrapModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Placement-module automation that surrounds selected targets with configured blocks."
+      )),
+      Map.entry(BedAuraModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automates bed placement/use interactions and rotation around eligible targets."
+      )),
+      Map.entry(BlockerModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Placement-oriented defensive automation that places configured blocking positions in response to observed combat state."
+      )),
+      Map.entry(BowAimModule.class, assessed(
+         Classification.SERVER_SENSITIVE,
+         "Calculates target-leading ballistic rotations and injects those rotations into bow/crossbow use-item actions."
       )),
       Map.entry(AmbienceModule.class, assessed(
          Classification.VISUAL_ONLY,
