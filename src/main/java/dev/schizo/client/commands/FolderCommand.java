@@ -9,6 +9,7 @@
 
 package dev.schizo.client.commands;
 
+import dev.schizo.client.diagnostics.RuntimeDiagnostics;
 import dev.schizo.client.managers.ConfigurationManager;
 import dev.schizo.client.settings.options.PresetCategory;
 import dev.schizo.client.utils.chat.ChatUtils;
@@ -85,7 +86,7 @@ public final class FolderCommand extends Command {
          File file = directory.toFile();
          desktop.open(file);
       } catch (IOException failure) {
-         failure.printStackTrace();
+         RuntimeDiagnostics.record(RuntimeDiagnostics.Area.COMMAND, "Folder command", failure);
          ChatUtils.printChat(Component.literal("Failed to open folder ").append(ChatUtils.watermarkText(directory.getFileName().toString())).append("."), ChatUtils.DEFAULT_SIGNATURE, ChatUtils.MessagePriority.MID);
       }
 
