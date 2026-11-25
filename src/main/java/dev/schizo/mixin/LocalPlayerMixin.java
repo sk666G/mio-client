@@ -23,7 +23,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(LocalPlayer.class)
 public class LocalPlayerMixin {
-   private static final SprintModule sprintModule = ClientContext.getModule(SprintModule.class);
+
    @Unique
    private boolean aiStepInputActive;
    @Unique
@@ -39,8 +39,8 @@ public class LocalPlayerMixin {
          .post(event);
       this.itemUseSlowdownCancelled = event.isCancelled();
       this.aiStepInputActive = true;
-      if (sprintModule.isToggled()
-         && sprintModule.shouldDeferToVanillaSprinting()) {
+      if (schizo$sprintModule().isToggled()
+         && schizo$sprintModule().shouldDeferToVanillaSprinting()) {
          SprintModule.forceSprintKeyDown = true;
       }
    }
@@ -61,5 +61,10 @@ public class LocalPlayerMixin {
          && this.aiStepInputActive) {
          callback.setReturnValue(false);
       }
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static SprintModule schizo$sprintModule() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(SprintModule.class);
    }
 }
