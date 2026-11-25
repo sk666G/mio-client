@@ -12,6 +12,7 @@ package dev.schizo.client.gui.screens;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.profiling.EventProfiler;
 import dev.schizo.client.diagnostics.RuntimeDiagnostics;
+import dev.schizo.client.diagnostics.MixinHealthRegistry;
 import dev.schizo.client.managers.TaskScheduler;
 import dev.schizo.client.render.ColorUtils;
 import dev.schizo.client.render.ClientRenderTypes;
@@ -160,9 +161,11 @@ public final class PerformanceCenterScreen extends ClientScreen {
       TaskScheduler.QueueSnapshot queueSnapshot = ClientContext.taskScheduler == null
          ? new TaskScheduler.QueueSnapshot(0, 0, 0, 0)
          : ClientContext.taskScheduler.snapshotQueues();
+      MixinHealthRegistry.Snapshot mixinHealth = MixinHealthRegistry.snapshot();
       String profilerStatus = (EventProfiler.GLOBAL.isEnabled() ? "SAMPLING ON" : "PROFILER IDLE")
          + "  •  Q " + queueSnapshot.totalQueued() + "/" + queueSnapshot.totalOutstanding()
-         + "  •  ERR " + RuntimeDiagnostics.totalFailureCount();
+         + "  •  ERR " + RuntimeDiagnostics.totalFailureCount()
+         + "  •  MIXIN " + mixinHealth.seen() + "/" + mixinHealth.expected();
       font.drawWithShadow(
          poseStack,
          profilerStatus,
