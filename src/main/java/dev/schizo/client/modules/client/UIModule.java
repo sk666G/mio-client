@@ -92,19 +92,28 @@ public final class UIModule extends Module {
    public final Setting<Color> enabledSetting;
    public final Setting<Color> tintSetting;
    public final Setting<Color> gradientColorSetting;
+   private long guiOpenGeneration;
 
    @Override
    public void onEnable() {
+      long generation = ++this.guiOpenGeneration;
       if (this.isWorldUnavailable() || ClientAccess.schizoMinecraft.screen instanceof ClickGuiScreen) {
          return;
       }
-      if (ClientAccess.schizoMinecraft.screen instanceof ChatScreen) {
+      if (ClientAccess.schizoMinecraft.screen instanceof ChatScreen chatScreen) {
          TaskScheduler guiScheduler = ClientContext.taskScheduler;
          Runnable guiOpenTask = () -> {
+            if (!this.isToggled()
+               || this.guiOpenGeneration != generation
+               || ClientAccess.schizoMinecraft.screen != chatScreen) {
+               return;
+            }
             ClickGuiScreen deferredScreen = ClientContext.getClickGui();
             deferredScreen.open();
          };
-         guiScheduler.scheduleRotationTask(guiOpenTask, 0);
+         if (!guiScheduler.scheduleRotationTask(guiOpenTask, 0)) {
+            guiOpenTask.run();
+         }
       } else {
          ClickGuiScreen screen = ClientContext.getClickGui();
          screen.open();
@@ -123,6 +132,7 @@ public final class UIModule extends Module {
 
    @Override
    public void onDisable() {
+      this.guiOpenGeneration++;
       if (ClientAccess.schizoMinecraft.screen instanceof ClickGuiScreen) {
          ClientContext.getClickGui()
             .closeWithTransition();
@@ -167,7 +177,11 @@ public final class UIModule extends Module {
       PacketEvent.Receive event
    ) {
       if (event.getPacket() instanceof ClientboundDisconnectPacket) {
-         this.disable();
+         ClientAccess.schizoMinecraft.executeIfPossible(() -> {
+            if (this.isToggled()) {
+               this.disable();
+            }
+         });
       }
    }
 
