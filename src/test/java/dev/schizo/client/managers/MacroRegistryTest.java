@@ -101,6 +101,62 @@ class MacroRegistryTest {
       assertEquals("release", loaded.getCommands().getLast());
    }
 
+   @Test
+   void invalidEntriesAreSkippedWhileValidEntriesSurvive() {
+      MacroRegistry registry = new MacroRegistry();
+      JsonObject root = new JsonObject();
+      JsonArray macros = new JsonArray();
+      macros.add(serializedMacro("First", 7, "say first"));
+      JsonObject unknownType = serializedMacro("Broken", 8, "say broken");
+      unknownType.addProperty("type", "unknown-type");
+      macros.add(unknownType);
+      JsonObject invalidCommand = serializedMacro("Invalid", 9, "say invalid");
+      invalidCommand.getAsJsonArray("commands").add(123);
+      macros.add(invalidCommand);
+      macros.add(serializedMacro("Last", 10, "say last"));
+      root.add("macros", macros);
+
+      registry.fromJson(root);
+
+      assertEquals(2, registry.getRegistry().size());
+      assertTrue(registry.findByName("first").isPresent());
+      assertTrue(registry.findByName("last").isPresent());
+      assertTrue(registry.findByName("broken").isEmpty());
+      assertTrue(registry.findByName("invalid").isEmpty());
+   }
+
+   @Test
+   void serializationRoundTripPreservesDisabledStateAndMouseBinding() {
+      MacroRegistry registry = new MacroRegistry();
+      Macro original = MacroType.SIMPLE.create("Unicode", new Keybind(2, Keybind.Mode.TOGGLE, true));
+      original.setToggled(false);
+      original.getCommands().add("say café");
+      assertTrue(registry.registerEntry(original));
+
+      MacroRegistry restored = new MacroRegistry();
+      restored.fromJson(registry.toJson());
+      Macro loaded = restored.findByName("unicode").orElseThrow();
+
+      assertEquals("Unicode", loaded.getName());
+      assertEquals(MacroType.SIMPLE, loaded.getType());
+      assertFalse(loaded.isToggled());
+      assertTrue(loaded.getKeybind().mouse());
+      assertEquals(2, loaded.getKeybind().code());
+      assertEquals(original.getCommands(), loaded.getCommands());
+   }
+
+   @Test
+   void explicitEmptyArrayClearsPreviouslyLoadedMacros() {
+      MacroRegistry registry = new MacroRegistry();
+      assertTrue(registry.registerEntry(macro("old", 1)));
+      JsonObject root = new JsonObject();
+      root.add("macros", new JsonArray());
+
+      registry.fromJson(root);
+
+      assertTrue(registry.getRegistry().isEmpty());
+   }
+
    private static Macro macro(String name, int keyCode) {
       return MacroType.SIMPLE.create(name, new Keybind(keyCode, Keybind.Mode.TOGGLE, false));
    }
