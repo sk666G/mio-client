@@ -34,9 +34,7 @@ public class ColorsModule extends PermanentModule {
       return 1.0F / this.rainbowSpeedSetting.getValue();
    }
 
-   static {
-      searchModule = ClientContext.getModule(SearchModule.class);
-   }
+   
 
    public static void bindSearchModule(ModuleRegistry registry) {
       searchModule = (SearchModule)registry.getModule(SearchModule.class);
