@@ -25,6 +25,7 @@ import dev.schizo.client.modules.render.ChamsModule;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.bootstrap.MixinModuleRegistry;
+import dev.schizo.client.diagnostics.MixinHealthRegistry;
 import dev.schizo.client.render.LevelRendererFramebufferAccess;
 import dev.schizo.client.managers.RotationManager;
 import dev.schizo.client.managers.RenderTargetRegistry;
@@ -129,6 +130,7 @@ public abstract class LevelRendererMixin implements ClientAccess, LevelRendererF
       boolean renderFlag2,
       CallbackInfo callback
    ) {
+      MixinHealthRegistry.markSeen("renderer.renderLevel");
       // Schizo's extra world passes clear the depth buffer twice. Avoid that
       // GPU work entirely when no enabled feature has a world-render listener.
       if (!ClientAccess.eventBus.hasListeners(WorldRenderEvent.BeforeDepthClear.class)
