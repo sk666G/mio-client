@@ -14,7 +14,7 @@ import dev.schizo.client.utils.world.BlockInteractionUtils;
 import dev.schizo.client.utils.world.BlockStateSnapshot;
 import dev.schizo.client.utils.world.WorldUtils;
 
-import dev.schizo.client.utils.ElapsedTimer;
+import dev.schizo.client.utils.MonotonicTime;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.PacketEvent;
@@ -39,6 +39,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 import java.util.function.Predicate;
 import net.minecraft.client.multiplayer.ClientLevel;
@@ -71,6 +72,9 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 
 public final class WorldStateManager implements ClientAccess {
    private static final AntiCheatModule antiCheatModule;
+   private static final long BREAK_WINDOW_NANOS = TimeUnit.MILLISECONDS.toNanos(150L);
+   private static final long PENDING_PLACEMENT_TTL_NANOS = TimeUnit.MILLISECONDS.toNanos(250L);
+   private static final long GLASS_EXPIRY_NANOS = TimeUnit.SECONDS.toNanos(10L);
 
    private final List<BlockEntity> blockEntities = Collections.synchronizedList(new ArrayList<>());
 
@@ -87,11 +91,11 @@ public final class WorldStateManager implements ClientAccess {
 
    private BlockPos unconfirmedBreak = null;
 
-   private final ElapsedTimer unconfirmedBreakTimer = new ElapsedTimer();
+   private long unconfirmedBreakAtNanos;
 
    private BlockPos extraBreak;
 
-   private final ElapsedTimer extraBreakTimer = new ElapsedTimer();
+   private long extraBreakAtNanos;
 
    private DimensionType dimension = DimensionType.OVERWORLD;
 
@@ -178,21 +182,24 @@ public final class WorldStateManager implements ClientAccess {
 
    public void markUnconfirmedBreak(BlockPos position) {
       this.unconfirmedBreak = position;
-      this.unconfirmedBreakTimer.reset();
+      this.unconfirmedBreakAtNanos = System.nanoTime();
    }
 
    public void markExtraBreak(BlockPos position) {
       this.extraBreak = position;
-      this.extraBreakTimer.reset();
+      this.extraBreakAtNanos = System.nanoTime();
    }
 
    @EventHandler(priority = -200)
    private void onLocalPlayerTickEvent(LocalPlayerTickEvent event) {
+      long nowNanos = System.nanoTime();
       this.currentTickPlacements.clear();
-      if (this.unconfirmedBreakTimer.hasElapsed(150L)) {
+      if (this.unconfirmedBreak != null
+         && MonotonicTime.hasElapsed(this.unconfirmedBreakAtNanos, nowNanos, BREAK_WINDOW_NANOS)) {
          this.unconfirmedBreak = null;
       }
-      if (this.extraBreakTimer.hasElapsed(150L)) {
+      if (this.extraBreak != null
+         && MonotonicTime.hasElapsed(this.extraBreakAtNanos, nowNanos, BREAK_WINDOW_NANOS)) {
          this.extraBreak = null;
       }
       this.confirmedPlacements.removeIf(position -> {
@@ -205,9 +212,8 @@ public final class WorldStateManager implements ClientAccess {
          Iterator<Entry<BlockPos, PendingPlacement>> placementsIterator = this.pendingPlacements.entrySet().iterator();
          while (placementsIterator.hasNext()) {
             Entry<BlockPos, PendingPlacement> placementEntry = placementsIterator.next();
-            long now = System.currentTimeMillis();
-            long createdAtMillis = placementEntry.getValue().createdAtMillis();
-            if (now > createdAtMillis + 250L) {
+            long createdAtNanos = placementEntry.getValue().createdAtNanos();
+            if (MonotonicTime.hasElapsed(createdAtNanos, nowNanos, PENDING_PLACEMENT_TTL_NANOS)) {
                expiredPlacements.add(placementEntry.getKey());
             }
          }
@@ -222,7 +228,7 @@ public final class WorldStateManager implements ClientAccess {
       }
       synchronized (this.rollbackBlocks) {
          this.rollbackBlocks.forEach((position, snapshot) -> {
-            if (snapshot.hasExpired()) {
+            if (snapshot.hasExpired(nowNanos)) {
                ClientLevel level = ClientAccess.schizoMinecraft.level;
                BlockPos savedPosition = snapshot.position();
                BlockState savedState = snapshot.state();
@@ -231,10 +237,10 @@ public final class WorldStateManager implements ClientAccess {
          });
          this.rollbackBlocks.entrySet().removeIf(entry -> {
             BlockStateSnapshot snapshot = entry.getValue();
-            return snapshot.hasExpired();
+            return snapshot.hasExpired(nowNanos);
          });
       }
-      this.glassUpdateWindows.values().removeIf(GlassUpdateWindow::hasExpired);
+      this.glassUpdateWindows.values().removeIf(window -> window.hasExpired(nowNanos));
    }
 
    @EventHandler
@@ -271,7 +277,7 @@ public final class WorldStateManager implements ClientAccess {
             return;
          }
       }
-      this.pendingPlacements.put(placementPosition, new PendingPlacement(System.currentTimeMillis(), block));
+      this.pendingPlacements.put(placementPosition, new PendingPlacement(System.nanoTime(), block));
       if (!replacesClickedBlock) {
          this.currentTickPlacements.add(placementPosition);
       }
@@ -343,7 +349,9 @@ public final class WorldStateManager implements ClientAccess {
       this.currentTickPlacements.clear();
       this.glassUpdateWindows.clear();
       this.unconfirmedBreak = null;
+      this.unconfirmedBreakAtNanos = 0L;
       this.extraBreak = null;
+      this.extraBreakAtNanos = 0L;
    }
 
    @EventHandler(priority = 200)
@@ -357,13 +365,15 @@ public final class WorldStateManager implements ClientAccess {
       if (!BlockInteractionUtils.isGlass(state)) {
          return;
       }
-      long now = System.currentTimeMillis();
+      long nowNanos = System.nanoTime();
       int latencyDurationMillis = ClientContext.serverStateManager.getLatencyTicks() * (50) + (50);
-      long activeDurationMillis = Math.min(250, latencyDurationMillis);
+      long activeDurationNanos = TimeUnit.MILLISECONDS.toNanos(Math.min(250, latencyDurationMillis));
       Map<BlockPos, GlassUpdateWindow> windows = this.glassUpdateWindows;
       BlockPos immutableWindowPosition = position.immutable();
-      long activeUntilMillis = now + activeDurationMillis;
-      windows.putIfAbsent(immutableWindowPosition, new WorldStateManager.GlassUpdateWindow(activeUntilMillis, now + 10000L));
+      windows.putIfAbsent(
+         immutableWindowPosition,
+         new WorldStateManager.GlassUpdateWindow(nowNanos, activeDurationNanos, GLASS_EXPIRY_NANOS)
+      );
    }
 
    private ItemStack resolveHandStack(InteractionHand hand) {
@@ -447,7 +457,7 @@ public final class WorldStateManager implements ClientAccess {
    public void saveBlockForRollback(BlockPos position) {
       if (!this.rollbackBlocks.containsKey(position)) {
          this.rollbackBlocks.put(position, new BlockStateSnapshot(
-            BlockStateSnapshot.captureState(position), position, System.currentTimeMillis()
+            BlockStateSnapshot.captureState(position), position, System.nanoTime()
          ));
       }
    }
@@ -456,14 +466,16 @@ public final class WorldStateManager implements ClientAccess {
    }
 
    private record GlassUpdateWindow(
-      long activeUntilMillis,
-      long expiresAtMillis
+      long startedAtNanos,
+      long activeDurationNanos,
+      long expiryDurationNanos
    ) {
       public boolean isActive() {
-         return System.currentTimeMillis() < this.activeUntilMillis;
+         return MonotonicTime.isWithin(this.startedAtNanos, System.nanoTime(), this.activeDurationNanos);
       }
-      public boolean hasExpired() {
-         return System.currentTimeMillis() >= this.expiresAtMillis;
+
+      public boolean hasExpired(long nowNanos) {
+         return MonotonicTime.hasElapsed(this.startedAtNanos, nowNanos, this.expiryDurationNanos);
       }
    }
 }
