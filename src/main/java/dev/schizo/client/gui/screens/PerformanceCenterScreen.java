@@ -12,6 +12,7 @@ package dev.schizo.client.gui.screens;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.profiling.EventProfiler;
 import dev.schizo.client.events.bus.EventFailureTracker;
+import dev.schizo.client.managers.TaskScheduler;
 import dev.schizo.client.render.ColorUtils;
 import dev.schizo.client.render.ClientRenderTypes;
 import dev.schizo.client.render.FontRenderer;
@@ -156,8 +157,12 @@ public final class PerformanceCenterScreen extends ClientScreen {
          muted,
          false
       );
+      TaskScheduler.Snapshot schedulerSnapshot = ClientContext.taskScheduler == null
+         ? new TaskScheduler.Snapshot(0, 0, 0, 0)
+         : ClientContext.taskScheduler.snapshot();
       String profilerStatus = (EventProfiler.GLOBAL.isEnabled() ? "SAMPLING ON" : "PROFILER IDLE")
-         + "  •  EVENT ERRORS " + EventFailureTracker.GLOBAL.totalFailures();
+         + "  •  ERR " + EventFailureTracker.GLOBAL.totalFailures()
+         + "  •  TASKS " + schedulerSnapshot.totalQueued() + "/" + schedulerSnapshot.totalOutstanding();
       font.drawWithShadow(
          poseStack,
          profilerStatus,
