@@ -45,7 +45,7 @@ import org.joml.Quaternionf;
 import org.joml.Quaternionfc;
 
 public class MapModule extends HudWidgetModule {
-   private static final NewChunksModule newChunks;
+
    private static final Identifier NAVIGATION_TEXTURE;
    private final Setting<PointerMode> pointerModeSetting;
    private final Setting<Float> widthSetting;
@@ -55,7 +55,6 @@ public class MapModule extends HudWidgetModule {
    private final Setting<Color> outlineSetting;
 
    static {
-      newChunks = ClientContext.getModule(NewChunksModule.class);
 
       String texturePath = "textures/nav.png";
       String textureNamespace = "schizo";
@@ -144,7 +143,7 @@ public class MapModule extends HudWidgetModule {
          try {
             float mapDepth = 0.0F;
             poses.translate(centerX, centerY, mapDepth);
-            NewChunksModule dungeonSource = newChunks;
+            NewChunksModule dungeonSource = schizo$newChunks();
 
          Iterator chunks = dungeonSource.getDetectedDungeons().iterator();
 
@@ -152,7 +151,7 @@ public class MapModule extends HudWidgetModule {
             BlockPos dungeonPosition = (BlockPos)chunks.next();
             ChunkPos dungeonChunk = new ChunkPos(dungeonPosition);
             if (this.isChunkWithinRange(dungeonChunk)) {
-               Setting<Color> dungeonColorOption = newChunks.dungeonFillSetting;
+               Setting<Color> dungeonColorOption = schizo$newChunks().dungeonFillSetting;
                Color dungeonFill = dungeonColorOption.getValue();
 
                Color dungeonColor = ColorUtils.withAlpha(
@@ -162,7 +161,7 @@ public class MapModule extends HudWidgetModule {
             }
          }
 
-         NewChunksModule visibleChunkSource = newChunks;
+         NewChunksModule visibleChunkSource = schizo$newChunks();
 
          chunks = visibleChunkSource.getVisibleChunks().iterator();
 
@@ -173,11 +172,11 @@ public class MapModule extends HudWidgetModule {
             if (this.isChunkWithinRange(chunkPosition)) {
 
                ChunkKind visibleKind = visibleChunk.kind();
-               NewChunksModule moduleForKindColors = newChunks;
+               NewChunksModule moduleForKindColors = schizo$newChunks();
                if (visibleKind.getColors(moduleForKindColors) != null) {
 
                   ChunkKind visibleColoredKind = visibleChunk.kind();
-                  NewChunksModule moduleForFillColor = newChunks;
+                  NewChunksModule moduleForFillColor = schizo$newChunks();
                   Color chunkColor = visibleColoredKind.getColors(moduleForFillColor)[0];
 
                   chunkColor = ColorUtils.withAlpha(
@@ -376,5 +375,9 @@ public class MapModule extends HudWidgetModule {
       PointerMode(String displayName) {
          this.displayName = displayName;
       }
+   }
+
+   private static NewChunksModule schizo$newChunks() {
+      return ClientContext.requireModule(NewChunksModule.class);
    }
 }
