@@ -68,7 +68,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -769,7 +769,7 @@ public class ESPModule extends Module {
       this.chorusSetting = this.add(new BooleanSetting("Chorus", false).dependsOn(this.othersSetting));
       this.chorusTextSetting = this.add(new ColorSetting("ChorusText", new Color(-1, true)).dependsOn(this.othersSetting, this.chorusSetting));
       this.lineWidthSetting = this.add(new NumberSetting<>("LineWidth", 1.0F, 0.0F, 4.0F, ignored -> this.entityModeSetting.getValue() == EntityMode.BOX).dependsOn(this.entitiesSetting));
-      this.chorusPositions = Collections.synchronizedMap(new HashMap<>());
+      this.chorusPositions = Collections.synchronizedMap(new LinkedHashMap<>());
       this.visibleBlockEntities = new ObjectArrayList<>(64);
       this.blockRefreshTimer = new ElapsedTimer();
       this.renderHelper = new ESPRenderHelper(this);
