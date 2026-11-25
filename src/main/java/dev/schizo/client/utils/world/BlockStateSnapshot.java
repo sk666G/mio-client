@@ -10,6 +10,8 @@
 package dev.schizo.client.utils.world;
 
 import dev.schizo.client.ClientAccess;
+import dev.schizo.client.utils.MonotonicTime;
+import java.util.concurrent.TimeUnit;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.state.BlockState;
@@ -17,11 +19,16 @@ import net.minecraft.world.level.block.state.BlockState;
 public record BlockStateSnapshot(
    BlockState state,
    BlockPos position,
-   long capturedAtMillis
+   long capturedAtNanos
 ) implements ClientAccess {
+   private static final long EXPIRY_NANOS = TimeUnit.MILLISECONDS.toNanos(500L);
 
    public boolean hasExpired() {
-      return System.currentTimeMillis() - this.capturedAtMillis >= 500L;
+      return this.hasExpired(System.nanoTime());
+   }
+
+   public boolean hasExpired(long nowNanos) {
+      return MonotonicTime.hasElapsed(this.capturedAtNanos, nowNanos, EXPIRY_NANOS);
    }
 
    public static BlockState captureState(BlockPos position) {
