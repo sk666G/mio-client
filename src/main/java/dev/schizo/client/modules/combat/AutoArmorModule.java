@@ -544,12 +544,20 @@ public class AutoArmorModule extends Module {
                      }
                   }
 
+                  ClientLevel expectedLevel = ClientAccess.schizoMinecraft.level;
+                  LocalPlayer expectedPlayer = ClientAccess.schizoMinecraft.player;
                   Runnable restoreCursorStack = () -> {
+                     if (!this.isToggled()
+                        || ClientAccess.schizoMinecraft.level != expectedLevel
+                        || ClientAccess.schizoMinecraft.player != expectedPlayer
+                        || ClientAccess.schizoMinecraft.screen != null) {
+                        return;
+                     }
                      InventoryUtils.clickSlot(0, 0, ClickType.PICKUP);
                      InventoryUtils.clickSlot(0, 0, ClickType.PICKUP);
                   };
                   if (!ClientContext.taskScheduler.scheduleRotationTask(restoreCursorStack, 0)) {
-                     ClientAccess.schizoMinecraft.execute(restoreCursorStack);
+                     ClientAccess.schizoMinecraft.executeIfPossible(restoreCursorStack);
                   }
                }
             }
