@@ -1712,6 +1712,78 @@ public final class ModuleCompatibility {
       Map.entry(setting(ArrowsModule.class, "AssumeDuration"), settingAssessed(
          Classification.WORLD_INTERACTION,
          "Controls local effect-duration assumptions used when choosing which effect arrow to prepare."
+      )),
+      Map.entry(setting(NoSlowModule.class, "GuiMove"), settingAssessed(
+         Classification.INPUT_MODIFYING,
+         "Enables movement-key handling while supported GUI screens are open."
+      )),
+      Map.entry(setting(NoSlowModule.class, "Containers"), settingAssessed(
+         Classification.INPUT_MODIFYING,
+         "Controls whether GUI movement input remains active while container screens are open."
+      )),
+      Map.entry(setting(NoSlowModule.class, "Rotate"), settingAssessed(
+         Classification.INPUT_MODIFYING,
+         "Enables keyboard-driven local player rotation while GUI movement is active."
+      )),
+      Map.entry(setting(NoSlowModule.class, "Strict"), settingAssessed(
+         Classification.CLIENT_ONLY,
+         "Acts only as the local settings group for strict NoSlow controls."
+      )),
+      Map.entry(setting(NoSlowModule.class, "Mode"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Selects the reviewed item-use slowdown handling path, including paths that alter interaction or carried-slot packet sequencing."
+      )),
+      Map.entry(setting(NoSlowModule.class, "StrictInventory"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Selects the reviewed inventory interaction mode used while strict NoSlow handling is active."
+      )),
+      Map.entry(setting(NoSlowModule.class, "Player"), settingAssessed(
+         Classification.CLIENT_ONLY,
+         "Acts only as the local settings group for player slowdown controls."
+      )),
+      Map.entry(setting(NoSlowModule.class, "Items"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Enables reviewed item-use slowdown cancellation and mode-specific interaction handling."
+      )),
+      Map.entry(setting(NoSlowModule.class, "Sneak"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Suppresses reviewed local sneaking slowdown behavior."
+      )),
+      Map.entry(setting(NoSlowModule.class, "Crawl"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Suppresses reviewed local crawling slowdown behavior."
+      )),
+      Map.entry(setting(NoSlowModule.class, "Slowness"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Suppresses selected local Slowness effect queries that influence movement behavior."
+      )),
+      Map.entry(setting(NoSlowModule.class, "Blocks"), settingAssessed(
+         Classification.CLIENT_ONLY,
+         "Acts only as the local settings group for block-slowdown controls."
+      )),
+      Map.entry(setting(NoSlowModule.class, "Ice"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Changes reviewed local movement behavior on ice blocks."
+      )),
+      Map.entry(setting(NoSlowModule.class, "SoulSand"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Suppresses reviewed local soul-sand slowdown behavior."
+      )),
+      Map.entry(setting(NoSlowModule.class, "Honey"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Suppresses reviewed local honey-block slowdown behavior."
+      )),
+      Map.entry(setting(NoSlowModule.class, "BerryBush"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Suppresses reviewed local sweet-berry-bush slowdown behavior."
+      )),
+      Map.entry(setting(NoSlowModule.class, "Slime"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Changes reviewed local slime-block movement behavior."
+      )),
+      Map.entry(setting(NoSlowModule.class, "NoSlimeBounce"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls suppression of local slime-block bounce behavior."
       ))
    );
 
