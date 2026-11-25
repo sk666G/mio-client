@@ -1,7 +1,17 @@
+/*
+ * ─────────────────────────────────────────────
+ * Licensed under the MIT License.
+ *
+ * Zio is not affiliated with or endorsed by Mio.
+ * Provided "as is", without warranty of any kind.
+ * ─────────────────────────────────────────────
+ */
+
 package dev.schizo.client.commands;
 
 import dev.schizo.client.gui.screens.PerformanceCenterScreen;
 import dev.schizo.client.profiling.EventProfiler;
+import dev.schizo.client.profiling.RuntimeDiagnostics;
 import dev.schizo.client.utils.chat.ChatUtils;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import java.util.List;
@@ -35,7 +45,26 @@ public final class ProfilerCommand extends Command {
       }));
       commandBuilder.then(literal("reset").executes(context -> {
          profiler.reset();
-         send("Profiler statistics reset.");
+         RuntimeDiagnostics.GLOBAL.reset();
+         send("Profiler and runtime diagnostics reset.");
+         return 1;
+      }));
+      commandBuilder.then(literal("diagnostics").executes(context -> {
+         RuntimeDiagnostics.Snapshot diagnostics = RuntimeDiagnostics.GLOBAL.snapshot();
+         send("Runtime failures: " + diagnostics.totalFailures());
+         for (RuntimeDiagnostics.Area area : RuntimeDiagnostics.Area.values()) {
+            long count = diagnostics.counts().getOrDefault(area, 0L);
+            if (count != 0L) {
+               send(" - " + area + ": " + count);
+            }
+         }
+         RuntimeDiagnostics.FailureSnapshot latest = diagnostics.lastFailure();
+         if (latest == null) {
+            send("No runtime failures recorded.");
+         } else {
+            send("Latest: " + latest.area() + " | " + latest.detail()
+               + " | " + latest.failureType());
+         }
          return 1;
       }));
       commandBuilder.then(literal("callbacks").executes(context -> {
