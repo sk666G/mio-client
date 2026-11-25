@@ -491,6 +491,7 @@ public class SpeedMineModule extends Module {
 
       owner.retargetTimer.reset();
       owner.rebreakTracker.reset();
+      owner.renderQueue.clear();
       owner.extraBreakTracker.clear();
       owner.extraBreakTarget = null;
    }
@@ -515,8 +516,6 @@ public class SpeedMineModule extends Module {
       reset(this);
       this.lastMiningPos = null;
       swapPending.set(false);
-
-      this.renderQueue.clear();
    }
 
    private static Direction selectDestroyFace(BlockPos blockPos) {
