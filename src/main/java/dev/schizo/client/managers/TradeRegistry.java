@@ -23,8 +23,6 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import java.util.ArrayList;
 import java.util.Iterator;
-import java.util.Optional;
-import java.util.function.Consumer;
 import java.util.function.Predicate;
 import net.minecraft.world.item.Items;
 
@@ -69,11 +67,16 @@ public final class TradeRegistry extends Registry<TradeDefinition> implements Cl
       return root;
    }
 
-   public void reregisterByName(String name) {
-      Predicate<TradeDefinition> predicate = trade -> trade.getName().equalsIgnoreCase(name);
-      Optional<TradeDefinition> match = this.findFirst(predicate);
-      Consumer<TradeDefinition> consumer = this::registerTrade;
-      match.ifPresent(consumer);
+   public boolean unregisterByName(String name) {
+      if (name == null) {
+         return false;
+      }
+
+      return this.getRegistry().removeIf(trade ->
+         trade != null
+            && trade.getName() != null
+            && trade.getName().equalsIgnoreCase(name)
+      );
    }
 
    @Override
