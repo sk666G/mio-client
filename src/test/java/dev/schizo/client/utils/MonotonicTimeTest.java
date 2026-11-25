@@ -30,6 +30,16 @@ class MonotonicTimeTest {
    }
 
    @Test
+   void elapsedDurationClampsBackwardTimeAndHandlesWraparound() {
+      assertEquals(250L, MonotonicTime.elapsedNanos(1_000L, 1_250L));
+      assertEquals(0L, MonotonicTime.elapsedNanos(1_000L, 900L));
+
+      long start = Long.MAX_VALUE - 5L;
+      long now = Long.MIN_VALUE + 4L;
+      assertEquals(10L, MonotonicTime.elapsedNanos(start, now));
+   }
+
+   @Test
    void backwardTimestampDoesNotCountAsElapsedForPositiveDuration() {
       assertFalse(MonotonicTime.hasElapsed(100L, 90L, 5L));
       assertTrue(MonotonicTime.isWithin(100L, 90L, 5L));
