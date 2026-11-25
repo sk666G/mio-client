@@ -28,6 +28,8 @@ import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.Locale;
+import java.util.TreeMap;
+import java.nio.file.DirectoryIteratorException;
 import java.util.function.Consumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -140,14 +142,15 @@ public final class PresetRegistry extends Registry<PresetData> {
       } catch (IOException failure) {
          try {
             if (previousBytes == null) Files.deleteIfExists(restoredPath);
-            else FileUtils.writeUtf8Atomically(restoredPath, new String(previousBytes, java.nio.charset.StandardCharsets.UTF_8));
+            else FileUtils.writeBytesAtomically(restoredPath, previousBytes);
          } catch (IOException rollbackFailure) {
             failure.addSuppressed(rollbackFailure);
          }
          throw failure;
       }
       synchronized (this.getRegistry()) {
-         this.entries.removeIf(candidate -> candidate.getName().equalsIgnoreCase(preset.getName()));
+         this.entries.removeIf(candidate -> candidate.getName().equalsIgnoreCase(preset.getName())
+            || candidate.getName().equalsIgnoreCase(replacedName));
          this.entries.add(preset);
       }
    }
@@ -247,7 +250,7 @@ public final class PresetRegistry extends Registry<PresetData> {
 
    public void loadPresets() {
       synchronized (this.getRegistry()) {
-         this.entries.clear();
+         var loaded = new TreeMap<String, PresetData>(String.CASE_INSENSITIVE_ORDER);
          try {
             this.requireRealDirectory();
             try (DirectoryStream<Path> files = Files.newDirectoryStream(this.directory)) {
@@ -263,15 +266,21 @@ public final class PresetRegistry extends Registry<PresetData> {
                      String serialized = ConfigFileReader.readUtf8(file, MAX_PRESET_BYTES);
                      if (serialized.isEmpty()) continue;
                      JsonObject contents = JsonParser.parseString(serialized).getAsJsonObject();
-                     if (this.findPreset(name) == null) this.entries.add(new PresetData(name, contents));
+                     PresetData existing = loaded.get(name);
+                     if (existing == null || name.compareTo(existing.getName()) < 0) {
+                        loaded.put(name, new PresetData(name, contents));
+                     }
                   } catch (RuntimeException | IOException invalidPreset) {
                      LOGGER.warn("Skipping invalid preset file {}", file.getFileName(), invalidPreset);
                   }
                }
             }
-         } catch (IOException directoryFailure) {
+         } catch (IOException | DirectoryIteratorException directoryFailure) {
             LOGGER.error("Could not read preset directory {}", this.directory, directoryFailure);
+            return;
          }
+         this.entries.clear();
+         this.entries.addAll(loaded.values());
       }
    }
 
