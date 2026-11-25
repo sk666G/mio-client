@@ -70,7 +70,7 @@ import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
 public final class WorldStateManager implements ClientAccess {
-   private static final AntiCheatModule antiCheatModule;
+   private static volatile AntiCheatModule antiCheatModule;
 
    private final List<BlockEntity> blockEntities = Collections.synchronizedList(new ArrayList<>());
 
@@ -153,8 +153,11 @@ public final class WorldStateManager implements ClientAccess {
       ClientAccess.eventBus.subscribe(this);
    }
 
-   static {
-      antiCheatModule = (AntiCheatModule)ClientContext.getModule(AntiCheatModule.class);
+   public static void bindModules(ModuleRegistry registry) {
+      antiCheatModule = (AntiCheatModule)Objects.requireNonNull(
+         registry.getModule(AntiCheatModule.class),
+         "Required module is not registered: AntiCheatModule"
+      );
    }
 
    public boolean isPlacementOccupied(BlockPos position) {
@@ -357,13 +360,14 @@ public final class WorldStateManager implements ClientAccess {
       if (!BlockInteractionUtils.isGlass(state)) {
          return;
       }
-      long now = System.currentTimeMillis();
-      int latencyDurationMillis = ClientContext.serverStateManager.getLatencyTicks() * (50) + (50);
-      long activeDurationMillis = Math.min(250, latencyDurationMillis);
+      long nowNanos = System.nanoTime();
+      int latencyDurationMillis = ClientContext.serverStateManager.getLatencyTicks() * 50 + 50;
+      long activeDurationNanos = java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(Math.min(250, latencyDurationMillis));
       Map<BlockPos, GlassUpdateWindow> windows = this.glassUpdateWindows;
       BlockPos immutableWindowPosition = position.immutable();
-      long activeUntilMillis = now + activeDurationMillis;
-      windows.putIfAbsent(immutableWindowPosition, new WorldStateManager.GlassUpdateWindow(activeUntilMillis, now + 10000L));
+      long activeUntilNanos = nowNanos + activeDurationNanos;
+      long expiresAtNanos = nowNanos + java.util.concurrent.TimeUnit.SECONDS.toNanos(10L);
+      windows.putIfAbsent(immutableWindowPosition, new WorldStateManager.GlassUpdateWindow(activeUntilNanos, expiresAtNanos));
    }
 
    private ItemStack resolveHandStack(InteractionHand hand) {
@@ -456,14 +460,14 @@ public final class WorldStateManager implements ClientAccess {
    }
 
    private record GlassUpdateWindow(
-      long activeUntilMillis,
-      long expiresAtMillis
+      long activeUntilNanos,
+      long expiresAtNanos
    ) {
       public boolean isActive() {
-         return System.currentTimeMillis() < this.activeUntilMillis;
+         return System.nanoTime() < this.activeUntilNanos;
       }
       public boolean hasExpired() {
-         return System.currentTimeMillis() >= this.expiresAtMillis;
+         return System.nanoTime() >= this.expiresAtNanos;
       }
    }
 }
