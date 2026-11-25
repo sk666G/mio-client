@@ -220,7 +220,7 @@ public class EventBus implements EventDispatcher {
    private void callListener(EventListener listener, Object event) {
       try {
          listener.call(event);
-      } catch (RuntimeException failure) {
+      } catch (RuntimeException | Error failure) {
          String detail = listener.diagnosticLabel() + " [" + event.getClass().getSimpleName() + "]";
          this.diagnostics.record(RuntimeDiagnostics.Area.EVENT_DISPATCH, detail, failure);
          dev.schizo.client.ClientAccess.logger.error(
