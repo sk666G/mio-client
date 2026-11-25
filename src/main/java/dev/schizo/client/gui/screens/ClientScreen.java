@@ -384,7 +384,13 @@ public class ClientScreen extends Screen implements ClientAccess {
    protected SettingComponent<?> focusedSetting() {
       ClickGuiScreen clickGui = ClientContext.getClickGui();
       SettingComponent<?> editor = clickGui.getEditingSetting();
-      if (editor == null || !this.panels.contains(editor.getPanel())) {
+      if (editor == null) {
+         return null;
+      }
+      if (!this.panels.contains(editor.getPanel())) {
+         if (ClientAccess.schizoMinecraft.screen == this) {
+            clickGui.setEditingSetting(null);
+         }
          return null;
       }
       if (editor.editing && editor.getPanel().acceptsSettingInput(editor) && !editor.isUnavailable()) {
