@@ -1348,6 +1348,18 @@ public final class ModuleCompatibility {
       Map.entry(setting(AntiCyrillicModule.class, "Mode"), settingAssessed(
          Classification.PACKET_AFFECTING,
          "Selects whether Cyrillic normalization applies to outgoing chat, commands or both."
+      )),
+      Map.entry(setting(RocketExtenderModule.class, "Timeout"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls how long the reviewed rocket-extension state remains active before it is released/reset."
+      )),
+      Map.entry(setting(RocketExtenderModule.class, "Hold"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls whether selected incoming ping packets are held while the reviewed rocket-extension state is active."
+      )),
+      Map.entry(setting(NoRotateModule.class, "InBlocks"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Selects how reviewed rotation-correction handling behaves while the player is inside blocks, including cancellation or reported-rotation handling."
       ))
    );
 
