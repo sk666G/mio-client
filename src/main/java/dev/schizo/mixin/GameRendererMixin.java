@@ -69,14 +69,14 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(GameRenderer.class)
 public abstract class GameRendererMixin {
-   private static ZoomModule zoom = ClientContext.getModule(ZoomModule.class);
-   private static NoRenderModule noRenderModule = ClientContext.getModule(NoRenderModule.class);
-   private static ShaderModule shader = ClientContext.getModule(ShaderModule.class);
-   private static FreecamModule freecam = ClientContext.getModule(FreecamModule.class);
-   private static FreeLookModule freelook = ClientContext.getModule(FreeLookModule.class);
-   private static ViewModelModule viewmodel = ClientContext.getModule(ViewModelModule.class);
-   private static NoBobModule noBob = ClientContext.getModule(NoBobModule.class);
-   private static HUDModule hud = ClientContext.getModule(HUDModule.class);
+
+
+
+
+
+
+
+
    @Unique
    private GuiGraphics hudGraphics;
    @Final
@@ -114,14 +114,14 @@ public abstract class GameRendererMixin {
    private void suppressHurtCamera(
       PoseStack poses, float partialTick, CallbackInfo callback
    ) {
-      if (noRenderModule.isToggled() && noRenderModule.hurtCamSetting.getValue()) {
+      if (schizo$noRenderModule().isToggled() && schizo$noRenderModule().hurtCamSetting.getValue()) {
          callback.cancel();
       }
    }
 
    @Inject(method = "displayItemActivation", at = @At("HEAD"), cancellable = true)
    private void suppressTotemActivation(ItemStack stack, CallbackInfo callback) {
-      if (stack.getItem() == Items.TOTEM_OF_UNDYING && noRenderModule.isToggled() && noRenderModule.totemOverlaySetting.getValue()) {
+      if (stack.getItem() == Items.TOTEM_OF_UNDYING && schizo$noRenderModule().isToggled() && schizo$noRenderModule().totemOverlaySetting.getValue()) {
          callback.cancel();
       }
    }
@@ -130,7 +130,7 @@ public abstract class GameRendererMixin {
    private float suppressBlindnessInterpolation(
       float fraction, float start, float end, Operation original
    ) {
-      return noRenderModule.isToggled() && noRenderModule.blindnessSetting.getValue() ? 0.0F : Mth.lerp(fraction, start, end);
+      return schizo$noRenderModule().isToggled() && schizo$noRenderModule().blindnessSetting.getValue() ? 0.0F : Mth.lerp(fraction, start, end);
    }
 
    @Inject(
@@ -152,18 +152,18 @@ public abstract class GameRendererMixin {
    private boolean shouldRenderHands(
       GameRenderer renderer, float partialTick, boolean ignoredHandFlag, Matrix4f projectionMatrix
    ) {
-      return !shader.isToggled() || !shader.handsSetting.getValue();
+      return !schizo$shader().isToggled() || !schizo$shader().handsSetting.getValue();
    }
 
    @WrapWithCondition(method = "bobView", at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/vertex/PoseStack;translate(FFF)V"))
    private boolean applyNoBobTranslation(
       PoseStack poseStack, float x, float y, float z
    ) {
-      if (!noBob.isToggled()) {
+      if (!schizo$noBob().isToggled()) {
          return true;
       }
 
-      float multiplier = noBob.multiplierSetting.getValue();
+      float multiplier = schizo$noBob().multiplierSetting.getValue();
       if (multiplier == 0.0F) {
          return true;
       }
@@ -180,9 +180,9 @@ public abstract class GameRendererMixin {
          return originalFov;
       }
 
-      float zoomScale = 1.0F - zoom.getZoomBlend();
-      return viewmodel.isToggled() && viewmodel.viewModelFovSetting.getValue()
-         ? (viewmodel.fovAmountSetting.getValue()).intValue() * zoomScale
+      float zoomScale = 1.0F - schizo$zoom().getZoomBlend();
+      return schizo$viewmodel().isToggled() && schizo$viewmodel().viewModelFovSetting.getValue()
+         ? (schizo$viewmodel().fovAmountSetting.getValue()).intValue() * zoomScale
          : originalFov * zoomScale;
    }
 
@@ -195,16 +195,16 @@ public abstract class GameRendererMixin {
          1.0F,
          1.0F,
          1.0F,
-         noRenderModule.getHandOpacity()
+         schizo$noRenderModule().getHandOpacity()
       );
-      if (viewmodel.isToggled() && viewmodel.lighterSetting.getValue()) {
+      if (schizo$viewmodel().isToggled() && schizo$viewmodel().lighterSetting.getValue()) {
          float handYaw = -95.0F;
          float handPitch = 45.0F;
          Quaternionf handRotation = new Quaternionf().rotationYXZ((float)Math.toRadians(180.0F - handYaw), (float)Math.toRadians(-handPitch), 0.0F).conjugate();
          projectionMatrix.set(new Matrix4f().rotation(handRotation));
       }
 
-      if (freecam.shouldHideHands()) {
+      if (schizo$freecam().shouldHideHands()) {
          callback.cancel();
       }
    }
@@ -214,14 +214,14 @@ public abstract class GameRendererMixin {
       float partialTick, boolean ignoredHandFlag, Matrix4f projectionMatrix, CallbackInfo callback, @Share("backupMatrix") LocalRef backupMatrix
    ) {
       RenderUtils.setRenderColor(1.0F, 1.0F, 1.0F, 1.0F);
-      if (viewmodel.isToggled() && viewmodel.lighterSetting.getValue()) {
+      if (schizo$viewmodel().isToggled() && schizo$viewmodel().lighterSetting.getValue()) {
          projectionMatrix.set((Matrix4fc)backupMatrix.get());
       }
    }
 
    @ModifyExpressionValue(method = "renderItemInHand", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/entity/EntityRenderDispatcher;getPackedLightCoords(Lnet/minecraft/world/entity/Entity;F)I"))
    private int applyViewModelHandLight(int originalLight) {
-      return viewmodel.isToggled() && viewmodel.lighterSetting.getValue()
+      return schizo$viewmodel().isToggled() && schizo$viewmodel().lighterSetting.getValue()
          ? 15728864
          : originalLight;
    }
@@ -235,7 +235,7 @@ public abstract class GameRendererMixin {
 
    @Inject(method = "pick", at = @At("HEAD"), cancellable = true)
    private void applyCameraPicking(float partialTick, CallbackInfo callback) {
-      if (freecam.isToggled()
+      if (schizo$freecam().isToggled()
          && this.minecraft.getCameraEntity() != null
          && !this.pickingFromFreecam) {
          callback.cancel();
@@ -250,24 +250,24 @@ public abstract class GameRendererMixin {
          float savedPitch = cameraEntity.getXRot();
          float savedPreviousYaw = cameraEntity.yRotO;
          float savedPreviousPitch = cameraEntity.xRotO;
-         cameraEntity.xo = freecam.previousCameraPosition.x;
-         cameraEntity.yo = freecam.previousCameraPosition.y
+         cameraEntity.xo = schizo$freecam().previousCameraPosition.x;
+         cameraEntity.yo = schizo$freecam().previousCameraPosition.y
             - cameraEntity.getEyeHeight(cameraEntity.getPose());
-         cameraEntity.zo = freecam.previousCameraPosition.z;
-         cameraEntity.setYRot(freecam.cameraYaw);
-         cameraEntity.setYHeadRot(freecam.cameraYaw);
-         cameraEntity.setXRot(freecam.cameraPitch);
-         cameraEntity.yRotO = freecam.previousCameraYaw;
-         cameraEntity.xRotO = freecam.previousCameraPitch;
+         cameraEntity.zo = schizo$freecam().previousCameraPosition.z;
+         cameraEntity.setYRot(schizo$freecam().cameraYaw);
+         cameraEntity.setYHeadRot(schizo$freecam().cameraYaw);
+         cameraEntity.setXRot(schizo$freecam().cameraPitch);
+         cameraEntity.yRotO = schizo$freecam().previousCameraYaw;
+         cameraEntity.xRotO = schizo$freecam().previousCameraPitch;
          this.pickingFromFreecam = true;
          LockUtils.runWithSharedLock(
             () -> {
                Vec3Utils.setComponents(
                   cameraEntity.position(),
-                  freecam.cameraPosition.x,
-                  freecam.cameraPosition.y
+                  schizo$freecam().cameraPosition.x,
+                  schizo$freecam().cameraPosition.y
                      - cameraEntity.getEyeHeight(cameraEntity.getPose()),
-                  freecam.cameraPosition.z
+                  schizo$freecam().cameraPosition.z
                );
                this.pick(partialTick);
                Vec3Utils.setComponents(
@@ -284,7 +284,7 @@ public abstract class GameRendererMixin {
          cameraEntity.xRotO = savedPreviousPitch;
       }
 
-      if (freelook.isToggled() && !freecam.isToggled()) {
+      if (schizo$freelook().isToggled() && !schizo$freecam().isToggled()) {
          callback.cancel();
       }
    }
@@ -375,7 +375,7 @@ public abstract class GameRendererMixin {
    private void updateFrameTimingAndChatHeight(
       DeltaTracker deltaTracker, boolean renderLevel, CallbackInfo callback
    ) {
-      hud.updateChatInputHeight(
+      schizo$hud().updateChatInputHeight(
          ClientAccess.schizoMinecraft.screen instanceof ChatScreen
             ? 12.0F
             : 0.0F
@@ -420,5 +420,45 @@ public abstract class GameRendererMixin {
       if (nameReplacementWasBypassed) {
          NameProtectModule.replacementBypassed = true;
       }
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static ZoomModule schizo$zoom() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(ZoomModule.class);
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static NoRenderModule schizo$noRenderModule() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(NoRenderModule.class);
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static ShaderModule schizo$shader() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(ShaderModule.class);
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static FreecamModule schizo$freecam() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(FreecamModule.class);
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static FreeLookModule schizo$freelook() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(FreeLookModule.class);
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static ViewModelModule schizo$viewmodel() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(ViewModelModule.class);
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static NoBobModule schizo$noBob() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(NoBobModule.class);
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static HUDModule schizo$hud() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(HUDModule.class);
    }
 }
