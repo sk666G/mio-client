@@ -382,6 +382,40 @@ class ModuleCompatibilityTest {
    }
 
    @Test
+   void reviewedServerSensitiveSettingKeepsItsOwnWarningClassification() {
+      ModuleCompatibility.SettingAssessment assessment =
+         ModuleCompatibility.assessSetting(TridentModule.class, "Always");
+
+      assertEquals(ModuleCompatibility.Classification.SERVER_SENSITIVE, assessment.classification());
+      assertEquals(ModuleCompatibility.Classification.SERVER_SENSITIVE, assessment.inheritedModuleClassification());
+      assertTrue(assessment.individuallyReviewed());
+      assertTrue(assessment.requiresWarning());
+      assertTrue(assessment.reason().contains("riptide"));
+   }
+
+   @Test
+   void reviewedVisualSettingDoesNotInheritAWarning() {
+      ModuleCompatibility.SettingAssessment assessment =
+         ModuleCompatibility.assessSetting(SwingModule.class, "Speed");
+
+      assertEquals(ModuleCompatibility.Classification.VISUAL_ONLY, assessment.classification());
+      assertEquals(ModuleCompatibility.Classification.VISUAL_ONLY, assessment.inheritedModuleClassification());
+      assertTrue(assessment.individuallyReviewed());
+      assertFalse(assessment.requiresWarning());
+   }
+
+   @Test
+   void reviewedLocalDiagnosticSettingCanBeSaferThanItsParentModule() {
+      ModuleCompatibility.SettingAssessment assessment =
+         ModuleCompatibility.assessSetting(NoPacketKickModule.class, "Message");
+
+      assertEquals(ModuleCompatibility.Classification.CLIENT_ONLY, assessment.classification());
+      assertEquals(ModuleCompatibility.Classification.PACKET_AFFECTING, assessment.inheritedModuleClassification());
+      assertTrue(assessment.individuallyReviewed());
+      assertFalse(assessment.requiresWarning());
+   }
+
+   @Test
    void neverClaimsASettingWasReviewedWhenOnlyItsParentModuleWasReviewed() {
       ModuleCompatibility.SettingAssessment assessment =
          ModuleCompatibility.assessSetting(ReachModule.class, "mode");
