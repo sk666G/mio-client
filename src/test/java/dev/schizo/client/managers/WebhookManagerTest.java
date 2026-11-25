@@ -18,6 +18,20 @@ import org.junit.jupiter.api.Test;
 
 class WebhookManagerTest {
    @Test
+   void usesExplicitPersistentConfigNameAndRoundTripsWebhookUrl() {
+      WebhookManager manager = new WebhookManager(request ->
+         CompletableFuture.completedFuture(response(204, "")));
+      manager.setUrl("https://example.test/hooks/abc");
+
+      assertEquals("webhook.json", manager.getConfigName());
+
+      WebhookManager restored = new WebhookManager(request ->
+         CompletableFuture.completedFuture(response(204, "")));
+      restored.fromJson(manager.toJson());
+      assertEquals("https://example.test/hooks/abc", restored.getUrl());
+   }
+
+   @Test
    void retriesTransientFailureAndAcknowledgesSuccess() {
       AtomicInteger calls = new AtomicInteger();
       WebhookManager manager = new WebhookManager(request -> {
