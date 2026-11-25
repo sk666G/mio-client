@@ -48,11 +48,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.FutureTask;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.SynchronousQueue;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.atomic.AtomicReference;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.multiplayer.ClientLevel;
@@ -83,7 +78,6 @@ public class AnchorAuraModule extends Module {
    private static OffhandModule offhand = (OffhandModule)ClientContext.getModule(OffhandModule.class);
    private static AutoCrystalModule autoCrystal = (AutoCrystalModule)ClientContext.getModule(AutoCrystalModule.class);
    private static SpeedMineModule speedMine = (SpeedMineModule)ClientContext.getModule(SpeedMineModule.class);
-   private static final ThreadPoolExecutor calculationExecutor = createCalculationExecutor();
    private final Setting<Integer> delaySetting;
    private final Setting<Float> rangeSetting;
    private final Setting<Float> wallRangeSetting;
@@ -107,7 +101,6 @@ public class AnchorAuraModule extends Module {
    private final Setting<Boolean> eatingSetting;
    private final Setting<Float> healthSetting;
    private CompletableFuture<AnchorPlacementResult> calculationFuture;
-   private FutureTask<Void> calculationTask;
    private ClientLevel calculationWorld;
    private final ElapsedTimer actionTimer;
    public final AtomicReference placementData;
@@ -155,11 +148,6 @@ public class AnchorAuraModule extends Module {
    }
 
    private void completeCalculation() {
-      FutureTask<Void> task = this.calculationTask;
-      if (task != null && !task.isDone()) {
-         task.cancel(true);
-      }
-
       CompletableFuture<AnchorPlacementResult> pending = this.calculationFuture;
       if (pending != null && !pending.isDone() && !pending.isCancelled()) {
          pending.complete(null);
@@ -169,7 +157,6 @@ public class AnchorAuraModule extends Module {
    private void resetCalculationState() {
       this.completeCalculation();
       this.calculationFuture = null;
-      this.calculationTask = null;
       this.calculationWorld = null;
       this.placementData.set(null);
       this.targetDamage = null;
@@ -642,26 +629,13 @@ public class AnchorAuraModule extends Module {
       return bestPlacement;
    }
 
-   static ThreadPoolExecutor createCalculationExecutor() {
-      // Timed-out scans can remain inside a live-state helper after interruption.
-      // Keep only one active scan and do not queue replacements behind it.
-      return new ThreadPoolExecutor(
-         0,
-         1,
-         30L,
-         TimeUnit.SECONDS,
-         new SynchronousQueue<>()
-      );
-   }
-
    private void updateCalculation() {
       ClientLevel activeLevel = ClientAccess.schizoMinecraft.level;
       if (this.calculationWorld != activeLevel) {
          // Cancel and discard any result that belongs to a replaced client world.
          this.completeCalculation();
          this.calculationFuture = null;
-         this.calculationTask = null;
-         this.calculationWorld = null;
+            this.calculationWorld = null;
          this.placementData.set(null);
          this.targetDamage = null;
       }
@@ -728,34 +702,12 @@ public class AnchorAuraModule extends Module {
          }
       }
 
-      CompletableFuture<AnchorPlacementResult> scheduledCalculation = new CompletableFuture<>();
-      FutureTask<Void> task = new FutureTask<>(() -> {
-         try {
-            scheduledCalculation.complete(this.calculatePlacement());
-         } catch (Throwable failure) {
-            scheduledCalculation.completeExceptionally(failure);
-         }
-         return null;
-      });
       this.calculationWorld = activeLevel;
       try {
-         calculationExecutor.execute(task);
-         this.calculationTask = task;
-         this.calculationFuture = scheduledCalculation
-            .completeOnTimeout(null, 750L, TimeUnit.MILLISECONDS)
-            .whenComplete((result, failure) -> {
-               // Stop timed-out scans instead of letting them overlap later calculations.
-               if (failure != null || result == null) {
-                  task.cancel(true);
-               }
-            })
-            .exceptionally(failure -> null);
-      } catch (RejectedExecutionException busyExecutor) {
-         // The previous cancelled scan has not exited yet. Retry on a later tick;
-         // never perform this scan synchronously on the client thread.
-         task.cancel(false);
-         this.calculationTask = null;
-         this.calculationFuture = null;
+         this.calculationFuture = CompletableFuture.completedFuture(this.calculatePlacement());
+      } catch (Throwable failure) {
+         ClientAccess.logger.error("AnchorAura placement calculation failed", failure);
+         this.calculationFuture = CompletableFuture.completedFuture(null);
       }
    }
 
