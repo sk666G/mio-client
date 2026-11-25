@@ -169,6 +169,7 @@ public class SpeedMineModule extends Module {
    protected BlockPos miningPos;
    protected BlockPos lastMiningPos;
    public volatile boolean crystalAttackPending;
+   private long lifecycleGeneration;
 
    public boolean isInMiningRange(BlockPos blockPos) {
       return SpeedMineRange.isInRange(blockPos, this.rangeSetting.getValue());
@@ -423,13 +424,27 @@ public class SpeedMineModule extends Module {
 
          reset(this);
          restartPending.set(true);
+         long expectedGeneration = this.lifecycleGeneration;
+         ClientLevel expectedLevel = ClientAccess.schizoMinecraft.level;
+         LocalPlayer expectedPlayer = ClientAccess.schizoMinecraft.player;
          TaskScheduler scheduleRebreakRotationReceiver = ClientContext.taskScheduler;
          Runnable scheduleRebreakRotationTask = () -> {
-               restartPending.set(false);
+            try {
+               if (!this.isToggled()
+                  || this.lifecycleGeneration != expectedGeneration
+                  || ClientAccess.schizoMinecraft.level != expectedLevel
+                  || ClientAccess.schizoMinecraft.player != expectedPlayer) {
+                  return;
+               }
                Direction direction = Direction.UP;
                ClientAccess.schizoMinecraft.gameMode.startDestroyBlock(targetPosition, direction);
-            };
-         scheduleRebreakRotationReceiver.scheduleRotationTask(scheduleRebreakRotationTask, 1);
+            } finally {
+               restartPending.set(false);
+            }
+         };
+         if (!scheduleRebreakRotationReceiver.scheduleRotationTask(scheduleRebreakRotationTask, 1)) {
+            restartPending.set(false);
+         }
       }
 
       return delayElapsed;
@@ -513,9 +528,22 @@ public class SpeedMineModule extends Module {
 
    @Override
    public void onEnable() {
+      this.lifecycleGeneration++;
       reset(this);
       this.lastMiningPos = null;
       swapPending.set(false);
+      restartPending.set(false);
+   }
+
+   @Override
+   public void onDisable() {
+      this.lifecycleGeneration++;
+      reset(this);
+      this.lastMiningPos = null;
+      this.extraBreakTarget = null;
+      swapPending.set(false);
+      restartPending.set(false);
+      autoCrystalModule.placementGate.set(false);
    }
 
    private static Direction selectDestroyFace(BlockPos blockPos) {
@@ -752,9 +780,13 @@ public class SpeedMineModule extends Module {
 
    @EventHandler
    private void onMinecraftDisconnectEvent(MinecraftDisconnectEvent event) {
+      this.lifecycleGeneration++;
       reset(this);
       this.lastMiningPos = null;
       this.extraBreakTarget = null;
+      swapPending.set(false);
+      restartPending.set(false);
+      autoCrystalModule.placementGate.set(false);
    }
 
    @EventHandler
@@ -762,9 +794,18 @@ public class SpeedMineModule extends Module {
       PacketEvent.Receive event
    ) {
       if (event.getPacket() instanceof ClientboundRespawnPacket) {
-         reset(this);
-         this.lastMiningPos = null;
-         this.extraBreakTarget = null;
+         ClientAccess.schizoMinecraft.executeIfPossible(() -> {
+            if (!this.isToggled()) {
+               return;
+            }
+            this.lifecycleGeneration++;
+            reset(this);
+            this.lastMiningPos = null;
+            this.extraBreakTarget = null;
+            swapPending.set(false);
+            restartPending.set(false);
+            autoCrystalModule.placementGate.set(false);
+         });
       }
 
       this.rebreakTracker.handleBlockUpdates(event);
@@ -799,39 +840,53 @@ public class SpeedMineModule extends Module {
       this.silentSwapProgress = 0.0F;
       this.miningProgress = 0.0F;
       TaskScheduler scheduleStartDestroyRotationReceiver = ClientContext.taskScheduler;
+      BlockPos scheduledTarget = this.miningPos;
+      long expectedGeneration = this.lifecycleGeneration;
+      ClientLevel expectedLevel = ClientAccess.schizoMinecraft.level;
+      LocalPlayer expectedPlayer = ClientAccess.schizoMinecraft.player;
       Runnable scheduleStartDestroyRotationTask = () -> {
-            restartPending.set(false);
-            BlockPos targetPosition = this.miningPos;
-            if (targetPosition != null) {
-               SwingAction swingAction = SwingAction.MINING;
-               InteractionHand hand = InteractionHand.MAIN_HAND;
-               ClientContext.swingManager.swing(hand, swingAction);
-
-               if (WorldUtils.canMineBlock(targetPosition)) {
-                  automatedMiningStart = true;
-
-                  reset(this);
-
-                  MultiPlayerGameModeStartDestroyBlockEvent startEvent = new MultiPlayerGameModeStartDestroyBlockEvent(
-                     targetPosition,
-                     selectDestroyFace(targetPosition)
-                  );
-                  this.onMultiPlayerGameModeStartDestroyBlockEvent(startEvent);
-                  automatedMiningStart = false;
-               } else {
-                  if ((this.rebreakSetting.getValue()).isFast()) {
-                     Action startAction = Action.START_DESTROY_BLOCK;
-
-                     Direction direction = selectDestroyFace(targetPosition);
-                     PacketSender.sendPlayerAction(
-                        startAction, targetPosition, direction
-                     );
-                     this.pendingBreakPositions.clear();
-                  }
-               }
+         try {
+            if (!this.isToggled()
+               || this.lifecycleGeneration != expectedGeneration
+               || ClientAccess.schizoMinecraft.level != expectedLevel
+               || ClientAccess.schizoMinecraft.player != expectedPlayer
+               || scheduledTarget == null
+               || !scheduledTarget.equals(this.miningPos)) {
+               return;
             }
-         };
-      scheduleStartDestroyRotationReceiver.scheduleRotationTask(scheduleStartDestroyRotationTask, 1);
+
+            SwingAction swingAction = SwingAction.MINING;
+            InteractionHand hand = InteractionHand.MAIN_HAND;
+            ClientContext.swingManager.swing(hand, swingAction);
+
+            if (WorldUtils.canMineBlock(scheduledTarget)) {
+               automatedMiningStart = true;
+               try {
+                  reset(this);
+                  MultiPlayerGameModeStartDestroyBlockEvent startEvent =
+                     new MultiPlayerGameModeStartDestroyBlockEvent(
+                        scheduledTarget,
+                        selectDestroyFace(scheduledTarget)
+                     );
+                  this.onMultiPlayerGameModeStartDestroyBlockEvent(startEvent);
+               } finally {
+                  automatedMiningStart = false;
+               }
+            } else if (this.rebreakSetting.getValue().isFast()) {
+               Action startAction = Action.START_DESTROY_BLOCK;
+               Direction direction = selectDestroyFace(scheduledTarget);
+               PacketSender.sendPlayerAction(startAction, scheduledTarget, direction);
+               this.pendingBreakPositions.clear();
+            }
+         } finally {
+            restartPending.set(false);
+         }
+      };
+      if (!scheduleStartDestroyRotationReceiver.scheduleRotationTask(
+         scheduleStartDestroyRotationTask, 1
+      )) {
+         restartPending.set(false);
+      }
       return;
 
    }
