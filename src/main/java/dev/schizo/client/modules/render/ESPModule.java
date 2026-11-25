@@ -72,6 +72,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.Map.Entry;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
@@ -241,8 +242,9 @@ public class ESPModule extends Module {
 
    @EventHandler
    private void expireChorusPositions(LocalPlayerTickEvent event) {
+      long nowNanos = System.nanoTime();
       this.chorusPositions.entrySet().removeIf(
-         chorusEntry -> System.currentTimeMillis() - chorusEntry.getValue() > 3500L
+         chorusEntry -> nowNanos - chorusEntry.getValue() > CHORUS_RETENTION_NANOS
       );
 
       ClientLevel currentLevel = ClientAccess.schizoMinecraft.level;
@@ -539,19 +541,28 @@ public class ESPModule extends Module {
    private void onPacketReceive(
       PacketEvent.Receive event
    ) {
-      if (event.getPacket() instanceof ClientboundSoundPacket soundPacket) {
-         if (((SoundEvent)soundPacket.getSound().value()).equals(SoundEvents.CHORUS_FRUIT_TELEPORT)) {
-            Map<Vec3, Long> chorusPositionMap = this.chorusPositions;
-            Vec3 teleportPosition = new Vec3(soundPacket.getX(), soundPacket.getY(), soundPacket.getZ());
-            long receivedAtMillis = System.currentTimeMillis();
-            chorusPositionMap.put(teleportPosition, receivedAtMillis);
-         }
+      if (event.getPacket() instanceof ClientboundSoundPacket soundPacket
+         && ((SoundEvent)soundPacket.getSound().value()).equals(SoundEvents.CHORUS_FRUIT_TELEPORT)) {
+         Vec3 teleportPosition = new Vec3(
+            soundPacket.getX(), soundPacket.getY(), soundPacket.getZ()
+         );
+         long expectedGeneration = this.lootedGeneration;
+         ClientAccess.schizoMinecraft.executeIfPossible(() -> {
+            if (this.isToggled()
+               && this.lootedGeneration == expectedGeneration
+               && this.chorusSetting.getValue()) {
+               this.chorusPositions.put(teleportPosition, System.nanoTime());
+            }
+         });
       }
 
       if (event.getPacket() instanceof ClientboundRespawnPacket) {
-         ClientAccess.schizoMinecraft.executeIfPossible(() ->
-            this.resetTransientState(ClientAccess.schizoMinecraft.level)
-         );
+         long expectedGeneration = this.lootedGeneration;
+         ClientAccess.schizoMinecraft.executeIfPossible(() -> {
+            if (this.isToggled() && this.lootedGeneration == expectedGeneration) {
+               this.resetTransientState(ClientAccess.schizoMinecraft.level);
+            }
+         });
          return;
       }
 
