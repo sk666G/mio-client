@@ -101,7 +101,7 @@ public class AntiPhaseModule extends Module {
    }
 
    static {
-      multiTask = (MultiTaskModule)ClientContext.getModule(MultiTaskModule.class);
+
    }
 
    protected AntiPhasePlacementPlanner selectItemFramePlanner() {
