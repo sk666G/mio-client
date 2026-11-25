@@ -473,7 +473,7 @@ public class TunnelsModule extends Module {
       );
    }
 
-   private static final class ChunkScanCursor {
+   static final class ChunkScanCursor {
       private final ChunkPos chunkPosition;
       private final int firstY;
       private final int endY;
@@ -481,14 +481,14 @@ public class TunnelsModule extends Module {
       private int localZ;
       private int y;
 
-      private ChunkScanCursor(ChunkPos chunkPosition, int firstY, int endY) {
+      ChunkScanCursor(ChunkPos chunkPosition, int firstY, int endY) {
          this.chunkPosition = chunkPosition;
          this.firstY = firstY;
          this.endY = Math.max(firstY, endY);
          this.y = firstY;
       }
 
-      private boolean next(MutableBlockPos target) {
+      boolean next(MutableBlockPos target) {
          if (this.localX >= 16 || this.firstY >= this.endY) {
             return false;
          }
