@@ -68,4 +68,25 @@ jobs:
             jar tf "$source_jar" | grep -Fqx "$required"
           done
 
-          jar tf "$jar_file" | grep '^META-INF/jars/.*[.]jar$'
+          jar tf "$jar_file" | grep '^META-INF/jars/.*[.]jar$' | sort > build/libs/NESTED_JARS.txt || true
+          printf '%s\n' 'Nested libraries in runtime JAR:'
+          if [ -s build/libs/NESTED_JARS.txt ]; then
+            cat build/libs/NESTED_JARS.txt
+          else
+            printf '%s\n' '(none)'
+          fi
+          sha256sum "$jar_file" > build/libs/SHA256SUMS.txt
+          printf '%s\n' "$GITHUB_SHA" > build/libs/COMMIT_SHA.txt
+
+      - name: Upload verified remapped mod jar
+        uses: actions/upload-artifact@v6
+        with:
+          name: schizo-client
+          path: |
+            build/libs/schizo-*.jar
+            !build/libs/*-sources.jar
+            !build/libs/*-dev.jar
+            build/libs/SHA256SUMS.txt
+            build/libs/COMMIT_SHA.txt
+            build/libs/NESTED_JARS.txt
+          if-no-files-found: error
