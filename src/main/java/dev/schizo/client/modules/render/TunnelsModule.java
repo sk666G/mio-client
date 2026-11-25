@@ -10,12 +10,14 @@
 package dev.schizo.client.modules.render;
 
 import dev.schizo.client.ClientAccess;
+import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.WorldRenderEvent;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.LocalPlayerTickEvent;
 import dev.schizo.client.render.WorldBoxRenderer;
 import dev.schizo.client.managers.RotationManager;
 import dev.schizo.client.utils.ElapsedTimer;
+import dev.schizo.client.utils.AdaptiveScanBudget;
 import dev.schizo.client.utils.world.ChunkScanner;
 import dev.schizo.client.utils.world.WorldUtils;
 import dev.schizo.client.modules.Module;
@@ -297,7 +299,8 @@ public class TunnelsModule extends Module {
       }
 
       int processed = 0;
-      while (processed < CHUNK_SCAN_BUDGET_PER_TICK) {
+      int scanBudget = AdaptiveScanBudget.limit(CHUNK_SCAN_BUDGET_PER_TICK, ClientContext.frameTiming);
+      while (processed < scanBudget) {
          if (this.activeChunkScan == null) {
             ChunkPos nextChunk = this.pendingChunkScans.poll();
             if (nextChunk == null) {
