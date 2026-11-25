@@ -222,14 +222,17 @@ public final class PresetRegistry extends Registry<PresetData> {
    public boolean deletePreset(String name) throws IOException {
       this.requireRealDirectory();
       String normalized = PresetNameValidator.normalize(name);
-      Path path = PresetNameValidator.resolve(this.directory, normalized);
+      PresetData existing = this.getPreset(normalized);
+      String storedName = existing == null ? normalized : existing.getName();
+      Path path = PresetNameValidator.resolve(this.directory, storedName);
       if (!Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)) {
          throw new IOException("Preset file does not exist: " + path.getFileName());
       }
       Files.delete(path);
       synchronized (this.getRegistry()) {
-         return this.entries.removeIf(candidate -> candidate.getName().equalsIgnoreCase(normalized));
+         this.entries.removeIf(candidate -> candidate.getName().equalsIgnoreCase(storedName));
       }
+      return true;
    }
 
    public boolean renamePreset(String oldName, String newName) throws IOException {
@@ -240,7 +243,7 @@ public final class PresetRegistry extends Registry<PresetData> {
 
       PresetData source = this.getPreset(normalizedOld);
       if (source == null) throw new IOException("Preset does not exist: " + normalizedOld);
-      Path sourcePath = PresetNameValidator.resolve(this.directory, normalizedOld);
+      Path sourcePath = PresetNameValidator.resolve(this.directory, source.getName());
       Path targetPath = PresetNameValidator.resolve(this.directory, normalizedNew);
       if (!Files.isRegularFile(sourcePath, LinkOption.NOFOLLOW_LINKS)) {
          throw new IOException("Preset file does not exist: " + sourcePath.getFileName());
