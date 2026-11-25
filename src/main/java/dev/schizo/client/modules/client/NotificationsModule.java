@@ -17,6 +17,7 @@ import dev.schizo.client.managers.AliasRegistry;
 import dev.schizo.client.managers.SocialRegistry;
 import dev.schizo.client.events.ModuleToggleEvent;
 import dev.schizo.client.utils.chat.ChatUtils;
+import dev.schizo.client.utils.LifecycleGeneration;
 import dev.schizo.client.managers.ConfigurationManager;
 import dev.schizo.client.config.ConfigFileReader;
 import dev.schizo.client.modules.Module;
@@ -69,7 +70,7 @@ public class NotificationsModule extends Module {
    private final List<String> totemMessages;
    private final Random totemRandom;
    private final AtomicInteger pendingTotemChats = new AtomicInteger();
-   private long totemGeneration;
+   private final LifecycleGeneration totemWorkLifecycle = new LifecycleGeneration();
 
    @Override
    public void onEnable() {
@@ -200,8 +201,9 @@ public class NotificationsModule extends Module {
       Module aliasModule = event.getModule();
       String moduleName = AliasRegistry.getModuleAlias(aliasRegistry, aliasModule);
       message.append(Component.literal(moduleName));
+      LifecycleGeneration.Token activation = this.captureActivationToken();
       ClientContext.taskScheduler.scheduleRunTickTask(() -> {
-         if (!this.isToggled()) {
+         if (!this.isActivationCurrent(activation)) {
             return;
          }
          Module signatureModule = event.getModule();
@@ -239,7 +241,7 @@ public class NotificationsModule extends Module {
          return;
       }
 
-      long expectedGeneration = this.totemGeneration;
+      LifecycleGeneration.Token expectedGeneration = this.totemWorkLifecycle.capture();
       boolean randomOrder = this.randomSetting.getValue();
       long delayMillis = (long)(this.delaySetting.getValue() * 1000.0F);
       if (delayMillis > 0L) {
@@ -270,10 +272,10 @@ public class NotificationsModule extends Module {
       String playerName,
       int popCount,
       boolean randomOrder,
-      long expectedGeneration
+      LifecycleGeneration.Token expectedGeneration
    ) {
       if (!this.isToggled()
-         || this.totemGeneration != expectedGeneration
+         || !expectedGeneration.isCurrent()
          || !this.sayChatSetting.getValue()
          || this.totemMessages.isEmpty()) {
          return;
@@ -311,7 +313,8 @@ public class NotificationsModule extends Module {
 
    private void reloadTotemMessages() {
       String selectedPath = this.pathSetting.getValue();
-      long expectedGeneration = ++this.totemGeneration;
+      this.totemWorkLifecycle.invalidate();
+      LifecycleGeneration.Token expectedGeneration = this.totemWorkLifecycle.capture();
       try {
          ClientAccess.executorService.submit(() -> {
             List<String> loadedMessages = List.of();
@@ -345,7 +348,7 @@ public class NotificationsModule extends Module {
             List<String> completedMessages = loadedMessages;
             Exception completedFailure = failure;
             ClientAccess.schizoMinecraft.executeIfPossible(() -> {
-               if (!this.isToggled() || this.totemGeneration != expectedGeneration) {
+               if (!this.isToggled() || !expectedGeneration.isCurrent()) {
                   return;
                }
 
@@ -378,7 +381,7 @@ public class NotificationsModule extends Module {
    }
 
    private void invalidateTotemWork() {
-      this.totemGeneration++;
+      this.totemWorkLifecycle.invalidate();
       this.totemMessageIndex = 0;
    }
 
