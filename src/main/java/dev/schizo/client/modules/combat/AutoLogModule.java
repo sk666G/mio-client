@@ -157,10 +157,7 @@ public class AutoLogModule extends Module {
       return message;
    }
 
-   static {
-      illegalDisconnect = (IllegalDisconnectModule)ClientContext.getModule(IllegalDisconnectModule.class);
-      autoReconnect = (AutoReconnectModule)ClientContext.getModule(AutoReconnectModule.class);
-   }
+   
 
    @Override
    public String getInfo() {
