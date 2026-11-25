@@ -33,6 +33,39 @@ class PresetRegistryTest {
    }
 
    @Test
+   void renameUsesStoredFilenameRatherThanLookupCapitalization() throws IOException {
+      preset("OriginalName").saveToDirectory(directory);
+      PresetRegistry registry = new PresetRegistry(directory);
+      registry.loadPresets();
+
+      assertTrue(registry.renamePreset("originalname", "Renamed"));
+      assertFalse(Files.exists(directory.resolve("OriginalName.json")));
+      assertTrue(Files.isRegularFile(directory.resolve("Renamed.json")));
+      assertNull(registry.getPreset("OriginalName"));
+      assertNotNull(registry.getPreset("renamed"));
+   }
+
+   @Test
+   void deleteUsesStoredFilenameRatherThanLookupCapitalization() throws IOException {
+      preset("OriginalName").saveToDirectory(directory);
+      PresetRegistry registry = new PresetRegistry(directory);
+      registry.loadPresets();
+
+      assertTrue(registry.deletePreset("ORIGINALNAME"));
+      assertFalse(Files.exists(directory.resolve("OriginalName.json")));
+      assertNull(registry.getPreset("originalname"));
+   }
+
+   @Test
+   void deletingExistingFileReportsSuccessEvenWithoutCachedEntry() throws IOException {
+      preset("external").saveToDirectory(directory);
+      PresetRegistry registry = new PresetRegistry(directory);
+
+      assertTrue(registry.deletePreset("external"));
+      assertFalse(Files.exists(directory.resolve("external.json")));
+   }
+
+   @Test
    void rejectsTraversalAndMissingFilesWithoutMutatingRegistry() throws IOException {
       PresetData source = preset("source");
       source.saveToDirectory(directory);
