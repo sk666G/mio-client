@@ -97,6 +97,7 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 public class LogoutSpotsModule extends Module {
+   private static final int MAX_SPOTS = 1024;
    private static FontsModule fontsModule;
    private static boolean renderingTexturedModel;
    public final Setting<Float> distanceSetting;
@@ -182,8 +183,9 @@ public class LogoutSpotsModule extends Module {
 
    @Override
    public void onToggle() {
-      Object2ObjectOpenHashMap<String, LogoutSpot> spots = this.spotsByName;
-      spots.clear();
+      synchronized (this.spotsByName) {
+         this.spotsByName.clear();
+      }
       this.clearTransientRemovalState();
    }
 
@@ -203,6 +205,22 @@ public class LogoutSpotsModule extends Module {
    ) {
       synchronized (this.spotsByName) {
          Object2ObjectOpenHashMap<String, LogoutSpot> spots = this.spotsByName;
+         if (!spots.containsKey(playerName) && spots.size() >= MAX_SPOTS) {
+            String oldestName = null;
+            long oldestTimestamp = Long.MAX_VALUE;
+            ObjectIterator<Entry<String, LogoutSpot>> entries = spots.entrySet().iterator();
+            while (entries.hasNext()) {
+               Entry<String, LogoutSpot> entry = entries.next();
+               long timestamp = entry.getValue().timestamp();
+               if (timestamp < oldestTimestamp) {
+                  oldestTimestamp = timestamp;
+                  oldestName = entry.getKey();
+               }
+            }
+            if (oldestName != null) {
+               spots.remove(oldestName);
+            }
+         }
          spots.put(playerName, spot);
       }
    }
@@ -327,7 +345,6 @@ public class LogoutSpotsModule extends Module {
             boolean processed = true;
             AtomicBoolean processedFlag = pendingRemoval.processedFlag;
             processedFlag.set(processed);
-            Object2ObjectOpenHashMap<String, LogoutSpot> capturedSpots = this.spotsByName;
             GameProfile profile = removedPlayer.getGameProfile();
             String capturedPlayerName = profile.name();
 
@@ -335,7 +352,7 @@ public class LogoutSpotsModule extends Module {
             LogoutSpotsModule.LogoutSpot snapshot = LogoutSpotsModule.LogoutSpot.capturePlayer(
                removedPlayer, serverAddress
             );
-            capturedSpots.put(capturedPlayerName, snapshot);
+            this.putSpot(capturedPlayerName, snapshot);
             Boolean notify = this.notifySetting.getValue();
             if (notify) {
                Boolean logoutNotification = this.logoutSetting.getValue();
@@ -366,6 +383,13 @@ public class LogoutSpotsModule extends Module {
    private void onRenderWorld(WorldRenderEvent.Main event) {
       GuiDrawUtils.flush();
       LineMeshRenderer.begin(event, this.tracerWidthSetting.getValue());
+      String currentServerAddress = getCurrentServerAddress();
+      DimensionType currentDimension = WorldUtils.getDimension();
+      Vec3 cameraPosition = ClientAccess.schizoMinecraft.gameRenderer.getMainCamera().position();
+      float maximumDistance = this.distanceSetting.getValue();
+      ModelChoice modelChoice = this.modelSetting.getValue();
+      boolean drawTracer = this.tracerSetting.getValue();
+      boolean drawNameTag = this.nameTagSetting.getValue();
       synchronized (this.spotsByName) {
          ObjectIterator<Entry<String, LogoutSpot>> spotIterator = this.spotsByName.entrySet().iterator();
 
@@ -374,28 +398,23 @@ public class LogoutSpotsModule extends Module {
             LogoutSpotsModule.LogoutSpot serverSpot = entry.getValue();
             String savedServerAddress = serverSpot.serverAddress();
 
-            if (savedServerAddress.equals(getCurrentServerAddress())) {
+            if (savedServerAddress.equals(currentServerAddress)) {
                LogoutSpotsModule.LogoutSpot dimensionSpot = entry.getValue();
                DimensionType dimension = dimensionSpot.dimension();
 
-               if (dimension == WorldUtils.getDimension()) {
+               if (dimension == currentDimension) {
                   AABB distanceBox = entry.getValue().boundingBox;
                   Vec3 capturedBoxCenter = distanceBox.getCenter();
-                  Vec3 cameraPosition = (ClientAccess.schizoMinecraft.gameRenderer.getMainCamera()).position();
                   double distance = capturedBoxCenter.distanceTo(cameraPosition);
-                  Float maximumDistance = this.distanceSetting.getValue();
-                  if (distance > maximumDistance.floatValue()) {
-                     float distanceSentinel = (this.distanceSetting.getValue());
-
-                     if (distanceSentinel != 301.0F) {
+                  if (distance > maximumDistance) {
+                     if (maximumDistance != 301.0F) {
                         continue;
                      }
                   }
 
                   PoseStack poses = event.getPoseStack();
-                  Setting<ModelChoice> simpleModelOption = this.modelSetting;
-                  if (simpleModelOption.getValue() == LogoutSpotsModule.ModelChoice.SIMPLE
-                     || this.modelSetting.getValue() == LogoutSpotsModule.ModelChoice.BOTH) {
+                  if (modelChoice == LogoutSpotsModule.ModelChoice.SIMPLE
+                     || modelChoice == LogoutSpotsModule.ModelChoice.BOTH) {
                      LogoutSpotsModule.LogoutSpot boxFillSpot = entry.getValue();
                      AABB fillBox = boxFillSpot.boundingBox();
                      Setting<Color> boxFillOption = this.boxFillSetting;
@@ -411,9 +430,8 @@ public class LogoutSpotsModule extends Module {
                      );
                   }
 
-                  Setting<ModelChoice> complexModelOption = this.modelSetting;
-                  if (complexModelOption.getValue() == LogoutSpotsModule.ModelChoice.COMPLEX
-                     || this.modelSetting.getValue() == LogoutSpotsModule.ModelChoice.BOTH) {
+                  if (modelChoice == LogoutSpotsModule.ModelChoice.COMPLEX
+                     || modelChoice == LogoutSpotsModule.ModelChoice.BOTH) {
                      LogoutSpotsModule.LogoutSpot modelSpot = entry.getValue();
                      SidePlayer playerModel = modelSpot.playerModel();
                      Boolean textured = this.texturedSetting.getValue();
@@ -444,8 +462,6 @@ public class LogoutSpotsModule extends Module {
                      EntityChamsRenderer.renderEntity(poses, playerModel);
                   }
 
-                  Setting<Boolean> tracerOption = this.tracerSetting;
-                  Boolean drawTracer = tracerOption.getValue();
                   if (drawTracer) {
                      LogoutSpotsModule.LogoutSpot tracerSpot = entry.getValue();
                      AABB tracerBox = tracerSpot.boundingBox();
@@ -456,8 +472,6 @@ public class LogoutSpotsModule extends Module {
                      );
                   }
 
-                  Setting<Boolean> nameTagOption = this.nameTagSetting;
-                  Boolean drawNameTag = nameTagOption.getValue();
                   if (drawNameTag) {
                      LogoutSpotsModule.LogoutSpot tagCenterSpot = entry.getValue();
                      AABB tagCenterBox = tagCenterSpot.boundingBox();
@@ -475,7 +489,7 @@ public class LogoutSpotsModule extends Module {
                      String details = this.formatSpotDetails(detailsSpot);
                      FontsModule fontModule = fontsModule;
                      float computedFontOffset;
-                     if (fontModule.isToggled()) {
+                     if (fontModule != null && fontModule.isToggled()) {
 
                         computedFontOffset = 1.0F;
                      } else {
@@ -490,14 +504,9 @@ public class LogoutSpotsModule extends Module {
                            .replaceFirst("\u0001", Matcher.quoteReplacement(detailsText));
                      }
 
-                     GameRenderer tagGameRenderer = ClientAccess.schizoMinecraft.gameRenderer;
-                     Camera tagCamera = tagGameRenderer.getMainCamera();
-                     Vec3 capturedTagCameraPosition = tagCamera.position();
-                     Setting<Float> textScaleOption = this.textScaleSetting;
-                     Float configuredTextScale = textScaleOption.getValue();
-                     double textScaleValue = configuredTextScale.floatValue();
+                     double textScaleValue = this.textScaleSetting.getValue();
                      double textScale = MathUtils.getDistanceScale(
-                        capturedTagCameraPosition, tagPosition, textScaleValue
+                        cameraPosition, tagPosition, textScaleValue
                      );
                      RenderUtils backgroundRenderer = RenderUtils.INSTANCE;
 
@@ -679,8 +688,9 @@ public class LogoutSpotsModule extends Module {
          }
       }
 
-      Object2ObjectOpenHashMap<String, LogoutSpot> spots = owner.spotsByName;
-      spots.clear();
+      synchronized (owner.spotsByName) {
+         owner.spotsByName.clear();
+      }
    }
 
    public void executeWithSpotLock(Runnable action) {
