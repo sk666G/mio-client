@@ -453,7 +453,7 @@ class ModuleCompatibilityTest {
 
    @Test
    void settingReviewCountIncludesExplicitReviewsOnly() {
-      assertTrue(ModuleCompatibility.reviewedSettingCount() >= 199);
+      assertTrue(ModuleCompatibility.reviewedSettingCount() >= 217);
    }
 
    @Test
@@ -573,6 +573,26 @@ class ModuleCompatibilityTest {
       assertEquals(
          ModuleCompatibility.Classification.WORLD_INTERACTION,
          ModuleCompatibility.assessSetting(ArrowsModule.class, "Fov").classification()
+      );
+   }
+
+   @Test
+   void noSlowGroupsAndBehaviorControlsStaySeparated() {
+      assertEquals(
+         ModuleCompatibility.Classification.CLIENT_ONLY,
+         ModuleCompatibility.assessSetting(NoSlowModule.class, "Strict").classification()
+      );
+      assertEquals(
+         ModuleCompatibility.Classification.INPUT_MODIFYING,
+         ModuleCompatibility.assessSetting(NoSlowModule.class, "GuiMove").classification()
+      );
+      assertEquals(
+         ModuleCompatibility.Classification.PACKET_AFFECTING,
+         ModuleCompatibility.assessSetting(NoSlowModule.class, "Mode").classification()
+      );
+      assertEquals(
+         ModuleCompatibility.Classification.SERVER_SENSITIVE,
+         ModuleCompatibility.assessSetting(NoSlowModule.class, "Slowness").classification()
       );
    }
 
