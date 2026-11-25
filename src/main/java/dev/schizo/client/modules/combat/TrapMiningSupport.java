@@ -69,7 +69,7 @@ public final class TrapMiningSupport {
    }
 
    static {
-      speedMineModule = (SpeedMineModule)ClientContext.getModule(SpeedMineModule.class);
+
    }
 
    public List collectMiningPositions() {
