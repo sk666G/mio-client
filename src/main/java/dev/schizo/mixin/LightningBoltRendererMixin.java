@@ -26,7 +26,7 @@ import org.spongepowered.asm.mixin.injection.invoke.arg.Args;
 
 @Mixin(LightningBoltRenderer.class)
 public final class LightningBoltRendererMixin {
-   private static final KillEffectsModule killEffectsModule = ClientContext.getModule(KillEffectsModule.class);
+
    @Unique
    private static LightningBolt renderedLightningBolt;
 
@@ -41,9 +41,9 @@ public final class LightningBoltRendererMixin {
    private static void overrideClientLightningTint(Args arguments) {
       if (renderedLightningBolt != null) {
          if (((ClientLightningState)renderedLightningBolt).schizo$isClient()
-            && killEffectsModule.isToggled()
-            && killEffectsModule.thunderSetting.getValue()) {
-            Color lightningColor = killEffectsModule.colorSetting.getValue();
+            && schizo$killEffectsModule().isToggled()
+            && schizo$killEffectsModule().thunderSetting.getValue()) {
+            Color lightningColor = schizo$killEffectsModule().colorSetting.getValue();
             arguments.set(0, lightningColor.getRed() / 255.0F);
             arguments.set(1, lightningColor.getGreen() / 255.0F);
             arguments.set(
@@ -52,5 +52,10 @@ public final class LightningBoltRendererMixin {
             );
          }
       }
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static KillEffectsModule schizo$killEffectsModule() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(KillEffectsModule.class);
    }
 }
