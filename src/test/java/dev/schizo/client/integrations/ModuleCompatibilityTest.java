@@ -416,6 +416,26 @@ class ModuleCompatibilityTest {
    }
 
    @Test
+   void packetTimingSettingsRetainPacketAffectingClassification() {
+      ModuleCompatibility.SettingAssessment pingDelay =
+         ModuleCompatibility.assessSetting(PingSpoofModule.class, "Delay");
+      ModuleCompatibility.SettingAssessment noFallMode =
+         ModuleCompatibility.assessSetting(dev.schizo.client.modules.movement.NoFallModule.class, "Mode");
+
+      assertEquals(ModuleCompatibility.Classification.PACKET_AFFECTING, pingDelay.classification());
+      assertEquals(ModuleCompatibility.Classification.PACKET_AFFECTING, noFallMode.classification());
+      assertTrue(pingDelay.individuallyReviewed());
+      assertTrue(noFallMode.individuallyReviewed());
+      assertTrue(pingDelay.requiresWarning());
+      assertTrue(noFallMode.requiresWarning());
+   }
+
+   @Test
+   void settingReviewCountIncludesExplicitReviewsOnly() {
+      assertTrue(ModuleCompatibility.reviewedSettingCount() >= 20);
+   }
+
+   @Test
    void neverClaimsASettingWasReviewedWhenOnlyItsParentModuleWasReviewed() {
       ModuleCompatibility.SettingAssessment assessment =
          ModuleCompatibility.assessSetting(ReachModule.class, "mode");
