@@ -12,6 +12,7 @@ package dev.schizo.mixin;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.events.PacketEvent;
 import dev.schizo.client.bootstrap.MixinModuleRegistry;
+import dev.schizo.client.diagnostics.MixinHealthRegistry;
 import dev.schizo.client.utils.network.PingSpoofDelayHandler;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFutureListener;
@@ -38,6 +39,7 @@ public class ConnectionMixin {
 
    @Inject(method = "channelActive", at = @At("TAIL"))
    private void installPingSpoofDelayHandler(ChannelHandlerContext context, CallbackInfo callback) {
+      MixinHealthRegistry.markSeen("connection.active");
       if (this.receiving != PacketFlow.CLIENTBOUND) {
          return;
       }
@@ -54,6 +56,7 @@ public class ConnectionMixin {
    public void onPacketReceive(
       ChannelHandlerContext context, Packet packet, CallbackInfo callback
    ) {
+      MixinHealthRegistry.markSeen("connection.receive");
       if (this.channel.isOpen() && packet != null) {
          PacketEvent.Receive event = new PacketEvent.Receive(packet);
          ClientAccess.eventBus.postRecoverable(event);
@@ -67,6 +70,7 @@ public class ConnectionMixin {
    private void onPacketSend(
       Packet packet, ChannelFutureListener listener, boolean flush, CallbackInfo callback
    ) {
+      MixinHealthRegistry.markSeen("connection.send");
       if (this.receiving == PacketFlow.CLIENTBOUND) {
          PacketEvent.Send event = new PacketEvent.Send(packet);
          ClientAccess.eventBus.postRecoverable(event);
