@@ -59,6 +59,8 @@ public final class ConfigurationManager implements ClientAccess {
    private final BundledResourceInstaller bundledResources = new BundledResourceInstaller();
    private final PresetUndoState presetUndoState = new PresetUndoState();
    private final ConfigurableRegistry configurables = new ConfigurableRegistry();
+   private final Object asyncSaveLock = new Object();
+   private volatile long asyncSaveVersion;
 
    public ModulePresetCodec getModulePresetCodec() {
       return this.modulePresetCodec;
@@ -240,6 +242,7 @@ public final class ConfigurationManager implements ClientAccess {
          return;
       }
 
+      long saveVersion = ++this.asyncSaveVersion;
       List<ConfigSnapshot> snapshots = new ArrayList<>();
       Iterator<?> configurableIterator = this.configurables.iterator();
       while (configurableIterator.hasNext()) {
@@ -250,16 +253,25 @@ public final class ConfigurationManager implements ClientAccess {
          }
          try {
             JsonElement serialized = configurable.toJson();
-            snapshots.add(new ConfigSnapshot(configurable.getConfigName(), serialized.getAsJsonObject()));
+            snapshots.add(new ConfigSnapshot(configurable.getConfigName(), serialized.getAsJsonObject().deepCopy()));
          } catch (Exception snapshotFailure) {
             ClientAccess.logger.error("Could not snapshot configuration {}", configurable.getConfigName(), snapshotFailure);
          }
       }
 
-      ClientAccess.executorService.submit(() -> this.writeSnapshots(snapshots));
+      ClientAccess.executorService.submit(() -> this.writeSnapshots(snapshots, saveVersion));
    }
 
-   private void writeSnapshots(List<ConfigSnapshot> snapshots) {
+   private void writeSnapshots(List<ConfigSnapshot> snapshots, long saveVersion) {
+      synchronized (this.asyncSaveLock) {
+         if (saveVersion != this.asyncSaveVersion) {
+            return;
+         }
+         this.writeSnapshotsLocked(snapshots);
+      }
+   }
+
+   private void writeSnapshotsLocked(List<ConfigSnapshot> snapshots) {
       if (!isSafeRootDirectory()) {
          ClientAccess.logger.error("Skipping configuration save because the data root is not a real directory");
          return;
