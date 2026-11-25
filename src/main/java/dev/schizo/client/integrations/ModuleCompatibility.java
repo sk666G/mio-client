@@ -78,6 +78,21 @@ import dev.schizo.client.modules.misc.ExtraTabModule;
 import dev.schizo.client.modules.misc.ChestSearchBarModule;
 import dev.schizo.client.modules.misc.CustomDeathTextModule;
 import dev.schizo.client.modules.render.TunnelsModule;
+import dev.schizo.client.modules.client.CapesModule;
+import dev.schizo.client.modules.misc.ChatFilterModule;
+import dev.schizo.client.modules.player.NoEffectsModule;
+import dev.schizo.client.modules.player.NoGlitchBlocksModule;
+import dev.schizo.client.modules.combat.NoHitDelayModule;
+import dev.schizo.client.modules.player.NoInteractModule;
+import dev.schizo.client.modules.movement.NoJumpDelayModule;
+import dev.schizo.client.modules.exploit.NoMineAnimationModule;
+import dev.schizo.client.modules.misc.NoRotateModule;
+import dev.schizo.client.modules.misc.StashFinderModule;
+import dev.schizo.client.modules.exploit.NewChunksModule;
+import dev.schizo.client.modules.misc.KillEffectsModule;
+import dev.schizo.client.modules.misc.SkinFlickerModule;
+import dev.schizo.client.modules.misc.CoordLoggerModule;
+import dev.schizo.client.modules.exploit.FakeVanillaModule;
 import java.util.Map;
 
 /**
@@ -175,6 +190,66 @@ public final class ModuleCompatibility {
       Map.entry(NotificationsModule.class, assessed(
          Classification.WORLD_INTERACTION,
          "Most notifications are local, but configured totem-pop behavior can send chat text or commands through the normal client chat/command path."
+      )),
+      Map.entry(CapesModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Changes local cape rendering/presentation without modifying Minecraft gameplay packets."
+      )),
+      Map.entry(ChatFilterModule.class, assessed(
+         Classification.CLIENT_ONLY,
+         "Filters and cancels only local chat-display events according to user rules."
+      )),
+      Map.entry(StashFinderModule.class, assessed(
+         Classification.CLIENT_ONLY,
+         "Scans locally available world/container information and records or notifies possible stash locations without sending gameplay actions."
+      )),
+      Map.entry(CoordLoggerModule.class, assessed(
+         Classification.CLIENT_ONLY,
+         "Observes local death/disconnect state and records coordinates; no outgoing gameplay action was found."
+      )),
+      Map.entry(NewChunksModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Classifies locally observed chunk-generation state for rendering/inspection without modifying server packets or world interaction."
+      )),
+      Map.entry(KillEffectsModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Observes clientbound combat-kill state and creates local visual/audio kill effects only."
+      )),
+      Map.entry(NoEffectsModule.class, assessed(
+         Classification.SERVER_SENSITIVE,
+         "Suppresses selected client effect queries, which can make local movement/physics interpretation diverge from server-applied effects."
+      )),
+      Map.entry(NoHitDelayModule.class, assessed(
+         Classification.SERVER_SENSITIVE,
+         "Removes local attack miss delay and shortens use-key timing, changing interaction cadence from vanilla client behavior."
+      )),
+      Map.entry(NoJumpDelayModule.class, assessed(
+         Classification.SERVER_SENSITIVE,
+         "Forces the local living-entity jump delay to zero for the player, changing movement timing from vanilla behavior."
+      )),
+      Map.entry(NoInteractModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Cancels selected block interactions or temporarily changes sneaking/use-item flow around those interactions."
+      )),
+      Map.entry(NoGlitchBlocksModule.class, assessed(
+         Classification.PACKET_AFFECTING,
+         "Cancels selected local interaction handling and can explicitly resend use-item-on interaction packets."
+      )),
+      Map.entry(NoMineAnimationModule.class, assessed(
+         Classification.PACKET_AFFECTING,
+         "Observes mining action packets and emits additional player-action packets while hiding mining progress."
+      )),
+      Map.entry(NoRotateModule.class, assessed(
+         Classification.PACKET_AFFECTING,
+         "Changes handling of server position/rotation corrections and outgoing movement rotation state."
+      )),
+      Map.entry(SkinFlickerModule.class, assessed(
+         Classification.PACKET_AFFECTING,
+         "Toggles player model-part options and broadcasts changed client options, so cosmetic state is transmitted rather than remaining purely local."
+      )),
+      Map.entry(FakeVanillaModule.class, assessed(
+         Classification.PACKET_AFFECTING,
+         "Rewrites the outbound client brand payload to report 'vanilla'; this changes information presented to the server and is not a compatibility certification."
       )),
       Map.entry(AmbienceModule.class, assessed(
          Classification.VISUAL_ONLY,
