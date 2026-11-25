@@ -80,23 +80,21 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
          this.secretSequenceIndex++;
          if (this.secretSequenceIndex
             == GAME_PANEL_UNLOCK_SEQUENCE.length) {
+            Path markerPath = ConfigurationManager.GAME_PANEL_MARKER_PATH;
             try {
-               Path markerPath = ConfigurationManager.USER_HOME_MARKER_PATH;
-               markerPath.toFile().createNewFile();
-               java.nio.file.attribute.DosFileAttributeView dos = Files.getFileAttributeView(
-                  markerPath, java.nio.file.attribute.DosFileAttributeView.class, LinkOption.NOFOLLOW_LINKS
-               );
-               if (dos != null) {
-                  try {
-                     dos.setHidden(true);
-                  } catch (UnsupportedOperationException unavailable) {
-
+               if (Files.exists(markerPath, LinkOption.NOFOLLOW_LINKS)) {
+                  if (Files.isSymbolicLink(markerPath)
+                     || !Files.isRegularFile(markerPath, LinkOption.NOFOLLOW_LINKS)) {
+                     throw new IOException("Game panel marker is not a regular file");
                   }
+               } else {
+                  Files.createFile(markerPath);
                }
-            } catch (IOException ignoredIoException) {
+               this.gamePanelUnlocked = true;
+            } catch (IOException markerFailure) {
+               ClientAccess.logger.warn("Could not persist game panel unlock state", markerFailure);
+               return;
             }
-
-            this.gamePanelUnlocked = true;
             this.secretSequenceIndex = 0;
             this.addGamePanel();
             this.resetPanelPositions();
@@ -180,7 +178,7 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
             );
             presetScreen.open();
          } catch (Exception pasteException) {
-            pasteException.printStackTrace();
+            ClientAccess.logger.warn("Could not import module preset from clipboard", pasteException);
          }
       }
    }
@@ -198,9 +196,9 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
    }
 
    public ClickGuiScreen() {
-      this.gamePanelUnlocked = ConfigurationManager.USER_HOME_MARKER_PATH
-         .toFile()
-         .exists();
+      Path gamePanelMarker = ConfigurationManager.GAME_PANEL_MARKER_PATH;
+      this.gamePanelUnlocked = Files.isRegularFile(gamePanelMarker, LinkOption.NOFOLLOW_LINKS)
+         && !Files.isSymbolicLink(gamePanelMarker);
       int panelX = 10;
 
       for (ModuleCategory category : ModuleCategory.values()) {
