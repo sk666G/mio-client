@@ -3,14 +3,13 @@ package dev.schizo.client.modules.render;
 import static org.junit.jupiter.api.Assertions.*;
 
 import net.minecraft.core.BlockPos;
-import net.minecraft.world.level.ChunkPos;
 import org.junit.jupiter.api.Test;
 
 final class SearchChunkScanCursorTest {
    @Test
    void followsSearchLoopOrderAcrossWholeChunk() {
       SearchChunkScanCursor cursor =
-         new SearchChunkScanCursor(new ChunkPos(-2, 3), 5, 8);
+         new SearchChunkScanCursor(-32, 48, 5, 8);
       BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
 
       int count = 0;
@@ -37,7 +36,7 @@ final class SearchChunkScanCursorTest {
    @Test
    void emptyHeightRangeCompletesImmediately() {
       SearchChunkScanCursor cursor =
-         new SearchChunkScanCursor(new ChunkPos(0, 0), 9, 9);
+         new SearchChunkScanCursor(0, 0, 9, 9);
 
       assertFalse(cursor.next(new BlockPos.MutableBlockPos()));
    }
