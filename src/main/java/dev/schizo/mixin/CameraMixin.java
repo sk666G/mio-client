@@ -43,11 +43,11 @@ import org.spongepowered.asm.mixin.injection.invoke.arg.Args;
 
 @Mixin(Camera.class)
 public abstract class CameraMixin {
-   private static ViewClipModule viewClip = ClientContext.getModule(ViewClipModule.class);
-   private static NoRenderModule noRenderModule = ClientContext.getModule(NoRenderModule.class);
-   private static ElytraFlyModule elytrafly = ClientContext.getModule(ElytraFlyModule.class);
-   private static FreecamModule freecam = ClientContext.getModule(FreecamModule.class);
-   private static FreeLookModule freelook = ClientContext.getModule(FreeLookModule.class);
+
+
+
+
+
    @Final
    @Shadow
    private Vector3f forwards;
@@ -82,21 +82,21 @@ public abstract class CameraMixin {
    private void applyViewClipAndFreeLookDistance(
       float originalDistance, CallbackInfoReturnable<Float> callback, @Local(argsOnly = true) LocalFloatRef distanceRef
    ) {
-      if (viewClip.isToggled()) {
-         float cameraDistance = viewClip.getCameraDistance();
-         if (freelook.isScrollEnabled()) {
-            cameraDistance += freelook.getCameraDistanceOffset();
+      if (schizo$viewClip().isToggled()) {
+         float cameraDistance = schizo$viewClip().getCameraDistance();
+         if (schizo$freelook().isScrollEnabled()) {
+            cameraDistance += schizo$freelook().getCameraDistanceOffset();
             cameraDistance = Mth.clamp(cameraDistance, 1.0F, 20.0F);
          }
 
          callback.setReturnValue(cameraDistance);
          return;
       }
-      if (freelook.isScrollEnabled()) {
+      if (schizo$freelook().isScrollEnabled()) {
          distanceRef.set(
             Mth.clamp(
                distanceRef.get()
-                  + freelook.getCameraDistanceOffset(),
+                  + schizo$freelook().getCameraDistanceOffset(),
                1.0F,
                20.0F
             )
@@ -106,7 +106,7 @@ public abstract class CameraMixin {
 
    @Inject(method = "tick", at = @At("HEAD"), cancellable = true)
    private void applyLegacySneakingCamera(CallbackInfo callback) {
-      if (!noRenderModule.isToggled() || !noRenderModule.newSneakingSetting.getValue() || this.entity == null) {
+      if (!schizo$noRenderModule().isToggled() || !schizo$noRenderModule().newSneakingSetting.getValue() || this.entity == null) {
          return;
       }
       callback.cancel();
@@ -128,11 +128,11 @@ public abstract class CameraMixin {
 
    @Inject(method = "move", at = @At("HEAD"), cancellable = true)
    private void applySmoothViewClipMove(float forward, float vertical, float sideways, CallbackInfo callback) {
-      if (viewClip.isToggled() && viewClip.smoothSetting.getValue()) {
+      if (schizo$viewClip().isToggled() && schizo$viewClip().smoothSetting.getValue()) {
          double offsetX = (double)this.forwards.x() * forward + (double)this.up.x() * vertical + (double)this.left.x() * sideways;
          double offsetY = (double)this.forwards.y() * forward + (double)this.up.y() * vertical + (double)this.left.y() * sideways;
          double offsetZ = (double)this.forwards.z() * forward + (double)this.up.z() * vertical + (double)this.left.z() * sideways;
-         float blend = viewClip.clipAnimation.updateAndGet();
+         float blend = schizo$viewClip().clipAnimation.updateAndGet();
          this.setPosition(new Vec3(this.position.x + offsetX * blend, this.position.y + offsetY * blend, this.position.z + offsetZ * blend));
          callback.cancel();
       }
@@ -163,22 +163,22 @@ public abstract class CameraMixin {
 
    @ModifyArgs(method = "setup", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/Camera;setRotation(FF)V"))
    private void applyCameraSetupRotations(Args arguments) {
-      if (elytrafly.isToggled()
-         && elytrafly.modeSetting.getValue() == ElytraFlyModule.ModeChoice.BOUNCE
-         && elytrafly.pitchLockSetting.getValue()
-         && !elytrafly.silentSetting.getValue()) {
-         arguments.set(1, elytrafly.pitchSetting.getValue());
+      if (schizo$elytrafly().isToggled()
+         && schizo$elytrafly().modeSetting.getValue() == ElytraFlyModule.ModeChoice.BOUNCE
+         && schizo$elytrafly().pitchLockSetting.getValue()
+         && !schizo$elytrafly().silentSetting.getValue()) {
+         arguments.set(1, schizo$elytrafly().pitchSetting.getValue());
       }
 
       float partialTick = RenderUtils.getPartialTick();
-      if (freecam.isToggled()) {
+      if (schizo$freecam().isToggled()) {
          arguments.set(
             0,
-            (float)freecam.getInterpolatedYaw(partialTick)
+            (float)schizo$freecam().getInterpolatedYaw(partialTick)
          );
          arguments.set(
             1,
-            (float)freecam.getInterpolatedPitch(partialTick)
+            (float)schizo$freecam().getInterpolatedPitch(partialTick)
          );
       }
    }
@@ -187,8 +187,33 @@ public abstract class CameraMixin {
    public void applyFreeLookRotation(
       Level level, Entity cameraEntity, boolean detached, boolean mirrored, float partialTick, CallbackInfo callback
    ) {
-      if (!freecam.isToggled() && freelook.isToggled() && cameraEntity instanceof EntityMotionAccess motionAccess) {
+      if (!schizo$freecam().isToggled() && schizo$freelook().isToggled() && cameraEntity instanceof EntityMotionAccess motionAccess) {
          this.setRotation(motionAccess.getCameraYaw(), motionAccess.getCameraPitch());
       }
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static ViewClipModule schizo$viewClip() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(ViewClipModule.class);
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static NoRenderModule schizo$noRenderModule() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(NoRenderModule.class);
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static ElytraFlyModule schizo$elytrafly() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(ElytraFlyModule.class);
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static FreecamModule schizo$freecam() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(FreecamModule.class);
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static FreeLookModule schizo$freelook() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(FreeLookModule.class);
    }
 }
