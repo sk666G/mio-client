@@ -84,7 +84,7 @@ public final class FolderCommand extends Command {
          Desktop desktop = Desktop.getDesktop();
          File file = directory.toFile();
          desktop.open(file);
-      } catch (IOException failure) {
+      } catch (IOException | RuntimeException failure) {
          dev.schizo.client.ClientAccess.logger.warn("Failed to open Schizo folder {}", directory, failure);
          ChatUtils.printChat(Component.literal("Failed to open folder ").append(ChatUtils.watermarkText(directory.getFileName().toString())).append("."), ChatUtils.DEFAULT_SIGNATURE, ChatUtils.MessagePriority.MID);
       }
