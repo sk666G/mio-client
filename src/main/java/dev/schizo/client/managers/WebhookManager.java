@@ -38,6 +38,7 @@ public final class WebhookManager implements JsonConfigurable {
    private static final Pattern ANSI_COLOR = Pattern.compile("\\x1B\\[[0-9;]*m");
    private volatile Destination destination = new Destination(null, "", null, false);
    private final RequestSender requestSender;
+   private final java.util.function.BooleanSupplier deliveryAllowed;
 
    @FunctionalInterface
    interface RequestSender {
@@ -48,11 +49,16 @@ public final class WebhookManager implements JsonConfigurable {
    }
 
    public WebhookManager() {
-      this(HttpRequests::sendAsync);
+      this(HttpRequests::sendAsync, () -> !dev.schizo.client.utils.CoordinatePrivacy.isEnabled());
    }
 
    WebhookManager(RequestSender requestSender) {
+      this(requestSender, () -> true);
+   }
+
+   WebhookManager(RequestSender requestSender, java.util.function.BooleanSupplier deliveryAllowed) {
       this.requestSender = Objects.requireNonNull(requestSender);
+      this.deliveryAllowed = Objects.requireNonNull(deliveryAllowed);
    }
 
    @Override
@@ -231,6 +237,9 @@ public final class WebhookManager implements JsonConfigurable {
    }
 
    private CompletableFuture<Void> sendWithRetry(Destination target, HttpRequest request, int attempt) {
+      if (!this.deliveryAllowed.getAsBoolean()) {
+         return CompletableFuture.failedFuture(new IOException("Coordinate privacy is active"));
+      }
       if (this.destination != target) {
          return CompletableFuture.failedFuture(new IOException("Notification destination changed"));
       }
