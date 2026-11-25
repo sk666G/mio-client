@@ -98,7 +98,6 @@ public final class ClientInitializer {
       ClientContext.featureBoxRenderer = new FeatureBoxRenderer();
       ClientContext.taskScheduler = new TaskScheduler();
       ClientContext.moduleRegistry = new ModuleRegistry();
-      ModuleDependencies.bind(ClientContext.moduleRegistry);
       MixinModuleRegistry.bind(ClientContext.moduleRegistry);
       this.compatibilityWarnings = new MultiplayerCompatibilityWarnings();
       ClientContext.modulePreferencesRegistry = new ModulePreferencesRegistry();
@@ -135,6 +134,7 @@ public final class ClientInitializer {
       if (this.clientInitialized) {
          return;
       }
+      ModuleDependencies.bind(ClientContext.moduleRegistry);
       try {
          SafeModeManager.GLOBAL.initialize(ConfigurationManager.ROOT_DIRECTORY);
       } catch (IOException safeModeInitializationFailure) {
