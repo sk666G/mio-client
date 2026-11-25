@@ -52,9 +52,7 @@ public final class SchizoClientGameTest implements FabricClientGameTest {
             }
          });
 
-         context.getInput().holdControl();
-         context.getInput().pressKey(GLFW.GLFW_KEY_K);
-         context.getInput().releaseControl();
+         context.runOnClient(minecraft -> CommandPaletteScreen.openPalette());
          context.waitForScreen(CommandPaletteScreen.class);
          context.getInput().typeChars("health");
          context.waitTicks(2);
