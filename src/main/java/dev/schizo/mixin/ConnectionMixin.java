@@ -49,7 +49,7 @@ public class ConnectionMixin {
       }
    }
 
-   @Inject(method = "channelRead0*", at = @At("HEAD"), cancellable = true)
+   @Inject(method = "channelRead0*", at = @At("HEAD"), cancellable = true, require = 1)
    public void onPacketReceive(
       ChannelHandlerContext context, Packet packet, CallbackInfo callback
    ) {
@@ -67,7 +67,7 @@ public class ConnectionMixin {
       }
    }
 
-   @Inject(method = "sendPacket", at = @At("HEAD"), cancellable = true)
+   @Inject(method = "sendPacket", at = @At("HEAD"), cancellable = true, require = 1)
    private void onPacketSend(
       Packet packet, ChannelFutureListener listener, boolean flush, CallbackInfo callback
    ) {
@@ -85,7 +85,7 @@ public class ConnectionMixin {
       }
    }
 
-   @Inject(method = "doSendPacket", at = @At("TAIL"))
+   @Inject(method = "doSendPacket", at = @At("TAIL"), require = 1)
    private void onPacketPostSend(
       Packet packet, ChannelFutureListener listener, boolean flush, CallbackInfo callback
    ) {
