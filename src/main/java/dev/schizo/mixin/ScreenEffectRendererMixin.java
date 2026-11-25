@@ -24,15 +24,14 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(ScreenEffectRenderer.class)
 public class ScreenEffectRendererMixin {
-   private static final NoRenderModule noRenderModule = ClientContext.getModule(NoRenderModule.class);
-   private static final FreecamModule freecamModule = ClientContext.getModule(FreecamModule.class);
+
 
    @Inject(method = "renderFire", at = @At("HEAD"), cancellable = true)
    private static void suppressFireOverlay(
       PoseStack poses, MultiBufferSource buffers, TextureAtlasSprite sprite, CallbackInfo callback
    ) {
-      if (noRenderModule.isToggled()
-         && noRenderModule.fireSetting.getValue()) {
+      if (schizo$noRenderModule().isToggled()
+         && schizo$noRenderModule().fireSetting.getValue()) {
          callback.cancel();
       }
    }
@@ -41,8 +40,8 @@ public class ScreenEffectRendererMixin {
    private static void suppressWaterOverlay(
       Minecraft client, PoseStack poses, MultiBufferSource buffers, CallbackInfo callback
    ) {
-      if (noRenderModule.isToggled()
-         && noRenderModule.blindnessSetting.getValue()) {
+      if (schizo$noRenderModule().isToggled()
+         && schizo$noRenderModule().blindnessSetting.getValue()) {
          callback.cancel();
       }
    }
@@ -51,10 +50,20 @@ public class ScreenEffectRendererMixin {
    private static void suppressTextureOverlay(
       TextureAtlasSprite sprite, PoseStack poses, MultiBufferSource buffers, CallbackInfo callback
    ) {
-      if (noRenderModule.isToggled()
-            && noRenderModule.blindnessSetting.getValue()
-         || freecamModule.isToggled()) {
+      if (schizo$noRenderModule().isToggled()
+            && schizo$noRenderModule().blindnessSetting.getValue()
+         || schizo$freecamModule().isToggled()) {
          callback.cancel();
       }
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static NoRenderModule schizo$noRenderModule() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(NoRenderModule.class);
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static FreecamModule schizo$freecamModule() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(FreecamModule.class);
    }
 }
