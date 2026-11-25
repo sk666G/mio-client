@@ -20,12 +20,14 @@ import org.spongepowered.asm.mixin.injection.At;
 
 @Mixin(HumanoidMobRenderer.class)
 public class HumanoidMobRendererMixin {
-   private static final NoRenderModule noRenderModule = ClientContext.getModule(NoRenderModule.class);
+   private static NoRenderModule noRenderModule() {
+      return ClientContext.requireModule(NoRenderModule.class);
+   }
 
    @ModifyReturnValue(method = "getEquipmentIfRenderable", at = @At("RETURN"))
    private static ItemStack suppressElytraEquipment(ItemStack originalStack) {
-      return noRenderModule.isToggled()
-            && noRenderModule.elytraSetting.getValue()
+      return noRenderModule().isToggled()
+            && noRenderModule().elytraSetting.getValue()
             && originalStack.is(Items.ELYTRA)
          ? ItemStack.EMPTY
          : originalStack;
