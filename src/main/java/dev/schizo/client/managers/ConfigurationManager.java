@@ -219,8 +219,7 @@ public final class ConfigurationManager implements ClientAccess {
 
       SHADERS_DIRECTORY = parentDirectory.resolve("shaders");
 
-      String userHome = System.getProperty("user.home");
-      USER_HOME_MARKER_PATH = Path.of(userHome, "_____a");
+      USER_HOME_MARKER_PATH = ROOT_DIRECTORY.resolve(".game-panel-unlocked");
       directories = new ArrayList<>();
    }
 
