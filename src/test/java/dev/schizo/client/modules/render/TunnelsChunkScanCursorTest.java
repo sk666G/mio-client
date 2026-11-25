@@ -9,8 +9,8 @@ import org.junit.jupiter.api.Test;
 final class TunnelsChunkScanCursorTest {
    @Test
    void visitsEveryCellExactlyOnce() {
-      TunnelsModule.ChunkScanCursor cursor =
-         new TunnelsModule.ChunkScanCursor(new ChunkPos(2, -3), 10, 13);
+      TunnelsChunkScanCursor cursor =
+         new TunnelsChunkScanCursor(new ChunkPos(2, -3), 10, 13);
       BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
 
       int count = 0;
@@ -32,8 +32,8 @@ final class TunnelsChunkScanCursorTest {
 
    @Test
    void emptyVerticalRangeCompletesImmediately() {
-      TunnelsModule.ChunkScanCursor cursor =
-         new TunnelsModule.ChunkScanCursor(new ChunkPos(0, 0), 20, 20);
+      TunnelsChunkScanCursor cursor =
+         new TunnelsChunkScanCursor(new ChunkPos(0, 0), 20, 20);
 
       assertFalse(cursor.next(new BlockPos.MutableBlockPos()));
    }
