@@ -406,23 +406,19 @@ public class LogoutSpotsModule extends Module {
                      Boolean textured = this.texturedSetting.getValue();
                      if (textured) {
                         renderingTexturedModel = true;
-
-                        Float alpha = this.alphaSetting.getValue();
-                        RenderUtils.setRenderColor(
-                           1.0F, 1.0F, 1.0F, alpha
-                        );
-                        RenderUtils modelRenderer = RenderUtils.INSTANCE;
-
-                        RenderBuffers renderBuffers = ClientAccess.schizoMinecraft.renderBuffers();
-                        modelRenderer.renderEntity(
-                           playerModel, 1.0F, poses, renderBuffers.bufferSource()
-                        );
-                        RenderUtils.INSTANCE
-                           .flushEntities();
-
-                        RenderUtils.setRenderColor(
-                           1.0F, 1.0F, 1.0F,1.0F);
-                        renderingTexturedModel = false;
+                        try {
+                           Float alpha = this.alphaSetting.getValue();
+                           RenderUtils.setRenderColor(1.0F, 1.0F, 1.0F, alpha);
+                           RenderUtils modelRenderer = RenderUtils.INSTANCE;
+                           RenderBuffers renderBuffers = ClientAccess.schizoMinecraft.renderBuffers();
+                           modelRenderer.renderEntity(
+                              playerModel, 1.0F, poses, renderBuffers.bufferSource()
+                           );
+                           RenderUtils.INSTANCE.flushEntities();
+                        } finally {
+                           RenderUtils.setRenderColor(1.0F, 1.0F, 1.0F, 1.0F);
+                           renderingTexturedModel = false;
+                        }
                      }
 
                      Float modelWidth = this.modelWidthSetting.getValue();
@@ -523,11 +519,12 @@ public class LogoutSpotsModule extends Module {
       }
 
       LineMeshRenderer.draw();
-      RenderStateManager.addStates(
-         RenderStateManager.POLYGON_OFFSET_THROUGH_WALLS
-      );
-      GuiDrawUtils.flush();
-      RenderStateManager.reset();
+      RenderStateManager.addStates(RenderStateManager.POLYGON_OFFSET_THROUGH_WALLS);
+      try {
+         GuiDrawUtils.flush();
+      } finally {
+         RenderStateManager.reset();
+      }
    }
 
    private static void removeFirstUnlistedSpot(LogoutSpotsModule owner) {
