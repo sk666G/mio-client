@@ -91,13 +91,16 @@ public final class InventoryStateManager implements ClientAccess {
    }
 
    public InventoryStateManager() {
+      antiCheat = (AntiCheatModule)java.util.Objects.requireNonNull(
+         ClientContext.getModule(AntiCheatModule.class),
+         "Required module is not registered: AntiCheatModule"
+      );
+      xCarry = (XCarryModule)java.util.Objects.requireNonNull(
+         ClientContext.getModule(XCarryModule.class),
+         "Required module is not registered: XCarryModule"
+      );
       EventBus eventBus = ClientAccess.eventBus;
       eventBus.subscribe(this);
-   }
-
-   static {
-      antiCheat = (AntiCheatModule)ClientContext.getModule(AntiCheatModule.class);
-      xCarry = (XCarryModule)ClientContext.getModule(XCarryModule.class);
    }
 
    public void close() {
