@@ -17,6 +17,8 @@ import dev.schizo.client.modules.client.HUDModule;
 import dev.schizo.client.modules.client.CapesModule;
 import dev.schizo.client.modules.client.DiscordModule;
 import dev.schizo.client.modules.client.UIModule;
+import dev.schizo.client.modules.client.BaritoneModule;
+import dev.schizo.client.modules.client.NotificationsModule;
 import dev.schizo.client.modules.movement.NoFallModule;
 import dev.schizo.client.modules.exploit.ReachModule;
 import dev.schizo.client.modules.exploit.PhaseModule;
@@ -111,6 +113,14 @@ public final class ModuleCompatibility {
       Map.entry(DiscordModule.class, assessed(
          Classification.CLIENT_ONLY,
          "Publishes local Discord IPC rich-presence state. The optional Server setting can disclose the current server address to the user's local Discord client, but no Minecraft gameplay packet is modified."
+      )),
+      Map.entry(NotificationsModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Most notification settings are local chat presentation, but SayChat can automatically send configured chat/command text after observed totem events."
+      )),
+      Map.entry(BaritoneModule.class, assessed(
+         Classification.SERVER_SENSITIVE,
+         "Permanent bridge that changes Baritone pathing/automation assumptions, optional block backfilling and disconnect-on-arrival behavior; these settings can change automated multiplayer actions."
       )),
       Map.entry(AmbienceModule.class, assessed(
          Classification.VISUAL_ONLY,
@@ -327,7 +337,55 @@ public final class ModuleCompatibility {
       setting(TunnelsModule.class, "Fill", Classification.VISUAL_ONLY,
          "Controls only local tunnel fill color."),
       setting(TunnelsModule.class, "Outline", Classification.VISUAL_ONLY,
-         "Controls only local tunnel outline color.")
+         "Controls only local tunnel outline color."),
+
+      setting(NotificationsModule.class, "Watermark", Classification.CLIENT_ONLY,
+         "Controls only the local notification watermark color."),
+      setting(NotificationsModule.class, "Brackets", Classification.CLIENT_ONLY,
+         "Controls only local notification bracket color."),
+      setting(NotificationsModule.class, "Commands", Classification.CLIENT_ONLY,
+         "Controls local display of Schizo command feedback."),
+      setting(NotificationsModule.class, "Modules", Classification.CLIENT_ONLY,
+         "Controls local module-toggle notifications."),
+      setting(NotificationsModule.class, "OnlyDrawn", Classification.CLIENT_ONLY,
+         "Filters local module-toggle notifications by drawn state."),
+      setting(NotificationsModule.class, "TotemPops", Classification.CLIENT_ONLY,
+         "Enables local totem-pop notifications; outgoing chat remains separately controlled by SayChat."),
+      setting(NotificationsModule.class, "Self", Classification.CLIENT_ONLY,
+         "Controls whether local self totem events are displayed."),
+      setting(NotificationsModule.class, "Primary", Classification.CLIENT_ONLY,
+         "Controls local notification text color."),
+      setting(NotificationsModule.class, "Secondary", Classification.CLIENT_ONLY,
+         "Controls local notification text color."),
+      setting(NotificationsModule.class, "SayChat", Classification.WORLD_INTERACTION,
+         "Enables automatic outgoing chat/command messages after qualifying totem events."),
+      setting(NotificationsModule.class, "Path", Classification.WORLD_INTERACTION,
+         "Selects the local message-template file used by the automatic outgoing chat feature."),
+      setting(NotificationsModule.class, "Delay", Classification.WORLD_INTERACTION,
+         "Controls timing of automatic outgoing totem chat messages."),
+      setting(NotificationsModule.class, "OnlyEnemies", Classification.WORLD_INTERACTION,
+         "Filters which observed players can trigger automatic outgoing totem chat."),
+      setting(NotificationsModule.class, "Random", Classification.WORLD_INTERACTION,
+         "Controls template selection for automatic outgoing totem chat."),
+      setting(NotificationsModule.class, "Refresh", Classification.WORLD_INTERACTION,
+         "Reloads templates used by the automatic outgoing totem chat feature."),
+
+      setting(BaritoneModule.class, "FreeLook", Classification.INPUT_MODIFYING,
+         "Changes Baritone free-look behavior while its automation is active."),
+      setting(BaritoneModule.class, "BackFill", Classification.WORLD_INTERACTION,
+         "Allows Baritone to place blocks behind its path while automating movement."),
+      setting(BaritoneModule.class, "LogOnArrival", Classification.SERVER_SENSITIVE,
+         "Configures Baritone to disconnect the multiplayer session when a path goal is reached."),
+      setting(BaritoneModule.class, "AssumeEnabled", Classification.SERVER_SENSITIVE,
+         "Synchronizes Baritone path assumptions with Step, AutoTool and SafeWalk module state."),
+      setting(BaritoneModule.class, "CensorCoords", Classification.CLIENT_ONLY,
+         "Controls Baritone coordinate/command redaction in local output."),
+      setting(BaritoneModule.class, "ReplaceColors", Classification.VISUAL_ONLY,
+         "Controls local Baritone path/goal render color replacement."),
+      setting(BaritoneModule.class, "Color", Classification.VISUAL_ONLY,
+         "Controls local Baritone path rendering color."),
+      setting(BaritoneModule.class, "Goal", Classification.VISUAL_ONLY,
+         "Controls local Baritone goal rendering color.")
    );
 
    private ModuleCompatibility() {}
