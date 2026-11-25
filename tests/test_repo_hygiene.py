@@ -1,5 +1,6 @@
 import json
 import pathlib
+import re
 import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -20,6 +21,30 @@ class RepositoryHygieneTest(unittest.TestCase):
         offenders = []
         for path in (ROOT / "src/main/java/dev/schizo").rglob("*.java"):
             if "printStackTrace(" in path.read_text(encoding="utf-8"):
+                offenders.append(str(path.relative_to(ROOT)))
+        self.assertEqual([], offenders)
+
+    def test_no_module_lookup_during_static_initialization(self):
+        offenders = []
+        for path in (ROOT / "src/main/java/dev/schizo").rglob("*.java"):
+            text = path.read_text(encoding="utf-8")
+            field_lookup = re.search(r"static[^;\n=]*=\s*ClientContext\.getModule\s*\(", text)
+            block_lookup = any(
+                "ClientContext.getModule(" in block
+                for block in re.findall(r"static\s*\{.{0,2500}?\n\s*\}", text, flags=re.S)
+            )
+            if field_lookup or block_lookup:
+                offenders.append(str(path.relative_to(ROOT)))
+        self.assertEqual([], offenders)
+
+    def test_no_empty_broad_exception_catches(self):
+        offenders = []
+        broad = re.compile(
+            r"catch\s*\(\s*(?:Throwable|Exception|RuntimeException)\b[^)]*\)\s*\{\s*\}",
+            flags=re.S,
+        )
+        for path in (ROOT / "src/main/java/dev/schizo").rglob("*.java"):
+            if broad.search(path.read_text(encoding="utf-8")):
                 offenders.append(str(path.relative_to(ROOT)))
         self.assertEqual([], offenders)
 
