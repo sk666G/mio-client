@@ -31,7 +31,6 @@ import java.awt.Color;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
-import java.util.stream.Stream;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.core.BlockPos;
@@ -52,7 +51,7 @@ public class VoidESPModule extends Module {
    final Setting<Boolean> colorsSetting;
    private final Setting<Color> fillSetting;
    private final Setting<Color> lineSetting;
-   private final Set voidBlocks;
+   private final Set<BlockPos> voidBlocks;
    private boolean resetPending;
 
    private boolean shouldRemoveVoidBlock(BlockPos position) {
@@ -114,18 +113,24 @@ public class VoidESPModule extends Module {
       this.voidBlocks.removeIf((java.util.function.Predicate<net.minecraft.core.BlockPos>)this::shouldRemoveVoidBlock);
       GameRenderer gameRenderer = ClientAccess.schizoMinecraft.gameRenderer;
       Vec3 cameraPosition = (gameRenderer.getMainCamera()).position();
-      float scanRadius = (this.radiusSetting.getValue()).intValue();
-      Stream voidBlockStream = WorldUtils.streamSphereBlocks(cameraPosition, scanRadius).filter((java.util.function.Predicate<net.minecraft.core.BlockPos>)this::isVoidBlock);
-      Set destinationBlocks = this.voidBlocks;
-      voidBlockStream.forEach((java.util.function.Consumer<net.minecraft.core.BlockPos>)destinationBlocks::add);
+      ClientLevel level = ClientAccess.schizoMinecraft.level;
+      int floorY = level.getMinY();
+      float scanRadius = this.radiusSetting.getValue().intValue();
+      Iterator<BlockPos> candidates = VoidFloorScanCursor.iterator(cameraPosition, floorY, scanRadius);
+      while (candidates.hasNext()) {
+         BlockPos position = candidates.next();
+         if (!isBedrock(position)) {
+            this.voidBlocks.add(position);
+         }
+      }
    }
 
    @EventHandler
    private void onWorldRender(WorldRenderEvent.Main event) {
-      Iterator positions = this.voidBlocks.iterator();
+      Iterator<BlockPos> positions = this.voidBlocks.iterator();
 
       while (positions.hasNext()) {
-         BlockPos position = (BlockPos)positions.next();
+         BlockPos position = positions.next();
          AABB blockBox = new AABB(position);
          int baseY = position.getY();
 
@@ -207,7 +212,7 @@ public class VoidESPModule extends Module {
          return colors.isExpanded();
       };
       this.lineSetting = this.add(new ColorSetting(new String("Line"), new Color(-1140916224, true), lineVisibility));
-      this.voidBlocks = new HashSet();
+      this.voidBlocks = new HashSet<>();
    }
 
 }
