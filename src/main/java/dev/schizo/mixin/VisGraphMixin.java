@@ -21,14 +21,18 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(VisGraph.class)
 public class VisGraphMixin {
-   private static FreecamModule freecam = ClientContext.getModule(FreecamModule.class);
 
    @Inject(method = "setOpaque", at = @At("HEAD"), cancellable = true)
    private void suppressOpaqueBlockMarking(BlockPos blockPos, CallbackInfo callback) {
       if (XrayModule.getInstance()
             .isToggled()
-         || freecam.isToggled()) {
+         || schizo$freecam().isToggled()) {
          callback.cancel();
       }
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static FreecamModule schizo$freecam() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(FreecamModule.class);
    }
 }
