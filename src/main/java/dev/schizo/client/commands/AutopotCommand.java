@@ -25,7 +25,9 @@ import net.minecraft.world.item.alchemy.Potion;
 
 public final class AutopotCommand extends Command {
 
-   private static final AutoPotModule AUTO_POT();
+   private static AutoPotModule AUTO_POT() {
+      return ClientContext.requireModule(AutoPotModule.class);
+   }
 
    
 
