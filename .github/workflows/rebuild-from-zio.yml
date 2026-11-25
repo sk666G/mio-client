@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   import-and-build:
@@ -18,6 +18,20 @@ jobs:
         with:
           ref: ${{ github.ref_name }}
           fetch-depth: 0
+
+      - name: Capture reconstruction inputs
+        env:
+          EXPECTED_REBUILD_BASE_COMMIT: 70decd4187177dc2c8d65a0cfb0f57fbcb711af8
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_head="$(git rev-parse HEAD)"
+          git fetch --no-tags origin zio-rebuild-raw-base-v1
+          rebuild_base="$(git rev-parse origin/zio-rebuild-raw-base-v1)"
+          test "$rebuild_base" = "$EXPECTED_REBUILD_BASE_COMMIT"
+          printf 'SOURCE_HEAD=%s\n' "$source_head" >> "$GITHUB_ENV"
+          printf 'REBUILD_BASE_COMMIT=%s\n' "$rebuild_base" >> "$GITHUB_ENV"
+          git diff --binary "$rebuild_base" "$source_head" -- .             ':(exclude).github/**'             ':(exclude)tools/**'             ':(exclude)LICENSES/**'             > "$RUNNER_TEMP/schizo-overlay.patch"
 
       - name: Install Java 21 toolchain
         uses: actions/setup-java@v6
@@ -47,31 +61,46 @@ jobs:
           PYTHONDONTWRITEBYTECODE: 1
         run: python3 -m unittest discover -s tests -v
 
-      - name: Rebuild Schizo from upstream architecture
+      - name: Rebuild raw Schizo baseline from upstream
         env:
           PYTHONDONTWRITEBYTECODE: 1
         run: python3 tools/rebrand_open_zio.py "$RUNNER_TEMP/open-zio" . --replace-existing
 
+      - name: Verify raw rebuild baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code "$REBUILD_BASE_COMMIT" -- .             ':(exclude).github/**'             ':(exclude)tools/**'             ':(exclude)LICENSES/**'
+
+      - name: Replay Schizo source overlay
+        shell: bash
+        run: |
+          set -euo pipefail
+          git apply --check "$RUNNER_TEMP/schizo-overlay.patch"
+          git apply "$RUNNER_TEMP/schizo-overlay.patch"
+          git diff --exit-code "$SOURCE_HEAD" -- .
+          test -z "$(git status --porcelain --untracked-files=all)"
+
       - name: Ensure Gradle wrapper is executable
         run: chmod +x ./gradlew
 
-      - name: Build remapped client
+      - name: Build reconstructed remapped client
         env:
           ORG_GRADLE_JAVA_INSTALLATIONS_PATHS: ${{ env.JAVA_HOME_21_X64 }}
-        run: ./gradlew --no-daemon clean build
-
-      - name: Commit rebuilt source tree to staging
+        shell: bash
         run: |
           set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          if ! git diff --cached --quiet; then
-            git commit -m "Rebuild Schizo on Open Zio architecture [skip ci]"
-          fi
-          git push origin "HEAD:${{ github.ref_name }}"
+          for attempt in 1 2 3; do
+            if ./gradlew --no-daemon clean build; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              exit 1
+            fi
+            sleep $((attempt * 15))
+          done
 
-      - name: Verify rebuilt artifacts and record provenance
+      - name: Verify reconstructed artifacts and record provenance
         shell: bash
         run: |
           set -euo pipefail
@@ -96,18 +125,17 @@ jobs:
           for required in LICENSING.md THIRD_PARTY_NOTICES.md LICENSES/DiscordIPC-APACHE-2.0.txt; do
             jar tf "$source_jar" | grep -Fqx "$required"
           done
+          for required_class in             dev/schizo/client/commands/HealthCommand.class             dev/schizo/client/config/SafeModeManager.class             dev/schizo/client/config/ModuleConfigSchema.class             dev/schizo/client/events/bus/EventFailureTracker.class             dev/schizo/client/integrations/ModuleCompatibility.class             dev/schizo/client/bootstrap/MixinModuleRegistry.class; do
+            jar tf "$jar_file" | grep -Fqx "$required_class"
+          done
 
           jar tf "$jar_file" | grep '^META-INF/jars/.*[.]jar$' | sort > build/libs/NESTED_JARS.txt || true
-          printf '%s\n' 'Nested libraries in rebuilt runtime JAR:'
-          if [ -s build/libs/NESTED_JARS.txt ]; then
-            cat build/libs/NESTED_JARS.txt
-          else
-            printf '%s\n' '(none)'
-          fi
           sha256sum "$jar_file" > build/libs/SHA256SUMS.txt
-          git rev-parse HEAD > build/libs/COMMIT_SHA.txt
+          printf '%s\n' "$SOURCE_HEAD" > build/libs/COMMIT_SHA.txt
+          printf '%s\n' "$REBUILD_BASE_COMMIT" > build/libs/REBUILD_BASE_SHA.txt
+          git rev-parse "$SOURCE_HEAD^{tree}" > build/libs/SOURCE_TREE_SHA.txt
 
-      - name: Upload rebuilt client artifact
+      - name: Upload reconstructed client artifact
         uses: actions/upload-artifact@v6
         with:
           name: schizo-zio-rebuild
@@ -117,5 +145,7 @@ jobs:
             !build/libs/*-dev.jar
             build/libs/SHA256SUMS.txt
             build/libs/COMMIT_SHA.txt
+            build/libs/REBUILD_BASE_SHA.txt
+            build/libs/SOURCE_TREE_SHA.txt
             build/libs/NESTED_JARS.txt
           if-no-files-found: error
