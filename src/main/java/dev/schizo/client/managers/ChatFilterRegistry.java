@@ -29,7 +29,9 @@ import java.util.stream.Stream;
 import net.minecraft.ChatFormatting;
 
 public class ChatFilterRegistry implements ClientAccess, JsonConfigurable {
-   private static ChatFilterModule chatFilterModule;
+   private static ChatFilterModule chatFilterModule() {
+      return ClientContext.requireModule(ChatFilterModule.class);
+   }
    private final List<ChatFilterEntry> filters = Collections.synchronizedList(new ArrayList<>());
 
    public int size() {
@@ -51,10 +53,7 @@ public class ChatFilterRegistry implements ClientAccess, JsonConfigurable {
       }
    }
 
-   static {
-
-      chatFilterModule = ClientContext.getModule(ChatFilterModule.class);
-   }
+   
 
    public boolean isEmpty() {
       synchronized (this.filters) {
@@ -130,7 +129,7 @@ public class ChatFilterRegistry implements ClientAccess, JsonConfigurable {
    }
 
    public boolean matchesMessage(String message) {
-      boolean caseSensitive = Boolean.TRUE.equals(chatFilterModule.caseSensitiveSetting.getValue());
+      boolean caseSensitive = Boolean.TRUE.equals(chatFilterModule().caseSensitiveSetting.getValue());
       String comparedMessage = caseSensitive ? message : message.toLowerCase(Locale.ROOT);
 
       synchronized (this.filters) {
