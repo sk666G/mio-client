@@ -52,6 +52,15 @@ public final class TaskScheduler implements ClientAccess {
       return this.rotationTasks.cancelOwner(owner) + this.runTickTasks.cancelOwner(owner);
    }
 
+   public Snapshot snapshot() {
+      return new Snapshot(
+         this.rotationTasks.queuedCount(),
+         this.rotationTasks.outstandingCount(),
+         this.runTickTasks.queuedCount(),
+         this.runTickTasks.outstandingCount()
+      );
+   }
+
    @EventHandler(priority = -100)
    private void onRotationEvent(RotationRequestEvent event) {
       this.rotationTasks.run();
@@ -132,6 +141,14 @@ public final class TaskScheduler implements ClientAccess {
          return this.tasks.cancelOwner(owner);
       }
 
+      private int queuedCount() {
+         return this.tasks.queuedCount();
+      }
+
+      private int outstandingCount() {
+         return this.tasks.outstandingCount();
+      }
+
       private void clear() {
          this.tasks.clear();
          this.capacityWarningLogged.set(false);
@@ -149,6 +166,21 @@ public final class TaskScheduler implements ClientAccess {
                BoundedCountdownTaskQueue.DEFAULT_CAPACITY
             );
          }
+      }
+   }
+
+   public record Snapshot(
+      int rotationQueued,
+      int rotationOutstanding,
+      int runTickQueued,
+      int runTickOutstanding
+   ) {
+      public int totalQueued() {
+         return this.rotationQueued + this.runTickQueued;
+      }
+
+      public int totalOutstanding() {
+         return this.rotationOutstanding + this.runTickOutstanding;
       }
    }
 }
