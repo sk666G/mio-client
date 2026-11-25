@@ -111,7 +111,10 @@ public final class RuntimeDiagnostics {
       SCHEDULED_TASK,
       GUI,
       INTEGRATION,
-      MIXIN
+      MIXIN,
+      COMMAND,
+      RENDER,
+      FILE_IO
    }
 
    public record FailureRecord(
