@@ -100,7 +100,25 @@ class RepositoryHygieneTest(unittest.TestCase):
             if source is None or not source.is_file():
                 continue
             text = source.read_text(encoding="utf-8")
-            if "ClientContext.getModule(" not in text:
+            static_field = re.search(r"static[^;\n]*=\s*ClientContext\.getModule\(", text)
+            eager_block = False
+            for match in re.finditer(r"\bstatic\s*\{", text):
+                start = match.start()
+                cursor = text.find("{", start)
+                depth = 0
+                while cursor < len(text):
+                    character = text[cursor]
+                    if character == "{":
+                        depth += 1
+                    elif character == "}":
+                        depth -= 1
+                        if depth == 0:
+                            eager_block = "ClientContext.getModule(" in text[start:cursor + 1]
+                            break
+                    cursor += 1
+                if eager_block:
+                    break
+            if static_field is None and not eager_block:
                 continue
             if re.search(rf"\b{re.escape(class_name)}\.bind[A-Za-z0-9_]*\(registry\)", dependencies) is None:
                 offenders.append(class_name)
