@@ -129,6 +129,26 @@ import dev.schizo.client.modules.combat.AutoTrapModule;
 import dev.schizo.client.modules.combat.BedAuraModule;
 import dev.schizo.client.modules.combat.BlockerModule;
 import dev.schizo.client.modules.combat.BowAimModule;
+import dev.schizo.client.modules.misc.AntiQuitModule;
+import dev.schizo.client.modules.exploit.AntiVanishModule;
+import dev.schizo.client.modules.movement.AvoidModule;
+import dev.schizo.client.modules.combat.ArrowsModule;
+import dev.schizo.client.modules.player.AutoEatModule;
+import dev.schizo.client.modules.player.AutoMountModule;
+import dev.schizo.client.modules.player.AutoNameTagModule;
+import dev.schizo.client.modules.misc.AutoSignModule;
+import dev.schizo.client.modules.player.AutoToolModule;
+import dev.schizo.client.modules.player.AutoTemplateModule;
+import dev.schizo.client.modules.movement.AutoWalkModule;
+import dev.schizo.client.modules.exploit.ChorusControlModule;
+import dev.schizo.client.modules.movement.EntityControlModule;
+import dev.schizo.client.modules.movement.FastFallModule;
+import dev.schizo.client.modules.exploit.FastLatencyModule;
+import dev.schizo.client.modules.movement.FastStairsModule;
+import dev.schizo.client.modules.movement.FastSwimModule;
+import dev.schizo.client.modules.movement.FastWebModule;
+import dev.schizo.client.modules.combat.FeetPlaceModule;
+import dev.schizo.client.modules.combat.FishTrapModule;
 import java.util.Map;
 
 /**
@@ -430,6 +450,86 @@ public final class ModuleCompatibility {
       Map.entry(BowAimModule.class, assessed(
          Classification.SERVER_SENSITIVE,
          "Calculates target-leading ballistic rotations and injects those rotations into bow/crossbow use-item actions."
+      )),
+      Map.entry(AntiQuitModule.class, assessed(
+         Classification.CLIENT_ONLY,
+         "Prevents accidental local quit/disconnect UI actions; no gameplay packet mutation or world interaction was found."
+      )),
+      Map.entry(AntiVanishModule.class, assessed(
+         Classification.CLIENT_ONLY,
+         "Observes player-info add/remove state and locally reveals/notifies suspected vanished players without modifying outgoing packets."
+      )),
+      Map.entry(AvoidModule.class, assessed(
+         Classification.SERVER_SENSITIVE,
+         "Directly changes local player velocity/position to escape configured hazards, which changes movement reported to the server."
+      )),
+      Map.entry(ArrowsModule.class, assessed(
+         Classification.PACKET_AFFECTING,
+         "Coordinates arrow selection/release and can cancel normal handling while emitting explicit player-action/use-item sequences."
+      )),
+      Map.entry(AutoEatModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automatically selects food and performs ordinary inventory/use-item actions."
+      )),
+      Map.entry(AutoMountModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automatically rotates toward and interacts with rideable entities."
+      )),
+      Map.entry(AutoNameTagModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automatically performs ordinary entity interactions to apply nearby name tags."
+      )),
+      Map.entry(AutoSignModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automatically submits configured sign text by replacing the local sign-edit flow with the normal sign-update action."
+      )),
+      Map.entry(AutoToolModule.class, assessed(
+         Classification.PACKET_AFFECTING,
+         "Can cancel normal mining handling and emit explicit start/stop/abort player-action packets while switching tools."
+      )),
+      Map.entry(AutoTemplateModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automatically performs smithing-menu quick-move and pickup slot actions."
+      )),
+      Map.entry(AutoWalkModule.class, assessed(
+         Classification.INPUT_MODIFYING,
+         "Automates forward movement input rather than directly rewriting movement packets."
+      )),
+      Map.entry(ChorusControlModule.class, assessed(
+         Classification.PACKET_AFFECTING,
+         "Queues/cancels movement and teleport-ack packets while controlling when a chorus teleport correction is accepted."
+      )),
+      Map.entry(EntityControlModule.class, assessed(
+         Classification.SERVER_SENSITIVE,
+         "Changes ridden-entity control/rotation behavior and reacts to server position corrections."
+      )),
+      Map.entry(FastFallModule.class, assessed(
+         Classification.SERVER_SENSITIVE,
+         "Directly accelerates downward velocity and can reposition the local player to descend faster."
+      )),
+      Map.entry(FastLatencyModule.class, assessed(
+         Classification.PACKET_AFFECTING,
+         "Sends latency probe packets and intercepts/cancels selected ping/keepalive-related responses to measure latency."
+      )),
+      Map.entry(FastStairsModule.class, assessed(
+         Classification.INPUT_MODIFYING,
+         "Requests jump input while traversing stairs based on local speed/terrain state."
+      )),
+      Map.entry(FastSwimModule.class, assessed(
+         Classification.SERVER_SENSITIVE,
+         "Directly rewrites local player vertical and horizontal velocity while swimming."
+      )),
+      Map.entry(FastWebModule.class, assessed(
+         Classification.PACKET_AFFECTING,
+         "Combines direct movement changes with explicit block-destroy action packets while in cobwebs."
+      )),
+      Map.entry(FeetPlaceModule.class, assessed(
+         Classification.SERVER_SENSITIVE,
+         "Automates surround placement and can center/reposition the local player while coordinating server corrections."
+      )),
+      Map.entry(FishTrapModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Inherits AutoTrap placement automation and targets crawling-player positions with predicted placement offsets."
       )),
       Map.entry(AmbienceModule.class, assessed(
          Classification.VISUAL_ONLY,
