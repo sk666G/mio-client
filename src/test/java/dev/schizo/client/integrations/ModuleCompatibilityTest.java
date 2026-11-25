@@ -453,7 +453,7 @@ class ModuleCompatibilityTest {
 
    @Test
    void settingReviewCountIncludesExplicitReviewsOnly() {
-      assertTrue(ModuleCompatibility.reviewedSettingCount() >= 217);
+      assertTrue(ModuleCompatibility.reviewedSettingCount() >= 260);
    }
 
    @Test
@@ -594,6 +594,26 @@ class ModuleCompatibilityTest {
          ModuleCompatibility.Classification.SERVER_SENSITIVE,
          ModuleCompatibility.assessSetting(NoSlowModule.class, "Slowness").classification()
       );
+   }
+
+   @Test
+   void elytraSettingsUseRuntimeConfigNamesAndDistinctRiskClasses() {
+      ModuleCompatibility.SettingAssessment lavaSpeed =
+         ModuleCompatibility.assessSetting(ElytraFlyModule.class, "LavaSpeed");
+      ModuleCompatibility.SettingAssessment packetVertical =
+         ModuleCompatibility.assessSetting(ElytraFlyModule.class, "VerticalPacket");
+      ModuleCompatibility.SettingAssessment mute =
+         ModuleCompatibility.assessSetting(ElytraFlyModule.class, "MuteElytra");
+      ModuleCompatibility.SettingAssessment legacySpeedName =
+         ModuleCompatibility.assessSetting(ElytraFlyModule.class, "StrictSpeed");
+
+      assertEquals(ModuleCompatibility.Classification.SERVER_SENSITIVE, lavaSpeed.classification());
+      assertEquals(ModuleCompatibility.Classification.PACKET_AFFECTING, packetVertical.classification());
+      assertEquals(ModuleCompatibility.Classification.CLIENT_ONLY, mute.classification());
+      assertEquals(ModuleCompatibility.Classification.SERVER_SENSITIVE, legacySpeedName.classification());
+      assertTrue(lavaSpeed.individuallyReviewed());
+      assertTrue(packetVertical.individuallyReviewed());
+      assertTrue(mute.individuallyReviewed());
    }
 
    @Test
