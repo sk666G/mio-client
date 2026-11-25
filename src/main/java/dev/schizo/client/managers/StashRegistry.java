@@ -10,7 +10,6 @@
 package dev.schizo.client.managers;
 
 import dev.schizo.client.ClientAccess;
-import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.bus.EventBus;
 import dev.schizo.client.managers.Registry;
 import dev.schizo.client.modules.misc.StashFinderModule;
@@ -35,8 +34,11 @@ public final class StashRegistry extends Registry<StashEntry> implements ClientA
       eventBus.subscribe(this);
    }
 
-   static {
-      stashFinderModule = ClientContext.getModule(StashFinderModule.class);
+   public static void bindModules(ModuleRegistry registry) {
+      stashFinderModule = (StashFinderModule)java.util.Objects.requireNonNull(
+         registry.getModule(StashFinderModule.class),
+         "Required module is not registered: StashFinderModule"
+      );
    }
 
    @Override
