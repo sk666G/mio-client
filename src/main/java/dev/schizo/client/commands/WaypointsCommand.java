@@ -155,18 +155,16 @@ public final class WaypointsCommand extends Command {
 
             String server = (String)context.getArgument("server", String.class);
             WaypointRegistry waypointRegistry = ClientContext.waypointRegistry;
-            ((List)waypointRegistry.getRegistry()).removeIf((Predicate<Waypoint>)candidate -> {
-
-               String candidateServer = candidate.getServer();
-               if (server.equalsIgnoreCase(candidateServer)) {
-                  String candidateName = candidate.getName();
-                  if (name.equalsIgnoreCase(candidateName)) {
-                     return true;
-                  }
-               }
-
-               return false;
-            });
+            Predicate<Waypoint> matchesWaypoint = candidate ->
+               candidate != null && WaypointRegistry.hasSameIdentity(
+                  candidate,
+                  new Waypoint(name, 0.0, 0.0, 0.0, "", server)
+               );
+            Waypoint waypoint = (Waypoint)waypointRegistry.findFirst(matchesWaypoint).orElse(null);
+            if (waypoint == null || !waypointRegistry.unregisterWaypoint(waypoint)) {
+               ChatUtils.printChat(Component.literal("Waypoint not found"), -1);
+               return 1;
+            }
 
             String messagePrefix = "Waypoint ";
             MutableComponent message = Component.literal(messagePrefix);
