@@ -20,13 +20,12 @@ import org.spongepowered.asm.mixin.injection.At;
 
 @Mixin(AtmosphericFogEnvironment.class)
 public class AtmosphericFogEnvironmentMixin {
-   private static final SkyboxModule skyboxModule = ClientContext.getModule(SkyboxModule.class);
 
    @ModifyReturnValue(method = "getBaseColor", at = @At("RETURN"))
    private int blendConfiguredFogColor(int originalColor) {
-      if (skyboxModule.isToggled()
-         && skyboxModule.isCurrentDimensionEnabled()) {
-         Color configuredColor = skyboxModule.backgroundSetting.getValue();
+      if (schizo$skyboxModule().isToggled()
+         && schizo$skyboxModule().isCurrentDimensionEnabled()) {
+         Color configuredColor = schizo$skyboxModule().backgroundSetting.getValue();
          Color baseColor = new Color(originalColor, true);
          return ColorUtils.blend(
                configuredColor, baseColor, configuredColor.getAlpha() / 255.0F
@@ -35,5 +34,10 @@ public class AtmosphericFogEnvironmentMixin {
       } else {
          return originalColor;
       }
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static SkyboxModule schizo$skyboxModule() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(SkyboxModule.class);
    }
 }
