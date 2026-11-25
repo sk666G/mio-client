@@ -15,12 +15,14 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 
 public final class ExtraBreakTracker implements ClientAccess {
+   private static final long TRACK_TTL_NANOS = TimeUnit.MILLISECONDS.toNanos(200L);
    private final List<BlockPos> expiredPositions = new ArrayList<>();
    private final Map<BlockPos, Long> trackedBreaks = new HashMap<>();
    private Block lastBlock;
@@ -41,17 +43,15 @@ public final class ExtraBreakTracker implements ClientAccess {
       return this.trackedBreaks.containsKey(position);
    }
 
-   private void collectExpired(BlockPos position, long trackedAt) {
-      long elapsedMillis = System.currentTimeMillis() - trackedAt;
-
-      if (elapsedMillis >= 200L) {
+   private void collectExpired(BlockPos position, long trackedAtNanos) {
+      if (System.nanoTime() - trackedAtNanos >= TRACK_TTL_NANOS) {
          this.expiredPositions.add(position);
       }
    }
 
    public synchronized void trackBreak(BlockPos position) {
       Map<BlockPos, Long> breaksSnapshot = this.trackedBreaks;
-      long trackedAt = System.currentTimeMillis();
+      long trackedAt = System.nanoTime();
       breaksSnapshot.put(position, trackedAt);
       ClientLevel level = ClientAccess.schizoMinecraft.level;
       BlockState blockState = level.getBlockState(position);
