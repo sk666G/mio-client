@@ -31,6 +31,7 @@ import dev.schizo.mixin.LivingEntityAccessor;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.protocol.game.ClientboundAddEntityPacket;
@@ -40,6 +41,7 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.phys.AABB;
 
 public final class SwingInteractionManager implements ClientAccess {
+   private static final long PENDING_CRYSTAL_TTL_NANOS = TimeUnit.MILLISECONDS.toNanos(300L);
    private static final AntiCheatModule antiCheat;
    private static final SwingModule swingModule;
    private final List<PendingCrystalPlacement> pendingCrystals;
@@ -66,7 +68,9 @@ public final class SwingInteractionManager implements ClientAccess {
          return false;
       }
 
-      this.pendingCrystals.add(new PendingCrystalPlacement(position, System.currentTimeMillis() + 300L));
+      this.pendingCrystals.add(
+         new PendingCrystalPlacement(position.immutable(), System.nanoTime() + PENDING_CRYSTAL_TTL_NANOS)
+      );
       ClientAccess.eventBus.post(new CrystalPlacementEvent(position));
       return true;
    }
@@ -74,8 +78,8 @@ public final class SwingInteractionManager implements ClientAccess {
    @EventHandler
    private void onLocalPlayerTickEvent(LocalPlayerTickEvent event) {
       this.pendingCrystals.removeIf(pending -> {
-         long expiresAt = pending.expiresAtMillis();
-         return expiresAt <= System.currentTimeMillis();
+         long expiresAt = pending.expiresAtNanos();
+         return expiresAt <= System.nanoTime();
       });
    }
 
@@ -190,7 +194,7 @@ public final class SwingInteractionManager implements ClientAccess {
 
    private record PendingCrystalPlacement(
       BlockPos position,
-      long expiresAtMillis
+      long expiresAtNanos
    ) {
    }
 }
