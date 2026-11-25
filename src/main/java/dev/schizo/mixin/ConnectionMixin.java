@@ -10,10 +10,8 @@
 package dev.schizo.mixin;
 
 import dev.schizo.client.ClientAccess;
-import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.events.PacketEvent;
-import dev.schizo.client.modules.exploit.PingSpoofModule;
-import dev.schizo.client.modules.misc.NoPacketKickModule;
 import dev.schizo.client.utils.network.PingSpoofDelayHandler;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFutureListener;
@@ -32,8 +30,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(Connection.class)
 public class ConnectionMixin {
-   private static NoPacketKickModule noPacketKickModule = ClientContext.getModule(NoPacketKickModule.class);
-   private static final PingSpoofModule pingSpoofModule = ClientContext.getModule(PingSpoofModule.class);
    @Shadow
    private Channel channel;
    @Shadow
@@ -48,7 +44,7 @@ public class ConnectionMixin {
       ChannelPipeline pipeline = context.pipeline();
       if (pipeline.get(PingSpoofDelayHandler.NAME) == null) {
          pipeline.addFirst(PingSpoofDelayHandler.NAME, new PingSpoofDelayHandler(
-            pingSpoofModule, () -> ((Connection)(Object)this).getPacketListener() instanceof ClientGamePacketListener
+            MixinModuleRegistry.connectionPingSpoofModule, () -> ((Connection)(Object)this).getPacketListener() instanceof ClientGamePacketListener
          ));
       }
    }
@@ -108,8 +104,8 @@ public class ConnectionMixin {
    private void onConnectionException(
       ChannelHandlerContext context, Throwable failure, CallbackInfo callback
    ) {
-      if (noPacketKickModule.isToggled()) {
-         noPacketKickModule.logInterceptedException(failure);
+      if (MixinModuleRegistry.connectionNoPacketKickModule.isToggled()) {
+         MixinModuleRegistry.connectionNoPacketKickModule.logInterceptedException(failure);
          callback.cancel();
       }
    }
