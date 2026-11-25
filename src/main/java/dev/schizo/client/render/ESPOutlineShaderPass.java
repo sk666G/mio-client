@@ -13,7 +13,6 @@ import dev.schizo.client.ClientContext;
 import dev.schizo.client.modules.render.ESPModule;
 
 public class ESPOutlineShaderPass extends PostProcessShaderPass {
-   private static final ESPModule espModule;
 
    @Override
    public void updateUniforms() {
@@ -26,12 +25,12 @@ public class ESPOutlineShaderPass extends PostProcessShaderPass {
       glowUniforms.set("u_GlowMultiplier", 1.0F);
       ShaderUniforms fillOpacityUniforms = this.uniforms;
 
+      ESPModule espModule = ClientContext.getModule(ESPModule.class);
+      if (espModule == null) {
+         throw new IllegalStateException("ESP module is not initialized");
+      }
       float fillOpacity = (espModule.blockFillOpacitySetting.getValue());
       fillOpacityUniforms.set("u_FillOpacity", fillOpacity);
-   }
-
-   static {
-      espModule = (ESPModule)ClientContext.getModule(ESPModule.class);
    }
 
    public ESPOutlineShaderPass() {
