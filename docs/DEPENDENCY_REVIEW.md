@@ -58,6 +58,14 @@ The normal Build workflow and the fresh-upstream rebuild workflow now:
 6. record the runnable JAR SHA-256;
 7. record the exact tested source commit.
 
+## Final candidate evidence
+
+Build #739 on v7 head `bdaa3bd4b07217edfaae9c94e63e81a8c72f916e` passed the artifact verification step and printed:
+
+`Nested libraries in runtime JAR: (none)`
+
+That means the tested runnable JAR contains no nested JAR payloads under `META-INF/jars/`. Optional compatibility mods such as EntityCulling, Xaero's Minimap and Sodium are therefore not being redistributed as nested JARs in that candidate. Vendored DiscordIPC source remains separately covered by `THIRD_PARTY_NOTICES.md` and `LICENSES/DiscordIPC-APACHE-2.0.txt`, which CI verifies in both runtime and source JARs.
+
 ## Final dependency-release gate
 
 Before public release, review the final candidate's `NESTED_JARS.txt` and classify every listed nested JAR.
