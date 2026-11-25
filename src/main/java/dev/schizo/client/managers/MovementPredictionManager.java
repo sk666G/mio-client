@@ -11,7 +11,7 @@ package dev.schizo.client.managers;
 
 import dev.schizo.client.utils.movement.PlayerMotionPredictor;
 
-import dev.schizo.client.utils.ElapsedTimer;
+import dev.schizo.client.utils.MonotonicRefreshGate;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.events.ClientLevelRemoveEntityEvent;
 import dev.schizo.client.events.EventHandler;
@@ -23,6 +23,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.world.entity.player.Player;
@@ -31,7 +32,7 @@ import net.minecraft.world.phys.Vec3;
 
 public final class MovementPredictionManager implements ClientAccess {
    private final Map<Integer, PlayerMotionPredictor> playerPredictions = Collections.synchronizedMap(new HashMap<>());
-   private final ElapsedTimer predictionTimer = new ElapsedTimer();
+   private final MonotonicRefreshGate predictionRefresh = new MonotonicRefreshGate(TimeUnit.MILLISECONDS.toNanos(25L));
    private Vec3 previousPlayerPosition;
 
    public Vec3 getAdjustedLocalMotion() {
@@ -65,7 +66,7 @@ public final class MovementPredictionManager implements ClientAccess {
 
    @EventHandler
    private void onMinecraftRunTickEvent(MinecraftRunTickEvent event) {
-      if (this.isWorldUnavailable() || !this.predictionTimer.hasElapsedAndReset(25L)) {
+      if (this.isWorldUnavailable() || !this.predictionRefresh.shouldRefresh(System.nanoTime(), false)) {
          return;
       }
 
@@ -78,6 +79,7 @@ public final class MovementPredictionManager implements ClientAccess {
    @EventHandler
    private void onMinecraftDisconnectEvent(MinecraftDisconnectEvent event) {
       this.playerPredictions.clear();
+      this.previousPlayerPosition = null;
    }
 
    public synchronized AABB getPredictedBoundingBox(Player player, int tickIndex) {
