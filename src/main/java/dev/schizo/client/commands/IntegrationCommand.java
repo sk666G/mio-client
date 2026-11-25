@@ -39,11 +39,13 @@ public final class IntegrationCommand extends Command {
       DiscordModule discord = ClientContext.getModule(DiscordModule.class);
       WebhookNotifsModule notifications = ClientContext.getModule(WebhookNotifsModule.class);
 
-      String discordState = discord == null ? "unavailable" : discord.getConnectionStatus();
-      String baritoneState = ClientContext.baritoneBridge != null
-         && ClientContext.baritoneBridge.isAvailable() ? "available" : "not installed";
-      String waypointState = ClientContext.waypointAdapter != null
-         && ClientContext.waypointAdapter.isAvailable() ? "available" : "adapter inactive";
+      String discordState = discord == null ? "unavailable" : discord.getConnectionHealth().label();
+      String baritoneState = ClientContext.baritoneBridge == null
+         ? "unavailable"
+         : ClientContext.baritoneBridge.health().label();
+      String waypointState = ClientContext.waypointAdapter == null
+         ? "unavailable"
+         : ClientContext.waypointAdapter.health().label();
 
       String webhookState = ClientContext.webhookManager.isConfigured()
          ? ClientContext.webhookManager.getDestinationDescription()
