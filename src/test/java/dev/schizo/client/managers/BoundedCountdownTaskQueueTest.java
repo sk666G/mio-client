@@ -215,6 +215,35 @@ class BoundedCountdownTaskQueueTest {
    }
 
    @Test
+   void cancellingAnOwnerRemovesOnlyThatOwnersPendingWork() {
+      BoundedCountdownTaskQueue queue = new BoundedCountdownTaskQueue(6, 6);
+      Object firstOwner = new Object();
+      Object secondOwner = new Object();
+      List<Integer> executed = new ArrayList<>();
+
+      assertTrue(queue.offer(firstOwner, () -> executed.add(1), 0));
+      assertTrue(queue.offer(secondOwner, () -> executed.add(2), 0));
+      assertNotNull(queue.reserve(firstOwner, () -> executed.add(3), 0));
+
+      assertEquals(2, queue.cancelOwner(firstOwner));
+      assertEquals(1, queue.outstandingCount());
+      queue.runPass(failure -> fail(failure));
+      assertEquals(1, queue.runPass(failure -> fail(failure)));
+      assertEquals(List.of(2), executed);
+   }
+
+   @Test
+   void cancellingUnknownOrNullOwnerIsANoOp() {
+      BoundedCountdownTaskQueue queue = new BoundedCountdownTaskQueue(2, 2);
+      Object owner = new Object();
+      assertTrue(queue.offer(owner, () -> { }, 0));
+
+      assertEquals(0, queue.cancelOwner(null));
+      assertEquals(0, queue.cancelOwner(new Object()));
+      assertEquals(1, queue.outstandingCount());
+   }
+
+   @Test
    void rejectsInvalidCapacityDelayAndForeignReservations() {
       assertThrows(IllegalArgumentException.class, () -> new BoundedCountdownTaskQueue(0, 1));
       assertThrows(IllegalArgumentException.class, () -> new BoundedCountdownTaskQueue(1, 0));

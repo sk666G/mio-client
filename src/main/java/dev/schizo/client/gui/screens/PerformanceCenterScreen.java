@@ -11,6 +11,8 @@ package dev.schizo.client.gui.screens;
 
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.profiling.EventProfiler;
+import dev.schizo.client.diagnostics.RuntimeDiagnostics;
+import dev.schizo.client.managers.TaskScheduler;
 import dev.schizo.client.render.ColorUtils;
 import dev.schizo.client.render.ClientRenderTypes;
 import dev.schizo.client.render.FontRenderer;
@@ -44,7 +46,7 @@ import org.lwjgl.glfw.GLFW;
 public final class PerformanceCenterScreen extends ClientScreen {
    private static final int VISIBLE_ROWS = 7;
    private static final int MAX_STORED_ROWS = 64;
-   private static final String[] TAB_NAMES = {"MODULES", "CALLBACKS", "HUD WIDGETS"};
+   private static final String[] TAB_NAMES = {"MODULES", "CALLBACKS", "HUD WIDGETS", "DIAGNOSTICS"};
 
    private int selectedTab;
    private int rowOffset;
@@ -155,7 +157,12 @@ public final class PerformanceCenterScreen extends ClientScreen {
          muted,
          false
       );
-      String profilerStatus = EventProfiler.GLOBAL.isEnabled() ? "SAMPLING ON" : "PROFILER IDLE";
+      TaskScheduler.QueueSnapshot queueSnapshot = ClientContext.taskScheduler == null
+         ? new TaskScheduler.QueueSnapshot(0, 0, 0, 0)
+         : ClientContext.taskScheduler.snapshotQueues();
+      String profilerStatus = (EventProfiler.GLOBAL.isEnabled() ? "SAMPLING ON" : "PROFILER IDLE")
+         + "  •  Q " + queueSnapshot.totalQueued() + "/" + queueSnapshot.totalOutstanding()
+         + "  •  ERR " + RuntimeDiagnostics.totalFailureCount();
       font.drawWithShadow(
          poseStack,
          profilerStatus,
@@ -204,7 +211,7 @@ public final class PerformanceCenterScreen extends ClientScreen {
 
       float tabsTop = this.panelTop + 224.0F;
       float tabGap = 6.0F;
-      float tabWidth = (this.panelWidth - 32.0F - tabGap * 2.0F) / 3.0F;
+      float tabWidth = (this.panelWidth - 32.0F - tabGap * (TAB_NAMES.length - 1)) / TAB_NAMES.length;
       for (int tab = 0; tab < TAB_NAMES.length; tab++) {
          float tabLeft = this.panelLeft + 16.0F + tab * (tabWidth + tabGap);
          boolean active = this.selectedTab == tab;
@@ -251,15 +258,24 @@ public final class PerformanceCenterScreen extends ClientScreen {
       float totalRight = tableRight - 7.0F;
       int nameLimit = Math.max(10, (int)(tableWidth * 0.075F));
       font.drawWithShadow(poseStack, "NAME", tableLeft + 7.0F, tableTop + 5.0F, muted);
-      this.drawRightAligned(font, poseStack, "CALLS", callsRight, tableTop + 5.0F, muted);
-      this.drawRightAligned(font, poseStack, "AVG", averageRight, tableTop + 5.0F, muted);
-      this.drawRightAligned(font, poseStack, "MAX", maximumRight, tableTop + 5.0F, muted);
-      this.drawRightAligned(font, poseStack, "TOTAL", totalRight, tableTop + 5.0F, muted);
+      if (this.selectedTab == 3) {
+         this.drawRightAligned(font, poseStack, "OCC", callsRight, tableTop + 5.0F, muted);
+         this.drawRightAligned(font, poseStack, "AREA", averageRight, tableTop + 5.0F, muted);
+         this.drawRightAligned(font, poseStack, "THREAD", maximumRight, tableTop + 5.0F, muted);
+         this.drawRightAligned(font, poseStack, "FAILURE", totalRight, tableTop + 5.0F, muted);
+      } else {
+         this.drawRightAligned(font, poseStack, "CALLS", callsRight, tableTop + 5.0F, muted);
+         this.drawRightAligned(font, poseStack, "AVG", averageRight, tableTop + 5.0F, muted);
+         this.drawRightAligned(font, poseStack, "MAX", maximumRight, tableTop + 5.0F, muted);
+         this.drawRightAligned(font, poseStack, "TOTAL", totalRight, tableTop + 5.0F, muted);
+      }
 
       if (this.rows.isEmpty()) {
-         String hint = EventProfiler.GLOBAL.isEnabled()
-            ? "Waiting for profiled callbacks..."
-            : "Start the profiler, play normally, then review the captured cost.";
+         String hint = this.selectedTab == 3
+            ? "No recoverable runtime failures recorded in this session."
+            : EventProfiler.GLOBAL.isEnabled()
+               ? "Waiting for profiled callbacks..."
+               : "Start the profiler, play normally, then review the captured cost.";
          font.drawWithShadow(poseStack, hint, tableLeft + 8.0F, tableTop + 34.0F, muted);
       } else {
          int visible = Math.min(this.visibleRowCount(), this.rows.size() - this.rowOffset);
@@ -291,13 +307,15 @@ public final class PerformanceCenterScreen extends ClientScreen {
          }
       }
 
-      String footer = this.panelWidth < 590.0F
-         ? (this.selectedTab == 2
-            ? "HUD timings are separate from total frame time."
-            : "Callback / module timings overlap; they are not additive.")
-         : (this.selectedTab == 2
-            ? "HUD timings cover direct widget renders. Use frame metrics for total frame duration."
-            : "Callback / module timings are inclusive and overlap; do not add them to frame time.");
+      String footer = this.selectedTab == 3
+         ? "Diagnostics are bounded and rate-limited; newest recoverable failures appear first."
+         : this.panelWidth < 590.0F
+            ? (this.selectedTab == 2
+               ? "HUD timings are separate from total frame time."
+               : "Callback / module timings overlap; they are not additive.")
+            : (this.selectedTab == 2
+               ? "HUD timings cover direct widget renders. Use frame metrics for total frame duration."
+               : "Callback / module timings are inclusive and overlap; do not add them to frame time.");
       font.drawWithShadow(
          poseStack,
          footer,
@@ -334,6 +352,7 @@ public final class PerformanceCenterScreen extends ClientScreen {
 
       if (this.contains(mouseX, mouseY, this.panelLeft + 105.0F, this.panelTop + 47.0F, 70.0F, 20.0F)) {
          EventProfiler.GLOBAL.reset();
+         RuntimeDiagnostics.clear();
          this.rowOffset = 0;
          this.refreshData(true);
          return;
@@ -341,7 +360,7 @@ public final class PerformanceCenterScreen extends ClientScreen {
 
       float tabsTop = this.panelTop + 224.0F;
       float tabGap = 6.0F;
-      float tabWidth = (this.panelWidth - 32.0F - tabGap * 2.0F) / 3.0F;
+      float tabWidth = (this.panelWidth - 32.0F - tabGap * (TAB_NAMES.length - 1)) / TAB_NAMES.length;
       for (int tab = 0; tab < TAB_NAMES.length; tab++) {
          float tabLeft = this.panelLeft + 16.0F + tab * (tabWidth + tabGap);
          if (this.contains(mouseX, mouseY, tabLeft, tabsTop, tabWidth, 21.0F)) {
@@ -458,6 +477,7 @@ public final class PerformanceCenterScreen extends ClientScreen {
       this.rows = switch (this.selectedTab) {
          case 1 -> callbackRows(profiler.topCallbacks(MAX_STORED_ROWS));
          case 2 -> hudRows(profiler.topHudWidgets(MAX_STORED_ROWS));
+         case 3 -> diagnosticRows(RuntimeDiagnostics.recentFailures());
          default -> moduleRows(profiler.topModules(MAX_STORED_ROWS));
       };
       this.rowOffset = Math.min(this.rowOffset, Math.max(0, this.rows.size() - this.visibleRowCount()));
@@ -663,6 +683,28 @@ public final class PerformanceCenterScreen extends ClientScreen {
          result.add(new ProfilerDisplayRow(
             snapshot.widgetName(), snapshot.invocationCount(),
             snapshot.totalNanos(), snapshot.averageNanos(), snapshot.maximumNanos()
+         ));
+      }
+      return List.copyOf(result);
+   }
+
+   private static List<ProfilerDisplayRow> diagnosticRows(List<RuntimeDiagnostics.FailureRecord> failures) {
+      List<ProfilerDisplayRow> result = new ArrayList<>(Math.min(MAX_STORED_ROWS, failures.size()));
+      for (int index = failures.size() - 1; index >= 0 && result.size() < MAX_STORED_ROWS; index--) {
+         RuntimeDiagnostics.FailureRecord failure = failures.get(index);
+         String failureName = failure.failureType();
+         int separator = failureName.lastIndexOf('.');
+         if (separator >= 0 && separator + 1 < failureName.length()) {
+            failureName = failureName.substring(separator + 1);
+         }
+         result.add(new ProfilerDisplayRow(
+            failure.owner(),
+            new ProfilerDisplayRow.Values(
+               Long.toString(failure.occurrence()),
+               failure.area().name(),
+               failure.threadName(),
+               failureName
+            )
          ));
       }
       return List.copyOf(result);

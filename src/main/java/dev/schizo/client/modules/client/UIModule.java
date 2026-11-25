@@ -112,7 +112,7 @@ public final class UIModule extends Module {
             ClickGuiScreen deferredScreen = ClientContext.getClickGui();
             deferredScreen.open();
          };
-         if (!guiScheduler.scheduleRotationTask(guiOpenTask, 0)) {
+         if (!guiScheduler.scheduleRotationTask(this, guiOpenTask, 0)) {
             guiOpenTask.run();
          }
       } else {

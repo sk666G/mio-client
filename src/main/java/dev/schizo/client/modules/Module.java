@@ -117,6 +117,9 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
             failure
          );
          this.enabled = false;
+         if (ClientContext.taskScheduler != null) {
+            ClientContext.taskScheduler.cancelOwnedTasks(this);
+         }
          if (subscribed) {
             ClientAccess.eventBus.unsubscribe(this);
          }
@@ -181,7 +184,7 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
       return this.lifecycleGeneration;
    }
 
-   protected boolean isCurrentLifecycleGeneration(long generation) {
+   public boolean isCurrentLifecycleGeneration(long generation) {
       return this.lifecycleGeneration == generation
          && (this.lifecycleState == LifecycleState.ENABLING || this.lifecycleState == LifecycleState.ENABLED);
    }
@@ -340,6 +343,9 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
       this.lifecycleGeneration++;
       ClientAccess.eventBus.unsubscribe(this);
       this.enabled = false;
+      if (ClientContext.taskScheduler != null) {
+         ClientContext.taskScheduler.cancelOwnedTasks(this);
+      }
       try {
          try {
             ClientAccess.eventBus.post(new ModuleToggleEvent(this));

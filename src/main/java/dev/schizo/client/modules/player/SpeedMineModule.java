@@ -442,7 +442,7 @@ public class SpeedMineModule extends Module {
                restartPending.set(false);
             }
          };
-         if (!scheduleRebreakRotationReceiver.scheduleRotationTask(scheduleRebreakRotationTask, 1)) {
+         if (!scheduleRebreakRotationReceiver.scheduleRotationTask(this, scheduleRebreakRotationTask, 1)) {
             restartPending.set(false);
          }
       }
@@ -883,7 +883,7 @@ public class SpeedMineModule extends Module {
          }
       };
       if (!scheduleStartDestroyRotationReceiver.scheduleRotationTask(
-         scheduleStartDestroyRotationTask, 1
+         this, scheduleStartDestroyRotationTask, 1
       )) {
          restartPending.set(false);
       }
@@ -1314,7 +1314,7 @@ public class SpeedMineModule extends Module {
                      }
                   };
 
-                  if (!extraSwapScheduler.scheduleRotationTask(restoreExtraSlot, 2)) {
+                  if (!extraSwapScheduler.scheduleRotationTask(this, restoreExtraSlot, 2)) {
                      restoreExtraSlot.run();
                   }
                   return;
@@ -1626,7 +1626,7 @@ public class SpeedMineModule extends Module {
                               restoreSlotTask.run();
                            }
                         };
-                        if (!scheduler.scheduleRotationTask(delayedBreak, 1)) {
+                        if (!scheduler.scheduleRotationTask(this, delayedBreak, 1)) {
                            delayedBreak.run();
                         }
                      } else {
