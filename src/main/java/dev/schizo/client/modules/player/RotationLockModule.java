@@ -58,10 +58,6 @@ public class RotationLockModule extends Module {
    private final RotationLockModule.TargetRotationProvider targetRotationProvider;
    private String targetName;
 
-   static {
-      FreeLookModule checkedFreeLook = (FreeLookModule)ClientContext.getModule(FreeLookModule.class);
-   }
-
    @Override
    public void onEnable() {
       if (this.modeSetting.getValue() != RotationLockModule.ModeChoice.PLAIN) {
