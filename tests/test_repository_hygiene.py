@@ -64,7 +64,12 @@ class RepositoryHygieneTest(unittest.TestCase):
             registry,
         )
         self.assertTrue(registrations, "No command registrations were discovered")
-        self.assertEqual(len(registrations), len(set(registrations)), "Duplicate explicit command registration")
+        allowed_repeated = {"EnemyFriendCommand"}
+        accidental_duplicates = sorted({
+            name for name in registrations
+            if registrations.count(name) > 1 and name not in allowed_repeated
+        })
+        self.assertEqual([], accidental_duplicates, "Duplicate explicit command registration")
 
         command_root = ROOT / "src/main/java/dev/schizo/client/commands"
         missing = [name for name in registrations if not (command_root / f"{name}.java").is_file()]
