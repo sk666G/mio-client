@@ -15,7 +15,10 @@ from pathlib import Path, PurePosixPath, PureWindowsPath
 
 EXPECTED_COMMIT = "2fec97aa0c52860f9252b61543dce8fc9825e081"
 VERSION_PLACEHOLDER = "$" + "{version}"
-PRESERVE_TOP_LEVEL = {".git", ".github", "tools", "LICENSE"}
+PRESERVE_TOP_LEVEL = {
+    ".git", ".github", "tools",
+    "LICENSE", "LICENSES", "build.gradle",
+}
 REMOVED_PATHS = {
     "zio.png",
     "src/main/java/dev/zio/client/modules/exploit/GrimDisablerModule.java",
@@ -28,7 +31,7 @@ Schizo is a client-only Fabric client for Minecraft 1.21.11, rebuilt on the Open
 
 ## Upstream and attribution
 
-This is an independent rebrand and derivative of Open Zio. See UPSTREAM.md for the pinned snapshot. Original upstream source headers are retained. Third-party notices and known license gaps are recorded in THIRD_PARTY_NOTICES.md.
+This is an independent rebrand and derivative of Open Zio. See UPSTREAM.md for the pinned snapshot. Original upstream source headers are retained. Third-party attribution and redistributed license texts are recorded in THIRD_PARTY_NOTICES.md and LICENSES/.
 
 Schizo is not affiliated with or endorsed by Mio.
 
@@ -60,16 +63,17 @@ This file supplements rather than replaces upstream notices.
 """
 THIRD_PARTY = """# Third-party notices
 
-## DiscordIPC
+## DiscordIPC core
 
-The source files under src/main/java/com/jagrosh/discordipc/ are vendored from DiscordIPC by John Grosh (jagrosh).
-Upstream: https://github.com/jagrosh/DiscordIPC
+The vendored DiscordIPC core under src/main/java/com/jagrosh/discordipc/ corresponds to the public CDAGaming/DiscordIPC project and is distributed under Apache License 2.0. The full license text is retained at LICENSES/DiscordIPC-APACHE-2.0.txt. Downstream source changes keep the applicable Apache-2.0 attribution headers.
 
-The supplied Open Zio archive contains no separate DiscordIPC license file. Its exact upstream license text must be verified and included before redistribution; no license terms are invented here.
+## Schizo Discord IPC transport
+
+The Unix-domain socket transport under src/main/java/dev/schizo/client/integrations/discord/ is Schizo code under the project MIT license.
 
 ## Gradle Wrapper
 
-The wrapper scripts and JAR retain their original Gradle Apache License 2.0 notices.
+The Gradle wrapper scripts and JAR retain their original Apache License 2.0 notices.
 """
 
 
@@ -292,9 +296,6 @@ def build_staging_tree(stage: Path, members) -> int:
     text = re.sub(r"(?m)^version=.*$", "version=0.1.0", text)
     text = re.sub(r"(?m)^group=.*$", "group=dev.schizo", text)
     prop.write_text(text, encoding="utf-8")
-    build = stage / "build.gradle"
-    build.write_text(build.read_text(encoding="utf-8").replace("archivesName = 'zio'", "archivesName = 'schizo'"), encoding="utf-8")
-
     (stage / "README.md").write_text(README, encoding="utf-8")
     (stage / "UPSTREAM.md").write_text(UPSTREAM, encoding="utf-8")
     (stage / "THIRD_PARTY_NOTICES.md").write_text(THIRD_PARTY, encoding="utf-8")
