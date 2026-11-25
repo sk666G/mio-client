@@ -91,8 +91,8 @@ public class WebAuraModule extends PlacementModule {
    }
 
    static {
-      multiTask = (MultiTaskModule)ClientContext.getModule(MultiTaskModule.class);
-      speedMine = (SpeedMineModule)ClientContext.getModule(SpeedMineModule.class);
+
+
    }
 
    @Override
