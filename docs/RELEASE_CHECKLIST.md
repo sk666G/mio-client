@@ -4,6 +4,8 @@ Status is intentionally conservative. A checked item requires recorded evidence;
 
 ## Source and integration
 
+- [x] Complete the post-v8 source quality pass for rollback-safe module lifecycle, owner-scoped scheduler cancellation, failure diagnostics, lazy/post-registry dependency binding, strict integral setting decode, ClickGUI persistence cleanup and render-state restoration.
+
 - [x] Consolidate the reviewed GUI/HUD, profiler, module/reliability and runtime ownership stacks through verified candidate v7.
 - [x] Remove `GrimDisablerModule` and `RaytraceBypassModule`, their registrations and rebuild-script reinjection.
 - [x] Integrate the frozen green v8 runtime-ownership baseline from PR #103 rather than following its moving tip.
@@ -14,6 +16,8 @@ Status is intentionally conservative. A checked item requires recorded evidence;
 
 ## Build, tests and artifacts
 
+- [x] Add regression coverage for panel unregister semantics, failed module enable rollback, owner-scoped task cancellation, runtime diagnostics, strict integral settings and mixin inventory/Java-level consistency.
+
 - [x] Preserve green component evidence for the v7 integration, transactional config rollback, artifact provenance/license packaging and final Astra GUI delta.
 - [x] Pass a combined v8 integration build before the final lifecycle/render follow-ups: Build #845.
 - [x] Inspect Build #845 artifact provenance directly: JAR SHA-256 matched the manifest, the synthetic merge tree equaled the branch-head tree, required notices/metadata were packaged and `NESTED_JARS.txt` was empty.
@@ -23,6 +27,9 @@ Status is intentionally conservative. A checked item requires recorded evidence;
 - [ ] Run the rebuild workflow from a clean dedicated staging checkout at the final frozen v8 source head and inspect its generated artifact.
 
 ## Security, persistence and distribution
+
+- [x] Add an explicit root MIT license, package it into runtime/source artifacts, preserve it across rebuilds and remove the stale root Zio branding asset.
+- [x] Refuse partial `modules.json` snapshots when module serialization fails and add explicit schema versions to module/command configuration while accepting legacy unversioned files.
 
 - [x] Keep Telegram bot credentials runtime-only and redact them from persisted config.
 - [x] Preserve atomic writes, safe path handling and bounded configuration/preset/map-cache reads.
@@ -37,7 +44,7 @@ Status is intentionally conservative. A checked item requires recorded evidence;
 - [ ] Complete live client launch, reconnect/respawn, GUI/HUD, render and long-session smoke checks.
 - [ ] Complete controlled-server compatibility checks for the supported module matrix.
 - [ ] Complete the final fresh-upstream staging rebuild.
-- [ ] Review the final frozen v8 diff and exact-head artifact evidence on Draft PR #110.
+- [ ] Review the final post-v8 quality-pass diff and exact-head artifact evidence on Draft PR #159.
 - [ ] Obtain explicit approval before any merge to `main` or public release.
 
 No public release or merge is part of this checklist update.
