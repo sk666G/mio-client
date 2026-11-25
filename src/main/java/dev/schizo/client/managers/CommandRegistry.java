@@ -15,6 +15,7 @@ import dev.schizo.client.NamedFeature;
 import dev.schizo.client.commands.BaritoneCommand;
 import dev.schizo.client.commands.ModuleCommand;
 import dev.schizo.client.commands.Command;
+import dev.schizo.client.commands.CommandPrefix;
 import dev.schizo.client.commands.ContextProfileCommand;
 import dev.schizo.client.commands.CompatibilityCommand;
 import dev.schizo.client.commands.ConfigBackupCommand;
@@ -231,10 +232,7 @@ public final class CommandRegistry extends Registry<Command> implements ClientAc
    }
 
    public static void setPrefix(String prefix) {
-      if (prefix.isBlank()) {
-         return;
-      }
-      String updatedPrefix = prefix.substring(0, 1);
+      String updatedPrefix = CommandPrefix.normalize(prefix, commandPrefix);
       commandPrefix = updatedPrefix;
       SettingsModule settingsModule = ClientContext.getModule(SettingsModule.class);
       if (settingsModule != null) {
