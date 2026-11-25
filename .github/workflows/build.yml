@@ -2,12 +2,20 @@ name: Build
 
 on:
   push:
-    branches: [main, codex/reliability-hardening, codex/schizo-master-integration, lunyx/integration-candidate, lunyx/verified-candidate-v7]
+    branches:
+      - main
+      - 'lunyx/**'
+      - 'codex/**'
+      - 'astra/**'
   pull_request:
   workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
