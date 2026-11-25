@@ -26,11 +26,14 @@ import org.lwjgl.opengl.GL13;
 
 public class CustomShaderPass extends PreprocessedShaderPass implements ReloadableShaderPass {
 
-   private static final ShaderModule shaderModule = (ShaderModule)ClientContext.getModule(ShaderModule.class);
 
    @Override
    public void updateUniforms() {
       super.updateUniforms();
+      ShaderModule shaderModule = ClientContext.getModule(ShaderModule.class);
+      if (shaderModule == null) {
+         throw new IllegalStateException("Shader module is not initialized");
+      }
 
       GL13.glActiveTexture(GL13.GL_TEXTURE7);
       int overlayTextureId = PostProcessShaderPass.overlayTextureId;
