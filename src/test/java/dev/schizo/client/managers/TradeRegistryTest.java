@@ -32,4 +32,16 @@ class TradeRegistryTest {
    private static TradeDefinition trade(String name) {
       return new TradeDefinition(name, null, null, 1, new ArrayList<>());
    }
+
+   @Test
+   void tradeNamesUseCaseInsensitiveIdentity() {
+      TradeDefinition first = trade("Shop");
+      TradeDefinition sameName = trade("shop");
+      TradeDefinition different = trade("Other");
+
+      assertTrue(TradeRegistry.hasSameName(first, sameName));
+      assertFalse(TradeRegistry.hasSameName(first, different));
+      assertFalse(TradeRegistry.hasSameName(first, null));
+   }
+
 }
