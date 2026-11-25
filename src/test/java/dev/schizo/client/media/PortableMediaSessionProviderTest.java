@@ -2,6 +2,7 @@ package dev.schizo.client.media;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import dev.schizo.client.integrations.IntegrationHealth;
 import java.io.IOException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -9,6 +10,24 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
 final class PortableMediaSessionProviderTest {
+    @Test
+    void unsupportedPlatformMapsToUnavailableHealth() {
+        PortableMediaSessionProvider provider = new PortableMediaSessionProvider(
+            snapshot -> { },
+            "Plan9",
+            () -> { throw new IOException("unused"); },
+            sink -> new PortableMediaSessionProvider.WindowsBackend() {
+                @Override public void start() { }
+                @Override public String lastFailure() { return null; }
+                @Override public void close() { }
+            }
+        );
+
+        provider.start();
+        assertEquals(IntegrationHealth.UNAVAILABLE, provider.health());
+        provider.close();
+    }
+
     @Test
     void closeOwnsActiveSourceExactlyOnce() throws Exception {
         BlockingSource source = new BlockingSource();
@@ -30,6 +49,7 @@ final class PortableMediaSessionProviderTest {
 
         assertEquals(1, source.closeCount.get());
         assertEquals(PortableMediaSessionProvider.Availability.CLOSED, provider.availability());
+        assertEquals(IntegrationHealth.DISABLED, provider.health());
 
         provider.close();
         assertEquals(1, source.closeCount.get());
