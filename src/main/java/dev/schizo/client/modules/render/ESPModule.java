@@ -606,8 +606,6 @@ public class ESPModule extends Module {
                poses.popPose();
             }
          }
-
-         ShaderRegistry.finishFeatureRendering();
       } finally {
          this.currentlyRenderingBlock = null;
          try {
