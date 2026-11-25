@@ -132,7 +132,22 @@ class ModuleCompatibilityTest {
    }
 
    @Test
-   void neverClaimsASettingWasReviewedWhenOnlyItsParentModuleWasReviewed() {
+   void fullyClientOnlyAndVisualModuleReviewsCoverTheirSettings() {
+      ModuleCompatibility.SettingAssessment client =
+         ModuleCompatibility.assessSetting(SettingsModule.class, "prefix");
+      ModuleCompatibility.SettingAssessment visual =
+         ModuleCompatibility.assessSetting(ChamsModule.class, "players");
+
+      assertEquals(ModuleCompatibility.Classification.CLIENT_ONLY, client.classification());
+      assertEquals(ModuleCompatibility.Classification.VISUAL_ONLY, visual.classification());
+      assertTrue(client.individuallyReviewed());
+      assertTrue(visual.individuallyReviewed());
+      assertFalse(client.requiresWarning());
+      assertFalse(visual.requiresWarning());
+   }
+
+   @Test
+   void mixedOrServerSensitiveModulesKeepSettingsUnverified() {
       ModuleCompatibility.SettingAssessment assessment =
          ModuleCompatibility.assessSetting(ReachModule.class, "mode");
 
