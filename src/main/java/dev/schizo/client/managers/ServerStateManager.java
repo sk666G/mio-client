@@ -50,7 +50,7 @@ import net.minecraft.world.entity.player.Player;
 
 public final class ServerStateManager implements ClientAccess {
    private static FastLatencyModule fastLatency;
-   private static final Pattern LATENCY_PATTERN = Pattern.compile("\\\\d+ ping");
+   private static final Pattern LATENCY_PATTERN = Pattern.compile("\\d+ ping");
    private final ServerTickRateWindow tickRateWindow = new ServerTickRateWindow();
    private final ElapsedTimer setbackTimer;
    private final ElapsedTimer teleportAckTimer;
