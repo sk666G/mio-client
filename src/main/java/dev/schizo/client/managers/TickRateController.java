@@ -38,6 +38,11 @@ public class TickRateController implements ClientAccess {
 
    @EventHandler
    private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.clearRequests();
+   }
+
+   /** Releases every outstanding tick-rate request and restores the vanilla multiplier. */
+   public void clearRequests() {
       this.requests.clear();
    }
 

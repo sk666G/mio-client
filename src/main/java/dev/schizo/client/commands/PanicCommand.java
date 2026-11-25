@@ -45,6 +45,27 @@ public final class PanicCommand extends Command {
       super("panic");
    }
 
+   private void releaseRuntimeState() {
+      if (ClientContext.taskScheduler != null) {
+         ClientContext.taskScheduler.clearPendingTasks();
+      }
+      if (ClientContext.tickRateController != null) {
+         ClientContext.tickRateController.clearRequests();
+      }
+      if (ClientContext.playerTickController != null) {
+         ClientContext.playerTickController.clearRequests();
+      }
+      if (ClientContext.inputOverrides != null) {
+         ClientContext.inputOverrides.clearPendingOverrides();
+      }
+      if (ClientContext.rotationManager != null) {
+         ClientContext.rotationManager.resetRuntimeState();
+      }
+      if (ClientContext.inventoryStateManager != null) {
+         ClientContext.inventoryStateManager.resetRuntimeState();
+      }
+   }
+
    private void unload() {
       ConfigurationManager configuration = ClientContext.configurationManager;
       configuration.save();
@@ -64,6 +85,7 @@ public final class PanicCommand extends Command {
             module.toggle();
          }
       }
+      this.releaseRuntimeState();
 
       Gui recentChatGui = ClientAccess.schizoMinecraft.gui;
       ChatComponent recentChat = recentChatGui.getChat();
