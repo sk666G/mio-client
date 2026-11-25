@@ -35,8 +35,8 @@ import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.world.item.ItemStack;
 
 public class InventorySorterModule extends Module {
-   private static MultiTaskModule multiTaskModule = (MultiTaskModule)ClientContext.getModule(MultiTaskModule.class);
-   private static MainhandModule mainhandModule = (MainhandModule)ClientContext.getModule(MainhandModule.class);
+
+
    private final Setting<InventorySorterScopeChoice> scopeSetting;
    private final Setting<InventorySorterModeChoice> modeSetting;
    private final Setting<Integer> delaySetting;
@@ -66,7 +66,7 @@ public class InventorySorterModule extends Module {
          return;
       }
 
-      int protectedSlot = mainhandModule.getConfiguredHotbarSlot();
+      int protectedSlot = schizo$mainhandModule().getConfiguredHotbarSlot();
       InventorySorterModeChoice mode = this.modeSetting.getValue();
       InventorySorterScopeChoice scope = this.scopeSetting.getValue();
       Integer[] sourceSlots = mode.getStrategy().getSourceSlots(scope);
@@ -78,7 +78,7 @@ public class InventorySorterModule extends Module {
          if (pairIndex >= Math.min(sourceCount, targetCount)) {
             break;
          }
-         if (mainhandModule.isToggled()) {
+         if (schizo$mainhandModule().isToggled()) {
             Integer protectedSource = sourceSlots[pairIndex];
             if (protectedSlot == protectedSource || protectedSlot == targetSlots[pairIndex]) {
                continue;
@@ -147,7 +147,7 @@ public class InventorySorterModule extends Module {
       if (!carriedStack.isEmpty()) {
          return true;
       }
-      if (multiTaskModule.shouldPauseModule(this)) {
+      if (schizo$multiTaskModule().shouldPauseModule(this)) {
          return true;
       }
       if (ClientAccess.schizoMinecraft.player.inventoryMenu != ClientAccess.schizoMinecraft.player.containerMenu) {
@@ -169,10 +169,10 @@ public class InventorySorterModule extends Module {
    }
 
    public static void bindModules(ModuleRegistry moduleRegistry) {
-      multiTaskModule = (MultiTaskModule)moduleRegistry.getModule(
+      schizo$multiTaskModule() = (MultiTaskModule)moduleRegistry.getModule(
          MultiTaskModule.class
       );
-      mainhandModule = (MainhandModule)moduleRegistry.getModule(
+      schizo$mainhandModule() = (MainhandModule)moduleRegistry.getModule(
          MainhandModule.class
       );
    }
@@ -190,4 +190,12 @@ public class InventorySorterModule extends Module {
       this.sortTimer = new ElapsedTimer();
    }
 
+
+   private static MultiTaskModule schizo$multiTaskModule() {
+      return ClientContext.requireModule(MultiTaskModule.class);
+   }
+
+   private static MainhandModule schizo$mainhandModule() {
+      return ClientContext.requireModule(MainhandModule.class);
+   }
 }
