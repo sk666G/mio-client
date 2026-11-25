@@ -9,6 +9,7 @@
 
 package dev.schizo.client.commands;
 
+import dev.schizo.client.diagnostics.RuntimeDiagnostics;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.integrations.baritone.BaritoneBridge;
@@ -65,7 +66,12 @@ public final class BaritoneCommand extends Command {
          try {
             String remainingForCompletion = builder.getRemaining();
             completionInput = COMPLETION_PREFIX + remainingForCompletion;
-         } catch (Exception ignored) {
+         } catch (RuntimeException completionFailure) {
+            RuntimeDiagnostics.record(
+               RuntimeDiagnostics.Area.COMMAND,
+               "Baritone command completion input",
+               completionFailure
+            );
          }
 
          TabCompleteEvent completionEvent = new TabCompleteEvent(completionInput);
