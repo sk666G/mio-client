@@ -41,7 +41,7 @@ public class TradeItemsComponent extends AbstractComponent {
       false
    );
    private final TradeEditorScreen screen;
-   private boolean selectorOpen;
+   private TradeSelectorPanel<?> activeSelector;
    private ItemStack fromStack;
    private ItemStack toStack;
 
@@ -198,8 +198,8 @@ public class TradeItemsComponent extends AbstractComponent {
    public void mouseClicked(double mouseX, double mouseY, int button) {
       super.mouseClicked(mouseX, mouseY, button);
       if (this.isMouseOver(mouseX, mouseY) && (button == 0 || button == 1)) {
-         if (this.selectorOpen) {
-            this.selectorOpen = false;
+         if (this.isSelectorOpen()) {
+            this.closeSelector();
          } else {
             int relativeMouseX = (int)(
                mouseX
@@ -237,10 +237,9 @@ public class TradeItemsComponent extends AbstractComponent {
                );
             }
 
-            this.selectorOpen = true;
-            ((ClientScreen)ClientAccess.schizoMinecraft.screen)
-               .getPanels()
-               .add(selector);
+            ClientScreen screen = (ClientScreen)ClientAccess.schizoMinecraft.screen;
+            this.activeSelector = selector;
+            screen.getPanels().add(selector);
          }
       }
    }
@@ -311,11 +310,14 @@ public class TradeItemsComponent extends AbstractComponent {
    }
 
    public void closeSelector() {
-      this.selectorOpen = false;
+      if (this.activeSelector != null && ClientAccess.schizoMinecraft.screen instanceof ClientScreen screen) {
+         screen.getPanels().remove(this.activeSelector);
+      }
+      this.activeSelector = null;
    }
 
    public boolean isSelectorOpen() {
-      return this.selectorOpen;
+      return this.activeSelector != null;
    }
 
 }

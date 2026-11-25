@@ -10,8 +10,6 @@
 package dev.schizo.client.gui.components;
 
 import dev.schizo.client.gui.panels.Panel;
-import dev.schizo.client.ClientAccess;
-import dev.schizo.client.gui.screens.ClientScreen;
 import dev.schizo.client.render.GuiDrawUtils;
 import dev.schizo.client.render.FontRenderer;
 import dev.schizo.client.gui.components.AbstractComponent;
@@ -20,7 +18,6 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.function.Predicate;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.ItemStack;
@@ -72,9 +69,13 @@ public abstract class AbstractItemListComponent<T> extends AbstractComponent {
    @Override
    public void mouseClicked(double mouseX, double mouseY, int button) {
       super.mouseClicked(mouseX, mouseY, button);
-      if (this.isMouseOver(mouseX, mouseY) && !this.entries.isEmpty()) {
-         int relativeMouseY = (int)(mouseY - this.panel.getY() - this.yOffset);
-         this.selection = this.entries.get(Mth.clamp(this.scrollOffset + relativeMouseY / 16, 0, this.entries.size() - 1));
+      this.selection = null;
+      if (this.isMouseOver(mouseX, mouseY)) {
+         this.clampScrollOffset();
+         int index = ItemListLayout.entryAt(mouseY - this.panel.getY() - this.yOffset, this.scrollOffset, this.entries.size());
+         if (index >= 0) {
+            this.selection = this.entries.get(index);
+         }
       }
    }
 
@@ -83,7 +84,7 @@ public abstract class AbstractItemListComponent<T> extends AbstractComponent {
       super.mouseScrolled(mouseX, mouseY, (double)scrollAmount);
       if (this.isMouseOver(mouseX, mouseY)) {
          this.scrollOffset -= (int)scrollAmount;
-         Objects.requireNonNull((ClientScreen)ClientAccess.schizoMinecraft.screen);
+         this.clampScrollOffset();
       }
    }
 
@@ -97,19 +98,7 @@ public abstract class AbstractItemListComponent<T> extends AbstractComponent {
    }
 
    private String truncateLabel(String label) {
-      if (FontRenderer.INSTANCE.getWidth(label) + 20.0F < this.getPanel().getWidth()) {
-         return label;
-      }
-
-      for (int endIndex = 0; endIndex < label.length(); endIndex++) {
-         FontRenderer font = FontRenderer.INSTANCE;
-         String prefix = label.substring(0, endIndex).trim();
-         if (font.getWidth(prefix + "...") + 20.0F >= this.getPanel().getWidth()) {
-            return (label.substring(0, endIndex - 1).trim()) + "...";
-         }
-      }
-
-      return label;
+      return ItemListLayout.fitLabel(label, this.getPanel().getWidth() - 20.0F, text -> FontRenderer.INSTANCE.getWidth(text));
    }
 
    public T getSelectedEntry() {
