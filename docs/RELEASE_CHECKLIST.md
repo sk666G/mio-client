@@ -27,7 +27,7 @@ Status is intentionally conservative. A checked item requires recorded evidence.
 - [x] Record architecture findings and known limitations.
 - [x] Resolve DiscordIPC license status from upstream Apache-2.0 evidence, retain the full license, and package the notice/license in runtime and source artifacts.
 - [x] Record direct dependency roles, distribution expectations and upstream license evidence in `docs/DEPENDENCY_REVIEW.md`.
-- [ ] Classify every entry in the final candidate's generated `NESTED_JARS.txt` and add any required redistributed-library notices/license texts.
+- [x] Inspect the final candidate's generated `NESTED_JARS.txt`: Build #739 reports `(none)`, so the runnable JAR contains no nested JAR payloads under `META-INF/jars/`. Required vendored DiscordIPC notices/license texts are separately verified in the runtime/source JARs.
 
 ## Release
 
