@@ -552,8 +552,10 @@ public final class MacroCommand extends Command {
             previousMacro.getCommands().forEach((Consumer<String>)copiedCommand -> {
                   replacementMacro.getCommands().add(copiedCommand);
                });
-            ClientContext.macroRegistry.unregisterEntry(previousMacro);
-            ClientContext.macroRegistry.registerEntry(replacementMacro);
+            if (!ClientContext.macroRegistry.replaceMacro(previousMacro, replacementMacro)) {
+               ChatUtils.printChat(Component.literal("Macro key could not be changed"), ChatUtils.DEFAULT_SIGNATURE);
+               return 0;
+            }
 
             Object[] bindMessageArguments = new Object[2];
             bindMessageArguments[0] = previousMacro.getName();
