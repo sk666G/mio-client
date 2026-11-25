@@ -132,6 +132,7 @@ public class LogoutSpotsModule extends Module {
    private final ElapsedTimer spotCleanupTimer;
    private final Object2ObjectOpenHashMap<String, LogoutSpot> spotsByName;
    private final List<PendingRemoval> pendingRemovals;
+   private volatile long spotGeneration;
 
 
    private static boolean isPlayerListed(Player player) {
@@ -182,6 +183,7 @@ public class LogoutSpotsModule extends Module {
 
    @Override
    public void onToggle() {
+      this.spotGeneration++;
       Object2ObjectOpenHashMap<String, LogoutSpot> spots = this.spotsByName;
       spots.clear();
       this.clearTransientRemovalState();
@@ -189,6 +191,7 @@ public class LogoutSpotsModule extends Module {
 
    @EventHandler
    private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.spotGeneration++;
       this.clearTransientRemovalState();
    }
 
@@ -640,22 +643,17 @@ public class LogoutSpotsModule extends Module {
       PacketEvent.Receive event
    ) {
       if (event.getPacket() instanceof ClientboundPlayerInfoUpdatePacket packet) {
-         Iterator entries = packet.newEntries().iterator();
-
-         while (entries.hasNext()) {
-            net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket.Entry entry = (net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket.Entry)entries.next();
-            ClientAccess.schizoMinecraft.executeIfPossible((Runnable)() -> {
-               GameProfile profile = entry.profile();
-               String profileName;
-               if (profile == null) {
-                  profileName = "";
-               } else {
-                  profileName = profile.name();
+         long expectedGeneration = this.spotGeneration;
+         for (net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket.Entry entry : packet.newEntries()) {
+            GameProfile profile = entry.profile();
+            if (profile == null) {
+               continue;
+            }
+            String playerName = profile.name();
+            ClientAccess.schizoMinecraft.executeIfPossible(() -> {
+               if (this.isToggled() && this.spotGeneration == expectedGeneration) {
+                  this.removeSpot(playerName);
                }
-
-               String playerName = profileName;
-
-               this.removeSpot(playerName);
             });
          }
       }
@@ -663,6 +661,7 @@ public class LogoutSpotsModule extends Module {
 
    @EventHandler
    private void onConnectScreenConnectEvent(ConnectScreenConnectEvent event) {
+      this.spotGeneration++;
       ServerStateManager serverSource = ClientContext.serverStateManager;
       clearForServerConnection(this, serverSource, event);
    }
