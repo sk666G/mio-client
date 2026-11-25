@@ -11,6 +11,7 @@ package dev.schizo.mixin;
 
 import dev.schizo.client.modules.misc.BetterChatModule;
 import dev.schizo.client.gui.screens.CommandPaletteScreen;
+import dev.schizo.client.gui.screens.CommandPaletteShortcut;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.events.InputPressEvent;
 import dev.schizo.client.events.KeyboardHandlerCharTypedEvent;
@@ -39,9 +40,7 @@ public class KeyboardHandlerMixin {
       long windowHandle, int action, KeyEvent keyEvent, CallbackInfo callback
    ) {
       if (this.minecraft.screen == null
-         && action == GLFW.GLFW_PRESS
-         && keyEvent.key() == GLFW.GLFW_KEY_K
-         && (keyEvent.modifiers() & GLFW.GLFW_MOD_CONTROL) != 0) {
+         && CommandPaletteShortcut.matches(action, keyEvent.key(), keyEvent.modifiers())) {
          CommandPaletteScreen.openPalette();
          callback.cancel();
          return;
