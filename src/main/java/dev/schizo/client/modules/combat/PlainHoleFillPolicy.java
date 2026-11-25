@@ -29,9 +29,7 @@ public class PlainHoleFillPolicy implements ClientAccess {
       this.holeFillModule = holeFillModule;
    }
 
-   static {
-      speedMineModule = (SpeedMineModule)ClientContext.getModule(SpeedMineModule.class);
-   }
+   
 
    public boolean shouldFill(HoleInfo hole) {
       if (speedMineModule.isToggled()) {
