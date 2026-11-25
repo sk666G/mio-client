@@ -30,11 +30,26 @@ public final class TaskScheduler implements ClientAccess {
    }
 
    public boolean scheduleRotationTask(Runnable task, int delay) {
-      return this.rotationTasks.enqueue(task, delay);
+      return this.rotationTasks.enqueue(null, task, delay);
+   }
+
+   public boolean scheduleRotationTask(Object owner, Runnable task, int delay) {
+      return this.rotationTasks.enqueue(owner, task, delay);
    }
 
    public boolean scheduleRunTickTask(Runnable task) {
-      return this.runTickTasks.enqueue(task, 1);
+      return this.runTickTasks.enqueue(null, task, 1);
+   }
+
+   public boolean scheduleRunTickTask(Object owner, Runnable task) {
+      return this.runTickTasks.enqueue(owner, task, 1);
+   }
+
+   public int cancelOwnedTasks(Object owner) {
+      if (owner == null) {
+         return 0;
+      }
+      return this.rotationTasks.cancelOwner(owner) + this.runTickTasks.cancelOwner(owner);
    }
 
    @EventHandler(priority = -100)
@@ -75,8 +90,8 @@ public final class TaskScheduler implements ClientAccess {
          this.name = name;
       }
 
-      private boolean enqueue(Runnable task, int delay) {
-         BoundedCountdownTaskQueue.Reservation reservation = this.tasks.reserve(task, delay);
+      private boolean enqueue(Object owner, Runnable task, int delay) {
+         BoundedCountdownTaskQueue.Reservation reservation = this.tasks.reserve(owner, task, delay);
          if (reservation == null) {
             this.warnCapacity();
             return false;
@@ -111,6 +126,10 @@ public final class TaskScheduler implements ClientAccess {
 
       private void run() {
          this.tasks.runPass(failure -> ClientAccess.logger.error("Scheduled {} task failed", this.name, failure));
+      }
+
+      private int cancelOwner(Object owner) {
+         return this.tasks.cancelOwner(owner);
       }
 
       private void clear() {
