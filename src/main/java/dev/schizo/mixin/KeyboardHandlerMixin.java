@@ -41,7 +41,8 @@ public class KeyboardHandlerMixin {
       if (this.minecraft.screen == null
          && action == GLFW.GLFW_PRESS
          && keyEvent.key() == GLFW.GLFW_KEY_K
-         && GLFW.glfwGetKey(windowHandle, GLFW.GLFW_KEY_RIGHT_SHIFT) == GLFW.GLFW_PRESS) {
+         && (GLFW.glfwGetKey(windowHandle, GLFW.GLFW_KEY_LEFT_CONTROL) == GLFW.GLFW_PRESS
+            || GLFW.glfwGetKey(windowHandle, GLFW.GLFW_KEY_RIGHT_CONTROL) == GLFW.GLFW_PRESS)) {
          CommandPaletteScreen.openPalette();
          callback.cancel();
          return;
