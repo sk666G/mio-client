@@ -1341,7 +1341,7 @@ public final class ModuleCompatibility {
          Classification.PACKET_AFFECTING,
          "Controls when an outstanding latency probe is considered expired."
       )),
-      Map.entry(setting(FastLatencyModule.class, "FastResponse"), settingAssessed(
+      Map.entry(setting(FastLatencyModule.class, "Response"), settingAssessed(
          Classification.PACKET_AFFECTING,
          "Controls how selected server ping/keepalive/resource-pack response packets are answered by the reviewed fast-response path."
       )),
