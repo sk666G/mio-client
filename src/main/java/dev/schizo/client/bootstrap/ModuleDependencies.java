@@ -97,6 +97,7 @@ public final class ModuleDependencies {
    public static void bind(ModuleRegistry registry) {
       Objects.requireNonNull(registry, "Module manager is not initialized");
       ServerStateManager.bindModules(registry);
+      dev.schizo.client.managers.WorldStateManager.bindModules(registry);
       BlockBreakTracker.bindModules(registry);
       RotationManager.bindReferencedModules(registry);
       SprintModule.bindReferencedModules(registry);
