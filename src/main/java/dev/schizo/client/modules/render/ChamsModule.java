@@ -238,18 +238,22 @@ public class ChamsModule extends Module {
                         Integer opacityValue = this.opacitySetting.getValue();
                         if (opacityValue > 0) {
                            this.renderingBaseModel = true;
-                           float baseOpacity = (this.opacitySetting.getValue()).intValue();
-                           RenderUtils.setRenderColor(
-                              1.0F, 1.0F, 1.0F, baseOpacity / 1e+02F
-                           );
-                           RenderUtils renderer = RenderUtils.INSTANCE;
-                           float partialTick = event.getPartialTick();
-                           PoseStack poseStackSnapshot = event.getPoseStack();
-                           RenderBuffers renderBuffers = ClientAccess.schizoMinecraft.renderBuffers();
-                           renderer.renderEntity(
-                              entity, partialTick, poseStackSnapshot, renderBuffers.bufferSource()
-                           );
-                           this.renderingBaseModel = false;
+                           try {
+                              float baseOpacity = (this.opacitySetting.getValue()).intValue();
+                              RenderUtils.setRenderColor(
+                                 1.0F, 1.0F, 1.0F, baseOpacity / 1e+02F
+                              );
+                              RenderUtils renderer = RenderUtils.INSTANCE;
+                              float partialTick = event.getPartialTick();
+                              PoseStack poseStackSnapshot = event.getPoseStack();
+                              RenderBuffers renderBuffers = ClientAccess.schizoMinecraft.renderBuffers();
+                              renderer.renderEntity(
+                                 entity, partialTick, poseStackSnapshot, renderBuffers.bufferSource()
+                              );
+                           } finally {
+                              this.renderingBaseModel = false;
+                              RenderUtils.setRenderColor(1.0F, 1.0F, 1.0F, 1.0F);
+                           }
                         }
                      }
                   }
@@ -317,13 +321,17 @@ public class ChamsModule extends Module {
    }
 
    private void renderGlintBatch(EntityRenderRelation relation, MeshBuffer buffer) {
-      if (!buffer.isEmpty()) {
-         this.activeGlintRelation = relation;
-         OptionInstance optionSnapshot = ClientAccess.schizoMinecraft.options.glintSpeed();
-         double previousSpeed = ((Double)optionSnapshot.get());
-         OptionInstance glintStrengthOption = ClientAccess.schizoMinecraft.options.glintStrength();
-         double previousStrength = ((Double)glintStrengthOption.get());
-         OptionInstance speedOption = ClientAccess.schizoMinecraft.options.glintSpeed();
+      if (buffer.isEmpty()) {
+         return;
+      }
+
+      EntityRenderRelation previousRelation = this.activeGlintRelation;
+      OptionInstance speedOption = ClientAccess.schizoMinecraft.options.glintSpeed();
+      double previousSpeed = ((Double)speedOption.get());
+      OptionInstance glintStrengthOption = ClientAccess.schizoMinecraft.options.glintStrength();
+      double previousStrength = ((Double)glintStrengthOption.get());
+      this.activeGlintRelation = relation;
+      try {
          double requestedSpeed = (this.speedSetting.getValue()).doubleValue();
          GameOptionsOverrides.forceSetOptionValue(speedOption, requestedSpeed);
          double capturedStrength = (this.strengthSetting.getValue()).floatValue();
@@ -331,10 +339,14 @@ public class ChamsModule extends Module {
          renderingGlintBatch = true;
          MeshDrawContext.setRenderType(ClientRenderTypes.shineGlint());
          buffer.draw();
+      } finally {
          renderingGlintBatch = false;
-         this.updateGlobalGlintStrength(previousStrength);
-         speedOption = ClientAccess.schizoMinecraft.options.glintSpeed();
-         speedOption.set(previousSpeed);
+         this.activeGlintRelation = previousRelation;
+         try {
+            this.updateGlobalGlintStrength(previousStrength);
+         } finally {
+            speedOption.set(previousSpeed);
+         }
       }
    }
 
@@ -716,31 +728,29 @@ public class ChamsModule extends Module {
    @EventHandler(priority = 200)
    private void onWorldRenderStarted(WorldRenderEvent.BeforeBufferSource event) {
       EntityCullingOverrides.disableCulling();
-      Iterator<Entity> entityIterator = ClientAccess.schizoMinecraft.level.entitiesForRendering().iterator();
-      while (entityIterator.hasNext()) {
-         Entity entity = entityIterator.next();
-         if (this.shouldRenderEntityInRange(entity)) {
-            Boolean shineValue = this.shineSetting.getValue();
-            if (shineValue) {
+      try {
+         Iterator<Entity> entityIterator = ClientAccess.schizoMinecraft.level.entitiesForRendering().iterator();
+         while (entityIterator.hasNext()) {
+            Entity entity = entityIterator.next();
+            if (this.shouldRenderEntityInRange(entity) && this.shineSetting.getValue()) {
+               PoseStack poses = event.getPoseStack();
                renderingShineModels = true;
-               (event.getPoseStack()).pushPose();
-               RenderUtils.setRenderColor(
-                  1.0F, 1.0F, 1.0F,1.0F);
-               RenderUtils.applyCameraRotation(
-                  event.getPoseStack()
-               );
-               EntityChamsRenderer.setRelation(
-                  this.getEntityRelation(entity)
-               );
-               EntityChamsRenderer.renderEntity(
-                  event.getPoseStack(), entity
-               );
-               (event.getPoseStack()).popPose();
-               renderingShineModels = false;
+               poses.pushPose();
+               try {
+                  RenderUtils.setRenderColor(1.0F, 1.0F, 1.0F, 1.0F);
+                  RenderUtils.applyCameraRotation(poses);
+                  EntityChamsRenderer.setRelation(this.getEntityRelation(entity));
+                  EntityChamsRenderer.renderEntity(poses, entity);
+               } finally {
+                  poses.popPose();
+                  renderingShineModels = false;
+               }
             }
          }
+      } finally {
+         renderingShineModels = false;
+         EntityCullingOverrides.restoreCulling();
       }
-      EntityCullingOverrides.restoreCulling();
    }
 
    public static void bindReferencedModules(ModuleRegistry modules) {
