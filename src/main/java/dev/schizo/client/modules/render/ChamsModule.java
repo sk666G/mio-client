@@ -177,29 +177,30 @@ public class ChamsModule extends Module {
          MaskShaderRenderer.MASK_TARGET, maskColor
       );
       RenderTarget mainTarget = ClientAccess.schizoMinecraft.getMainRenderTarget();
-      RenderTargetUtils.setMainRenderTarget(
-         MaskShaderRenderer.MASK_TARGET
-      );
-      EntityChamsRenderer.flush();
-      Boolean blendEnabled = this.blendSetting.getValue();
-      if (blendEnabled) {
-         RenderUtils.blitToMain(
-            MaskShaderRenderer.MASK_TARGET,
-            ClientRenderPipelines.BLIT_LIGHTNING
-         );
-      } else {
-         RenderTarget maskTarget = MaskShaderRenderer.MASK_TARGET;
-         GpuTextureView mainColorView = mainTarget.getColorTextureView();
-         maskTarget.blitAndBlendToTexture(mainColorView);
+      RenderTargetUtils.setMainRenderTarget(MaskShaderRenderer.MASK_TARGET);
+      try {
+         EntityChamsRenderer.flush();
+         Boolean blendEnabled = this.blendSetting.getValue();
+         if (blendEnabled) {
+            RenderUtils.blitToMain(
+               MaskShaderRenderer.MASK_TARGET,
+               ClientRenderPipelines.BLIT_LIGHTNING
+            );
+         } else {
+            RenderTarget maskTarget = MaskShaderRenderer.MASK_TARGET;
+            GpuTextureView mainColorView = mainTarget.getColorTextureView();
+            maskTarget.blitAndBlendToTexture(mainColorView);
+         }
+         float bloomRadius = this.radiusSetting.getValue();
+         Float factorValue = this.factorSetting.getValue();
+         float bloomFactor = factorValue;
+         Setting<Float> overlapSettingSnapshot = this.overlapSetting;
+         Float overlapValue = overlapSettingSnapshot.getValue();
+         MaskShaderRenderer.setParameters(bloomRadius, bloomFactor, maskOpacity, overlapValue);
+         MaskShaderRenderer.renderEffect("bloom_mask");
+      } finally {
+         RenderTargetUtils.setMainRenderTarget(mainTarget);
       }
-      float bloomRadius = (this.radiusSetting.getValue());
-      Float factorValue = this.factorSetting.getValue();
-      float bloomFactor = factorValue;
-      Setting<Float> overlapSettingSnapshot = this.overlapSetting;
-      Float overlapValue = overlapSettingSnapshot.getValue();
-      MaskShaderRenderer.setParameters(bloomRadius, bloomFactor, maskOpacity, overlapValue);
-      MaskShaderRenderer.renderEffect("bloom_mask");
-      RenderTargetUtils.setMainRenderTarget(mainTarget);
       Setting<Boolean> compositeBlendOption = this.blendSetting;
       Boolean compositeBlendEnabled = compositeBlendOption.getValue();
       if (compositeBlendEnabled) {
