@@ -23,6 +23,7 @@ import dev.schizo.client.render.LineMeshRenderer;
 import dev.schizo.client.render.WorldBoxRenderer;
 import dev.schizo.client.managers.RotationManager;
 import dev.schizo.client.audio.BuiltinSound;
+import dev.schizo.client.utils.IncrementalWorkBudget;
 import dev.schizo.client.utils.ElapsedTimer;
 import dev.schizo.client.managers.SocialRegistry;
 import dev.schizo.client.render.ColorUtils;
@@ -282,7 +283,7 @@ public class SearchModule extends Module {
       }
 
       int processed = 0;
-      while (processed < CHUNK_SCAN_BUDGET_PER_TICK) {
+      while (IncrementalWorkBudget.canContinue(processed, CHUNK_SCAN_BUDGET_PER_TICK)) {
          if (this.blocksByPosition.size() >= MAX_CACHED_BLOCKS) {
             this.clearPendingChunkScans();
             return;
