@@ -85,11 +85,7 @@ public final class AuraAttackReadiness implements ClientAccess {
       this.aura = aura;
    }
 
-   static {
-      antiCheat = (AntiCheatModule)ClientContext.getModule(AntiCheatModule.class);
-      flight = (FlightModule)ClientContext.getModule(FlightModule.class);
-      criticals = (CriticalsModule)ClientContext.getModule(CriticalsModule.class);
-   }
+   
 
    private boolean shouldWaitForAirborneCritical(boolean onGround) {
       if (PlayerStateUtils.getTrackedFallDistance() <= 0.0F && !onGround) {
