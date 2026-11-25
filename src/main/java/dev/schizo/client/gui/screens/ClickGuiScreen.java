@@ -63,6 +63,7 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
 
    private static final HUDModule HUD = (HUDModule)ClientContext.getModule(HUDModule.class);
    private SettingComponent<?> editingSetting = null;
+   private boolean closeSaveRequested;
    private int secretSequenceIndex = 0;
    private boolean gamePanelUnlocked;
    private boolean searchCursorVisible;
@@ -333,6 +334,7 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
    @Override
    public void init() {
       super.init();
+      this.closeSaveRequested = false;
       this.searchCompletion = "";
       this.normalizedSearchQuery = "";
       this.searchBox = new EditBox(
@@ -425,11 +427,13 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
 
    @Override
    public void closeWithTransition() {
+      boolean saveOnReturn = !this.closeSaveRequested;
+      this.closeSaveRequested = true;
       super.closeWithTransition();
-      ClientAccess.executorService.submit(
-         () -> ClientContext.configurationManager
-            .save()
-      );
+      // Disabling the UI module can re-enter this method during the same close.
+      if (saveOnReturn) {
+         ClientContext.configurationManager.save();
+      }
    }
 
    public boolean isGamePanelUnlocked() {
