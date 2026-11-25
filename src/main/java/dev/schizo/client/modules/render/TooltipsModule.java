@@ -9,6 +9,7 @@
 
 package dev.schizo.client.modules.render;
 
+import dev.schizo.client.diagnostics.RuntimeDiagnostics;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.AbstractContainerScreenRenderTooltipEvent;
@@ -329,7 +330,12 @@ public class TooltipsModule extends Module {
                      FormattedCharSequence sizeText = sizeComponent.getVisualOrderText();
                      List<ClientTooltipComponent> sizeTooltipComponents = event.getTooltipComponents();
                      sizeTooltipComponents.add(ClientTooltipComponent.create(sizeText));
-                  } catch (Throwable ignoredFailure) {
+                  } catch (RuntimeException serializationFailure) {
+                     RuntimeDiagnostics.record(
+                        RuntimeDiagnostics.Area.RENDER,
+                        "Tooltip item-size serialization",
+                        serializationFailure
+                     );
                   }
                }
             }
