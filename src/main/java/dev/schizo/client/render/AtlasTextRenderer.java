@@ -32,7 +32,6 @@ import net.minecraft.util.FormattedCharSequence;
 public final class AtlasTextRenderer {
    private static final float ATLAS_SCALE = 0.25F;
    private static final Map<Character, ChatFormatting> FORMATTING_CODES = new Char2ObjectOpenHashMap<>();
-   private static final FontsModule FONTS = (FontsModule)ClientContext.getModule(FontsModule.class);
    protected static final MeshBuffer glyphMesh = MeshBuffer.create();
    private static final ByteBufferBuilder byteBuffer = new ByteBufferBuilder(2048);
    private static final BufferSource immediateBuffers = MultiBufferSource.immediate(byteBuffer);
@@ -56,7 +55,11 @@ public final class AtlasTextRenderer {
 
    public void flush() {
       if (glyphMesh.isBuilding()) {
-         boolean antiAlias = FONTS.antiAliasSetting.getValue();
+         FontsModule fonts = FontsModule.INSTANCE;
+         if (fonts == null) {
+            throw new IllegalStateException("Fonts module is not initialized");
+         }
+         boolean antiAlias = fonts.antiAliasSetting.getValue();
          MeshDrawContext.setRenderType(ClientRenderTypes.font(FontAtlas.ATLAS_TEXTURE, antiAlias));
          MeshBuffer.draw(glyphMesh);
       }
