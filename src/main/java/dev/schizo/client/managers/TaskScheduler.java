@@ -94,15 +94,22 @@ public final class TaskScheduler implements ClientAccess {
          BoundedCountdownTaskQueue.DEFAULT_MAX_TASKS_PER_PASS
       );
       private final AtomicBoolean capacityWarningLogged = new AtomicBoolean();
+      private final AtomicBoolean shutdown = new AtomicBoolean();
 
       private ClientThreadTaskQueue(String name) {
          this.name = name;
       }
 
       private boolean enqueue(Object owner, Runnable task, int delay) {
+         if (this.shutdown.get()) {
+            return false;
+         }
+
          BoundedCountdownTaskQueue.Reservation reservation = this.tasks.reserve(owner, task, delay);
          if (reservation == null) {
-            this.warnCapacity();
+            if (!this.shutdown.get()) {
+               this.warnCapacity();
+            }
             return false;
          }
 
@@ -115,20 +122,15 @@ public final class TaskScheduler implements ClientAccess {
             return accepted;
          }
 
-         if (!minecraft.isRunning()) {
-            this.tasks.cancel(reservation);
-            this.shutdown();
-            ClientAccess.logger.warn("Rejected {} task because the Minecraft client is stopping", this.name);
-            return false;
-         }
-
          try {
             ((BlockableEventLoop<Runnable>)minecraft).executeIfPossible(() -> this.tasks.enqueue(reservation));
             this.capacityWarningLogged.set(false);
             return true;
          } catch (RuntimeException dispatchFailure) {
             this.tasks.cancel(reservation);
-            ClientAccess.logger.warn("Could not dispatch {} task to the Minecraft client thread", this.name, dispatchFailure);
+            if (!this.shutdown.get()) {
+               ClientAccess.logger.warn("Could not dispatch {} task to the Minecraft client thread", this.name, dispatchFailure);
+            }
             return false;
          }
       }
@@ -155,7 +157,9 @@ public final class TaskScheduler implements ClientAccess {
       }
 
       private void shutdown() {
-         this.tasks.close();
+         if (this.shutdown.compareAndSet(false, true)) {
+            this.tasks.close();
+         }
       }
 
       private void warnCapacity() {
