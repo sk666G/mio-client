@@ -48,6 +48,7 @@ Other mods listed under `suggests` in `fabric.mod.json` are optional.
 - [Architecture review](docs/MASTER_ARCHITECTURE_REVIEW.md)
 - [Startup Safe Mode](docs/SAFE_MODE.md)
 - [Known limitations](docs/KNOWN_LIMITATIONS.md)
+- [Dependency and distribution review](docs/DEPENDENCY_REVIEW.md)
 - [Release checklist](docs/RELEASE_CHECKLIST.md)
 
 ## Upstream and attribution
