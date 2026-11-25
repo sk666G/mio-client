@@ -328,10 +328,9 @@ public final class InventoryStateManager implements ClientAccess {
       if (!capturedTimer.hasElapsed(50L) || !this.containerOpen) {
          return;
       }
-      long nowMillis = System.currentTimeMillis();
       ServerStateManager capturedTickTracker = ClientContext.serverStateManager;
 
-      if ((nowMillis - capturedTickTracker.getLastPacketTime()) > 2500L) {
+      if (capturedTickTracker.getPacketIdleMillis(ServerStateManager.PacketActivity.ANY) > 2500L) {
          return;
       }
       if (RotationManager.is2b2tMode()) {

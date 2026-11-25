@@ -44,6 +44,8 @@ jobs:
 
       - name: Verify remapped artifacts and record provenance
         shell: bash
+        env:
+          SOURCE_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
           mapfile -t jars < <(find build/libs -maxdepth 1 -type f -name 'schizo-*.jar' ! -name '*-sources.jar' ! -name '*-dev.jar' | sort)
@@ -76,7 +78,8 @@ jobs:
             printf '%s\n' '(none)'
           fi
           sha256sum "$jar_file" > build/libs/SHA256SUMS.txt
-          printf '%s\n' "$GITHUB_SHA" > build/libs/COMMIT_SHA.txt
+          printf '%s\n' "$SOURCE_COMMIT_SHA" > build/libs/COMMIT_SHA.txt
+          printf '%s\n' "$GITHUB_SHA" > build/libs/BUILD_COMMIT_SHA.txt
 
       - name: Upload verified remapped mod jar
         uses: actions/upload-artifact@v6
@@ -88,5 +91,6 @@ jobs:
             !build/libs/*-dev.jar
             build/libs/SHA256SUMS.txt
             build/libs/COMMIT_SHA.txt
+            build/libs/BUILD_COMMIT_SHA.txt
             build/libs/NESTED_JARS.txt
           if-no-files-found: error

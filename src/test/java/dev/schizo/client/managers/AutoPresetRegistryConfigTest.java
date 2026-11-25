@@ -24,6 +24,36 @@ class AutoPresetRegistryConfigTest {
    }
 
    @Test
+   void canonicalizesServerKeysCaseInsensitively() {
+      JsonObject server = new JsonObject();
+      server.addProperty("hud", "layout");
+      JsonObject root = new JsonObject();
+      root.add("ExAmPle.ORG:25565", server);
+
+      Map<String, AutoPresetRegistry.ParsedServerEntry> loaded = AutoPresetRegistry.parseSettings(root);
+
+      assertEquals(1, loaded.size());
+      assertTrue(loaded.containsKey("example.org:25565"));
+      assertEquals("example.org:25565", AutoPresetRegistry.normalizeServerKey("EXAMPLE.ORG:25565"));
+   }
+
+   @Test
+   void collapsesCaseOnlyDuplicateServerKeys() {
+      JsonObject first = new JsonObject();
+      first.addProperty("hud", "first");
+      JsonObject second = new JsonObject();
+      second.addProperty("hud", "second");
+      JsonObject root = new JsonObject();
+      root.add("Example.org", first);
+      root.add("example.ORG", second);
+
+      Map<String, AutoPresetRegistry.ParsedServerEntry> loaded = AutoPresetRegistry.parseSettings(root);
+
+      assertEquals(1, loaded.size());
+      assertEquals("second", loaded.get("example.org").presets().get("hud"));
+   }
+
+   @Test
    void skipsMalformedServersAndValuesButKeepsOtherEntries() {
       JsonObject root = new JsonObject();
       root.addProperty("not-an-object", "bad");
