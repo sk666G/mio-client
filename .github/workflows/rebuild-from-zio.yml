@@ -97,9 +97,15 @@ jobs:
             jar tf "$source_jar" | grep -Fqx "$required"
           done
 
-          jar tf "$jar_file" | grep '^META-INF/jars/.*\.jar
+          jar tf "$jar_file" | grep '^META-INF/jars/.*[.]jar$' | sort > build/libs/NESTED_JARS.txt || true
+          printf '%s\n' 'Nested libraries in rebuilt runtime JAR:'
+          if [ -s build/libs/NESTED_JARS.txt ]; then
+            cat build/libs/NESTED_JARS.txt
+          else
+            printf '%s\n' '(none)'
+          fi
+          sha256sum "$jar_file" > build/libs/SHA256SUMS.txt
           git rev-parse HEAD > build/libs/COMMIT_SHA.txt
-
       - name: Upload rebuilt client artifact
         uses: actions/upload-artifact@v6
         with:
@@ -127,3 +133,4 @@ jobs:
             build/libs/SHA256SUMS.txt
             build/libs/COMMIT_SHA.txt
           if-no-files-found: error
+
