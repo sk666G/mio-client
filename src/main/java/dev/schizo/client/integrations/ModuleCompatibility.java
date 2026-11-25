@@ -1144,6 +1144,58 @@ public final class ModuleCompatibility {
       Map.entry(setting(NoRenderModule.class, "FireBlock"), settingAssessed(
          Classification.VISUAL_ONLY,
          "Suppresses local fire/smoke particle presentation and is distinct from the packet-facing entity Fire setting."
+      )),
+      Map.entry(setting(AntiCheatModule.class, "2b2t"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Enables the module's server-profile-specific packet, inventory and movement coordination paths."
+      )),
+      Map.entry(setting(AntiCheatModule.class, "Limiter"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Enables the module's outbound packet-rate limiting path when the associated server profile and movement sync are active."
+      )),
+      Map.entry(setting(AntiCheatModule.class, "NoServerSlot"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Changes handling of server-selected hotbar slot updates and can resend the local held-slot state."
+      )),
+      Map.entry(setting(AntiCheatModule.class, "StrictDirection"), settingAssessed(
+         Classification.WORLD_INTERACTION,
+         "Changes which support directions are accepted by shared block-placement helpers."
+      )),
+      Map.entry(setting(AntiCheatModule.class, "Mining"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Selects the mining action sequencing policy used for outgoing destroy-block actions."
+      )),
+      Map.entry(setting(AntiCheatModule.class, "Placements"), settingAssessed(
+         Classification.WORLD_INTERACTION,
+         "Selects the shared placement-policy variant used by block interaction helpers."
+      )),
+      Map.entry(setting(AntiCheatModule.class, "MovementSync"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Enables shared movement/rotation synchronization used by multiple gameplay actions."
+      )),
+      Map.entry(setting(AntiCheatModule.class, "Rotations"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Selects how synchronized rotations are represented during movement and interaction actions."
+      )),
+      Map.entry(setting(AntiCheatModule.class, "Swing"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls whether shared interaction actions use transmitted swing behavior rather than client-only swing presentation."
+      )),
+      Map.entry(setting(AntiCheatModule.class, "Place"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls transmitted swing behavior for placement/interact actions."
+      )),
+      Map.entry(setting(AntiCheatModule.class, "Hit"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls transmitted swing behavior for hit actions."
+      )),
+      Map.entry(setting(AntiCheatModule.class, "MiningSwing"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls transmitted swing behavior for mining actions."
+      )),
+      Map.entry(setting(AntiCheatModule.class, "AssumeBlockBreaking"), settingAssessed(
+         Classification.WORLD_INTERACTION,
+         "Changes shared placement occupancy decisions for blocks currently tracked as being broken."
       ))
    );
 
