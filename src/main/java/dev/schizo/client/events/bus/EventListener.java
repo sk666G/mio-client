@@ -14,6 +14,9 @@ public interface EventListener {
       return null;
    }
 
+   default String diagnosticName() {
+      return this.getClass().getSimpleName();
+   }
 
    boolean isStatic();
 

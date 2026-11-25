@@ -10,6 +10,7 @@
 package dev.schizo.client.events.bus;
 
 import dev.schizo.client.events.Cancellable;
+import dev.schizo.client.diagnostics.RuntimeDiagnostics;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.modules.Module;
 import dev.schizo.client.profiling.EventProfiler;
@@ -174,7 +175,7 @@ public class EventBus implements EventDispatcher {
       if (listeners != null) {
          if (!this.profiler.isEnabled()) {
             for (int index = 0; index < listeners.length; index++) {
-               listeners[index].call(event);
+               this.callUnprofiled(listeners[index], event);
             }
          } else {
             for (int index = 0; index < listeners.length; index++) {
@@ -210,10 +211,23 @@ public class EventBus implements EventDispatcher {
       }
       return event;
    }
+   private void callUnprofiled(EventListener listener, Object event) {
+      try {
+         listener.call(event);
+      } catch (RuntimeException | Error failure) {
+         RuntimeDiagnostics.record(
+            RuntimeDiagnostics.Area.EVENT,
+            listener.diagnosticName() + " <- " + event.getClass().getSimpleName(),
+            failure
+         );
+         throw failure;
+      }
+   }
+
    private void callProfiled(EventListener listener, Object event) {
       EventProfiler.CallbackHandle handle = listener.profileHandle();
       if (handle == null) {
-         listener.call(event);
+         this.callUnprofiled(listener, event);
          return;
       }
       long startedAt = this.profiler.nanoTime();
@@ -222,6 +236,11 @@ public class EventBus implements EventDispatcher {
          listener.call(event);
       } catch (RuntimeException | Error failure) {
          callbackFailure = failure;
+         RuntimeDiagnostics.record(
+            RuntimeDiagnostics.Area.EVENT,
+            listener.diagnosticName() + " <- " + event.getClass().getSimpleName(),
+            failure
+         );
          throw failure;
       } finally {
          try {

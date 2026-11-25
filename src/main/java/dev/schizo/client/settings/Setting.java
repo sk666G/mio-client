@@ -13,6 +13,7 @@ import dev.schizo.client.ClientContext;
 import dev.schizo.client.NamedFeature;
 import dev.schizo.client.settings.ValueProvider;
 import dev.schizo.client.config.EnumJsonConverter;
+import dev.schizo.client.diagnostics.RuntimeDiagnostics;
 import dev.schizo.client.settings.SettingLabelCondition;
 
 import java.util.Objects;
@@ -224,7 +225,12 @@ public abstract class Setting<T> extends NamedFeature implements ValueProvider<T
       if (this.changeCallback != null) {
          try {
             this.changeCallback.run();
-         } catch (Throwable ignoredFailure) {
+         } catch (RuntimeException failure) {
+            RuntimeDiagnostics.record(
+               RuntimeDiagnostics.Area.SETTING_CALLBACK,
+               this.getConfigName(),
+               failure
+            );
          }
       }
    }

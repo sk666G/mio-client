@@ -11,6 +11,7 @@ package dev.schizo.client.managers;
 
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.events.EventHandler;
+import dev.schizo.client.diagnostics.RuntimeDiagnostics;
 import dev.schizo.client.events.MinecraftRunTickEvent;
 import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.events.RotationRequestEvent;
@@ -110,7 +111,11 @@ public final class TaskScheduler implements ClientAccess {
       }
 
       private void run() {
-         this.tasks.runPass(failure -> ClientAccess.logger.error("Scheduled {} task failed", this.name, failure));
+         this.tasks.runPass(failure -> RuntimeDiagnostics.record(
+            RuntimeDiagnostics.Area.SCHEDULED_TASK,
+            this.name,
+            failure
+         ));
       }
 
       private void clear() {

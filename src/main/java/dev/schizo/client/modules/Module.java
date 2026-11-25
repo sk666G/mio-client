@@ -12,6 +12,7 @@ package dev.schizo.client.modules;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.config.ModuleConfigLoadReport;
 import dev.schizo.client.config.SafeModeManager;
+import dev.schizo.client.diagnostics.RuntimeDiagnostics;
 import dev.schizo.client.integrations.MultiplayerCompatibilityWarnings;
 import dev.schizo.client.integrations.MultiplayerCompatibilityPolicy;
 import dev.schizo.client.ClientContext;
@@ -47,6 +48,8 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
    private boolean workInProgress;
    private boolean ignoreEnabledState;
    private boolean compatibilityPolicySuppressed;
+   private volatile LifecycleState lifecycleState = LifecycleState.DISABLED;
+   private long lifecycleGeneration;
    private final List<ModuleConfigLoadReport.Issue> lastConfigLoadIssues = new ArrayList<>();
 
    public Module(String name, String description, ModuleCategory category, String... aliases) {
@@ -86,7 +89,7 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
       if (SafeModeManager.GLOBAL.isActive()) {
          return;
       }
-      if (this.isToggled()) {
+      if (this.isToggled() || this.lifecycleState != LifecycleState.DISABLED) {
          return;
       }
       MultiplayerCompatibilityWarnings.warnIfNeeded(this);
@@ -94,14 +97,54 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
          this.compatibilityPolicySuppressed = true;
          return;
       }
+
       this.compatibilityPolicySuppressed = false;
+      this.lifecycleState = LifecycleState.ENABLING;
+      this.lifecycleGeneration++;
       this.enabled = true;
-      ClientAccess.eventBus.subscribe(this);
-      EventBus eventBus = ClientAccess.eventBus;
-      ModuleToggleEvent toggleEvent = new ModuleToggleEvent(this);
-      eventBus.post(toggleEvent);
-      this.onToggle();
-      this.onEnable();
+      boolean subscribed = false;
+      try {
+         ClientAccess.eventBus.subscribe(this);
+         subscribed = true;
+         this.onEnable();
+         ClientAccess.eventBus.post(new ModuleToggleEvent(this));
+         this.onToggle();
+         this.lifecycleState = LifecycleState.ENABLED;
+      } catch (RuntimeException | LinkageError failure) {
+         RuntimeDiagnostics.record(
+            RuntimeDiagnostics.Area.MODULE_LIFECYCLE,
+            this.getName() + " enable",
+            failure
+         );
+         this.enabled = false;
+         if (subscribed) {
+            ClientAccess.eventBus.unsubscribe(this);
+         }
+         try {
+            this.onDisable();
+         } catch (RuntimeException | LinkageError cleanupFailure) {
+            failure.addSuppressed(cleanupFailure);
+            RuntimeDiagnostics.record(
+               RuntimeDiagnostics.Area.MODULE_LIFECYCLE,
+               this.getName() + " enable rollback",
+               cleanupFailure
+            );
+         }
+         try {
+            ClientAccess.eventBus.post(new ModuleToggleEvent(this));
+            this.onToggle();
+         } catch (RuntimeException | LinkageError rollbackSignalFailure) {
+            failure.addSuppressed(rollbackSignalFailure);
+            RuntimeDiagnostics.record(
+               RuntimeDiagnostics.Area.MODULE_LIFECYCLE,
+               this.getName() + " rollback signal",
+               rollbackSignalFailure
+            );
+         } finally {
+            this.lifecycleState = LifecycleState.DISABLED;
+            this.lifecycleGeneration++;
+         }
+      }
    }
 
    public boolean unregister(Setting<?> setting) {
@@ -128,6 +171,19 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
    @Override
    public boolean isToggled() {
       return this.enabled;
+   }
+
+   public LifecycleState getLifecycleState() {
+      return this.lifecycleState;
+   }
+
+   public long getLifecycleGeneration() {
+      return this.lifecycleGeneration;
+   }
+
+   protected boolean isCurrentLifecycleGeneration(long generation) {
+      return this.lifecycleGeneration == generation
+         && (this.lifecycleState == LifecycleState.ENABLING || this.lifecycleState == LifecycleState.ENABLED);
    }
 
    public void onEnable() {
@@ -276,16 +332,52 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
    }
 
    private void disableInternal() {
-      if (!this.isToggled()) {
+      if (!this.isToggled() || this.lifecycleState == LifecycleState.DISABLING) {
          return;
       }
+
+      this.lifecycleState = LifecycleState.DISABLING;
+      this.lifecycleGeneration++;
       ClientAccess.eventBus.unsubscribe(this);
       this.enabled = false;
-      EventBus eventBus = ClientAccess.eventBus;
-      ModuleToggleEvent toggleEvent = new ModuleToggleEvent(this);
-      eventBus.post(toggleEvent);
-      this.onToggle();
-      this.onDisable();
+      try {
+         try {
+            ClientAccess.eventBus.post(new ModuleToggleEvent(this));
+         } catch (RuntimeException | LinkageError signalFailure) {
+            RuntimeDiagnostics.record(
+               RuntimeDiagnostics.Area.MODULE_LIFECYCLE,
+               this.getName() + " disable signal",
+               signalFailure
+            );
+         }
+         try {
+            this.onToggle();
+         } catch (RuntimeException | LinkageError toggleFailure) {
+            RuntimeDiagnostics.record(
+               RuntimeDiagnostics.Area.MODULE_LIFECYCLE,
+               this.getName() + " disable toggle",
+               toggleFailure
+            );
+         }
+         try {
+            this.onDisable();
+         } catch (RuntimeException | LinkageError disableFailure) {
+            RuntimeDiagnostics.record(
+               RuntimeDiagnostics.Area.MODULE_LIFECYCLE,
+               this.getName() + " disable",
+               disableFailure
+            );
+         }
+      } finally {
+         this.lifecycleState = LifecycleState.DISABLED;
+      }
+   }
+
+   public enum LifecycleState {
+      DISABLED,
+      ENABLING,
+      ENABLED,
+      DISABLING
    }
 
    public String getInfoString() {
