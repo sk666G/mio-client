@@ -24,6 +24,7 @@ import dev.schizo.client.events.LocalPlayerSendPositionEvent;
 import dev.schizo.client.events.LocalPlayerPreTickEvent;
 import dev.schizo.client.events.MultiPlayerGameModeHandleInventoryMouseClickEvent;
 import dev.schizo.client.events.MultiPlayerGameModeUseItemOnEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.events.bus.EventBus;
 import dev.schizo.client.modules.client.AntiCheatModule;
 import dev.schizo.client.modules.exploit.XCarryModule;
@@ -44,7 +45,6 @@ import net.minecraft.client.multiplayer.MultiPlayerGameMode;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.protocol.Packet;
-import net.minecraft.network.protocol.common.ClientboundDisconnectPacket;
 import net.minecraft.network.protocol.game.ClientboundContainerClosePacket;
 import net.minecraft.network.protocol.game.ClientboundContainerSetContentPacket;
 import net.minecraft.network.protocol.game.ClientboundContainerSetSlotPacket;
@@ -58,7 +58,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Blocks;
 
 public final class InventoryStateManager implements ClientAccess {
-   private static final long CLICK_WINDOW_MILLIS = 4000L;
+   private static final long CLICK_WINDOW_NANOS = java.util.concurrent.TimeUnit.SECONDS.toNanos(4L);
    private static final AntiCheatModule antiCheat;
    private static final XCarryModule xCarry;
    private final Map<Integer, DeferredSlotUpdate> deferredSlotUpdates = Collections.synchronizedMap(new HashMap<>());
@@ -216,9 +216,7 @@ public final class InventoryStateManager implements ClientAccess {
    }
 
    private void recordClick() {
-      Queue<Long> timestamps = this.clickTimestamps;
-      long now = System.currentTimeMillis();
-      timestamps.add(now);
+      this.clickTimestamps.add(System.nanoTime());
    }
 
    @EventHandler(priority = -100)
@@ -250,12 +248,8 @@ public final class InventoryStateManager implements ClientAccess {
 
    @EventHandler(priority = 200)
    private void onLocalPlayerPreTick(LocalPlayerPreTickEvent event) {
-      this.clickTimestamps.removeIf(timestamp -> {
-         long ageMillis = System.currentTimeMillis();
-         ageMillis -= timestamp;
-
-         return ageMillis >= CLICK_WINDOW_MILLIS;
-      });
+      long nowNanos = System.nanoTime();
+      this.clickTimestamps.removeIf(timestamp -> nowNanos - timestamp >= CLICK_WINDOW_NANOS);
    }
 
    @EventHandler(priority = -100)
@@ -280,8 +274,7 @@ public final class InventoryStateManager implements ClientAccess {
          }
       }
 
-      if (event.getPacket() instanceof ServerboundContainerClosePacket
-         || event.getPacket() instanceof ClientboundDisconnectPacket) {
+      if (event.getPacket() instanceof ServerboundContainerClosePacket) {
          this.containerOpen = false;
       }
 
@@ -295,9 +288,6 @@ public final class InventoryStateManager implements ClientAccess {
          }
       }
 
-      if (event.getPacket() instanceof ClientboundDisconnectPacket) {
-         this.serverSelectedSlot = -1;
-      }
    }
 
    @EventHandler(priority = -200)
@@ -310,7 +300,7 @@ public final class InventoryStateManager implements ClientAccess {
          ArrayList<Integer> readySlots = new ArrayList<>();
          this.deferredSlotUpdates.forEach(
             (slot, update) -> {
-               if (System.currentTimeMillis() >= update.resumeAtMillis()) {
+               if (deadlineReached(System.nanoTime(), update.resumeAtNanos())) {
                   readySlots.add(slot);
                }
             }
@@ -402,7 +392,13 @@ public final class InventoryStateManager implements ClientAccess {
 
             Map<Integer, DeferredSlotUpdate> deferredMap = this.deferredSlotUpdates;
             int deferredSlot = slotPacket.getSlot();
-            deferredMap.put(deferredSlot, new InventoryStateManager.DeferredSlotUpdate(slotPacket, System.currentTimeMillis() + 500L));
+            deferredMap.put(
+               deferredSlot,
+               new InventoryStateManager.DeferredSlotUpdate(
+                  slotPacket,
+                  System.nanoTime() + java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(500L)
+               )
+            );
 
             event.cancel();
          }
@@ -422,10 +418,30 @@ public final class InventoryStateManager implements ClientAccess {
       return this.localEntityEventPending;
    }
 
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      synchronized (this.deferredSlotUpdates) {
+         this.deferredSlotUpdates.clear();
+      }
+      this.clickTimestamps.clear();
+      this.lastClickTimer.clear();
+      this.enderChestUseTimer.clear();
+      this.containerOpen = false;
+      this.clickBatching = false;
+      this.clickBatchCompleted = false;
+      this.localEntityEventPending = false;
+      this.serverSelectedSlot = -1;
+      this.slotResyncArmed = false;
+   }
+
+   static boolean deadlineReached(long nowNanos, long deadlineNanos) {
+      return nowNanos - deadlineNanos >= 0L;
+   }
+
    public static boolean isClickRateLimited(InventoryStateManager manager) {
       return wouldReachClickLimit(manager, 0);
    }
 
-   private record DeferredSlotUpdate(ClientboundContainerSetSlotPacket packet, long resumeAtMillis) {
+   private record DeferredSlotUpdate(ClientboundContainerSetSlotPacket packet, long resumeAtNanos) {
    }
 }
