@@ -453,7 +453,24 @@ class ModuleCompatibilityTest {
 
    @Test
    void settingReviewCountIncludesExplicitReviewsOnly() {
-      assertTrue(ModuleCompatibility.reviewedSettingCount() >= 57);
+      assertTrue(ModuleCompatibility.reviewedSettingCount() >= 70);
+   }
+
+   @Test
+   void permanentServiceSettingsExposeTheirOwnCompatibilityRisk() {
+      ModuleCompatibility.SettingAssessment serverSlot =
+         ModuleCompatibility.assessSetting(AntiCheatModule.class, "NoServerSlot");
+      ModuleCompatibility.SettingAssessment movementSync =
+         ModuleCompatibility.assessSetting(AntiCheatModule.class, "MovementSync");
+      ModuleCompatibility.SettingAssessment direction =
+         ModuleCompatibility.assessSetting(AntiCheatModule.class, "StrictDirection");
+
+      assertEquals(ModuleCompatibility.Classification.PACKET_AFFECTING, serverSlot.classification());
+      assertEquals(ModuleCompatibility.Classification.SERVER_SENSITIVE, movementSync.classification());
+      assertEquals(ModuleCompatibility.Classification.WORLD_INTERACTION, direction.classification());
+      assertTrue(serverSlot.individuallyReviewed());
+      assertTrue(movementSync.individuallyReviewed());
+      assertTrue(direction.individuallyReviewed());
    }
 
    @Test
