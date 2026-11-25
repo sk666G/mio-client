@@ -1,6 +1,17 @@
 # Combat scan worker snapshot design
 
-**Status:** Design only. AutoCrystal and AnchorAura still read live Minecraft world and entity state from worker threads. This document defines the safe replacement; it does not claim that the concurrency issue is fixed.
+**Status:** Client-thread safety fallback implemented on 2026-11-25. AutoCrystal and AnchorAura no longer submit their live-world placement scans to worker executors. The immutable snapshot worker described below remains the preferred future performance architecture.
+
+## Current safety state
+
+- AutoCrystal and AnchorAura execute their existing placement scans on the Minecraft client thread, where their current WorldUtils, BlockInteractionUtils, DamageUtils, entity, setting and manager reads are owned.
+- Their CompletableFuture fields now act only as an already-completed one-tick publication/revalidation handoff; they no longer represent background work.
+- World/session identity and target/base revalidation remain in place before a result is used.
+- The former private scan executors, FutureTask cancellation machinery, timeout/rejection paths and executor-only tests were removed.
+- This deliberately trades potential client-thread scan cost for correctness. Runtime profiling is required before claiming the performance impact is acceptable.
+- Any future reintroduction of background scanning must use the immutable capture → data-only worker → client-thread revalidation model defined in this document. Reintroducing direct live Minecraft reads on a worker is not acceptable.
+
+The historical dependency audit below describes why the former asynchronous implementation was unsafe and remains the specification for a future snapshot-backed optimization.
 
 ## Problem statement
 
