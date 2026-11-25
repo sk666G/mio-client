@@ -68,7 +68,32 @@ class EventBusLifecycleTest {
       assertEquals(1, calls.get());
    }
 
+   @Test
+   void listenerFailuresAreAttributedAndStillPropagate() {
+      EventProfiler profiler = new EventProfiler(() -> 0L);
+      EventFailureTracker failures = new EventFailureTracker(4);
+      EventBus bus = new EventBus(profiler, failures);
+      FailingListener listener = new FailingListener();
+
+      bus.subscribe(listener);
+      IllegalStateException thrown = assertThrows(IllegalStateException.class, () -> bus.post(new TickEvent()));
+
+      assertEquals("boom", thrown.getMessage());
+      assertEquals(1L, failures.totalFailures());
+      EventFailureTracker.FailureSnapshot snapshot = failures.recentFailures().getFirst();
+      assertTrue(snapshot.listener().contains("FailingListener"));
+      assertEquals("TickEvent", snapshot.eventType());
+      assertEquals("IllegalStateException", snapshot.failureType());
+   }
+
    private static final class TickEvent {
+   }
+
+   private static final class FailingListener {
+      @EventHandler
+      private void onTick(TickEvent event) {
+         throw new IllegalStateException("boom");
+      }
    }
 
    private static final class CountingListener {
