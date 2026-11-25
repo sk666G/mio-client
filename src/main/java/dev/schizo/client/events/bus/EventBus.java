@@ -169,6 +169,32 @@ public class EventBus implements EventDispatcher {
       return listeners != null && listeners.length != 0;
    }
 
+   /**
+    * Dispatches an event while containing ordinary listener failures at the boundary.
+    * Fatal {@link Error}s still propagate. This is intended for external/network callbacks
+    * where one broken subscriber must not tear down the transport thread.
+    */
+   public Object postRecoverable(Object event) {
+      EventListener[] listeners = this.listenersByEventClass.get(event.getClass());
+      if (listeners == null) {
+         return event;
+      }
+
+      boolean profiled = this.profiler.isEnabled();
+      for (EventListener listener : listeners) {
+         try {
+            if (profiled) {
+               this.callProfiled(listener, event);
+            } else {
+               this.callUnprofiled(listener, event);
+            }
+         } catch (RuntimeException ignoredFailure) {
+            // callUnprofiled/callProfiled already attributed and recorded the failure.
+         }
+      }
+      return event;
+   }
+
    @Override
    public Object post(Object event) {
       EventListener[] listeners = this.listenersByEventClass.get(event.getClass());

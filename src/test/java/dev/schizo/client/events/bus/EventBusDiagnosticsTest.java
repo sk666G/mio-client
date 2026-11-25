@@ -15,6 +15,19 @@ class EventBusDiagnosticsTest {
    }
 
    @Test
+   void recoverableDispatchContinuesAfterOrdinaryListenerFailure() {
+      EventBus bus = new EventBus(new EventProfiler(() -> 0L));
+      java.util.concurrent.atomic.AtomicInteger calls = new java.util.concurrent.atomic.AtomicInteger();
+      bus.subscribe(new ThrowingListener(new RuntimeException("boom")));
+      bus.subscribe(new CountingListener(calls));
+
+      bus.postRecoverable(new TickEvent());
+
+      assertEquals(1, calls.get());
+      assertEquals(1L, RuntimeDiagnostics.totalFailureCount());
+   }
+
+   @Test
    void attributesListenerFailureAndStillPropagatesTheOriginalException() {
       EventBus bus = new EventBus(new EventProfiler(() -> 0L));
       RuntimeException expected = new RuntimeException("boom");
@@ -30,6 +43,19 @@ class EventBusDiagnosticsTest {
    }
 
    private static final class TickEvent {
+   }
+
+   private static final class CountingListener {
+      private final java.util.concurrent.atomic.AtomicInteger calls;
+
+      private CountingListener(java.util.concurrent.atomic.AtomicInteger calls) {
+         this.calls = calls;
+      }
+
+      @EventHandler(priority = -100)
+      private void onTick(TickEvent event) {
+         this.calls.incrementAndGet();
+      }
    }
 
    private static final class ThrowingListener {

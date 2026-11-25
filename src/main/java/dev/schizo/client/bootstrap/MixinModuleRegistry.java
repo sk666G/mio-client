@@ -17,9 +17,11 @@ import dev.schizo.client.modules.combat.AutoClickerModule;
 import dev.schizo.client.modules.combat.AutoCrystalModule;
 import dev.schizo.client.modules.combat.NoHitDelayModule;
 import dev.schizo.client.modules.exploit.MultiTaskModule;
+import dev.schizo.client.modules.exploit.PingSpoofModule;
 import dev.schizo.client.modules.exploit.ReachModule;
 import dev.schizo.client.modules.exploit.TridentModule;
 import dev.schizo.client.modules.misc.AntiQuitModule;
+import dev.schizo.client.modules.misc.NoPacketKickModule;
 import dev.schizo.client.modules.misc.SwingModule;
 import dev.schizo.client.modules.movement.ElytraFlyModule;
 import dev.schizo.client.modules.movement.EntityControlModule;
@@ -39,7 +41,9 @@ import dev.schizo.client.modules.render.ChamsModule;
 import dev.schizo.client.modules.render.FreeLookModule;
 import dev.schizo.client.modules.render.GlintModule;
 import dev.schizo.client.modules.render.NoRenderModule;
+import dev.schizo.client.modules.render.SkyboxModule;
 import dev.schizo.client.modules.render.TooltipsModule;
+import dev.schizo.client.modules.render.ViewClipModule;
 import java.util.Objects;
 
 /** Cached module references consumed by mixin hooks without adding synthetic methods to Minecraft classes. */
@@ -86,6 +90,13 @@ public final class MixinModuleRegistry {
    public static volatile SprintModule playerSprintModule;
    public static volatile ReachModule playerReachModule;
    public static volatile NoSlowModule playerNoSlowModule;
+   public static volatile PingSpoofModule connectionPingSpoofModule;
+   public static volatile NoPacketKickModule connectionNoPacketKickModule;
+   public static volatile ViewClipModule levelViewClipModule;
+   public static volatile NoRenderModule levelNoRenderModule;
+   public static volatile FreecamModule levelFreecamModule;
+   public static volatile SkyboxModule levelSkyboxModule;
+   public static volatile ChamsModule levelChamsModule;
 
    public static void bind(ModuleRegistry registry) {
       Objects.requireNonNull(registry, "Module registry is not initialized");
@@ -129,5 +140,12 @@ public final class MixinModuleRegistry {
       playerSprintModule = (SprintModule)Objects.requireNonNull(registry.getModule(SprintModule.class), "Required module is not registered: SprintModule");
       playerReachModule = (ReachModule)Objects.requireNonNull(registry.getModule(ReachModule.class), "Required module is not registered: ReachModule");
       playerNoSlowModule = (NoSlowModule)Objects.requireNonNull(registry.getModule(NoSlowModule.class), "Required module is not registered: NoSlowModule");
+      connectionPingSpoofModule = (PingSpoofModule)Objects.requireNonNull(registry.getModule(PingSpoofModule.class), "Required module is not registered: PingSpoofModule");
+      connectionNoPacketKickModule = (NoPacketKickModule)Objects.requireNonNull(registry.getModule(NoPacketKickModule.class), "Required module is not registered: NoPacketKickModule");
+      levelViewClipModule = (ViewClipModule)Objects.requireNonNull(registry.getModule(ViewClipModule.class), "Required module is not registered: ViewClipModule");
+      levelNoRenderModule = (NoRenderModule)Objects.requireNonNull(registry.getModule(NoRenderModule.class), "Required module is not registered: NoRenderModule");
+      levelFreecamModule = (FreecamModule)Objects.requireNonNull(registry.getModule(FreecamModule.class), "Required module is not registered: FreecamModule");
+      levelSkyboxModule = (SkyboxModule)Objects.requireNonNull(registry.getModule(SkyboxModule.class), "Required module is not registered: SkyboxModule");
+      levelChamsModule = (ChamsModule)Objects.requireNonNull(registry.getModule(ChamsModule.class), "Required module is not registered: ChamsModule");
    }
 }
