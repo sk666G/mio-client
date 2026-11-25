@@ -19,6 +19,7 @@ A module is fully certified only when every applicable gate is satisfied.
 - `;cert` or `;cert status` prints aggregate gate counts.
 - `;cert pending` lists the least-certified registered modules and their next missing gate.
 - `;cert module <ModuleClass>` prints the exact evidence state for one module.
+- Hovering a module row in ClickGUI appends its current certification score, next missing gate and compatibility classification to the normal description tooltip.
 
 Automated evidence is intentionally conservative. Existing focused tests are recorded as **TARGETED** evidence; they do not imply full behavioral coverage.
 
