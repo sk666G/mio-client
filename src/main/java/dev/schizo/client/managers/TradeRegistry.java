@@ -72,7 +72,7 @@ public final class TradeRegistry extends Registry<TradeDefinition> implements Cl
          return false;
       }
 
-      return this.getRegistry().removeIf(trade ->
+      return this.entries.removeIf(trade ->
          trade != null
             && trade.getName() != null
             && trade.getName().equalsIgnoreCase(name)
