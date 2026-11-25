@@ -420,6 +420,11 @@ public final class InventoryStateManager implements ClientAccess {
 
    @EventHandler
    private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.resetRuntimeState();
+   }
+
+   /** Clears transient inventory synchronization state without sending additional packets. */
+   public void resetRuntimeState() {
       synchronized (this.deferredSlotUpdates) {
          this.deferredSlotUpdates.clear();
       }
