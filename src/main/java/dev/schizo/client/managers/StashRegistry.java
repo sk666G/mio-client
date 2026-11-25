@@ -10,6 +10,7 @@
 package dev.schizo.client.managers;
 
 import dev.schizo.client.ClientAccess;
+import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.bus.EventBus;
 import dev.schizo.client.managers.Registry;
 import dev.schizo.client.modules.misc.StashFinderModule;
