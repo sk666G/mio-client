@@ -42,8 +42,12 @@ import net.minecraft.world.phys.AABB;
 
 public final class SwingInteractionManager implements ClientAccess {
    private static final long PENDING_CRYSTAL_TTL_NANOS = TimeUnit.MILLISECONDS.toNanos(300L);
-   private static final AntiCheatModule antiCheat;
-   private static final SwingModule swingModule;
+   private static AntiCheatModule antiCheat() {
+      return ClientContext.requireModule(AntiCheatModule.class);
+   }
+   private static SwingModule swingModule() {
+      return ClientContext.requireModule(SwingModule.class);
+   }
    private final List<PendingCrystalPlacement> pendingCrystals;
    private volatile long sessionGeneration;
 
@@ -58,10 +62,7 @@ public final class SwingInteractionManager implements ClientAccess {
       return 10;
    }
 
-   static {
-      antiCheat = ClientContext.getModule(AntiCheatModule.class);
-      swingModule = ClientContext.getModule(SwingModule.class);
-   }
+   
 
    public boolean tryTrackCrystalPlacement(BlockPos position) {
       if (this.isCrystalPlacementLimited()) {
@@ -86,7 +87,7 @@ public final class SwingInteractionManager implements ClientAccess {
    public void swing(
       InteractionHand hand, SwingAction action, boolean packetOnly
    ) {
-      AntiCheatModule antiCheatSnapshot = antiCheat;
+      AntiCheatModule antiCheatSnapshot = antiCheat();
       if (!action.isEnabled(antiCheatSnapshot)) {
          if (!packetOnly) {
             this.swingClientSide(hand);
@@ -125,13 +126,13 @@ public final class SwingInteractionManager implements ClientAccess {
 
       ClientAccess.schizoMinecraft.player.swingTime = -1;
       ClientAccess.schizoMinecraft.player.swinging = true;
-      SwingModule moduleSnapshot = swingModule;
+      SwingModule moduleSnapshot = swingModule();
       if (moduleSnapshot.isToggled()) {
-         Setting<HandChoice> handSetting = swingModule.handSetting;
+         Setting<HandChoice> handSetting = swingModule().handSetting;
          SwingModule.HandChoice handChoice = handSetting.getValue();
          if (handChoice.getHand() != null) {
             LocalPlayer player = ClientAccess.schizoMinecraft.player;
-            Setting<HandChoice> overrideSetting = swingModule.handSetting;
+            Setting<HandChoice> overrideSetting = swingModule().handSetting;
             SwingModule.HandChoice overrideChoice = overrideSetting.getValue();
             player.swingingArm = overrideChoice.getHand();
             return;
@@ -142,7 +143,7 @@ public final class SwingInteractionManager implements ClientAccess {
    }
 
    public boolean isCrystalPlacementLimited() {
-      AntiCheatModule antiCheatSnapshot = antiCheat;
+      AntiCheatModule antiCheatSnapshot = antiCheat();
       if (!antiCheatSnapshot.isPaperPlacement()) {
          return false;
       }
