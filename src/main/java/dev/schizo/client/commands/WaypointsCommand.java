@@ -213,21 +213,11 @@ public final class WaypointsCommand extends Command {
                ChatUtils.printChat(Component.nullToEmpty(missingWaypointMessage), -1);
                return 1;
             } else {
-               WaypointRegistry registryForRemoval = ClientContext.waypointRegistry;
-               ((List)registryForRemoval.getRegistry()).removeIf(matchesWaypoint);
-               WaypointRegistry registryForReplacement = ClientContext.waypointRegistry;
-               List replacementRegistry = (List)registryForReplacement.getRegistry();
-
-               Vec3 waypointPosition = waypoint.getPosition();
-
-               String waypointDimension = waypoint.getDimension();
-
-               replacementRegistry.add(new Waypoint(
-                     targetName,
-                     waypointPosition,
-                     waypointDimension,
-                     waypoint.getServer()
-                  ));
+               WaypointRegistry waypointRegistry = ClientContext.waypointRegistry;
+               if (!waypointRegistry.renameWaypoint(waypoint, targetName)) {
+                  ChatUtils.printChat(Component.literal("Waypoint could not be renamed"), -1);
+                  return 1;
+               }
 
                String messagePrefix = "Waypoint ";
                MutableComponent renameMessage = Component.literal(messagePrefix);
