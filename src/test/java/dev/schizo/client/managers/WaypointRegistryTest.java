@@ -23,6 +23,15 @@ class WaypointRegistryTest {
    }
 
    @Test
+   void waypointLookupMatchesNameAndServerCaseInsensitively() {
+      Waypoint waypoint = new Waypoint("Home", 1.0, 64.0, 2.0, "minecraft:overworld", "example.org");
+
+      assertTrue(waypoint.matches("home", "EXAMPLE.ORG"));
+      assertFalse(waypoint.matches("mine", "example.org"));
+      assertFalse(waypoint.matches("home", "other.example"));
+   }
+
+   @Test
    void identityRequiresBothNameAndServer() {
       Waypoint stored = new Waypoint("base", 1.0, 64.0, 2.0, "minecraft:overworld", "server.example");
       Waypoint differentName = new Waypoint("mine", 1.0, 64.0, 2.0, "minecraft:overworld", "server.example");
