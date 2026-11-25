@@ -75,6 +75,11 @@ public final class WebhookManager implements JsonConfigurable {
    }
 
    @Override
+   public String getConfigName() {
+      return "webhook.json";
+   }
+
+   @Override
    public JsonElement toJson() {
       Destination target = this.destination;
       JsonObject json = new JsonObject();
