@@ -9,6 +9,7 @@
 
 package dev.schizo.client.commands;
 
+import dev.schizo.client.diagnostics.RuntimeDiagnostics;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.managers.TaskScheduler;
 import dev.schizo.client.utils.chat.ChatUtils;
@@ -203,7 +204,7 @@ public final class NamehistoryCommand extends Command {
 
             ChatUtils.printChat(message, ChatUtils.createSignature(-3));
          } catch (Exception formatFailure) {
-            formatFailure.printStackTrace();
+            RuntimeDiagnostics.record(RuntimeDiagnostics.Area.COMMAND, "Name history formatting", formatFailure);
          }
       }
    }
