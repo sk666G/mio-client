@@ -27,7 +27,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
-/** Bounded, atomic backups for top-level Schizo JSON configuration files. */
+/** Bounded, atomic backups for safe Schizo JSON configuration paths under the data root. */
 public final class ConfigurationBackupManager {
    public static final int MAX_BACKUPS_PER_CONFIG = 5;
    public static final long MAX_CONFIG_BYTES = 8L * 1024L * 1024L;
@@ -55,6 +55,7 @@ public final class ConfigurationBackupManager {
       if (!Files.exists(source, LinkOption.NOFOLLOW_LINKS)) {
          return null;
       }
+      this.requireSafeConfigParent(source);
       this.requireRegularFile(source, "Configuration");
       long size = Files.size(source);
       if (size > MAX_CONFIG_BYTES) {
@@ -69,12 +70,12 @@ public final class ConfigurationBackupManager {
          }
       }
 
-      this.ensureBackupDirectory();
+      Path configBackupDirectory = this.ensureBackupDirectory(configName);
       long timestamp = this.nextTimestampMillis(configName);
-      String fileName = configName + "." + String.format(Locale.ROOT, "%013d", timestamp)
+      String fileName = this.configFileName(configName) + "." + String.format(Locale.ROOT, "%013d", timestamp)
          + "-" + UUID.randomUUID().toString().substring(0, 8) + ".bak";
       Path target = this.resolveBackup(configName, fileName);
-      Path temporary = Files.createTempFile(this.backupDirectory, ".config-backup-", ".tmp");
+      Path temporary = Files.createTempFile(configBackupDirectory, ".config-backup-", ".tmp");
       try {
          Files.copy(source, temporary, StandardCopyOption.REPLACE_EXISTING);
          this.moveAtomically(temporary, target, false);
@@ -90,18 +91,19 @@ public final class ConfigurationBackupManager {
    public synchronized BackupRecord createBackup(String configName) throws IOException {
       Path source = this.resolveConfig(configName);
       this.requireRootDirectory();
+      this.requireSafeConfigParent(source);
       this.requireRegularFile(source, "Configuration");
       long size = Files.size(source);
       if (size > MAX_CONFIG_BYTES) {
          throw new IOException("Configuration exceeds the backup size limit");
       }
 
-      this.ensureBackupDirectory();
+      Path configBackupDirectory = this.ensureBackupDirectory(configName);
       long timestamp = this.nextTimestampMillis(configName);
-      String fileName = configName + "." + String.format(Locale.ROOT, "%013d", timestamp)
+      String fileName = this.configFileName(configName) + "." + String.format(Locale.ROOT, "%013d", timestamp)
          + "-" + UUID.randomUUID().toString().substring(0, 8) + ".bak";
       Path target = this.resolveBackup(configName, fileName);
-      Path temporary = Files.createTempFile(this.backupDirectory, ".config-backup-", ".tmp");
+      Path temporary = Files.createTempFile(configBackupDirectory, ".config-backup-", ".tmp");
       try {
          Files.copy(source, temporary, StandardCopyOption.REPLACE_EXISTING);
          this.moveAtomically(temporary, target, false);
@@ -124,6 +126,7 @@ public final class ConfigurationBackupManager {
          if (!Files.exists(file, LinkOption.NOFOLLOW_LINKS)) {
             return new ConfigDiagnostic(configName, ConfigStatus.MISSING, 0L, "File does not exist");
          }
+         this.requireSafeConfigParent(file);
          if (Files.isSymbolicLink(file) || !Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)) {
             return new ConfigDiagnostic(configName, ConfigStatus.UNSAFE, -1L, "Not a regular file");
          }
@@ -161,14 +164,14 @@ public final class ConfigurationBackupManager {
 
    public synchronized List<BackupRecord> listBackups(String configName) throws IOException {
       this.resolveConfig(configName);
-      if (!Files.exists(this.backupDirectory, LinkOption.NOFOLLOW_LINKS)) {
+      Path configBackupDirectory = this.backupDirectoryFor(configName);
+      if (!Files.exists(configBackupDirectory, LinkOption.NOFOLLOW_LINKS)) {
          return List.of();
       }
-      this.requireRealBackupDirectory();
+      this.requireRealBackupDirectory(configName);
 
-      String prefix = configName + ".";
       List<BackupRecord> backups = new ArrayList<>();
-      try (DirectoryStream<Path> entries = Files.newDirectoryStream(this.backupDirectory)) {
+      try (DirectoryStream<Path> entries = Files.newDirectoryStream(configBackupDirectory)) {
          for (Path entry : entries) {
             String name = entry.getFileName().toString();
             if (!name.matches(this.backupNamePattern(configName))
@@ -192,7 +195,8 @@ public final class ConfigurationBackupManager {
       Path destination = this.resolveConfig(configName);
       Path source = this.resolveBackup(configName, backupFileName);
       this.requireRootDirectory();
-      this.requireRealBackupDirectory();
+      this.requireSafeConfigParent(destination);
+      this.requireRealBackupDirectory(configName);
       this.requireRegularFile(source, "Backup");
 
       long size = Files.size(source);
@@ -234,13 +238,49 @@ public final class ConfigurationBackupManager {
    }
 
    private Path resolveConfig(String configName) {
-      if (configName == null || !configName.matches("[A-Za-z0-9_-][A-Za-z0-9._-]{0,123}\\.json")
-         || configName.contains("..")) {
+      if (configName == null || configName.isBlank()) {
          throw new IllegalArgumentException("Invalid configuration file name");
       }
-      Path target = this.root.resolve(configName).normalize();
-      if (!target.getParent().equals(this.root)) {
+
+      Path relative;
+      try {
+         relative = Path.of(configName);
+      } catch (RuntimeException invalidPath) {
+         throw new IllegalArgumentException("Invalid configuration file name", invalidPath);
+      }
+      if (relative.isAbsolute() || relative.getNameCount() < 1 || relative.getNameCount() > 8
+         || !relative.equals(relative.normalize())) {
+         throw new IllegalArgumentException("Invalid configuration file name");
+      }
+
+      for (int index = 0; index < relative.getNameCount(); index++) {
+         String component = relative.getName(index).toString();
+         boolean finalComponent = index == relative.getNameCount() - 1;
+         String pattern = finalComponent
+            ? "[A-Za-z0-9_-][A-Za-z0-9._-]{0,123}\\.json"
+            : "[A-Za-z0-9_-][A-Za-z0-9._-]{0,63}";
+         if (!component.matches(pattern) || component.contains("..")) {
+            throw new IllegalArgumentException("Invalid configuration file name");
+         }
+      }
+
+      Path target = this.root.resolve(relative).normalize();
+      if (!target.startsWith(this.root) || !this.root.relativize(target).equals(relative)) {
          throw new IllegalArgumentException("Configuration path escaped its root");
+      }
+      return target;
+   }
+
+   private String configFileName(String configName) {
+      return this.root.relativize(this.resolveConfig(configName)).getFileName().toString();
+   }
+
+   private Path backupDirectoryFor(String configName) {
+      Path relative = this.root.relativize(this.resolveConfig(configName));
+      Path parent = relative.getParent();
+      Path target = parent == null ? this.backupDirectory : this.backupDirectory.resolve(parent).normalize();
+      if (!target.startsWith(this.backupDirectory)) {
+         throw new IllegalArgumentException("Backup path escaped its directory");
       }
       return target;
    }
@@ -250,8 +290,9 @@ public final class ConfigurationBackupManager {
       if (backupFileName == null || !backupFileName.matches(this.backupNamePattern(configName))) {
          throw new IOException("Invalid backup file name");
       }
-      Path target = this.backupDirectory.resolve(backupFileName).normalize();
-      if (!target.getParent().equals(this.backupDirectory)) {
+      Path directory = this.backupDirectoryFor(configName);
+      Path target = directory.resolve(backupFileName).normalize();
+      if (!target.getParent().equals(directory)) {
          throw new IOException("Backup path escaped its directory");
       }
       return target;
@@ -264,18 +305,50 @@ public final class ConfigurationBackupManager {
       }
    }
 
-   private void ensureBackupDirectory() throws IOException {
+   private Path ensureBackupDirectory(String configName) throws IOException {
       this.requireRootDirectory();
-      if (!Files.exists(this.backupDirectory, LinkOption.NOFOLLOW_LINKS)) {
-         Files.createDirectories(this.backupDirectory);
+      Path target = this.backupDirectoryFor(configName);
+      Path current = this.root;
+      for (Path component : this.root.relativize(target)) {
+         current = current.resolve(component);
+         if (!Files.exists(current, LinkOption.NOFOLLOW_LINKS)) {
+            Files.createDirectory(current);
+         }
+         if (Files.isSymbolicLink(current)
+            || !Files.isDirectory(current, LinkOption.NOFOLLOW_LINKS)) {
+            throw new IOException("Configuration backup path is not a real directory");
+         }
       }
-      this.requireRealBackupDirectory();
+      return target;
    }
 
-   private void requireRealBackupDirectory() throws IOException {
-      if (Files.isSymbolicLink(this.backupDirectory)
-         || !Files.isDirectory(this.backupDirectory, LinkOption.NOFOLLOW_LINKS)) {
-         throw new IOException("Configuration backup path is not a real directory");
+   private void requireRealBackupDirectory(String configName) throws IOException {
+      Path target = this.backupDirectoryFor(configName);
+      if (!Files.exists(target, LinkOption.NOFOLLOW_LINKS)) {
+         throw new IOException("Configuration backup path does not exist");
+      }
+      Path current = this.root;
+      for (Path component : this.root.relativize(target)) {
+         current = current.resolve(component);
+         if (Files.isSymbolicLink(current)
+            || !Files.isDirectory(current, LinkOption.NOFOLLOW_LINKS)) {
+            throw new IOException("Configuration backup path is not a real directory");
+         }
+      }
+   }
+
+   private void requireSafeConfigParent(Path config) throws IOException {
+      Path parent = config.getParent();
+      if (parent == null || !parent.startsWith(this.root)) {
+         throw new IOException("Configuration parent escaped its root");
+      }
+      Path current = this.root;
+      for (Path component : this.root.relativize(parent)) {
+         current = current.resolve(component);
+         if (Files.isSymbolicLink(current)
+            || !Files.isDirectory(current, LinkOption.NOFOLLOW_LINKS)) {
+            throw new IOException("Configuration parent is not a real directory");
+         }
       }
    }
 
@@ -327,7 +400,8 @@ public final class ConfigurationBackupManager {
    }
 
    private String backupNamePattern(String configName) {
-      return java.util.regex.Pattern.quote(configName) + "\\.[0-9]{13}-[0-9a-f]{8}\\.bak";
+      return java.util.regex.Pattern.quote(this.configFileName(configName))
+         + "\\.[0-9]{13}-[0-9a-f]{8}\\.bak";
    }
 
    private long nextTimestampMillis(String configName) throws IOException {
