@@ -44,14 +44,18 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
 public class CrystalInteractionManager implements ClientAccess {
-   private static final SwingModule swing;
-   private static final AutoCrystalModule autoCrystal;
+   private static SwingModule swing() {
+      return ClientContext.requireModule(SwingModule.class);
+   }
+   private static AutoCrystalModule autoCrystal() {
+      return ClientContext.requireModule(AutoCrystalModule.class);
+   }
    private final ElapsedTimer attackCooldownTimer = new ElapsedTimer();
    private long additionalCooldownMillis;
    private int lastAttackedEntityId;
 
    public int getMinimumCrystalAge() {
-      return autoCrystal.ticksExistedSetting.getValue();
+      return autoCrystal().ticksExistedSetting.getValue();
    }
 
    public void setLastAttackedEntityId(int entityId) {
@@ -59,11 +63,11 @@ public class CrystalInteractionManager implements ClientAccess {
    }
 
    public boolean isRotationEnabled() {
-      return autoCrystal.rotateSetting.getValue();
+      return autoCrystal().rotateSetting.getValue();
    }
 
    public boolean isInstantAttackEnabled() {
-      return autoCrystal.instantSetting.getValue() != AutoCrystalInstantChoice.NONE;
+      return autoCrystal().instantSetting.getValue() != AutoCrystalInstantChoice.NONE;
    }
 
    private boolean selectWeaknessWeapon() {
@@ -72,7 +76,7 @@ public class CrystalInteractionManager implements ClientAccess {
 
       boolean holdingTool = heldStack.has(toolComponent);
 
-      if (autoCrystal.weaknessSetting.getValue() == AutoCrystalWeaknessChoice.NONE) {
+      if (autoCrystal().weaknessSetting.getValue() == AutoCrystalWeaknessChoice.NONE) {
          return false;
       }
       LocalPlayer weaknessPlayer = ClientAccess.schizoMinecraft.player;
@@ -90,8 +94,8 @@ public class CrystalInteractionManager implements ClientAccess {
          return false;
       }
 
-      if (autoCrystal.weaknessSetting.getValue() == AutoCrystalWeaknessChoice.SILENT) {
-         autoCrystal.ignoreNextSlotChange();
+      if (autoCrystal().weaknessSetting.getValue() == AutoCrystalWeaknessChoice.SILENT) {
+         autoCrystal().ignoreNextSlotChange();
       }
 
       InventoryUtils.selectHotbarSlotForPlacement(weaponSlot);
@@ -99,7 +103,7 @@ public class CrystalInteractionManager implements ClientAccess {
    }
 
    public int getAttackDelayMillis() {
-      return autoCrystal.breakDelaySetting.getValue();
+      return autoCrystal().breakDelaySetting.getValue();
    }
 
    private void scheduleClientAttack(int entityId) {
@@ -133,10 +137,7 @@ public class CrystalInteractionManager implements ClientAccess {
       eventBus.subscribe(this);
    }
 
-   static {
-      swing = (SwingModule)ClientContext.getModule(SwingModule.class);
-      autoCrystal = (AutoCrystalModule)ClientContext.getModule(AutoCrystalModule.class);
-   }
+   
 
    private void resetAttackCooldown(InteractionHand hand) {
       ((PlayerState)ClientAccess.schizoMinecraft.player).schizo$resetLastAttackedServer();
@@ -145,11 +146,11 @@ public class CrystalInteractionManager implements ClientAccess {
       if (!cooldownTimerRef.hasElapsedAndReset(elapsedThreshold) || hand != InteractionHand.MAIN_HAND) {
          return;
       }
-      Setting<HandChoice> handSetting = swing.handSetting;
+      Setting<HandChoice> handSetting = swing().handSetting;
       if (handSetting.getValue() == SwingModule.HandChoice.OFFHAND) {
          return;
       }
-      Setting<TypeChoice> typeSetting = swing.typeSetting;
+      Setting<TypeChoice> typeSetting = swing().typeSetting;
       if (typeSetting.getValue() == SwingModule.TypeChoice.VANILLA) {
          return;
       }
@@ -196,8 +197,8 @@ public class CrystalInteractionManager implements ClientAccess {
       this.resetAttackCooldown(hand);
       this.scheduleClientAttack(entityId);
       if (switchedForWeakness) {
-         if (autoCrystal.weaknessSetting.getValue() == AutoCrystalWeaknessChoice.SILENT) {
-            autoCrystal.ignoreNextSlotChange();
+         if (autoCrystal().weaknessSetting.getValue() == AutoCrystalWeaknessChoice.SILENT) {
+            autoCrystal().ignoreNextSlotChange();
 
             InventoryUtils.selectHotbarSlotForPlacement(previousSlot);
          }
