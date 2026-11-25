@@ -225,7 +225,7 @@ public abstract class Setting<T> extends NamedFeature implements ValueProvider<T
       if (this.changeCallback != null) {
          try {
             this.changeCallback.run();
-         } catch (RuntimeException | Error callbackFailure) {
+         } catch (RuntimeException callbackFailure) {
             RuntimeDiagnostics.GLOBAL.record(
                RuntimeDiagnostics.Area.SETTING_CALLBACK,
                this.getConfigName(),
