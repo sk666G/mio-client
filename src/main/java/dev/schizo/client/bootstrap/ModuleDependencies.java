@@ -130,6 +130,7 @@ public final class ModuleDependencies {
       AutoExpModule.bindReferencedModules(registry);
       BetterChatModule.bindReferencedModules(registry);
       HUDModule.bindReferencedModules(registry);
+      dev.schizo.client.modules.HudWidgetModule.bindModules(registry);
       ChamsModule.bindReferencedModules(registry);
       NameTagsModule.bindReferencedModules(registry);
       KeyPearlModule.bindReferencedModules(registry);
