@@ -27,7 +27,7 @@ public class HudAnchorGroup implements ClientAccess, GuiElement {
    private final HudAnchor anchor;
 
    private static HUDModule hud() {
-      HUDModule hud = HUDModule.INSTANCE;
+      HUDModule hud = ClientContext.getModule(HUDModule.class);
       if (hud == null) {
          throw new IllegalStateException("HUD module is not initialized");
       }
