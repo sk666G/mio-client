@@ -65,9 +65,9 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 
 public class NukerModule extends Module {
-   private static AntiCheatModule antiCheatModule = (AntiCheatModule)ClientContext.getModule(AntiCheatModule.class);
-   private static ItemSaverModule itemSaverModule = (ItemSaverModule)ClientContext.getModule(ItemSaverModule.class);
-   private static SpeedMineModule speedMineModule = (SpeedMineModule)ClientContext.getModule(SpeedMineModule.class);
+
+
+
    final Setting<Set<Block>> blocksSetting;
    final Setting<NukerModeChoice> modeSetting;
    final Setting<NukerShapeChoice> shapeSetting;
@@ -98,22 +98,22 @@ public class NukerModule extends Module {
    }
 
    private boolean shouldUseInstantBlockFilter() {
-      SpeedMineModule speedMineForToggle = speedMineModule;
+      SpeedMineModule speedMineForToggle = schizo$speedMineModule();
       if (!speedMineForToggle.isToggled()) {
          return false;
       }
 
-      SpeedMineModule speedMineSnapshot = speedMineModule;
+      SpeedMineModule speedMineSnapshot = schizo$speedMineModule();
       BlockPos primaryTarget = speedMineSnapshot.getMiningPos();
       if (primaryTarget == null) {
-         speedMineSnapshot = speedMineModule;
+         speedMineSnapshot = schizo$speedMineModule();
          primaryTarget = speedMineSnapshot.getRebreakPos();
       }
 
       BlockPos extraTarget = null;
-      speedMineSnapshot = speedMineModule;
+      speedMineSnapshot = schizo$speedMineModule();
       if (speedMineSnapshot.getExtraBreakTarget() != null) {
-         speedMineSnapshot = speedMineModule;
+         speedMineSnapshot = schizo$speedMineModule();
          extraTarget = speedMineSnapshot.getExtraBreakTarget().getPosition();
       }
 
@@ -125,8 +125,8 @@ public class NukerModule extends Module {
    }
 
    private int getMiningBatchLimit() {
-      if (speedMineModule.isToggled()) {
-         Boolean extraBreakEnabled = speedMineModule.extraBreakSetting.getValue();
+      if (schizo$speedMineModule().isToggled()) {
+         Boolean extraBreakEnabled = schizo$speedMineModule().extraBreakSetting.getValue();
          int batchLimit;
          if (extraBreakEnabled) {
             batchLimit = 2;
@@ -176,8 +176,8 @@ public class NukerModule extends Module {
       if (!delayTimerWork.hasElapsed(delayMillis)) {
          return;
       }
-      if (speedMineModule.isToggled()) {
-         SpeedMineModule speedMineForDelaySnapshot = speedMineModule;
+      if (schizo$speedMineModule().isToggled()) {
+         SpeedMineModule speedMineForDelaySnapshot = schizo$speedMineModule();
          long speedMineDelayCapture = (this.delaySetting.getValue()).intValue();
          if (!speedMineForDelaySnapshot.hasCrystalDelayElapsed(speedMineDelayCapture)) {
             return;
@@ -212,7 +212,7 @@ public class NukerModule extends Module {
          if (!this.canMineBlock(candidatePos)) {
             continue;
          }
-         if (antiCheatModule.isPacketLimitReached()) {
+         if (schizo$antiCheatModule().isPacketLimitReached()) {
             break;
          }
          this.internalMining = true;
@@ -230,7 +230,7 @@ public class NukerModule extends Module {
             Setting<Boolean> creativeSetting = this.creativeSetting;
             Boolean creativeEnabled = creativeSetting.getValue();
             if (!creativeEnabled) {
-               SpeedMineModule speedMine = speedMineModule;
+               SpeedMineModule speedMine = schizo$speedMineModule();
                if (!speedMine.isToggled()) {
                   return;
                }
@@ -246,12 +246,12 @@ public class NukerModule extends Module {
          return;
       }
 
-      ExtraBreakTarget extraTask = speedMineModule.getExtraBreakTarget();
+      ExtraBreakTarget extraTask = schizo$speedMineModule().getExtraBreakTarget();
       NukerBlockQueue queueSnapshot = this.blockQueue;
 
       for (BlockPos queuedPos : queueSnapshot.getPositions()) {
-         if (speedMineModule.isToggled()) {
-            SpeedMineModule speedMineForPrimarySnapshot = speedMineModule;
+         if (schizo$speedMineModule().isToggled()) {
+            SpeedMineModule speedMineForPrimarySnapshot = schizo$speedMineModule();
 
             if (queuedPos.equals(speedMineForPrimarySnapshot.getMiningPos())) {
                continue;
@@ -329,7 +329,7 @@ public class NukerModule extends Module {
       }
 
       this.blocksMinedThisTick++;
-      if (speedMineModule.isToggled()) {
+      if (schizo$speedMineModule().isToggled()) {
          SpeedMineModule.automatedMiningStart = true;
          ClientAccess.schizoMinecraft.gameMode.startDestroyBlock(blockPos, miningDirection);
          SpeedMineModule.automatedMiningStart = false;
@@ -352,7 +352,7 @@ public class NukerModule extends Module {
          double breakProgress = WorldUtils.getBreakProgress(
             stack, blockState, onGround
          );
-         if (itemSaverModule.isToggled()) {
+         if (schizo$itemSaverModule().isToggled()) {
             if (!ItemSaverModule.isSafeToUse(stack)) {
                continue;
             }
@@ -370,7 +370,7 @@ public class NukerModule extends Module {
       LocalPlayer playerForCreative = ClientAccess.schizoMinecraft.player;
       boolean survivalPlayer = !playerForCreative.isCreative();
       if (this.creativeSetting.getValue()) {
-         if (antiCheatModule.is2b2tEnabled() && survivalPlayer) {
+         if (schizo$antiCheatModule().is2b2tEnabled() && survivalPlayer) {
             InventoryUtils.selectHotbarSlotForPlacement(bestSlot);
          }
 
@@ -414,8 +414,8 @@ public class NukerModule extends Module {
    }
 
    public boolean canMineBlock(BlockPos blockPos) {
-      if (speedMineModule.isToggled()) {
-         if (speedMineModule.getExtraBreakTracker().isTracked(blockPos)) {
+      if (schizo$speedMineModule().isToggled()) {
+         if (schizo$speedMineModule().getExtraBreakTracker().isTracked(blockPos)) {
             return false;
          }
       }
@@ -439,8 +439,8 @@ public class NukerModule extends Module {
       }
 
       double allowedRange = selectedRangeValue.floatValue();
-      if (speedMineModule.isToggled()) {
-         double speedMineRangeLimit = (speedMineModule.rangeSetting.getValue()).floatValue();
+      if (schizo$speedMineModule().isToggled()) {
+         double speedMineRangeLimit = (schizo$speedMineModule().rangeSetting.getValue()).floatValue();
          allowedRange = Math.min(allowedRange, speedMineRangeLimit);
       }
 
@@ -469,13 +469,13 @@ public class NukerModule extends Module {
    }
 
    public static void bindReferencedModules(ModuleRegistry moduleRegistry) {
-      antiCheatModule = (AntiCheatModule)moduleRegistry.getModule(
+      schizo$antiCheatModule() = (AntiCheatModule)moduleRegistry.getModule(
          AntiCheatModule.class
       );
-      itemSaverModule = (ItemSaverModule)moduleRegistry.getModule(
+      schizo$itemSaverModule() = (ItemSaverModule)moduleRegistry.getModule(
          ItemSaverModule.class
       );
-      speedMineModule = (SpeedMineModule)moduleRegistry.getModule(
+      schizo$speedMineModule() = (SpeedMineModule)moduleRegistry.getModule(
          SpeedMineModule.class
       );
       NukerShapeChoice.bindModules(moduleRegistry);
@@ -524,7 +524,7 @@ public class NukerModule extends Module {
       visibilitySetting.addVisibilityPredicate(visibilityPredicate);
       visibilitySetting = this.bPTSetting;
       Predicate<Integer> batchLimitVisibility = ignored -> {
-         SpeedMineModule visibilitySnapshot = speedMineModule;
+         SpeedMineModule visibilitySnapshot = schizo$speedMineModule();
          return !visibilitySnapshot.isToggled();
       };
 
@@ -536,4 +536,16 @@ public class NukerModule extends Module {
       BlockPos blockPos,
       long expiresAtMillis
    ) {}
+
+   private static AntiCheatModule schizo$antiCheatModule() {
+      return ClientContext.requireModule(AntiCheatModule.class);
+   }
+
+   private static ItemSaverModule schizo$itemSaverModule() {
+      return ClientContext.requireModule(ItemSaverModule.class);
+   }
+
+   private static SpeedMineModule schizo$speedMineModule() {
+      return ClientContext.requireModule(SpeedMineModule.class);
+   }
 }
