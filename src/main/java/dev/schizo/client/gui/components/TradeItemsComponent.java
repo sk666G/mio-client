@@ -10,7 +10,7 @@
 package dev.schizo.client.gui.components;
 
 import dev.schizo.client.ClientAccess;
-import dev.schizo.client.gui.screens.ClientScreen;
+import dev.schizo.client.render.GuiScaleUtils;
 import dev.schizo.client.gui.screens.TradeEditorScreen;
 import dev.schizo.client.render.GuiDrawUtils;
 import dev.schizo.client.utils.math.FloatBounds;
@@ -237,9 +237,13 @@ public class TradeItemsComponent extends AbstractComponent {
                );
             }
 
-            ClientScreen screen = (ClientScreen)ClientAccess.schizoMinecraft.screen;
+            selector.updateLayout();
+            double scale = GuiScaleUtils.calculateScaleMultiplier(this.screen.getGuiScale());
+            selector.placeWithinViewport(selector.getX(), selector.getY(),
+               ClientAccess.schizoMinecraft.getWindow().getGuiScaledWidth() / scale,
+               ClientAccess.schizoMinecraft.getWindow().getGuiScaledHeight() / scale);
             this.activeSelector = selector;
-            screen.getPanels().add(selector);
+            this.screen.getPanels().add(selector);
          }
       }
    }
@@ -310,8 +314,8 @@ public class TradeItemsComponent extends AbstractComponent {
    }
 
    public void closeSelector() {
-      if (this.activeSelector != null && ClientAccess.schizoMinecraft.screen instanceof ClientScreen screen) {
-         screen.getPanels().remove(this.activeSelector);
+      if (this.activeSelector != null) {
+         this.screen.getPanels().remove(this.activeSelector);
       }
       this.activeSelector = null;
    }
