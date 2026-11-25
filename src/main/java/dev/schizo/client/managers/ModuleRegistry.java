@@ -36,10 +36,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
-import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 public final class ModuleRegistry extends Registry<Module> implements ClientAccess, JsonConfigurable {
    private final Object2ObjectOpenHashMap<Class<?>, Module> modulesByClass = new Object2ObjectOpenHashMap<>();
@@ -48,11 +45,11 @@ public final class ModuleRegistry extends Registry<Module> implements ClientAcce
    public List<PlacementModule> getPlacementModules() {
       ArrayList<PlacementModule> placementModules = new ArrayList<>();
       List<Module> registeredModules = (List<Module>)this.entries;
-      registeredModules.forEach((Consumer<Module>)module -> {
+      for (Module module : registeredModules) {
          if (module instanceof PlacementModule placementModule) {
             placementModules.add(placementModule);
          }
-      });
+      }
       return placementModules;
    }
 
@@ -342,10 +339,15 @@ public final class ModuleRegistry extends Registry<Module> implements ClientAcce
       return this.getModule(moduleType);
    }
 
-   public List getModulesByCategory(ModuleCategory category) {
+   public List<Module> getModulesByCategory(ModuleCategory category) {
+      List<Module> matchingModules = new ArrayList<>();
       List<Module> registeredModules = (List<Module>)this.entries;
-      Stream<Module> modules = registeredModules.stream();
-      return modules.filter(module -> module.getCategory() == category).collect(Collectors.toList());
+      for (Module module : registeredModules) {
+         if (module.getCategory() == category) {
+            matchingModules.add(module);
+         }
+      }
+      return matchingModules;
    }
 
    @EventHandler
@@ -359,22 +361,15 @@ public final class ModuleRegistry extends Registry<Module> implements ClientAcce
 
       while (modulesIterator.hasNext()) {
          Module module = modulesIterator.next();
-         Keybind keybindForDeviceCheck = module.getKeybind();
+         Keybind keybind = module.getKeybind();
 
-         boolean mouseBinding = keybindForDeviceCheck.mouse();
-         if (mouseBinding != inputEvent.isMouse()) {
+         if (keybind.mouse() != inputEvent.isMouse()) {
             continue;
          }
-         Keybind keybindForCodeCheck = module.getKeybind();
-
-         int bindingCode = keybindForCodeCheck.code();
-         if (bindingCode != inputEvent.getCode()) {
+         if (keybind.code() != inputEvent.getCode()) {
             continue;
          }
-         Keybind keybindForModeCheck = module.getKeybind();
-
-         if (keybindForModeCheck.mode()
-            == Keybind.Mode.TOGGLE) {
+         if (keybind.mode() == Keybind.Mode.TOGGLE) {
             module.toggle();
          }
       }
