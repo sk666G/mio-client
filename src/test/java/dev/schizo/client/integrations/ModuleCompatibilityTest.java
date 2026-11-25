@@ -40,6 +40,7 @@ import dev.schizo.client.modules.hud.TextRadarModule;
 import dev.schizo.client.modules.hud.TotemsModule;
 import dev.schizo.client.modules.hud.WatermarkModule;
 import dev.schizo.client.modules.hud.WelcomerModule;
+import dev.schizo.client.modules.misc.*;
 import dev.schizo.client.modules.movement.ElytraFlyModule;
 import dev.schizo.client.modules.movement.FakeLagModule;
 import dev.schizo.client.modules.movement.FastClimbModule;
@@ -176,6 +177,42 @@ class ModuleCompatibilityTest {
       for (Class<?> moduleType : hudModules) {
          assertClassification(moduleType, ModuleCompatibility.Classification.VISUAL_ONLY);
       }
+   }
+
+   @Test
+   void classifiesReviewedMiscModulesWithoutGuessingSwing() {
+      assertClassification(AnnouncerModule.class, ModuleCompatibility.Classification.WORLD_INTERACTION);
+      assertClassification(AntiAFKModule.class, ModuleCompatibility.Classification.SERVER_SENSITIVE);
+      assertClassification(AntiAimModule.class, ModuleCompatibility.Classification.SERVER_SENSITIVE);
+      assertClassification(AntiCyrillicModule.class, ModuleCompatibility.Classification.PACKET_AFFECTING);
+      assertClassification(AntiQuitModule.class, ModuleCompatibility.Classification.INPUT_MODIFYING);
+      assertClassification(AntiSpamModule.class, ModuleCompatibility.Classification.CLIENT_ONLY);
+      assertClassification(AutoReconnectModule.class, ModuleCompatibility.Classification.SERVER_SENSITIVE);
+      assertClassification(AutoRespawnModule.class, ModuleCompatibility.Classification.WORLD_INTERACTION);
+      assertClassification(AutoSignModule.class, ModuleCompatibility.Classification.WORLD_INTERACTION);
+      assertClassification(BetterChatModule.class, ModuleCompatibility.Classification.PACKET_AFFECTING);
+      assertClassification(ChatFilterModule.class, ModuleCompatibility.Classification.CLIENT_ONLY);
+      assertClassification(ChestSearchBarModule.class, ModuleCompatibility.Classification.CLIENT_ONLY);
+      assertClassification(CoordLoggerModule.class, ModuleCompatibility.Classification.CLIENT_ONLY);
+      assertClassification(CustomDeathTextModule.class, ModuleCompatibility.Classification.VISUAL_ONLY);
+      assertClassification(ExtraScreenshotModule.class, ModuleCompatibility.Classification.CLIENT_ONLY);
+      assertClassification(ExtraTabModule.class, ModuleCompatibility.Classification.VISUAL_ONLY);
+      assertClassification(HeavenModule.class, ModuleCompatibility.Classification.VISUAL_ONLY);
+      assertClassification(KillEffectsModule.class, ModuleCompatibility.Classification.VISUAL_ONLY);
+      assertClassification(MiddleClickModule.class, ModuleCompatibility.Classification.WORLD_INTERACTION);
+      assertClassification(NoNarratorModule.class, ModuleCompatibility.Classification.CLIENT_ONLY);
+      assertClassification(NoPacketKickModule.class, ModuleCompatibility.Classification.PACKET_AFFECTING);
+      assertClassification(NoRotateModule.class, ModuleCompatibility.Classification.PACKET_AFFECTING);
+      assertClassification(SkinFlickerModule.class, ModuleCompatibility.Classification.PACKET_AFFECTING);
+      assertClassification(SoundBlockerModule.class, ModuleCompatibility.Classification.VISUAL_ONLY);
+      assertClassification(SpammerModule.class, ModuleCompatibility.Classification.WORLD_INTERACTION);
+      assertClassification(StashFinderModule.class, ModuleCompatibility.Classification.CLIENT_ONLY);
+      assertClassification(VisualRangeModule.class, ModuleCompatibility.Classification.VISUAL_ONLY);
+      assertClassification(WebhookNotifsModule.class, ModuleCompatibility.Classification.CLIENT_ONLY);
+
+      ModuleCompatibility.Assessment swing = ModuleCompatibility.assess(SwingModule.class);
+      assertEquals(ModuleCompatibility.Classification.UNVERIFIED, swing.classification());
+      assertFalse(swing.sourceReviewed());
    }
 
    @Test
