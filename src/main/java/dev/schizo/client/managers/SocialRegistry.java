@@ -14,7 +14,6 @@ import dev.schizo.client.modules.misc.SocialEntry;
 import dev.schizo.client.utils.entity.PlayerState;
 
 import dev.schizo.client.ClientAccess;
-import dev.schizo.client.ClientContext;
 import dev.schizo.client.managers.Registry;
 import dev.schizo.client.modules.client.ColorsModule;
 import dev.schizo.client.settings.JsonConfigurable;
@@ -38,12 +37,18 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 
 public final class SocialRegistry extends Registry<SocialEntry> implements ClientAccess, JsonConfigurable {
-   private static final ColorsModule colorsModule;
+   private static volatile ColorsModule colorsModule;
    private static final EnumJsonConverter<SocialRole> roleConverter;
 
    static {
-      colorsModule = ClientContext.getModule(ColorsModule.class);
       roleConverter = new EnumJsonConverter<>(SocialRole.class);
+   }
+
+   public static void bindModules(ModuleRegistry registry) {
+      colorsModule = (ColorsModule)java.util.Objects.requireNonNull(
+         registry.getModule(ColorsModule.class),
+         "Required module is not registered: ColorsModule"
+      );
    }
 
    public boolean isFriendName(String name) {
