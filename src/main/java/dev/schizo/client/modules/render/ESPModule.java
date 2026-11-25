@@ -111,6 +111,7 @@ import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
 import org.joml.Matrix4fc;
 public class ESPModule extends Module {
+   private static final long CHORUS_RETENTION_NANOS = TimeUnit.MILLISECONDS.toNanos(3500L);
 
    private static ColorsModule colorsModule = (ColorsModule)ClientContext.getModule(ColorsModule.class);
    protected final Setting<Boolean> entitiesSetting;
