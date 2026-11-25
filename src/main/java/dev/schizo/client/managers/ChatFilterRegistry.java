@@ -51,11 +51,6 @@ public class ChatFilterRegistry implements ClientAccess, JsonConfigurable {
       }
    }
 
-   static {
-
-      chatFilterModule = ClientContext.getModule(ChatFilterModule.class);
-   }
-
    public boolean isEmpty() {
       synchronized (this.filters) {
          return this.filters.isEmpty();
@@ -130,7 +125,15 @@ public class ChatFilterRegistry implements ClientAccess, JsonConfigurable {
    }
 
    public boolean matchesMessage(String message) {
-      boolean caseSensitive = Boolean.TRUE.equals(chatFilterModule.caseSensitiveSetting.getValue());
+      ChatFilterModule module = chatFilterModule;
+      if (module == null) {
+         module = ClientContext.getModule(ChatFilterModule.class);
+         if (module == null) {
+            throw new IllegalStateException("ChatFilter module is not initialized");
+         }
+         chatFilterModule = module;
+      }
+      boolean caseSensitive = Boolean.TRUE.equals(module.caseSensitiveSetting.getValue());
       String comparedMessage = caseSensitive ? message : message.toLowerCase(Locale.ROOT);
 
       synchronized (this.filters) {
