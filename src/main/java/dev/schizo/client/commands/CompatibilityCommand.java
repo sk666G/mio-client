@@ -160,12 +160,20 @@ public final class CompatibilityCommand extends Command {
       Map<ModuleCompatibility.Classification, Integer> counts =
          new EnumMap<>(ModuleCompatibility.Classification.class);
       int total = 0;
+      int totalSettings = 0;
+      int reviewedSettings = 0;
       for (Object entry : ClientContext.moduleRegistry.getRegistry()) {
          Module module = (Module)entry;
          ModuleCompatibility.Classification classification =
             ModuleCompatibility.assess(module.getClass()).classification();
          counts.merge(classification, 1, Integer::sum);
          total++;
+         for (Setting<?> setting : module.getSettings()) {
+            totalSettings++;
+            if (ModuleCompatibility.assessSetting(module.getClass(), setting.getConfigName()).individuallyReviewed()) {
+               reviewedSettings++;
+            }
+         }
       }
 
       StringBuilder output = new StringBuilder("Multiplayer compatibility inventory: ")
@@ -173,7 +181,8 @@ public final class CompatibilityCommand extends Command {
       for (ModuleCompatibility.Classification classification : ModuleCompatibility.Classification.values()) {
          output.append("\n").append(classification).append(": ").append(counts.getOrDefault(classification, 0));
       }
-      output.append("\nExplicitly reviewed settings: ").append(ModuleCompatibility.reviewedSettingCount());
+      output.append("\nSettings individually reviewed: ")
+         .append(reviewedSettings).append("/").append(totalSettings);
       output.append("\nAll registered modules are source-reviewed. Individual settings remain UNVERIFIED unless explicitly marked reviewed. This report does not certify server compatibility.");
       this.print(output.toString());
       return 1;
