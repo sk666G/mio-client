@@ -212,18 +212,16 @@ public final class SocialRegistry extends Registry<SocialEntry> implements Clien
          || ClientAccess.schizoMinecraft.level == null) {
          return;
       }
-      {
-         ClientLevel level = ClientAccess.schizoMinecraft.level;
-         Iterator playersIterator = level.players().iterator();
+      ClientLevel level = ClientAccess.schizoMinecraft.level;
+      Iterator playersIterator = level.players().iterator();
 
-         while (playersIterator.hasNext()) {
-            AbstractClientPlayer player = (AbstractClientPlayer)playersIterator.next();
-            GameProfile profile = player.getGameProfile();
-            String capturedPlayerName = profile.name();
-            if (capturedPlayerName.equalsIgnoreCase(name) && player instanceof PlayerState roleHolder) {
-               roleHolder.schizo$setRole(role);
-               return;
-            }
+      while (playersIterator.hasNext()) {
+         AbstractClientPlayer player = (AbstractClientPlayer)playersIterator.next();
+         GameProfile profile = player.getGameProfile();
+         String capturedPlayerName = profile.name();
+         if (capturedPlayerName.equalsIgnoreCase(name) && player instanceof PlayerState roleHolder) {
+            roleHolder.schizo$setRole(role);
+            return;
          }
       }
    }
