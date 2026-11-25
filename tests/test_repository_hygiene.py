@@ -7,6 +7,16 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 
 
 class RepositoryHygieneTest(unittest.TestCase):
+    def test_core_event_mixins_are_required(self):
+        connection = (ROOT / "src/main/java/dev/schizo/mixin/ConnectionMixin.java").read_text(encoding="utf-8")
+        minecraft = (ROOT / "src/main/java/dev/schizo/mixin/MinecraftMixin.java").read_text(encoding="utf-8")
+        for method in ("channelRead0*", "sendPacket", "doSendPacket"):
+            pattern = rf'@Inject\(method = "{re.escape(method)}"[^\n]*require = 1'
+            self.assertRegex(connection, pattern, f"Core connection hook is soft: {method}")
+        for method in ("destroy", "setScreen", "tick", "runTick"):
+            pattern = rf'@Inject\(method = "{re.escape(method)}"[^\n]*require = 1'
+            self.assertRegex(minecraft, pattern, f"Core Minecraft hook is soft: {method}")
+
     def test_mixin_inventory_matches_sources_and_java_runtime(self):
         config_path = ROOT / "src/main/resources/schizo.mixins.json"
         config = json.loads(config_path.read_text(encoding="utf-8"))
