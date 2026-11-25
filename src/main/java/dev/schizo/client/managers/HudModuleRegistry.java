@@ -130,13 +130,7 @@ public final class HudModuleRegistry implements ClientAccess, JsonConfigurable {
       while (modules.hasNext()) {
          Module module = (Module)modules.next();
          if (module instanceof HudWidgetModule) {
-            try {
-               String configName = module.getConfigName();
-               JsonElement moduleJson = module.toJson();
-               configuration.add(configName, moduleJson);
-            } catch (Exception failure) {
-               failure.printStackTrace();
-            }
+            ModuleRegistry.addSerializedModule(configuration, module);
          }
       }
 
