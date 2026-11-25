@@ -9,6 +9,7 @@
 
 package dev.schizo.client.modules.hud;
 
+import dev.schizo.client.diagnostics.RuntimeDiagnostics;
 
 import dev.schizo.client.SchizoClient;
 import dev.schizo.client.ClientAccess;
@@ -75,7 +76,12 @@ public class CryptoModule extends HudWidgetModule {
             PriceFetchResult result = null;
             try {
                result = this.fetchPrice(coinSymbol, fiatSymbol, cachedCoinSlug);
-            } catch (Exception ignoredException) {
+            } catch (Exception refreshFailure) {
+               RuntimeDiagnostics.record(
+                  RuntimeDiagnostics.Area.INTEGRATION,
+                  "Crypto price refresh",
+                  refreshFailure
+               );
             } finally {
                this.refreshInProgress.set(false);
             }
