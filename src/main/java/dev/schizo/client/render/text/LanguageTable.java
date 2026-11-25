@@ -9,6 +9,7 @@
 
 package dev.schizo.client.render.text;
 
+import dev.schizo.client.diagnostics.RuntimeDiagnostics;
 import dev.schizo.client.modules.client.UIModule;
 import java.io.InputStream;
 import java.nio.charset.Charset;
@@ -32,7 +33,12 @@ public final class LanguageTable {
          Map<String, String> targetTranslations = this.translations;
          Charset encoding = StandardCharsets.UTF_8;
          parseInto(targetTranslations, IOUtils.toString(input, encoding));
-      } catch (Throwable ignoredFailure) {
+      } catch (Exception loadFailure) {
+         RuntimeDiagnostics.record(
+            RuntimeDiagnostics.Area.FILE_IO,
+            "Language table load",
+            loadFailure
+         );
       }
    }
 
