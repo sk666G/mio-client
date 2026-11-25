@@ -40,7 +40,7 @@ import net.minecraft.world.entity.PositionMoveRotation;
 import net.minecraft.world.phys.Vec3;
 
 public class PositionModule extends HudWidgetModule {
-   private static FreecamModule freecam;
+
    private final Setting<Float> safeRangeSetting;
    private final Setting<Boolean> netherSetting;
    private final Setting<Boolean> prefixSetting;
@@ -67,7 +67,6 @@ public class PositionModule extends HudWidgetModule {
 
    static {
 
-      freecam = ClientContext.getModule(FreecamModule.class);
    }
 
    private String getCoordinatePrefix() {
@@ -184,7 +183,7 @@ public class PositionModule extends HudWidgetModule {
 
                boolean inNether = dimensionPath.contains("nether");
                Vec3 displayPosition = ClientAccess.schizoMinecraft.player.position();
-               FreecamModule freecamForEnabledCheck = freecam;
+               FreecamModule freecamForEnabledCheck = schizo$freecam();
                if (freecamForEnabledCheck.isToggled()) {
                   Camera camera = ClientAccess.schizoMinecraft.gameRenderer.getMainCamera();
                   Vec3 cameraPosition = camera.position();
@@ -259,4 +258,8 @@ public class PositionModule extends HudWidgetModule {
          .setAnchor(HudAnchor.BOTTOM_LEFT);
    }
 
+
+   private static FreecamModule schizo$freecam() {
+      return ClientContext.requireModule(FreecamModule.class);
+   }
 }
