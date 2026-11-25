@@ -513,17 +513,17 @@ public class SelfFillModule extends Module {
       PacketEvent.Receive event
    ) {
       if (event.getPacket() instanceof ClientboundPlayerPositionPacket packet) {
-         Vec3 playerPosition = ClientAccess.schizoMinecraft.player.position();
-
-         PositionMoveRotation packetChange = packet.change();
-         Vec3 packetPosition = packetChange.position();
-         double distanceSquared = playerPosition.distanceToSqr(packetPosition);
-
-         if (distanceSquared > 9.0D) {
-            PositionMoveRotation baselineChange = packet.change();
-            Vec3 baselinePosition = baselineChange.position();
-            this.placementBaselineY = baselinePosition.y();
-         }
+         Vec3 packetPosition = packet.change().position();
+         ClientAccess.schizoMinecraft.executeIfPossible(() -> {
+            if (!this.isToggled() || ClientAccess.schizoMinecraft.player == null) {
+               return;
+            }
+            double distanceSquared =
+               ClientAccess.schizoMinecraft.player.position().distanceToSqr(packetPosition);
+            if (distanceSquared > 9.0D) {
+               this.placementBaselineY = packetPosition.y();
+            }
+         });
       }
    }
 
