@@ -306,7 +306,8 @@ public class SearchModule extends Module {
             );
          }
 
-         if (!this.activeChunkScan.next(scanPosition)) {
+         SearchChunkScanCursor.Cell cell = this.activeChunkScan.next();
+         if (cell == null) {
             this.queuedChunkScans.remove(this.activeChunkPosition.toLong());
             this.activeChunkScan = null;
             this.activeChunkPosition = null;
@@ -314,6 +315,7 @@ public class SearchModule extends Module {
             continue;
          }
 
+         scanPosition.set(cell.x(), cell.y(), cell.z());
          BlockState state = this.activeChunk.getBlockState(scanPosition);
          if (this.ignoreNaturalSetting.getValue()
             && WorldUtils.isStructureChest(
