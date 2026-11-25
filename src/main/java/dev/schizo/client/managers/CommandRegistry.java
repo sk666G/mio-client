@@ -60,7 +60,6 @@ import net.minecraft.network.chat.Component;
 
 public final class CommandRegistry extends Registry<Command> implements ClientAccess, JsonConfigurable {
 
-   private static final SettingsModule settingsModule = ClientContext.getModule(SettingsModule.class);
    public static final SharedSuggestionProvider suggestionSource = new ClientSuggestionProvider(
       null, ClientAccess.schizoMinecraft, ignored -> true
    );
@@ -237,6 +236,10 @@ public final class CommandRegistry extends Registry<Command> implements ClientAc
       }
       String updatedPrefix = prefix.substring(0, 1);
       commandPrefix = updatedPrefix;
+      SettingsModule settingsModule = ClientContext.getModule(SettingsModule.class);
+      if (settingsModule == null) {
+         throw new IllegalStateException("Settings module is not initialized");
+      }
       Setting<String> prefixSetting = settingsModule.prefixSetting;
       prefixSetting.setValue(updatedPrefix);
    }
