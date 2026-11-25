@@ -18,6 +18,7 @@ import dev.schizo.client.modules.combat.AutoCrystalModule;
 import dev.schizo.client.modules.combat.NoHitDelayModule;
 import dev.schizo.client.modules.exploit.MultiTaskModule;
 import dev.schizo.client.modules.exploit.PingSpoofModule;
+import dev.schizo.client.modules.exploit.FastLatencyModule;
 import dev.schizo.client.modules.exploit.ReachModule;
 import dev.schizo.client.modules.exploit.TridentModule;
 import dev.schizo.client.modules.misc.AntiQuitModule;
@@ -97,6 +98,7 @@ public final class MixinModuleRegistry {
    public static volatile FreecamModule levelFreecamModule;
    public static volatile SkyboxModule levelSkyboxModule;
    public static volatile ChamsModule levelChamsModule;
+   public static volatile FastLatencyModule clientPacketFastLatencyModule;
 
    public static void bind(ModuleRegistry registry) {
       Objects.requireNonNull(registry, "Module registry is not initialized");
@@ -147,5 +149,6 @@ public final class MixinModuleRegistry {
       levelFreecamModule = (FreecamModule)Objects.requireNonNull(registry.getModule(FreecamModule.class), "Required module is not registered: FreecamModule");
       levelSkyboxModule = (SkyboxModule)Objects.requireNonNull(registry.getModule(SkyboxModule.class), "Required module is not registered: SkyboxModule");
       levelChamsModule = (ChamsModule)Objects.requireNonNull(registry.getModule(ChamsModule.class), "Required module is not registered: ChamsModule");
+      clientPacketFastLatencyModule = (FastLatencyModule)Objects.requireNonNull(registry.getModule(FastLatencyModule.class), "Required module is not registered: FastLatencyModule");
    }
 }
