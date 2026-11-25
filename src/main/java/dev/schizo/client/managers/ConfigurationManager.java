@@ -14,6 +14,7 @@ import dev.schizo.client.config.LegacyDirectoryMigration;
 import dev.schizo.client.config.ConfigFileReader;
 import dev.schizo.client.config.SafeModeManager;
 import dev.schizo.client.config.ConfigurationBackupManager;
+import dev.schizo.client.config.ConfigurationBackupPolicy;
 import dev.schizo.client.config.ModulePresetCodec;
 import dev.schizo.client.config.JsonStateTransaction;
 import dev.schizo.client.config.ConfigurationSaveGate;
@@ -294,14 +295,8 @@ public final class ConfigurationManager implements ClientAccess {
       }
    }
 
-   static boolean usesTopLevelBackup(String configName) {
-      return configName != null
-         && configName.indexOf('/') < 0
-         && configName.indexOf('\\') < 0;
-   }
-
    private void backupBeforeSaveIfSupported(String configName) {
-      if (!usesTopLevelBackup(configName)) {
+      if (!ConfigurationBackupPolicy.usesTopLevelBackup(configName)) {
          return;
       }
       try {
