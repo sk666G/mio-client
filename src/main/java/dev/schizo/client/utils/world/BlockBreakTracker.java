@@ -46,6 +46,7 @@ public final class BlockBreakTracker implements ClientAccess {
    private static SpeedMineModule speedMine;
    private static ItemStack miningPickaxe;
    private final List<BlockBreakEntry> entries = Collections.synchronizedList(new ArrayList<>());
+   private volatile long sessionGeneration;
 
    private static ItemStack getMiningPickaxe() {
       if (miningPickaxe == null) {
@@ -65,25 +66,25 @@ public final class BlockBreakTracker implements ClientAccess {
    }
 
    private void onBlockRemoved(BlockPos position) {
-      ClientAccess.schizoMinecraft.execute(() -> {
-         Iterator<BlockBreakEntry> iterator = this.entries.iterator();
-
-         while (iterator.hasNext()) {
-            BlockBreakEntry entry = iterator.next();
-
-            if (position.equals(entry.getPosition())) {
-               Setting<SpeedMineRebreakChoice> rebreakSetting = speedMine.rebreakSetting;
-               if (rebreakSetting.getValue() != SpeedMineRebreakChoice.INSTANT) {
-                  entry.setProgress(0.0F);
-                  entry.setAirTicks(0);
-               }
-
-               entry.markBroken();
-
-               ElapsedTimer progressTimer = entry.getProgressTimer();
-
-               progressTimer.reset();
+      Iterator<BlockBreakEntry> iterator = this.entries.iterator();
+      while (iterator.hasNext()) {
+         BlockBreakEntry entry = iterator.next();
+         if (position.equals(entry.getPosition())) {
+            Setting<SpeedMineRebreakChoice> rebreakSetting = speedMine.rebreakSetting;
+            if (rebreakSetting.getValue() != SpeedMineRebreakChoice.INSTANT) {
+               entry.setProgress(0.0F);
+               entry.setAirTicks(0);
             }
+            entry.markBroken();
+            entry.getProgressTimer().reset();
+         }
+      }
+   }
+
+   private void dispatchSessionUpdate(long expectedGeneration, Runnable action) {
+      ClientAccess.schizoMinecraft.executeIfPossible(() -> {
+         if (this.sessionGeneration == expectedGeneration) {
+            action.run();
          }
       });
    }
@@ -211,6 +212,7 @@ public final class BlockBreakTracker implements ClientAccess {
 
    @EventHandler
    private void onConnectScreenConnectEvent(ConnectScreenConnectEvent event) {
+      this.sessionGeneration++;
       this.entries.clear();
    }
 
@@ -218,34 +220,39 @@ public final class BlockBreakTracker implements ClientAccess {
    private void onPacketReceive(
       PacketEvent.Receive event
    ) {
+      long expectedGeneration = this.sessionGeneration;
       if (event.getPacket() instanceof ClientboundBlockDestructionPacket destructionPacket) {
-         ClientAccess.schizoMinecraft.execute(() -> {
-            if (destructionPacket.getProgress() >= 0) {
-               int breakStage = destructionPacket.getProgress();
-
-               if (breakStage <= 10) {
-                  BlockPos positionSnapshot = destructionPacket.getPos();
-                  int breakerId = destructionPacket.getId();
-                  this.trackBlockBreaking(positionSnapshot, breakerId);
-               }
+         int progress = destructionPacket.getProgress();
+         int breakerId = destructionPacket.getId();
+         BlockPos position = destructionPacket.getPos().immutable();
+         this.dispatchSessionUpdate(expectedGeneration, () -> {
+            if (progress >= 0 && progress <= 10) {
+               this.trackBlockBreaking(position, breakerId);
             }
          });
       }
 
-      if (event.getPacket() instanceof ClientboundBlockUpdatePacket updatePacket) {
-         BlockState updatedState = updatePacket.getBlockState();
-         if (updatedState.isAir()) {
-            BlockPos removedPosition = updatePacket.getPos();
-            this.onBlockRemoved(removedPosition);
-         }
+      if (event.getPacket() instanceof ClientboundBlockUpdatePacket updatePacket
+         && updatePacket.getBlockState().isAir()) {
+         BlockPos removedPosition = updatePacket.getPos().immutable();
+         this.dispatchSessionUpdate(expectedGeneration, () -> this.onBlockRemoved(removedPosition));
       }
 
       if (event.getPacket() instanceof ClientboundSectionBlocksUpdatePacket sectionPacket) {
+         ArrayList<BlockPos> removedPositions = new ArrayList<>();
          sectionPacket.runUpdates((position, updatedState) -> {
             if (updatedState.isAir()) {
-               this.onBlockRemoved(position);
+               removedPositions.add(position.immutable());
             }
          });
+         if (!removedPositions.isEmpty()) {
+            List<BlockPos> removedSnapshot = List.copyOf(removedPositions);
+            this.dispatchSessionUpdate(expectedGeneration, () -> {
+               for (BlockPos position : removedSnapshot) {
+                  this.onBlockRemoved(position);
+               }
+            });
+         }
       }
    }
 
