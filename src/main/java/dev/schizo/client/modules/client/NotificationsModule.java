@@ -73,6 +73,11 @@ public class NotificationsModule extends Module {
       this.reloadTotemMessages();
    }
 
+   @Override
+   public void onDisable() {
+      this.invalidateTotemWork();
+   }
+
    private void printTotemNotification(String playerName, String actionText, int popCount) {
       Options options = ClientAccess.schizoMinecraft.options;
       OptionInstance visibilityOption = options.chatVisibility();
@@ -202,117 +207,85 @@ public class NotificationsModule extends Module {
    private void onPlayerTotem(PlayerTotemEvent event) {
       LocalPlayer localPlayer = ClientAccess.schizoMinecraft.player;
       boolean self = localPlayer == event.getPlayer();
-      Setting<Boolean> popsOption = this.totemPopsSetting;
-      Boolean notifyPops = popsOption.getValue();
-      if (!notifyPops) {
+      if (!this.totemPopsSetting.getValue()) {
+         return;
+      }
+      if (self && !this.selfSetting.getValue()) {
          return;
       }
 
-      if (self) {
-         Setting<Boolean> selfOption = this.selfSetting;
-         Boolean notifySelf = selfOption.getValue();
-         if (!notifySelf) {
-            return;
-         }
-      }
-
-      String displayName;
-      if (self) {
-
-         displayName = "You";
-      } else {
-         displayName = event.getName();
-      }
-
-      String playerName = displayName;
+      String playerName = self ? "You" : event.getName();
       int popCount = event.getPopCount();
-      PlayerTotemEvent kindEvent = event;
-      if (PlayerTotemEvent.Kind.TOTEM_POP != kindEvent.getKind()) {
+      if (event.getKind() != PlayerTotemEvent.Kind.TOTEM_POP) {
          this.printTotemNotification(playerName, " has died after popping ", popCount);
          return;
       }
 
-      String popVerb;
-      if (self) {
+      this.printTotemNotification(playerName, self ? " have popped " : " has popped ", popCount);
+      if (self || ClientContext.socialRegistry.isFriendName(playerName)) {
+         return;
+      }
+      if (!ClientContext.socialRegistry.isEnemyName(playerName)
+         && this.onlyEnemiesSetting.getValue()) {
+         return;
+      }
+      if (!this.sayChatSetting.getValue() || this.totemMessages.isEmpty()) {
+         return;
+      }
 
-         popVerb = " have";
+      long expectedGeneration = this.totemGeneration;
+      boolean randomOrder = this.randomSetting.getValue();
+      long delayMillis = (long)(this.delaySetting.getValue() * 1000.0F);
+      if (delayMillis > 0L) {
+         delayMillis += this.totemRandom.nextLong(500L);
+      }
+
+      Runnable dispatch = () -> ClientAccess.schizoMinecraft.executeIfPossible(
+         () -> this.sendTotemChat(playerName, popCount, randomOrder, expectedGeneration)
+      );
+      if (delayMillis <= 0L) {
+         dispatch.run();
       } else {
-
-         popVerb = " has";
+         CompletableFuture.runAsync(
+            dispatch,
+            CompletableFuture.delayedExecutor(delayMillis, TimeUnit.MILLISECONDS)
+         );
       }
+   }
 
-      this.printTotemNotification(playerName, popVerb + " popped ", popCount);
-      SocialRegistry friendRegistry = ClientContext.socialRegistry;
-
-      if (friendRegistry.isFriendName(playerName) || self) {
+   private void sendTotemChat(
+      String playerName,
+      int popCount,
+      boolean randomOrder,
+      long expectedGeneration
+   ) {
+      if (!this.isToggled()
+         || this.totemGeneration != expectedGeneration
+         || !this.sayChatSetting.getValue()
+         || this.totemMessages.isEmpty()) {
          return;
       }
 
-      SocialRegistry enemyRegistry = ClientContext.socialRegistry;
-
-      if (!enemyRegistry.isEnemyName(playerName)) {
-         Setting<Boolean> enemiesOption = this.onlyEnemiesSetting;
-         Boolean onlyEnemies = enemiesOption.getValue();
-         if (onlyEnemies) {
-            return;
-         }
+      int messageCount = this.totemMessages.size();
+      int selectedIndex;
+      if (randomOrder && messageCount > 1) {
+         do {
+            selectedIndex = this.totemRandom.nextInt(messageCount);
+         } while (selectedIndex == this.totemMessageIndex);
+      } else if (randomOrder) {
+         selectedIndex = 0;
+      } else {
+         selectedIndex = Math.floorMod(this.totemMessageIndex, messageCount);
       }
 
-      Setting<Boolean> chatOption = this.sayChatSetting;
-      Boolean sayChat = chatOption.getValue();
-      if (!sayChat || this.totemMessages.isEmpty()) {
-         return;
-      }
+      this.totemMessageIndex = randomOrder
+         ? selectedIndex
+         : (selectedIndex + 1) % messageCount;
 
-      ClientAccess.executorService.submit(() -> {
-            try {
-               Setting<Float> lambdaDelayOption = this.delaySetting;
-               Float lambdaDelay = lambdaDelayOption.getValue();
-               if (lambdaDelay > 0.0F) {
-                  Setting<Float> lambdaSleepDelayOption = this.delaySetting;
-                  float lambdaDelaySeconds = lambdaSleepDelayOption.getValue();
-
-                  long lambdaDelayMillis = (long)(lambdaDelaySeconds * 1e+03F);
-                  Random lambdaJitterRandom = this.totemRandom;
-
-                  long lambdaSleepMillis = lambdaDelayMillis + lambdaJitterRandom.nextLong(500L);
-                  Thread.sleep(lambdaSleepMillis);
-               }
-
-               String lambdaChatMessage = null;
-               Setting<Boolean> lambdaRandomOption = this.randomSetting;
-               Boolean lambdaRandomOrder = lambdaRandomOption.getValue();
-               if (lambdaRandomOrder) {
-                  if (this.totemMessages.size()
-                     == 1) {
-                     lambdaChatMessage = this.totemMessages.get(0);
-                  } else {
-                     while (lambdaChatMessage == null) {
-                        Random lambdaRandomSource = this.totemRandom;
-                        int lambdaMessageCount = this.totemMessages.size();
-                        int lambdaRandomIndex = lambdaRandomSource.nextInt(lambdaMessageCount);
-                        if (this.totemMessageIndex != lambdaRandomIndex) {
-                           this.totemMessageIndex = lambdaRandomIndex;
-                           lambdaChatMessage = this.totemMessages.get(lambdaRandomIndex);
-                        }
-                     }
-                  }
-               } else {
-                  lambdaChatMessage = this.totemMessages.get(this.totemMessageIndex);
-                  this.totemMessageIndex = (
-                        this.totemMessageIndex + 1
-                     )
-                     % this.totemMessages.size();
-               }
-
-               lambdaChatMessage = lambdaChatMessage.replace("{name}", playerName);
-
-               lambdaChatMessage = lambdaChatMessage.replace("{totems}", Integer.toString(popCount));
-
-               ChatUtils.sendChatOrCommand(lambdaChatMessage);
-            } catch (Exception lambdaIgnored) {
-            }
-         });
+      String chatMessage = this.totemMessages.get(selectedIndex)
+         .replace("{name}", playerName)
+         .replace("{totems}", Integer.toString(popCount));
+      ChatUtils.sendChatOrCommand(chatMessage);
    }
 
    private Color moduleToggleColor(boolean enabled) {
@@ -447,22 +420,29 @@ public class NotificationsModule extends Module {
 
       this.setDrawn(false);
       this.sayChatSetting.setChangeCallback(() -> {
-         Setting<Boolean> lambdaChatOption = this.sayChatSetting;
-         Boolean lambdaSayChat = lambdaChatOption.getValue();
-         if (lambdaSayChat) {
+         if (!this.isToggled()) {
+            return;
+         }
+         if (this.sayChatSetting.getValue()) {
             this.reloadTotemMessages();
+         } else {
+            this.invalidateTotemWork();
          }
       });
       this.refreshSetting.setChangeCallback(() -> {
-         Setting<Boolean> lambdaRefreshOption = this.refreshSetting;
-         Boolean lambdaRefreshEnabled = lambdaRefreshOption.getValue();
-         if (lambdaRefreshEnabled) {
+         if (this.refreshSetting.getValue()) {
             this.refreshSetting.setValue(false);
-            this.reloadTotemMessages();
+            if (this.isToggled()) {
+               this.reloadTotemMessages();
+            }
          }
       });
       this.randomSetting.setChangeCallback(() -> this.totemMessageIndex = 0);
-      this.pathSetting.setChangeCallback(this::reloadTotemMessages);
+      this.pathSetting.setChangeCallback(() -> {
+         if (this.isToggled()) {
+            this.reloadTotemMessages();
+         }
+      });
    }
 
 }
