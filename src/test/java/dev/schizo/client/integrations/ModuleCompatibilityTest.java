@@ -453,7 +453,7 @@ class ModuleCompatibilityTest {
 
    @Test
    void settingReviewCountIncludesExplicitReviewsOnly() {
-      assertTrue(ModuleCompatibility.reviewedSettingCount() >= 174);
+      assertTrue(ModuleCompatibility.reviewedSettingCount() >= 199);
    }
 
    @Test
@@ -554,6 +554,26 @@ class ModuleCompatibilityTest {
       assertFalse(group.requiresWarning());
       assertEquals(ModuleCompatibility.Classification.CLIENT_ONLY, abort.classification());
       assertFalse(abort.requiresWarning());
+   }
+
+   @Test
+   void reviewedActionFiltersKeepTheirEffectiveRisk() {
+      assertEquals(
+         ModuleCompatibility.Classification.PACKET_AFFECTING,
+         ModuleCompatibility.assessSetting(CriticalsModule.class, "OnlyWeapon").classification()
+      );
+      assertEquals(
+         ModuleCompatibility.Classification.CLIENT_ONLY,
+         ModuleCompatibility.assessSetting(FastPlaceModule.class, "Items").classification()
+      );
+      assertEquals(
+         ModuleCompatibility.Classification.SERVER_SENSITIVE,
+         ModuleCompatibility.assessSetting(AutoToolModule.class, "NoBreakDelay").classification()
+      );
+      assertEquals(
+         ModuleCompatibility.Classification.WORLD_INTERACTION,
+         ModuleCompatibility.assessSetting(ArrowsModule.class, "Fov").classification()
+      );
    }
 
    @Test
