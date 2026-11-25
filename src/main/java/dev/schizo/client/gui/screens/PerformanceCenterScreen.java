@@ -54,6 +54,7 @@ public final class PerformanceCenterScreen extends ClientScreen {
    private MetricsSnapshot metrics = MetricsSnapshot.EMPTY;
    private String taskQueueStatus = "TASKS —";
    private String failureStatus = "FAILURES 0";
+   private String latestFailure = "";
    private float[] frameHistorySamples = new float[0];
 
    private float fitScale = 1.0F;
@@ -295,13 +296,22 @@ public final class PerformanceCenterScreen extends ClientScreen {
          }
       }
 
-      String footer = this.panelWidth < 590.0F
-         ? (this.selectedTab == 2
-            ? "HUD timings are separate from total frame time."
-            : "Callback / module timings overlap; they are not additive.")
-         : (this.selectedTab == 2
-            ? "HUD timings cover direct widget renders. Use frame metrics for total frame duration."
-            : "Callback / module timings are inclusive and overlap; do not add them to frame time.");
+      String footer;
+      if (!this.latestFailure.isEmpty()) {
+         footer = this.latestFailure;
+         int maximumCharacters = this.panelWidth < 590.0F ? 64 : 105;
+         if (footer.length() > maximumCharacters) {
+            footer = footer.substring(0, maximumCharacters - 1) + "…";
+         }
+      } else {
+         footer = this.panelWidth < 590.0F
+            ? (this.selectedTab == 2
+               ? "HUD timings are separate from total frame time."
+               : "Callback / module timings overlap; they are not additive.")
+            : (this.selectedTab == 2
+               ? "HUD timings cover direct widget renders. Use frame metrics for total frame duration."
+               : "Callback / module timings are inclusive and overlap; do not add them to frame time.");
+      }
       font.drawWithShadow(
          poseStack,
          footer,
@@ -338,6 +348,7 @@ public final class PerformanceCenterScreen extends ClientScreen {
 
       if (this.contains(mouseX, mouseY, this.panelLeft + 105.0F, this.panelTop + 47.0F, 70.0F, 20.0F)) {
          EventProfiler.GLOBAL.reset();
+         RuntimeDiagnostics.GLOBAL.reset();
          this.rowOffset = 0;
          this.refreshData(true);
          return;
@@ -468,6 +479,10 @@ public final class PerformanceCenterScreen extends ClientScreen {
 
       RuntimeDiagnostics.Snapshot diagnostics = RuntimeDiagnostics.GLOBAL.snapshot();
       this.failureStatus = "FAILURES " + diagnostics.totalFailures();
+      RuntimeDiagnostics.FailureSnapshot latest = diagnostics.lastFailure();
+      this.latestFailure = latest == null
+         ? ""
+         : "Last failure: " + latest.area() + " · " + latest.detail() + " · " + latest.failureType();
 
       EventProfiler profiler = EventProfiler.GLOBAL;
       this.rows = switch (this.selectedTab) {
