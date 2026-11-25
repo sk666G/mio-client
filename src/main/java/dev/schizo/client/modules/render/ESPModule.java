@@ -111,7 +111,6 @@ import org.joml.Matrix4f;
 import org.joml.Matrix4fc;
 public class ESPModule extends Module {
 
-   private static ColorsModule colorsModule = (ColorsModule)ClientContext.getModule(ColorsModule.class);
    protected final Setting<Boolean> entitiesSetting;
    protected final Setting<Boolean> entityDrawSetting;
    final Setting<EntityMode> entityModeSetting;
@@ -602,7 +601,7 @@ public class ESPModule extends Module {
             }
 
             Color opaqueColor = new Color(
-               (colorsModule.schemeSetting.getValue()).transform(highlightColor).hashCode(), false
+               (schizo$colorsModule().schemeSetting.getValue()).transform(highlightColor).hashCode(), false
             );
             BlockPos blockPosition = blockEntity.getBlockPos();
             double relativeX = blockPosition.getX() - cameraPosition.x;
@@ -657,7 +656,7 @@ public class ESPModule extends Module {
    }
 
    public static void bindModules(ModuleRegistry modules) {
-      colorsModule = (ColorsModule)modules.getModule(
+      schizo$colorsModule() = (ColorsModule)modules.getModule(
          ColorsModule.class
       );
    }
@@ -831,4 +830,8 @@ public class ESPModule extends Module {
       BlockEntity blockEntity,
       double negativeDistanceSquared
    ) {}
+
+   private static ColorsModule schizo$colorsModule() {
+      return ClientContext.requireModule(ColorsModule.class);
+   }
 }
