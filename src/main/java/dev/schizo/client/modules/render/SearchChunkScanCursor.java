@@ -1,8 +1,9 @@
 package dev.schizo.client.modules.render;
 
-import net.minecraft.core.BlockPos;
-
 final class SearchChunkScanCursor {
+   record Cell(int x, int y, int z) {
+   }
+
    private final int baseX;
    private final int baseZ;
    private final int firstY;
@@ -19,12 +20,12 @@ final class SearchChunkScanCursor {
       this.y = firstY;
    }
 
-   boolean next(BlockPos.MutableBlockPos target) {
+   Cell next() {
       if (this.localX >= 16 || this.firstY >= this.endY) {
-         return false;
+         return null;
       }
 
-      target.set(this.baseX + this.localX, this.y, this.baseZ + this.localZ);
+      Cell cell = new Cell(this.baseX + this.localX, this.y, this.baseZ + this.localZ);
 
       this.localZ++;
       if (this.localZ >= 16) {
@@ -35,6 +36,6 @@ final class SearchChunkScanCursor {
             this.localX++;
          }
       }
-      return true;
+      return cell;
    }
 }
