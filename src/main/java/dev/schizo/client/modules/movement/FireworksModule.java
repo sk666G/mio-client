@@ -15,6 +15,7 @@ import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.LocalPlayerMoveEvent;
 import dev.schizo.client.events.LocalPlayerPreTickEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.events.MultiPlayerGameModeUseItemEvent;
 import dev.schizo.client.events.MultiPlayerGameModeUseItemOnEvent;
 import dev.schizo.client.events.SoundEnginePlayEvent;
