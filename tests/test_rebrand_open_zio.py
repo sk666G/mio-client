@@ -91,6 +91,32 @@ class RebuildSecurityTest(unittest.TestCase):
             with self.assertRaisesRegex(SystemExit, "Unsupported archive entry type"):
                 list(REBRAND.iter_source(archive_path))
 
+    def test_install_preserves_project_owned_build_and_license_files(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            destination = root / "destination"
+            stage = root / "stage"
+            destination.mkdir()
+            stage.mkdir()
+
+            (destination / "build.gradle").write_text("hardened-build", encoding="utf-8")
+            (destination / "LICENSE").write_text("project-license", encoding="utf-8")
+            licenses = destination / "LICENSES"
+            licenses.mkdir()
+            (licenses / "dependency.txt").write_text("dependency-license", encoding="utf-8")
+            (destination / "replace.txt").write_text("old", encoding="utf-8")
+            (stage / "replace.txt").write_text("new", encoding="utf-8")
+
+            REBRAND.install_staging_tree(destination, stage)
+
+            self.assertEqual("hardened-build", (destination / "build.gradle").read_text(encoding="utf-8"))
+            self.assertEqual("project-license", (destination / "LICENSE").read_text(encoding="utf-8"))
+            self.assertEqual(
+                "dependency-license",
+                (destination / "LICENSES" / "dependency.txt").read_text(encoding="utf-8"),
+            )
+            self.assertEqual("new", (destination / "replace.txt").read_text(encoding="utf-8"))
+
     def test_refuses_non_repository_destination(self):
         with tempfile.TemporaryDirectory() as temporary:
             with self.assertRaises(ValueError):
