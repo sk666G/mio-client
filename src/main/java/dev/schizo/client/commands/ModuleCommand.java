@@ -64,7 +64,7 @@ import net.minecraft.network.chat.Style;
 import org.jetbrains.annotations.NotNull;
 
 public final class ModuleCommand extends Command {
-   private static NotificationsModule notifications;
+
    private final Module module;
 
    @NotNull
@@ -122,7 +122,6 @@ public final class ModuleCommand extends Command {
 
    static {
 
-      notifications = ClientContext.getModule(NotificationsModule.class);
    }
 
    @Override
@@ -161,7 +160,7 @@ public final class ModuleCommand extends Command {
             valuesToClear.clear();
 
             setSetting.runChangeCallback();
-            NotificationsModule notificationsForCheck = notifications;
+            NotificationsModule notificationsForCheck = schizo$notifications();
             if (NotificationsModule.shouldNotifyCommands(notificationsForCheck)) {
                Module moduleForName = this.module;
                String moduleName = moduleForName.getName();
@@ -255,7 +254,7 @@ public final class ModuleCommand extends Command {
                valueText = changedEntryText.withStyle(changedEntryStyle);
             }
 
-            NotificationsModule notificationsForCheck = notifications;
+            NotificationsModule notificationsForCheck = schizo$notifications();
             if (NotificationsModule.shouldNotifyCommands(notificationsForCheck)) {
                Module moduleForName = this.module;
                String moduleName = moduleForName.getName();
@@ -547,4 +546,8 @@ public final class ModuleCommand extends Command {
       return text;
    }
 
+
+   private static NotificationsModule schizo$notifications() {
+      return ClientContext.requireModule(NotificationsModule.class);
+   }
 }
