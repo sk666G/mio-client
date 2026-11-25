@@ -110,6 +110,9 @@ import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
 import org.joml.Matrix4fc;
 public class ESPModule extends Module {
+   private static final int MAX_CHORUS_POSITIONS = 256;
+   private static final long CHORUS_RETENTION_NANOS =
+      java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(3500L);
 
    private static ColorsModule colorsModule = (ColorsModule)ClientContext.getModule(ColorsModule.class);
    protected final Setting<Boolean> entitiesSetting;
@@ -131,6 +134,7 @@ public class ESPModule extends Module {
    final Setting<Boolean> healthColorSetting;
    private final ESP2DRenderer entity2DRenderer;
    private final List<Entity> renderEntities = new ArrayList<>();
+   private final ArrayList<ESPItemGroup> itemGroups = new ArrayList<>();
    protected final Setting<Boolean> hostilesSetting;
    protected final Setting<Color> hostileColorSetting;
    protected final Setting<Boolean> playersSetting;
@@ -241,9 +245,12 @@ public class ESPModule extends Module {
 
    @EventHandler
    private void expireChorusPositions(LocalPlayerTickEvent event) {
-      this.chorusPositions.entrySet().removeIf(
-         chorusEntry -> System.currentTimeMillis() - chorusEntry.getValue() > 3500L
-      );
+      long nowNanos = System.nanoTime();
+      synchronized (this.chorusPositions) {
+         this.chorusPositions.entrySet().removeIf(
+            chorusEntry -> nowNanos - chorusEntry.getValue() > CHORUS_RETENTION_NANOS
+         );
+      }
 
       ClientLevel currentLevel = ClientAccess.schizoMinecraft.level;
       if (currentLevel != this.lootedLevel) {
@@ -267,27 +274,22 @@ public class ESPModule extends Module {
       this.lootedLevel = level;
       this.chorusPositions.clear();
       this.renderEntities.clear();
+      this.itemGroups.clear();
       this.visibleBlockEntities.clear();
       this.currentlyRenderingBlock = null;
       this.renderingBlockEntities = false;
    }
 
    private void renderGroupedItemLabels(WorldRenderEvent event, List<ESPItemGroup> groups) {
+      Vec3 cameraPosition = ClientAccess.schizoMinecraft.gameRenderer.getMainCamera().position();
+      double configuredScale = this.scaleSetting.getValue();
+      float lineHeight = FontRenderer.INSTANCE.getHeight();
+      Color textColor = this.itemsTextSetting.getValue();
       for (ESPItemGroup group : groups) {
-         Boolean configuredGroup = this.groupSetting.getValue();
-         if (!configuredGroup) {
-            break;
-         }
          AABB groupBounds = group.getRenderBounds();
          Vec3 positionSnapshot = groupBounds.getCenter();
          Vec3 labelPosition = positionSnapshot.add(0.0, 0.5D, 0.0);
-         GameRenderer gameRenderer = ClientAccess.schizoMinecraft.gameRenderer;
-         positionSnapshot = (gameRenderer.getMainCamera()).position();
-         double scaleAsDouble = (this.scaleSetting.getValue()).floatValue();
-         Vec3 cameraForScale = positionSnapshot;
-         double labelScale = MathUtils.getDistanceScale(cameraForScale, labelPosition, scaleAsDouble);
-         float lineHeight = FontRenderer.INSTANCE
-            .getHeight();
+         double labelScale = MathUtils.getDistanceScale(cameraPosition, labelPosition, configuredScale);
          float lineY = 0.0F;
 
          if (group.getItemCounts().size() == 1) {
@@ -317,9 +319,8 @@ public class ESPModule extends Module {
             float textX = negativeTextWidth / 2.0F;
             RenderUtils textRenderer = RenderUtils.INSTANCE;
             PoseStack textPoses = event.getPoseStack();
-            Setting<Color> itemsTextOption = this.itemsTextSetting;
             textRenderer.drawWorldText(
-               textPoses, itemText, labelPosition, 0.0F, 0.0F, textX, lineY, labelScale, itemsTextOption.getValue(), true
+               textPoses, itemText, labelPosition, 0.0F, 0.0F, textX, lineY, labelScale, textColor, true
             );
          }
       }
@@ -345,33 +346,32 @@ public class ESPModule extends Module {
       if (spawnPolicy.isNether()) {
          maximumSpawnLight = 11;
       }
+      ClientLevel level = ClientAccess.schizoMinecraft.level;
       Vec3 cameraPosition = ClientAccess.schizoMinecraft.getEntityRenderDispatcher().camera.position();
       PoseStack poses = event.getPoseStack();
       Tesselator tesselator = Tesselator.getInstance();
       VertexFormat lineFormat = DefaultVertexFormat.POSITION_COLOR_NORMAL_LINE_WIDTH;
       Mode lineMode = Mode.LINES;
       BufferBuilder lineBuffer = tesselator.begin(lineMode, lineFormat);
-      LevelLightEngine levelLightEngine = ClientAccess.schizoMinecraft.level.getLightEngine();
+      LevelLightEngine levelLightEngine = level.getLightEngine();
       LightLayer blockLightLayer = LightLayer.BLOCK;
       LayerLightEventListener blockLight = levelLightEngine.getLayerListener(blockLightLayer);
       Vec3 eyePosition = ClientAccess.schizoMinecraft.player.getEyePosition();
       Iterator positions = WorldUtils.collectSphereBlocks(eyePosition, 12.0F, true).iterator();
       while (positions.hasNext()) {
          BlockPos position = (BlockPos)positions.next();
-         BlockState state = ClientAccess.schizoMinecraft.level.getBlockState(position);
+         BlockState state = level.getBlockState(position);
          BlockPos aboveBlock = position.above();
          if (WorldUtils.isAir(aboveBlock)) {
-            if (blockLight.getLightValue(position.above()) <= maximumSpawnLight) {
-               Holder<Biome> biome = ClientAccess.schizoMinecraft.level.getBiome(position);
+            if (blockLight.getLightValue(aboveBlock) <= maximumSpawnLight) {
+               Holder<Biome> biome = level.getBiome(position);
                ResourceKey<Biome> mushroomFields = Biomes.MUSHROOM_FIELDS;
                boolean mushroomBiome = biome.is(mushroomFields);
-               ClientLevel spawnLevel = ClientAccess.schizoMinecraft.level;
                EntityType<?> spawnType = EntityType.ZOMBIE;
-               if (state.isValidSpawn(spawnLevel, position, spawnType)
+               if (state.isValidSpawn(level, position, spawnType)
                   && !mushroomBiome) {
-                  Vec3 distanceCameraPosition = (ClientAccess.schizoMinecraft.gameRenderer.getMainCamera()).position();
                   Vec3 blockCenter = position.getCenter();
-                  double cameraDistance = distanceCameraPosition.distanceTo(blockCenter);
+                  double cameraDistance = cameraPosition.distanceTo(blockCenter);
                   double distancePastFadeStart = cameraDistance - 8.0D;
                   double normalizedFadeDistance = distancePastFadeStart / 2.0D;
 
@@ -383,15 +383,17 @@ public class ESPModule extends Module {
                      );
                   }
                   poses.pushPose();
-                  double relativeX = position.getX() - cameraPosition.x;
-                  double relativeY = position.getY() - cameraPosition.y;
-                  relativeY += 1.02D;
-                  double translateZ = position.getZ() - cameraPosition.z;
-                  poses.translate(relativeX, relativeY, translateZ);
-                  Pose markerPose = poses.last();
-                  VertexGeometry.appendLine(lineBuffer, markerPose, 0.25F, 0.0F, 0.25F, 0.75F, 0.0F, 0.75F, 1.0F, markerRgba);
-                  VertexGeometry.appendLine(lineBuffer, markerPose, 0.75F, 0.0F, 0.25F, 0.25F, 0.0F, 0.75F, 1.0F, markerRgba);
-                  poses.popPose();
+                  try {
+                     double relativeX = position.getX() - cameraPosition.x;
+                     double relativeY = position.getY() - cameraPosition.y + 1.02D;
+                     double translateZ = position.getZ() - cameraPosition.z;
+                     poses.translate(relativeX, relativeY, translateZ);
+                     Pose markerPose = poses.last();
+                     VertexGeometry.appendLine(lineBuffer, markerPose, 0.25F, 0.0F, 0.25F, 0.75F, 0.0F, 0.75F, 1.0F, markerRgba);
+                     VertexGeometry.appendLine(lineBuffer, markerPose, 0.75F, 0.0F, 0.25F, 0.25F, 0.0F, 0.75F, 1.0F, markerRgba);
+                  } finally {
+                     poses.popPose();
+                  }
                }
             }
          }
@@ -405,39 +407,41 @@ public class ESPModule extends Module {
 
    private void renderEntityBoxes(WorldRenderEvent event, Iterable<Entity> entities) {
       float partialTick = event.getPartialTick();
+      float lineWidth = this.lineWidthSetting.getValue();
+      ESPRenderHelper helper = this.renderHelper;
+      PoseStack poses = event.getPoseStack();
       for (Entity entity : entities) {
-         ESPRenderHelper helperSnapshot = this.renderHelper;
-         if (helperSnapshot.shouldRenderEntity(entity)) {
-            PoseStack fillPoses = event.getPoseStack();
+         if (helper.shouldRenderEntity(entity)) {
             AABB interpolatedBounds = BoundingBoxUtils.getRenderBounds(entity, partialTick);
-            ESPRenderHelper fillColorHelper = this.renderHelper;
-            WorldBoxRenderer.fillBox(fillPoses, interpolatedBounds, fillColorHelper.getEntityColor(entity, true));
-            PoseStack outlinePoses = event.getPoseStack();
-            interpolatedBounds = BoundingBoxUtils.getRenderBounds(entity, partialTick);
-            ESPRenderHelper outlineColorHelper = this.renderHelper;
-            Color outlineColor = outlineColorHelper.getEntityColor(entity, false);
-            Float configuredLineWidth = this.lineWidthSetting.getValue();
-            WorldBoxRenderer.outlineBox(outlinePoses, interpolatedBounds, outlineColor, configuredLineWidth);
+            WorldBoxRenderer.fillBox(poses, interpolatedBounds, helper.getEntityColor(entity, true));
+            WorldBoxRenderer.outlineBox(
+               poses, interpolatedBounds, helper.getEntityColor(entity, false), lineWidth
+            );
          }
       }
    }
 
-   private void renderItemLabels(WorldRenderEvent event, ItemEntity itemEntity, List<ESPItemGroup> itemGroups) {
+   private void renderItemLabels(
+      WorldRenderEvent event,
+      ItemEntity itemEntity,
+      List<ESPItemGroup> itemGroups,
+      Vec3 cameraPosition,
+      int configuredRange
+   ) {
       ListFilterMode itemSelection = this.selectionSetting.getValue();
       Item selectedItem = itemEntity.getItem().getItem();
       Setting<Set<Item>> itemListOption = this.itemListSetting;
       if (!ListFilterMode.matches(itemSelection, selectedItem, itemListOption.getValue())) {
          return;
       }
-      Vec3 cameraPosition = (ClientAccess.schizoMinecraft.gameRenderer.getMainCamera()).position();
-      double itemDistance = (itemEntity.position()).distanceTo(cameraPosition);
-      Integer configuredRange = this.rangeSetting.getValue();
-      if (itemDistance > configuredRange.intValue()) {
+      double itemDistance = itemEntity.position().distanceTo(cameraPosition);
+      if (itemDistance > configuredRange) {
          return;
       }
       Boolean configuredGroup = this.groupSetting.getValue();
       if (!configuredGroup) {
          this.renderItemLabel(event, itemEntity);
+         return;
       }
 
       boolean addedToGroup = false;
@@ -460,18 +464,22 @@ public class ESPModule extends Module {
          for (Entity collectedEntity : entityLevel.entitiesForRendering()) {
             entities.add(collectedEntity);
          }
-         ArrayList<ESPItemGroup> itemGroups = new ArrayList<>();
+         ArrayList<ESPItemGroup> itemGroups = this.itemGroups;
+         itemGroups.clear();
          if (this.entityDrawSetting.getValue() && this.entityModeSetting.getValue() == EntityMode.BOX) {
             this.renderEntityBoxes(event, entities);
          }
+         boolean renderItemText = this.itemDrawSetting.getValue()
+            && (this.modeSetting.getValue() == ESPModeChoice.BOTH
+               || this.modeSetting.getValue() == ESPModeChoice.TEXT);
+         boolean renderMobOwners = this.mobOwnerSetting.getValue();
+         Vec3 cameraPosition = ClientAccess.schizoMinecraft.gameRenderer.getMainCamera().position();
+         int itemRange = this.rangeSetting.getValue();
          for (Entity entity : entities) {
-            if (entity instanceof ItemEntity itemEntity && this.itemDrawSetting.getValue()) {
-               ESPModeChoice itemMode = this.modeSetting.getValue();
-               if (itemMode == ESPModeChoice.BOTH || itemMode == ESPModeChoice.TEXT) {
-                  this.renderItemLabels(event, itemEntity, itemGroups);
-               }
+            if (entity instanceof ItemEntity itemEntity && renderItemText) {
+               this.renderItemLabels(event, itemEntity, itemGroups, cameraPosition, itemRange);
             }
-            if (this.mobOwnerSetting.getValue()) {
+            if (renderMobOwners) {
                ESPRenderHelper helperSnapshot = this.renderHelper;
                String ownerLabel = helperSnapshot.getOwnerName(entity);
                if (ownerLabel != null) {
@@ -543,8 +551,18 @@ public class ESPModule extends Module {
          if (((SoundEvent)soundPacket.getSound().value()).equals(SoundEvents.CHORUS_FRUIT_TELEPORT)) {
             Map<Vec3, Long> chorusPositionMap = this.chorusPositions;
             Vec3 teleportPosition = new Vec3(soundPacket.getX(), soundPacket.getY(), soundPacket.getZ());
-            long receivedAtMillis = System.currentTimeMillis();
-            chorusPositionMap.put(teleportPosition, receivedAtMillis);
+            long receivedAtNanos = System.nanoTime();
+            synchronized (chorusPositionMap) {
+               if (!chorusPositionMap.containsKey(teleportPosition)
+                  && chorusPositionMap.size() >= MAX_CHORUS_POSITIONS) {
+                  Iterator<Vec3> oldest = chorusPositionMap.keySet().iterator();
+                  if (oldest.hasNext()) {
+                     oldest.next();
+                     oldest.remove();
+                  }
+               }
+               chorusPositionMap.put(teleportPosition, receivedAtNanos);
+            }
          }
       }
 
@@ -601,9 +619,12 @@ public class ESPModule extends Module {
                highlightColor = LootedStorageTracker.getLootedColor();
             }
 
-            Color opaqueColor = new Color(
-               (colorsModule.schemeSetting.getValue()).transform(highlightColor).hashCode(), false
-            );
+            ColorsModule colorsSnapshot = colorsModule;
+            Color transformedColor = highlightColor;
+            if (colorsSnapshot != null) {
+               transformedColor = colorsSnapshot.schemeSetting.getValue().transform(highlightColor);
+            }
+            Color opaqueColor = new Color(transformedColor.getRGB(), false);
             BlockPos blockPosition = blockEntity.getBlockPos();
             double relativeX = blockPosition.getX() - cameraPosition.x;
             double relativeY = blockPosition.getY() - cameraPosition.y;
