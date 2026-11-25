@@ -14,6 +14,9 @@ import dev.schizo.client.modules.client.AntiCheatModule;
 import dev.schizo.client.modules.client.ColorsModule;
 import dev.schizo.client.modules.client.FontsModule;
 import dev.schizo.client.modules.client.HUDModule;
+import dev.schizo.client.modules.client.CapesModule;
+import dev.schizo.client.modules.client.DiscordModule;
+import dev.schizo.client.modules.client.UIModule;
 import dev.schizo.client.modules.movement.NoFallModule;
 import dev.schizo.client.modules.exploit.ReachModule;
 import dev.schizo.client.modules.exploit.PhaseModule;
@@ -62,6 +65,7 @@ import dev.schizo.client.modules.render.TrailsModule;
 import dev.schizo.client.modules.render.TrajectoriesModule;
 import dev.schizo.client.modules.render.VoidESPModule;
 import dev.schizo.client.modules.render.ZoomModule;
+import dev.schizo.client.modules.render.TunnelsModule;
 import java.util.Map;
 
 /**
@@ -95,6 +99,18 @@ public final class ModuleCompatibility {
       Map.entry(HUDModule.class, assessed(
          Classification.CLIENT_ONLY,
          "Local HUD rendering and editor presentation only; no outgoing gameplay packet path was found."
+      )),
+      Map.entry(UIModule.class, assessed(
+         Classification.CLIENT_ONLY,
+         "Opens and configures Schizo's local ClickGUI, cursor, language, sound and palette presentation; the reviewed packet hook only observes disconnect to close/disable the UI."
+      )),
+      Map.entry(CapesModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Selects a local cape texture resource for rendering; no gameplay packet, interaction or server-state mutation path was found."
+      )),
+      Map.entry(DiscordModule.class, assessed(
+         Classification.CLIENT_ONLY,
+         "Publishes local Discord IPC rich-presence state. The optional Server setting can disclose the current server address to the user's local Discord client, but no Minecraft gameplay packet is modified."
       )),
       Map.entry(AmbienceModule.class, assessed(
          Classification.VISUAL_ONLY,
@@ -217,6 +233,10 @@ public final class ModuleCompatibility {
          Classification.VISUAL_ONLY,
          "Builds and renders local void-column overlays; it only observes login/respawn packets to reset its cache."
       )),
+      Map.entry(TunnelsModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Scans already-loaded client chunk block states on bounded client-thread slices and renders local tunnel overlays; no outgoing gameplay packet or world interaction path was found."
+      )),
       Map.entry(NoFallModule.class, assessed(
          Classification.PACKET_AFFECTING,
          "Its Packet mode modifies the on-ground flag in outgoing movement packets."
@@ -291,6 +311,25 @@ public final class ModuleCompatibility {
       ))
    );
 
+   private static final Map<SettingKey, SettingAssessment> REVIEWED_SETTINGS = Map.ofEntries(
+      setting(CapesModule.class, "Cape", Classification.VISUAL_ONLY,
+         "Selects only the local cape texture resource."),
+      setting(DiscordModule.class, "Server", Classification.CLIENT_ONLY,
+         "Controls whether the local Discord rich presence includes the current server address; it does not alter Minecraft gameplay traffic."),
+      setting(TunnelsModule.class, "Verticals", Classification.VISUAL_ONLY,
+         "Controls which locally detected tunnel shapes are included in the overlay."),
+      setting(TunnelsModule.class, "LineWidth", Classification.VISUAL_ONLY,
+         "Controls only local tunnel-outline rendering width."),
+      setting(TunnelsModule.class, "Height", Classification.VISUAL_ONLY,
+         "Controls only local tunnel-overlay render height."),
+      setting(TunnelsModule.class, "MinLength", Classification.VISUAL_ONLY,
+         "Filters locally rendered tunnel segments by detected length."),
+      setting(TunnelsModule.class, "Fill", Classification.VISUAL_ONLY,
+         "Controls only local tunnel fill color."),
+      setting(TunnelsModule.class, "Outline", Classification.VISUAL_ONLY,
+         "Controls only local tunnel outline color.")
+   );
+
    private ModuleCompatibility() {}
 
    public static Assessment assess(Class<?> moduleType) {
@@ -301,12 +340,16 @@ public final class ModuleCompatibility {
    }
 
    /**
-    * No setting has been individually certified yet. The parent module classification is
-    * included only as inherited context and is not a setting-level compatibility claim.
+    * Setting reviews are keyed by exact runtime class and exact config name. New settings
+    * therefore remain UNVERIFIED until they receive their own explicit entry.
     */
    public static SettingAssessment assessSetting(Class<?> moduleType, String settingName) {
       Assessment module = assess(moduleType);
       String name = settingName == null || settingName.isBlank() ? "unnamed setting" : settingName;
+      SettingAssessment reviewed = REVIEWED_SETTINGS.get(new SettingKey(moduleType, name));
+      if (reviewed != null) {
+         return reviewed;
+      }
       return new SettingAssessment(
          Classification.UNVERIFIED,
          module.classification(),
@@ -318,6 +361,19 @@ public final class ModuleCompatibility {
 
    private static Assessment assessed(Classification classification, String reason) {
       return new Assessment(classification, true, reason);
+   }
+
+   private static Map.Entry<SettingKey, SettingAssessment> setting(
+      Class<?> moduleType,
+      String settingName,
+      Classification classification,
+      String reason
+   ) {
+      Assessment module = assess(moduleType);
+      return Map.entry(
+         new SettingKey(moduleType, settingName),
+         new SettingAssessment(classification, module.classification(), true, reason)
+      );
    }
 
    public enum Classification {
@@ -339,6 +395,8 @@ public final class ModuleCompatibility {
          return this.classification().requiresMultiplayerWarning();
       }
    }
+
+   private record SettingKey(Class<?> moduleType, String settingName) {}
 
    public record SettingAssessment(
       Classification classification,
