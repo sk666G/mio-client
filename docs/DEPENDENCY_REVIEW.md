@@ -40,7 +40,7 @@ Schizo contains modified vendored source under `src/main/java/com/jagrosh/discor
 
 The upstream project evidence and downstream attribution are recorded in `THIRD_PARTY_NOTICES.md`. The full Apache-2.0 text is stored at `LICENSES/DiscordIPC-APACHE-2.0.txt`.
 
-CI verifies that both files are present in the runnable and source JARs.
+CI verifies that the project MIT license, third-party notice and DiscordIPC Apache-2.0 text are present in the runnable and source JARs.
 
 ### Schizo Discord IPC transport
 
@@ -52,8 +52,8 @@ The normal Build workflow and the fresh-upstream rebuild workflow now:
 
 1. require exactly one runnable Schizo JAR;
 2. require exactly one Schizo source JAR;
-3. verify `fabric.mod.json`, `THIRD_PARTY_NOTICES.md`, and the DiscordIPC Apache-2.0 license in the runnable JAR;
-4. verify the notice and license in the source JAR;
+3. verify `fabric.mod.json`, the project `LICENSE`, `THIRD_PARTY_NOTICES.md`, and the DiscordIPC Apache-2.0 license in the runnable JAR;
+4. verify the project license, third-party notice and DiscordIPC license in the source JAR;
 5. produce `NESTED_JARS.txt` by listing `META-INF/jars/*.jar` from the runnable JAR;
 6. record the runnable JAR SHA-256;
 7. record the exact tested source commit.
