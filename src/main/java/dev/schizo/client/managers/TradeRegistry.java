@@ -17,7 +17,6 @@ import dev.schizo.client.managers.Registry;
 import dev.schizo.client.settings.JsonConfigurable;
 import dev.schizo.client.settings.NamedEntry;
 
-import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -38,18 +37,30 @@ public final class TradeRegistry extends Registry<TradeDefinition> implements Cl
 
    @Override
    public void fromJson(JsonElement json) {
-      Iterator<JsonElement> iterator = json.getAsJsonObject().getAsJsonArray("trades").iterator();
-      while (iterator.hasNext()) {
-         JsonElement element = iterator.next();
+      if (!(json instanceof JsonObject root)
+         || !(root.get("trades") instanceof JsonArray trades)) {
+         throw new IllegalArgumentException("Trade configuration must contain a trades array");
+      }
+
+      ArrayList<TradeDefinition> loaded = new ArrayList<>();
+      for (JsonElement element : trades) {
          try {
-            Gson gson = ClientAccess.gson;
-            Class<TradeDefinition> tradeType = TradeDefinition.class;
-            TradeDefinition trade = gson.fromJson(element, tradeType);
-            this.registerTrade(trade);
-         } catch (Throwable failure) {
-            failure.printStackTrace();
+            TradeDefinition trade = ClientAccess.gson.fromJson(element, TradeDefinition.class);
+            if (trade == null
+               || trade.getName() == null
+               || trade.getName().isBlank()
+               || loaded.stream().anyMatch(existing -> hasSameName(existing, trade))
+               || (trade.from() != Items.EMERALD && trade.to() != Items.EMERALD)) {
+               continue;
+            }
+            loaded.add(trade);
+         } catch (RuntimeException invalidTrade) {
+            ClientAccess.logger.warn("Skipping invalid trade entry", invalidTrade);
          }
       }
+
+      this.entries.clear();
+      this.entries.addAll(loaded);
    }
 
    @Override
