@@ -3,6 +3,7 @@ package dev.schizo.client.managers;
 import static org.junit.jupiter.api.Assertions.*;
 
 import dev.schizo.client.settings.NamedEntry;
+import dev.schizo.client.utils.inventory.Kit;
 import org.junit.jupiter.api.Test;
 
 class RegistryTest {
@@ -36,4 +37,48 @@ class RegistryTest {
       assertFalse(registry.registerEntry(duplicate));
       assertSame(first, registry.getRegistry().iterator().next());
    }
+
+   @Test
+   void kitRegistryRejectsCaseOnlyDuplicateNames() {
+      KitRegistry registry = new KitRegistry();
+      Kit first = new Kit("Crystal");
+      Kit duplicate = new Kit("crystal");
+
+      assertTrue(registry.registerEntry(first));
+      assertFalse(registry.registerEntry(duplicate));
+      assertSame(first, registry.findByName("CRYSTAL").orElseThrow());
+   }
+
+   @Test
+   void kitRenamePreservesSelectionAndRejectsConflicts() {
+      KitRegistry registry = new KitRegistry();
+      Kit first = new Kit("First");
+      Kit second = new Kit("Second");
+      first.getItemsBySlot().put(0, new Kit.ItemDescriptor(1, null));
+      assertTrue(registry.registerEntry(first));
+      assertTrue(registry.registerEntry(second));
+      registry.setCurrentKitName("FIRST");
+
+      assertFalse(registry.renameKit(first, "second"));
+      assertSame(first, KitRegistry.getCurrentKit(registry));
+
+      assertTrue(registry.renameKit(first, "Renamed"));
+      Kit current = KitRegistry.getCurrentKit(registry);
+      assertNotNull(current);
+      assertEquals("Renamed", current.getName());
+      assertEquals(new Kit.ItemDescriptor(1, null), current.getItemsBySlot().get(0));
+   }
+
+   @Test
+   void unregisteringSelectedKitClearsSelection() {
+      KitRegistry registry = new KitRegistry();
+      Kit kit = new Kit("Selected");
+      assertTrue(registry.registerEntry(kit));
+      registry.setCurrentKitName("selected");
+
+      assertTrue(registry.unregisterKit(kit));
+      assertNull(KitRegistry.getCurrentKit(registry));
+      assertTrue(registry.getRegistry().isEmpty());
+   }
+
 }
