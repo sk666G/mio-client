@@ -9,6 +9,7 @@
 
 package dev.schizo.client.commands;
 
+import dev.schizo.client.diagnostics.RuntimeDiagnostics;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.modules.misc.SocialEntry;
@@ -295,7 +296,7 @@ public final class EnemyFriendCommand extends Command {
                         missingFileMessage, ChatUtils.createSignature(-1), ChatUtils.MessagePriority.LOW
                      );
                   } else {
-                     failure.printStackTrace();
+                     RuntimeDiagnostics.record(RuntimeDiagnostics.Area.COMMAND, "Friend import", failure);
 
                      Object[] failureFormatArguments = new Object[1];
                      failureFormatArguments[0] = importer.getDisplayName();
