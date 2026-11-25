@@ -27,6 +27,8 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.mojang.authlib.GameProfile;
 import java.awt.Color;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Iterator;
 import java.util.Optional;
 import java.util.function.Predicate;
@@ -100,34 +102,42 @@ public final class SocialRegistry extends Registry<SocialEntry> implements Clien
 
    @Override
    public void fromJson(JsonElement json) {
-      JsonObject root = json.getAsJsonObject();
+      if (!(json instanceof JsonObject root)
+         || !(root.get("socials") instanceof JsonArray socials)) {
+         throw new IllegalArgumentException("Social configuration must contain a socials array");
+      }
 
-      if (root.has("socials")) {
-         root = json.getAsJsonObject();
-
-         JsonArray socials = root.getAsJsonArray("socials");
-         Iterator socialsIterator = socials.iterator();
-
-         while (socialsIterator.hasNext()) {
-            JsonElement entryElement = (JsonElement)socialsIterator.next();
-            JsonObject entryObject = entryElement.getAsJsonObject();
-
-            if (entryObject.has("name")) {
-               if (entryObject.has("role")) {
-                  JsonElement nameElement = entryObject.get("name");
-                  String name = nameElement.getAsString();
-                  EnumJsonConverter<SocialRole> capturedConverter = roleConverter;
-
-                  JsonElement roleElement = entryObject.get("role");
-                  SocialRole role = (SocialRole)capturedConverter.fromJson(
-                     roleElement
-                  );
-                  SocialEntry allocatedSocial = new SocialEntry(name, role);
-
-                  this.registerSocial(allocatedSocial);
-               }
-            }
+      List<SocialEntry> loaded = new ArrayList<>();
+      for (JsonElement entryElement : socials) {
+         if (!(entryElement instanceof JsonObject entryObject)
+            || !entryObject.has("name")
+            || !entryObject.has("role")) {
+            continue;
          }
+
+         try {
+            String name = entryObject.get("name").getAsString();
+            SocialRole role = roleConverter.fromJson(entryObject.get("role"));
+            if (name == null || name.isBlank() || role == null) {
+               continue;
+            }
+
+            SocialEntry entry = new SocialEntry(name, role);
+            if (loaded.stream().noneMatch(existing -> hasSameName(existing, entry))) {
+               loaded.add(entry);
+            }
+         } catch (RuntimeException invalidEntry) {
+            ClientAccess.logger.warn("Skipping invalid social entry", invalidEntry);
+         }
+      }
+
+      for (SocialEntry existing : this.entries) {
+         this.updatePlayerRole(existing.getName(), null);
+      }
+      this.entries.clear();
+      this.entries.addAll(loaded);
+      for (SocialEntry entry : loaded) {
+         this.updatePlayerRole(entry.getName(), entry.role());
       }
    }
 
