@@ -150,34 +150,38 @@ public abstract class LevelRendererMixin implements ClientAccess, LevelRendererF
             .getBuffer(FogMode.NONE)
       );
       poses.pushPose();
-      RenderUtils.applyCameraRotation(poses);
-      WorldRenderEvent.BeforeDepthClear beforeDepthEvent = WorldRenderEvent.BeforeDepthClear.create(
-         poses, partialTick
-      );
-      ClientAccess.eventBus.post(
-         beforeDepthEvent
-      );
-      RenderUtils.clearDepth(
-         ClientAccess.schizoMinecraft.getMainRenderTarget()
-      );
-      RenderUtils.setRenderColor(1.0F, 1.0F, 1.0F, 1.0F);
-      WorldRenderEvent.Main mainEvent = WorldRenderEvent.Main.create(
-         poses, partialTick
-      );
-      ClientAccess.eventBus.post(
-         mainEvent
-      );
-      RenderUtils.clearDepth(
-         ClientAccess.schizoMinecraft.getMainRenderTarget()
-      );
-      WorldRenderEvent.Overlay overlayEvent = WorldRenderEvent.Overlay.create(
-         poses, partialTick
-      );
-      ClientAccess.eventBus.post(
-         overlayEvent
-      );
-      poses.popPose();
-      RenderSystem.setShaderFog(previousFog);
+      try {
+         RenderUtils.applyCameraRotation(poses);
+         WorldRenderEvent.BeforeDepthClear beforeDepthEvent = WorldRenderEvent.BeforeDepthClear.create(
+            poses, partialTick
+         );
+         ClientAccess.eventBus.post(
+            beforeDepthEvent
+         );
+         RenderUtils.clearDepth(
+            ClientAccess.schizoMinecraft.getMainRenderTarget()
+         );
+         RenderUtils.setRenderColor(1.0F, 1.0F, 1.0F, 1.0F);
+         WorldRenderEvent.Main mainEvent = WorldRenderEvent.Main.create(
+            poses, partialTick
+         );
+         ClientAccess.eventBus.post(
+            mainEvent
+         );
+         RenderUtils.clearDepth(
+            ClientAccess.schizoMinecraft.getMainRenderTarget()
+         );
+         WorldRenderEvent.Overlay overlayEvent = WorldRenderEvent.Overlay.create(
+            poses, partialTick
+         );
+         ClientAccess.eventBus.post(
+            overlayEvent
+         );
+      } finally {
+         poses.popPose();
+         RenderUtils.setRenderColor(1.0F, 1.0F, 1.0F, 1.0F);
+         RenderSystem.setShaderFog(previousFog);
+      }
    }
 
    // Mojang leaves the world render pass lambda unnamed.
