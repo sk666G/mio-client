@@ -2,11 +2,7 @@ name: Build
 
 on:
   push:
-    branches:
-      - main
-      - 'lunyx/**'
-      - 'codex/**'
-      - 'astra/**'
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
