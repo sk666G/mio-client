@@ -38,12 +38,18 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 
 public final class SocialRegistry extends Registry<SocialEntry> implements ClientAccess, JsonConfigurable {
-   private static final ColorsModule colorsModule;
    private static final EnumJsonConverter<SocialRole> roleConverter;
 
    static {
-      colorsModule = ClientContext.getModule(ColorsModule.class);
       roleConverter = new EnumJsonConverter<>(SocialRole.class);
+   }
+
+   private static ColorsModule colorsModule() {
+      ColorsModule module = ClientContext.getModule(ColorsModule.class);
+      if (module == null) {
+         throw new IllegalStateException("Colors module is not initialized");
+      }
+      return module;
    }
 
    public boolean isFriendName(String name) {
@@ -56,12 +62,12 @@ public final class SocialRegistry extends Registry<SocialEntry> implements Clien
    }
 
    public Color getEnemyColor() {
-      Setting<Color> colorSetting = colorsModule.enemyColorSetting;
+      Setting<Color> colorSetting = colorsModule().enemyColorSetting;
       return colorSetting.getValue();
    }
 
    public Color getFriendColor() {
-      Setting<Color> colorSetting = colorsModule.friendColorSetting;
+      Setting<Color> colorSetting = colorsModule().friendColorSetting;
       return colorSetting.getValue();
    }
 
