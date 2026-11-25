@@ -85,6 +85,11 @@ public final class WebhookManager implements JsonConfigurable {
       }
       return json;
    }
+   
+   @Override
+   public String getConfigName() {
+      return "webhook.json";
+   }
 
    public boolean isConfigured() {
       Destination target = this.destination;
