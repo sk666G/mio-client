@@ -687,7 +687,6 @@ public class ChestStealerModule extends Module {
          if (this.shouldCloseAutomatically()) {
             int closeDelay = (int)((ClientContext.serverStateManager.getLatencyMillis() / 5e+01F) + 1.0F);
             ClientAccess.schizoMinecraft.setScreen(null);
-            TaskScheduler closeScheduler = ClientContext.taskScheduler;
             LocalPlayer expectedPlayer = ClientAccess.schizoMinecraft.player;
             long expectedGeneration = this.sessionGeneration;
             Runnable closeContainer = () -> {
@@ -699,7 +698,7 @@ public class ChestStealerModule extends Module {
                   expectedPlayer.closeContainer();
                }
             };
-            closeScheduler.scheduleRotationTask(closeContainer, closeDelay);
+            this.scheduleRotationTask(closeContainer, closeDelay);
          }
       }
 
