@@ -11,6 +11,7 @@ package dev.schizo.client.gui.screens;
 
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.profiling.EventProfiler;
+import dev.schizo.client.profiling.RuntimeDiagnostics;
 import dev.schizo.client.render.ColorUtils;
 import dev.schizo.client.render.ClientRenderTypes;
 import dev.schizo.client.render.FontRenderer;
@@ -52,6 +53,7 @@ public final class PerformanceCenterScreen extends ClientScreen {
    private List<ProfilerDisplayRow> rows = List.of();
    private MetricsSnapshot metrics = MetricsSnapshot.EMPTY;
    private String taskQueueStatus = "TASKS —";
+   private String failureStatus = "FAILURES 0";
    private float[] frameHistorySamples = new float[0];
 
    private float fitScale = 1.0F;
@@ -157,7 +159,7 @@ public final class PerformanceCenterScreen extends ClientScreen {
          false
       );
       String profilerStatus = EventProfiler.GLOBAL.isEnabled() ? "SAMPLING ON" : "PROFILER IDLE";
-      String runtimeStatus = profilerStatus + "  •  " + this.taskQueueStatus;
+      String runtimeStatus = profilerStatus + "  •  " + this.taskQueueStatus + "  •  " + this.failureStatus;
       font.drawWithShadow(
          poseStack,
          runtimeStatus,
@@ -463,6 +465,9 @@ public final class PerformanceCenterScreen extends ClientScreen {
          this.taskQueueStatus = "TASKS " + queue.totalQueued() + " queued / "
             + queue.totalOutstanding() + " outstanding";
       }
+
+      RuntimeDiagnostics.Snapshot diagnostics = RuntimeDiagnostics.GLOBAL.snapshot();
+      this.failureStatus = "FAILURES " + diagnostics.totalFailures();
 
       EventProfiler profiler = EventProfiler.GLOBAL;
       this.rows = switch (this.selectedTab) {
