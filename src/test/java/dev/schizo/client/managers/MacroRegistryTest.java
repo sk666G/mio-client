@@ -157,6 +157,44 @@ class MacroRegistryTest {
       assertTrue(registry.getRegistry().isEmpty());
    }
 
+   @Test
+   void clipboardDecodesUtf8AndPreservesLegacyEnabledDefault() {
+      JsonObject config = serializedMacro("Café", 7, "say café");
+      config.addProperty("toggled", false);
+      Macro decoded = MacroRegistry.decodeClipboardMacro(encodeClipboard(config));
+      assertEquals("Café", decoded.getName());
+      assertEquals("say café", decoded.getCommands().getFirst());
+      assertTrue(decoded.isToggled());
+   }
+
+   @Test
+   void clipboardRejectsMalformedFieldsBeforeRegistryMutation() {
+      JsonObject wrongMouse = serializedMacro("Home", 7, "say home");
+      wrongMouse.addProperty("mouse", "false");
+      JsonObject fractionalKey = serializedMacro("Home", 7, "say home");
+      fractionalKey.addProperty("key", 7.5);
+      JsonObject oversizedKey = serializedMacro("Home", 7, "say home");
+      oversizedKey.addProperty("key", 2147483648L);
+      JsonObject wrongCommand = serializedMacro("Home", 7, "say home");
+      wrongCommand.getAsJsonArray("commands").add(12);
+      for (JsonObject invalid : java.util.List.of(wrongMouse, fractionalKey, oversizedKey, wrongCommand)) {
+         assertThrows(IllegalArgumentException.class,
+            () -> MacroRegistry.decodeClipboardMacro(encodeClipboard(invalid)));
+      }
+   }
+
+   @Test
+   void clipboardRejectsInvalidBase64AndUtf8() {
+      assertThrows(IllegalArgumentException.class, () -> MacroRegistry.decodeClipboardMacro("%%%"));
+      String invalidUtf8 = java.util.Base64.getEncoder().encodeToString(new byte[] {(byte) 0xc3, 0x28});
+      assertThrows(IllegalArgumentException.class, () -> MacroRegistry.decodeClipboardMacro(invalidUtf8));
+   }
+
+   private static String encodeClipboard(JsonObject config) {
+      return java.util.Base64.getEncoder().encodeToString(
+         config.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+   }
+
    private static Macro macro(String name, int keyCode) {
       return MacroType.SIMPLE.create(name, new Keybind(keyCode, Keybind.Mode.TOGGLE, false));
    }
