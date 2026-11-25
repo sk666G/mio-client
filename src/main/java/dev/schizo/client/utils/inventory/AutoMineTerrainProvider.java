@@ -61,9 +61,7 @@ public final class AutoMineTerrainProvider extends AutoMineProviderBase {
       super(module);
    }
 
-   static {
-      speedMine = (SpeedMineModule)ClientContext.getModule(SpeedMineModule.class);
-   }
+   
 
    private BlockPos selectTerrainCandidate(Player target, BlockPos basePosition, BlockPos referencePosition) {
       Set<BlockPos> occupiedPositions = PlayerStateUtils.getSurroundPositions(target);
