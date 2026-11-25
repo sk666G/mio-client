@@ -22,9 +22,7 @@ import net.minecraft.world.phys.Vec2;
 public class FreecamInput extends ClientInput implements ClientAccess {
    private static NoSlowModule noSlow;
 
-   static {
-      noSlow = (NoSlowModule)ClientContext.getModule(NoSlowModule.class);
-   }
+   
 
    private boolean isMovementKeyDown(KeyMapping mapping) {
       if (noSlow.isToggled() && noSlow.isGuiMoveAllowed() && noSlow.guiMoveSetting.getValue()) {
