@@ -122,6 +122,8 @@ public final class PresetImportScreen extends ClientScreen {
          Files.copy(sourcePath, targetCategory.getDirectory().resolve(fileName));
       } catch (IOException copyFailure) {
          RuntimeDiagnostics.record(RuntimeDiagnostics.Area.FILE_IO, "Preset import", copyFailure);
+         this.setTooltipText("Preset import failed: " + copyFailure.getClass().getSimpleName());
+         return;
       }
 
       ClientContext.configurationManager
