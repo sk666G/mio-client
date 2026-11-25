@@ -10,6 +10,7 @@
 package dev.schizo.client.utils.entity;
 
 import dev.schizo.client.settings.options.SocialRole;
+import dev.schizo.client.utils.MonotonicTime;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
 
@@ -23,13 +24,17 @@ public interface PlayerState {
    boolean schizo$wasCrawling();
 
    default float getItemUseProgress(ItemStack stack, LivingEntity entity) {
-      float elapsedMillis = (float)(System.currentTimeMillis() - schizo$getLastEatingTime());
-      return elapsedMillis / (stack.getUseDuration(entity) * 50.0F + 50.0F);
+      long elapsedNanos = MonotonicTime.elapsedNanos(
+         schizo$getLastEatingTimeNanos(),
+         System.nanoTime()
+      );
+      double durationNanos = (stack.getUseDuration(entity) * 50.0D + 50.0D) * 1_000_000.0D;
+      return (float)(elapsedNanos / durationNanos);
    }
 
    float schizo$getHealthFactor();
 
-   long schizo$getLastEatingTime();
+   long schizo$getLastEatingTimeNanos();
 
    int schizo$getLastAttackedTicksServer();
 

@@ -10,6 +10,7 @@
 package dev.schizo.client.utils.combat;
 
 import dev.schizo.client.utils.entity.EntityUtils;
+import dev.schizo.client.utils.MonotonicTime;
 
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
@@ -28,6 +29,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundEntityEventPacket;
 import net.minecraft.network.protocol.game.ClientboundPlayerInfoRemovePacket;
@@ -35,8 +37,9 @@ import net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket;
 import net.minecraft.world.entity.player.Player;
 
 public final class TotemPopTracker implements ClientAccess {
+   private static final long DISCONNECT_RETENTION_NANOS = TimeUnit.MINUTES.toNanos(2L);
    private final Map<String, Integer> popCounts = new ConcurrentHashMap<>();
-   private final Map<String, Long> disconnectTimes = new ConcurrentHashMap<>();
+   private final Map<String, Long> disconnectTimesNanos = new ConcurrentHashMap<>();
    private final Map<UUID, String> profileNames = new ConcurrentHashMap<>();
    private volatile long sessionGeneration;
 
@@ -70,9 +73,9 @@ public final class TotemPopTracker implements ClientAccess {
          }
       }
 
-      long nowMillis = System.currentTimeMillis();
-      this.disconnectTimes.entrySet().removeIf(entry -> {
-         if (entry.getValue() + 120000L >= nowMillis) {
+      long nowNanos = System.nanoTime();
+      this.disconnectTimesNanos.entrySet().removeIf(entry -> {
+         if (!MonotonicTime.hasElapsed(entry.getValue(), nowNanos, DISCONNECT_RETENTION_NANOS)) {
             return false;
          }
          this.popCounts.remove(entry.getKey());
@@ -93,7 +96,7 @@ public final class TotemPopTracker implements ClientAccess {
    private void resetSession() {
       this.sessionGeneration++;
       this.popCounts.clear();
-      this.disconnectTimes.clear();
+      this.disconnectTimesNanos.clear();
       this.profileNames.clear();
    }
 
@@ -133,16 +136,16 @@ public final class TotemPopTracker implements ClientAccess {
                continue;
             }
             this.profileNames.put(profile.id(), profile.name());
-            this.disconnectTimes.remove(profile.name());
+            this.disconnectTimesNanos.remove(profile.name());
          }
       }
 
       if (event.getPacket() instanceof ClientboundPlayerInfoRemovePacket playerInfoRemovePacket) {
-         long disconnectedAt = System.currentTimeMillis();
+         long disconnectedAtNanos = System.nanoTime();
          for (UUID removedId : playerInfoRemovePacket.profileIds()) {
             String removedName = this.profileNames.remove(removedId);
             if (removedName != null) {
-               this.disconnectTimes.put(removedName, disconnectedAt);
+               this.disconnectTimesNanos.put(removedName, disconnectedAtNanos);
             }
          }
       }

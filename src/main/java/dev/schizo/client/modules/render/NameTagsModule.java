@@ -322,11 +322,7 @@ public class NameTagsModule extends Module {
                   float eatingBottom = eatingBottomBaseY + 7.55F;
                   float eatingTopBaseY = y * scale;
                   float eatingTop = eatingTopBaseY - 7.55F;
-                  long elapsedUseMillis = System.currentTimeMillis() - ((PlayerState)player).schizo$getLastEatingTime();
-                  float elapsedUseMillisAsFloat = (float)elapsedUseMillis;
-                  float useDurationTicks = stack.getUseDuration(player);
-                  float scaledUseDuration = useDurationTicks * 5e+01F;
-                  float useProgress = elapsedUseMillisAsFloat / (scaledUseDuration + 5e+01F);
+                  float useProgress = ((PlayerState)player).getItemUseProgress(stack, player);
                   float eatingProgressWidth = 0.9F * Mth.clamp(useProgress, 0.0F, 1.0F);
                   float eatingLeft = (x - 0.45F) * scale;
                   float eatingRight = (x - 0.45F + eatingProgressWidth) * scale;
