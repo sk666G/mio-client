@@ -42,9 +42,29 @@ jobs:
           ORG_GRADLE_JAVA_INSTALLATIONS_PATHS: ${{ env.JAVA_HOME_21_X64 }}
         run: ./gradlew --no-daemon clean build
 
-      - name: Upload remapped mod jar
+      - name: Verify remapped artifact and record provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t jars < <(find build/libs -maxdepth 1 -type f -name 'schizo-*.jar' ! -name '*-sources.jar' ! -name '*-dev.jar' | sort)
+          if [ "${#jars[@]}" -ne 1 ]; then
+            printf 'Expected exactly one runnable Schizo JAR, found %s\n' "${#jars[@]}" >&2
+            printf '%s\n' "${jars[@]}" >&2
+            exit 1
+          fi
+          jar_file="${jars[0]}"
+          jar tf "$jar_file" | grep -qx 'fabric.mod.json'
+          sha256sum "$jar_file" > build/libs/SHA256SUMS.txt
+          printf '%s\n' "$GITHUB_SHA" > build/libs/COMMIT_SHA.txt
+
+      - name: Upload verified remapped mod jar
         uses: actions/upload-artifact@v4
         with:
           name: schizo-client
-          path: build/libs/*.jar
+          path: |
+            build/libs/schizo-*.jar
+            !build/libs/*-sources.jar
+            !build/libs/*-dev.jar
+            build/libs/SHA256SUMS.txt
+            build/libs/COMMIT_SHA.txt
           if-no-files-found: error
