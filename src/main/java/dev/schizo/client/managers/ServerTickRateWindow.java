@@ -9,7 +9,7 @@ final class ServerTickRateWindow {
    private float latest;
    private float average;
 
-   void recordIntervalNanos(long elapsedNanos) {
+   synchronized void recordIntervalNanos(long elapsedNanos) {
       if (elapsedNanos <= 0L) {
          return;
       }
@@ -28,19 +28,19 @@ final class ServerTickRateWindow {
       this.average = computed > 19.95F ? 20.0F : computed;
    }
 
-   float latest() {
+   synchronized float latest() {
       return this.latest;
    }
 
-   float average() {
+   synchronized float average() {
       return this.average;
    }
 
-   int sampleCount() {
+   synchronized int sampleCount() {
       return this.samples.size();
    }
 
-   void clear() {
+   synchronized void clear() {
       this.samples.clear();
       this.latest = 0.0F;
       this.average = 0.0F;

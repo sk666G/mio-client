@@ -25,9 +25,8 @@ public final class LagNotification extends HudNotification {
 
    @Override
    public void update() {
-      long nowMillis = System.currentTimeMillis();
       ServerStateManager networkActivity = ClientContext.serverStateManager;
-      long idleMillis = nowMillis - networkActivity.getLastPacketTime();
+      long idleMillis = networkActivity.getPacketIdleMillis(ServerStateManager.PacketActivity.ANY);
       if (idleMillis < 1000L && !this.finished) {
          this.finishAfter(500L);
          this.finished = true;

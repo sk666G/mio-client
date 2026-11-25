@@ -16,6 +16,7 @@ import dev.schizo.client.events.PacketEvent;
 import dev.schizo.client.events.RotationRequestEvent;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.LocalPlayerPreTickEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.utils.inventory.TradeOfferSnapshot;
 import dev.schizo.client.managers.RotationManager;
 import dev.schizo.client.utils.network.InteractPacketUtils;
@@ -413,14 +414,42 @@ public class AutoTradeModule extends Module {
       PacketEvent.Receive event
    ) {
       if (event.getPacket() instanceof ClientboundMerchantOffersPacket offersPacket) {
-         VillagerOfferCache cache = this.offerCache;
-
-         AbstractVillager villager = this.getCurrentVillager();
          MerchantOffers packetOffers = offersPacket.getOffers();
-         cache.updateOffers(villager, packetOffers);
-
-         this.closeQuietTimer.reset();
+         int expectedVillagerId = this.villagerId;
+         ClientAccess.schizoMinecraft.executeIfPossible(() -> {
+            if (!this.isToggled() || this.villagerId != expectedVillagerId) {
+               return;
+            }
+            AbstractVillager villager = this.getCurrentVillager();
+            if (villager == null || villager.getId() != expectedVillagerId) {
+               return;
+            }
+            this.offerCache.updateOffers(villager, packetOffers);
+            this.closeQuietTimer.reset();
+         });
       }
+   }
+
+   @Override
+   public void onEnable() {
+      this.resetSessionState();
+   }
+
+   @Override
+   public void onDisable() {
+      this.resetSessionState();
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.resetSessionState();
+   }
+
+   private void resetSessionState() {
+      this.villagerId = -1;
+      this.offerCache.clear();
+      this.tradedInMenu = false;
+      this.resetOpenTimer = false;
    }
 
    public AutoTradeModule() {

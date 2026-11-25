@@ -426,10 +426,7 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
    @Override
    public void closeWithTransition() {
       super.closeWithTransition();
-      ClientAccess.executorService.submit(
-         () -> ClientContext.configurationManager
-            .save()
-      );
+      ClientContext.configurationManager.saveAsyncSnapshot();
    }
 
    public boolean isGamePanelUnlocked() {

@@ -522,7 +522,11 @@ public class SprintModule extends Module {
       PacketEvent.Receive event
    ) {
       if (event.getPacket() instanceof ClientboundPlayerPositionPacket) {
-         this.explosionBoostSpeed = 0.0F;
+         ClientAccess.schizoMinecraft.executeIfPossible(() -> {
+            if (this.isToggled()) {
+               this.explosionBoostSpeed = 0.0F;
+            }
+         });
       }
    }
 

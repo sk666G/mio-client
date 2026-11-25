@@ -53,6 +53,7 @@ public class MovementSpeedTracker implements ClientAccess {
    private void onMinecraftDisconnectEvent(MinecraftDisconnectEvent event) {
       this.averageSpeed = 0.0;
       this.displaySpeed = 0.0;
+      this.currentSpeed = 0.0;
       this.speedSamples.clear();
       this.displayTimer.reset();
    }

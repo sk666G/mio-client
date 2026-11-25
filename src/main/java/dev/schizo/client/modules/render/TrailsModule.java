@@ -46,6 +46,8 @@ import net.minecraft.world.entity.projectile.throwableitemprojectile.ThrownExper
 import net.minecraft.world.phys.Vec3;
 
 public class TrailsModule extends Module {
+   private static final int MAX_POINTS_PER_TRAIL = 8192;
+   private static final int TRAIL_PRUNE_BATCH = 2048;
    private final HashMap<Integer, List<TrailPoint>> trailsByEntityId = new HashMap<>();
    private final Setting<Boolean> renderSetting;
    private final Setting<Boolean> bloomSetting;
@@ -139,6 +141,9 @@ public class TrailsModule extends Module {
                   HashMap<Integer, List<TrailPoint>> trailMap = this.trailsByEntityId;
                   int newEntityId = entity.getId();
                   List<TrailPoint> entityTrail = trailMap.computeIfAbsent(newEntityId, entityId -> new ArrayList<>());
+                  if (!this.fadeSetting.getValue() && entityTrail.size() >= MAX_POINTS_PER_TRAIL) {
+                     entityTrail.subList(0, TRAIL_PRUNE_BATCH).clear();
+                  }
                   entityTrail.add(point);
                }
             }

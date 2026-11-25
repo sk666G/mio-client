@@ -637,40 +637,36 @@ public class FeetPlaceModule extends PlacementModule {
       PacketEvent.Receive event
    ) {
       if (event.getPacket() instanceof ClientboundPlayerPositionPacket positionPacket) {
-         Vec3 playerPosition = ClientAccess.schizoMinecraft.player.position();
-
-         PositionMoveRotation packetChange = positionPacket.change();
-         Vec3 packetPosition = packetChange.position();
-         double distanceSquared = playerPosition.distanceToSqr(packetPosition);
-
-         if (distanceSquared > 9.0D) {
-            PositionMoveRotation freshPacketChange = positionPacket.change();
-            this.placementBaselineY = freshPacketChange.position().y;
-
-            ElapsedTimer correctionTimer = ClientContext.serverStateManager.getTeleportAckTimer();
-
-            correctionTimer.reset();
-         }
-      }
-      if (event.getPacket() instanceof ClientboundAddEntityPacket entityPacket) {
-         if (entityPacket.getType() == EntityType.END_CRYSTAL) {
-            if (this.smartFaceSetting.getValue()) {
-               double spawnX = entityPacket.getX();
-               double spawnY = entityPacket.getY();
-               double spawnZ = entityPacket.getZ();
-               BlockPos crystalPosition = BlockPos.containing(spawnX, spawnY, spawnZ);
-               Minecraft client = ClientAccess.schizoMinecraft;
-               Runnable countSpawnedCrystal = () -> {
-                  Set<BlockPos> spawnSurroundPositions = PlayerStateUtils.getSurroundPositions(ClientAccess.schizoMinecraft.player);
-                  BlockPos crystalBase = crystalPosition.below();
-                  if (spawnSurroundPositions.contains(crystalBase)) {
-                     this.nearbyCrystalCount++;
-                  }
-               };
-
-               client.execute(countSpawnedCrystal);
+         Vec3 packetPosition = positionPacket.change().position();
+         ClientAccess.schizoMinecraft.executeIfPossible(() -> {
+            if (!this.isToggled() || ClientAccess.schizoMinecraft.player == null) {
+               return;
             }
-         }
+            double distanceSquared =
+               ClientAccess.schizoMinecraft.player.position().distanceToSqr(packetPosition);
+            if (distanceSquared > 9.0D) {
+               this.placementBaselineY = packetPosition.y;
+               ClientContext.serverStateManager.getTeleportAckTimer().reset();
+            }
+         });
+      }
+      if (event.getPacket() instanceof ClientboundAddEntityPacket entityPacket
+         && entityPacket.getType() == EntityType.END_CRYSTAL) {
+         BlockPos crystalPosition = BlockPos.containing(
+            entityPacket.getX(), entityPacket.getY(), entityPacket.getZ()
+         );
+         ClientAccess.schizoMinecraft.executeIfPossible(() -> {
+            if (!this.isToggled()
+               || !this.smartFaceSetting.getValue()
+               || ClientAccess.schizoMinecraft.player == null) {
+               return;
+            }
+            Set<BlockPos> spawnSurroundPositions =
+               PlayerStateUtils.getSurroundPositions(ClientAccess.schizoMinecraft.player);
+            if (spawnSurroundPositions.contains(crystalPosition.below())) {
+               this.nearbyCrystalCount++;
+            }
+         });
       }
 
       if (this.fireworkSetting.getValue()) {

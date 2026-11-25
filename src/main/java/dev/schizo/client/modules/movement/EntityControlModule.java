@@ -192,7 +192,11 @@ public class EntityControlModule extends Module {
       PacketEvent.Receive event
    ) {
       if (event.getPacket() instanceof ClientboundPlayerPositionPacket) {
-         this.accelerationStartMillis = System.currentTimeMillis();
+         ClientAccess.schizoMinecraft.executeIfPossible(() -> {
+            if (this.isToggled()) {
+               this.accelerationStartMillis = System.currentTimeMillis();
+            }
+         });
       }
    }
 

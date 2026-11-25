@@ -115,28 +115,29 @@ public final class AutoMountModule extends Module {
       if (!(event.getPacket() instanceof ClientboundSetPassengersPacket passengersPacket)) {
          return;
       }
-      Setting<Float> delayOption = this.delaySetting;
 
-      if (!delayOption.isAtMinimum()) {
-         return;
-      }
-      if (ClientAccess.schizoMinecraft.player.getVehicle() == null) {
-         return;
-      }
       int packetVehicleId = passengersPacket.getVehicle();
-      Entity vehicle = ClientAccess.schizoMinecraft.player.getVehicle();
-      if (packetVehicleId != vehicle.getId()) {
-         return;
-      }
-
-      for (int passengerId : passengersPacket.getPassengers()) {
-         LocalPlayer passengerPlayer = ClientAccess.schizoMinecraft.player;
-         if (passengerId == passengerPlayer.getId()) {
+      int[] passengerIds = passengersPacket.getPassengers().clone();
+      ClientAccess.schizoMinecraft.executeIfPossible(() -> {
+         if (!this.isToggled()
+            || !this.delaySetting.isAtMinimum()
+            || ClientAccess.schizoMinecraft.player == null) {
             return;
          }
-      }
 
-      this.mountTimer.clear();
+         LocalPlayer player = ClientAccess.schizoMinecraft.player;
+         Entity vehicle = player.getVehicle();
+         if (vehicle == null || packetVehicleId != vehicle.getId()) {
+            return;
+         }
+
+         for (int passengerId : passengerIds) {
+            if (passengerId == player.getId()) {
+               return;
+            }
+         }
+         this.mountTimer.clear();
+      });
    }
 
    public AutoMountModule() {

@@ -53,7 +53,7 @@ public class VoidESPModule extends Module {
    private final Setting<Color> fillSetting;
    private final Setting<Color> lineSetting;
    private final Set voidBlocks;
-   private boolean resetPending;
+   private volatile boolean resetPending;
 
    private boolean shouldRemoveVoidBlock(BlockPos position) {
       GameRenderer gameRenderer = ClientAccess.schizoMinecraft.gameRenderer;

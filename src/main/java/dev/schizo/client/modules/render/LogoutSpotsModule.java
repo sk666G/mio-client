@@ -19,6 +19,7 @@ import dev.schizo.client.events.WorldRenderEvent;
 import dev.schizo.client.events.ConnectScreenConnectEvent;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.LocalPlayerTickEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.managers.ServerStateManager;
 import dev.schizo.client.render.GuiDrawUtils;
 import dev.schizo.client.render.LineMeshRenderer;
@@ -131,6 +132,7 @@ public class LogoutSpotsModule extends Module {
    private final ElapsedTimer spotCleanupTimer;
    private final Object2ObjectOpenHashMap<String, LogoutSpot> spotsByName;
    private final List<PendingRemoval> pendingRemovals;
+   private volatile long spotGeneration;
 
 
    private static boolean isPlayerListed(Player player) {
@@ -181,8 +183,22 @@ public class LogoutSpotsModule extends Module {
 
    @Override
    public void onToggle() {
+      this.spotGeneration++;
       Object2ObjectOpenHashMap<String, LogoutSpot> spots = this.spotsByName;
       spots.clear();
+      this.clearTransientRemovalState();
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.spotGeneration++;
+      this.clearTransientRemovalState();
+   }
+
+   private void clearTransientRemovalState() {
+      this.pendingRemovals.clear();
+      this.spotCleanupTimer.clear();
+      renderingTexturedModel = false;
    }
 
    public void putSpot(
@@ -294,7 +310,7 @@ public class LogoutSpotsModule extends Module {
          }
 
          List<PendingRemoval> pending = this.pendingRemovals;
-         pending.add(new LogoutSpotsModule.PendingRemoval(removedPlayer, System.currentTimeMillis(), new AtomicBoolean()));
+         pending.add(new LogoutSpotsModule.PendingRemoval(removedPlayer, System.nanoTime(), new AtomicBoolean()));
       }
    }
 
@@ -406,23 +422,19 @@ public class LogoutSpotsModule extends Module {
                      Boolean textured = this.texturedSetting.getValue();
                      if (textured) {
                         renderingTexturedModel = true;
-
-                        Float alpha = this.alphaSetting.getValue();
-                        RenderUtils.setRenderColor(
-                           1.0F, 1.0F, 1.0F, alpha
-                        );
-                        RenderUtils modelRenderer = RenderUtils.INSTANCE;
-
-                        RenderBuffers renderBuffers = ClientAccess.schizoMinecraft.renderBuffers();
-                        modelRenderer.renderEntity(
-                           playerModel, 1.0F, poses, renderBuffers.bufferSource()
-                        );
-                        RenderUtils.INSTANCE
-                           .flushEntities();
-
-                        RenderUtils.setRenderColor(
-                           1.0F, 1.0F, 1.0F,1.0F);
-                        renderingTexturedModel = false;
+                        try {
+                           Float alpha = this.alphaSetting.getValue();
+                           RenderUtils.setRenderColor(1.0F, 1.0F, 1.0F, alpha);
+                           RenderUtils modelRenderer = RenderUtils.INSTANCE;
+                           RenderBuffers renderBuffers = ClientAccess.schizoMinecraft.renderBuffers();
+                           modelRenderer.renderEntity(
+                              playerModel, 1.0F, poses, renderBuffers.bufferSource()
+                           );
+                           RenderUtils.INSTANCE.flushEntities();
+                        } finally {
+                           RenderUtils.setRenderColor(1.0F, 1.0F, 1.0F, 1.0F);
+                           renderingTexturedModel = false;
+                        }
                      }
 
                      Float modelWidth = this.modelWidthSetting.getValue();
@@ -523,11 +535,12 @@ public class LogoutSpotsModule extends Module {
       }
 
       LineMeshRenderer.draw();
-      RenderStateManager.addStates(
-         RenderStateManager.POLYGON_OFFSET_THROUGH_WALLS
-      );
-      GuiDrawUtils.flush();
-      RenderStateManager.reset();
+      RenderStateManager.addStates(RenderStateManager.POLYGON_OFFSET_THROUGH_WALLS);
+      try {
+         GuiDrawUtils.flush();
+      } finally {
+         RenderStateManager.reset();
+      }
    }
 
    private static void removeFirstUnlistedSpot(LogoutSpotsModule owner) {
@@ -630,22 +643,17 @@ public class LogoutSpotsModule extends Module {
       PacketEvent.Receive event
    ) {
       if (event.getPacket() instanceof ClientboundPlayerInfoUpdatePacket packet) {
-         Iterator entries = packet.newEntries().iterator();
-
-         while (entries.hasNext()) {
-            net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket.Entry entry = (net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket.Entry)entries.next();
-            ClientAccess.schizoMinecraft.executeIfPossible((Runnable)() -> {
-               GameProfile profile = entry.profile();
-               String profileName;
-               if (profile == null) {
-                  profileName = "";
-               } else {
-                  profileName = profile.name();
+         long expectedGeneration = this.spotGeneration;
+         for (net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket.Entry entry : packet.newEntries()) {
+            GameProfile profile = entry.profile();
+            if (profile == null) {
+               continue;
+            }
+            String playerName = profile.name();
+            ClientAccess.schizoMinecraft.executeIfPossible(() -> {
+               if (this.isToggled() && this.spotGeneration == expectedGeneration) {
+                  this.removeSpot(playerName);
                }
-
-               String playerName = profileName;
-
-               this.removeSpot(playerName);
             });
          }
       }
@@ -653,6 +661,7 @@ public class LogoutSpotsModule extends Module {
 
    @EventHandler
    private void onConnectScreenConnectEvent(ConnectScreenConnectEvent event) {
+      this.spotGeneration++;
       ServerStateManager serverSource = ClientContext.serverStateManager;
       clearForServerConnection(this, serverSource, event);
    }
@@ -910,13 +919,13 @@ public class LogoutSpotsModule extends Module {
 
    private record PendingRemoval(
       Player player,
-      long removalTime,
+      long removalTimeNanos,
       AtomicBoolean processedFlag
    ) {
 
       public boolean isReadyForRemoval() {
-         long ageMillis = System.currentTimeMillis() - this.removalTime;
-         return ageMillis >= 300L || this.processedFlag.get();
+         long ageNanos = System.nanoTime() - this.removalTimeNanos;
+         return ageNanos >= TimeUnit.MILLISECONDS.toNanos(300L) || this.processedFlag.get();
       }
 
    }

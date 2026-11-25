@@ -227,38 +227,35 @@ public class BlockerModule extends PlacementModule {
       PacketEvent.Receive event
    ) {
       Packet packet = event.getPacket();
+      if (!BlockUpdateBatch.isSupportedPacket(packet)) {
+         return;
+      }
 
-      if (BlockUpdateBatch.isSupportedPacket(packet)) {
-         BlockUpdateBatch blockUpdates = new BlockUpdateBatch(event.getPacket());
+      ClientAccess.schizoMinecraft.executeIfPossible(() -> {
+         if (!this.isToggled()) {
+            return;
+         }
+         BlockUpdateBatch blockUpdates = new BlockUpdateBatch(packet);
          Iterator<BlockUpdateBatch.Update> updatesIterator = blockUpdates.iterator();
-
          while (updatesIterator.hasNext()) {
             BlockUpdateBatch.Update update = updatesIterator.next();
-
-            BlockPos miningPosition = speedMineModule.getMiningPos();
-
-            BlockState updatedStateSnapshot = update.state();
-            TagKey airTag = BlockTags.AIR;
-            if (!updatedStateSnapshot.is(airTag)) {
-               return;
+            BlockState updatedState = update.state();
+            if (!updatedState.is(BlockTags.AIR)) {
+               continue;
             }
 
-            if (miningPosition != null) {
-               if (miningPosition.equals(update.position())) {
-                  return;
-               }
+            BlockPos miningPosition = speedMineModule.getMiningPos();
+            if (miningPosition != null && miningPosition.equals(update.position())) {
+               continue;
             }
 
             synchronized (this.destroyedPositionExpiries) {
-               Map<BlockPos, Long> expiryMap = this.destroyedPositionExpiries;
-               BlockPos updatedPosition = update.position();
-               long now = System.currentTimeMillis();
-
-               long expiry = now + 150L;
-               expiryMap.put(updatedPosition, expiry);
+               this.destroyedPositionExpiries.put(
+                  update.position().immutable(), System.currentTimeMillis() + 150L
+               );
             }
          }
-      }
+      });
    }
 
    public static void bindReferencedModules(ModuleRegistry registry) {

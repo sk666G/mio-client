@@ -59,6 +59,7 @@ import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.Holder;
 import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.component.DataComponents;
@@ -544,12 +545,20 @@ public class AutoArmorModule extends Module {
                      }
                   }
 
+                  ClientLevel expectedLevel = ClientAccess.schizoMinecraft.level;
+                  LocalPlayer expectedPlayer = ClientAccess.schizoMinecraft.player;
                   Runnable restoreCursorStack = () -> {
+                     if (!this.isToggled()
+                        || ClientAccess.schizoMinecraft.level != expectedLevel
+                        || ClientAccess.schizoMinecraft.player != expectedPlayer
+                        || ClientAccess.schizoMinecraft.screen != null) {
+                        return;
+                     }
                      InventoryUtils.clickSlot(0, 0, ClickType.PICKUP);
                      InventoryUtils.clickSlot(0, 0, ClickType.PICKUP);
                   };
                   if (!ClientContext.taskScheduler.scheduleRotationTask(restoreCursorStack, 0)) {
-                     ClientAccess.schizoMinecraft.execute(restoreCursorStack);
+                     ClientAccess.schizoMinecraft.executeIfPossible(restoreCursorStack);
                   }
                }
             }

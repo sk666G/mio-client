@@ -180,26 +180,31 @@ public class FakeLagModule extends Module {
       PacketEvent.Receive event
    ) {
       if (event.getPacket() instanceof ClientboundPlayerPositionPacket) {
-         if (this.modeSetting.getValue() == FakeLagModule.ModeChoice.PULSE) {
-            this.pulseTimer.clear();
-         }
-
-         if (this.autoDisableSetting.getValue()) {
-            if (this.onRubberBandSetting.getValue()) {
-               this.toggle();
+         ClientAccess.schizoMinecraft.executeIfPossible(() -> {
+            if (!this.isToggled()) {
+               return;
             }
-         }
+            if (this.modeSetting.getValue() == FakeLagModule.ModeChoice.PULSE) {
+               this.pulseTimer.clear();
+            }
+            if (this.autoDisableSetting.getValue() && this.onRubberBandSetting.getValue()) {
+               this.disable();
+            }
+         });
       }
 
       if (event.getPacket() instanceof ClientboundDamageEventPacket damagePacket) {
          int damagedEntityId = damagePacket.entityId();
-         if (damagedEntityId == ClientAccess.schizoMinecraft.player.getId()) {
-            if (this.autoDisableSetting.getValue()) {
-               if (this.onDamageSetting.getValue()) {
-                  this.toggle();
-               }
+         ClientAccess.schizoMinecraft.executeIfPossible(() -> {
+            if (!this.isToggled() || ClientAccess.schizoMinecraft.player == null) {
+               return;
             }
-         }
+            if (damagedEntityId == ClientAccess.schizoMinecraft.player.getId()
+               && this.autoDisableSetting.getValue()
+               && this.onDamageSetting.getValue()) {
+               this.disable();
+            }
+         });
       }
    }
 

@@ -26,51 +26,67 @@ public final class PlayerTickExecutor implements ClientAccess {
    }
 
    public static void runExtraTick() {
+      var player = ClientAccess.schizoMinecraft.player;
+      if (player == null) {
+         return;
+      }
+
       runningExtraTick = true;
-      int useItemRemainingTicks = ClientAccess.schizoMinecraft.player.getUseItemRemainingTicks();
-      float moveDistance = ClientAccess.schizoMinecraft.player.moveDist;
-      float walkAnimationSpeed = ClientAccess.schizoMinecraft.player.walkAnimation.speed();
-      float walkDistance = ClientAccess.schizoMinecraft.player.avatarState().walkDist;
-      float previousWalkDistance = ClientAccess.schizoMinecraft.player.avatarState().walkDistO;
-      float verticalBob = ClientAccess.schizoMinecraft.player.yBob;
-      float previousVerticalBob = ClientAccess.schizoMinecraft.player.yBobO;
-      float horizontalBob = ClientAccess.schizoMinecraft.player.xBob;
-      float previousHorizontalBob = ClientAccess.schizoMinecraft.player.xBobO;
-      Vec3 previousPosition = new Vec3(
-         ClientAccess.schizoMinecraft.player.xo,
-         ClientAccess.schizoMinecraft.player.yo,
-         ClientAccess.schizoMinecraft.player.zo
-      );
-      int attackStrengthTicks = ClientAccess.schizoMinecraft.player.attackStrengthTicker;
-      int swingTime = ClientAccess.schizoMinecraft.player.swingTime;
-      float previousAttackAnimation = ClientAccess.schizoMinecraft.player.oAttackAnim;
-      float attackAnimation = ClientAccess.schizoMinecraft.player.attackAnim;
-      LocalPlayerTickAccess baseTickPlayer = (LocalPlayerTickAccess)ClientAccess.schizoMinecraft.player;
-      baseTickPlayer.superTick();
-      LocalPlayerTickAccess eventResetPlayer = (LocalPlayerTickAccess)ClientAccess.schizoMinecraft.player;
-      eventResetPlayer.resetEvent();
-      ClientAccess.schizoMinecraft.player.attackStrengthTicker = attackStrengthTicks;
-      ((LivingEntityAccessor)ClientAccess.schizoMinecraft.player)
-         .setItemUseTimeLeft(useItemRemainingTicks);
-      ClientAccess.schizoMinecraft.player.moveDist = moveDistance;
-      ClientAccess.schizoMinecraft.player.walkAnimation.setSpeed(walkAnimationSpeed);
-      ClientAccess.schizoMinecraft.player.avatarState().walkDist = walkDistance;
-      ClientAccess.schizoMinecraft.player.avatarState().walkDistO = previousWalkDistance;
-      ClientAccess.schizoMinecraft.player.yBob = verticalBob;
-      ClientAccess.schizoMinecraft.player.yBobO = previousVerticalBob;
-      ClientAccess.schizoMinecraft.player.xBob = horizontalBob;
-      ClientAccess.schizoMinecraft.player.xBobO = previousHorizontalBob;
-      ClientAccess.schizoMinecraft.player.swingTime = swingTime;
-      ClientAccess.schizoMinecraft.player.oAttackAnim = previousAttackAnimation;
-      ClientAccess.schizoMinecraft.player.attackAnim = attackAnimation;
-      LocalPlayerTickAccess movementPacketPlayer = (LocalPlayerTickAccess)ClientAccess.schizoMinecraft.player;
-      movementPacketPlayer.sendMovementPacketsWrapper();
-      LocalPlayerTickAccess rotationResetPlayer = (LocalPlayerTickAccess)ClientAccess.schizoMinecraft.player;
-      rotationResetPlayer.resetRotations();
-      ClientAccess.schizoMinecraft.player.xo = previousPosition.x;
-      ClientAccess.schizoMinecraft.player.yo = previousPosition.y;
-      ClientAccess.schizoMinecraft.player.zo = previousPosition.z;
-      runningExtraTick = false;
+      int useItemRemainingTicks = player.getUseItemRemainingTicks();
+      float moveDistance = player.moveDist;
+      float walkAnimationSpeed = player.walkAnimation.speed();
+      float walkDistance = player.avatarState().walkDist;
+      float previousWalkDistance = player.avatarState().walkDistO;
+      float verticalBob = player.yBob;
+      float previousVerticalBob = player.yBobO;
+      float horizontalBob = player.xBob;
+      float previousHorizontalBob = player.xBobO;
+      Vec3 previousPosition = new Vec3(player.xo, player.yo, player.zo);
+      int attackStrengthTicks = player.attackStrengthTicker;
+      int swingTime = player.swingTime;
+      float previousAttackAnimation = player.oAttackAnim;
+      float attackAnimation = player.attackAnim;
+      LocalPlayerTickAccess tickAccess = (LocalPlayerTickAccess)player;
+
+      try {
+         tickAccess.superTick();
+         tickAccess.resetEvent();
+
+         player.attackStrengthTicker = attackStrengthTicks;
+         ((LivingEntityAccessor)player).setItemUseTimeLeft(useItemRemainingTicks);
+         player.moveDist = moveDistance;
+         player.walkAnimation.setSpeed(walkAnimationSpeed);
+         player.avatarState().walkDist = walkDistance;
+         player.avatarState().walkDistO = previousWalkDistance;
+         player.yBob = verticalBob;
+         player.yBobO = previousVerticalBob;
+         player.xBob = horizontalBob;
+         player.xBobO = previousHorizontalBob;
+         player.swingTime = swingTime;
+         player.oAttackAnim = previousAttackAnimation;
+         player.attackAnim = attackAnimation;
+
+         tickAccess.sendMovementPacketsWrapper();
+         tickAccess.resetRotations();
+      } finally {
+         player.attackStrengthTicker = attackStrengthTicks;
+         ((LivingEntityAccessor)player).setItemUseTimeLeft(useItemRemainingTicks);
+         player.moveDist = moveDistance;
+         player.walkAnimation.setSpeed(walkAnimationSpeed);
+         player.avatarState().walkDist = walkDistance;
+         player.avatarState().walkDistO = previousWalkDistance;
+         player.yBob = verticalBob;
+         player.yBobO = previousVerticalBob;
+         player.xBob = horizontalBob;
+         player.xBobO = previousHorizontalBob;
+         player.swingTime = swingTime;
+         player.oAttackAnim = previousAttackAnimation;
+         player.attackAnim = attackAnimation;
+         player.xo = previousPosition.x;
+         player.yo = previousPosition.y;
+         player.zo = previousPosition.z;
+         runningExtraTick = false;
+      }
    }
 
 }

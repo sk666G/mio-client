@@ -129,7 +129,11 @@ public class FlightModule extends Module {
       PacketEvent.Receive event
    ) {
       if (event.getPacket() instanceof ClientboundPlayerPositionPacket) {
-         this.accelerationStartTimeMillis = System.currentTimeMillis();
+         ClientAccess.schizoMinecraft.executeIfPossible(() -> {
+            if (this.isToggled()) {
+               this.accelerationStartTimeMillis = System.currentTimeMillis();
+            }
+         });
       }
    }
 

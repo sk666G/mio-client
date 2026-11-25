@@ -12,10 +12,11 @@ package dev.schizo.client.modules.movement;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 public final class ObstacleCorrectionWindow {
    private final List<Long> corrections;
-   private final int windowMillis;
+   private final long windowNanos;
    private final int maximumCorrections;
 
    public void clear() {
@@ -23,7 +24,8 @@ public final class ObstacleCorrectionWindow {
    }
 
    public void pruneExpired() {
-      this.corrections.removeIf(timestamp -> System.currentTimeMillis() > timestamp + this.windowMillis);
+      long nowNanos = System.nanoTime();
+      this.corrections.removeIf(timestamp -> nowNanos - timestamp > this.windowNanos);
    }
 
    public ObstacleCorrectionWindow(int maximumCorrections) {
@@ -32,12 +34,12 @@ public final class ObstacleCorrectionWindow {
 
    public ObstacleCorrectionWindow(int windowMillis, int maximumCorrections) {
       this.corrections = Collections.synchronizedList(new ArrayList<>());
-      this.windowMillis = windowMillis;
+      this.windowNanos = TimeUnit.MILLISECONDS.toNanos(windowMillis);
       this.maximumCorrections = maximumCorrections;
    }
 
    public void recordCorrection() {
-      this.corrections.add(System.currentTimeMillis());
+      this.corrections.add(System.nanoTime());
    }
 
    public boolean exceedsLimit() {

@@ -556,11 +556,17 @@ public class ElytraFlyModule extends Module {
 
    @EventHandler
    private void onIncomingPacket(PacketEvent.Receive event) {
-      if (event.getPacket() instanceof ClientboundAddEntityPacket packet && packet.getType() == EntityType.FIREWORK_ROCKET) {
+      if (event.getPacket() instanceof ClientboundAddEntityPacket packet
+         && packet.getType() == EntityType.FIREWORK_ROCKET) {
          Vec3 rocketPosition = new Vec3(packet.getX(), packet.getY(), packet.getZ());
-         if (rocketPosition.distanceToSqr(ClientAccess.schizoMinecraft.player.position()) <= 36.0D) {
-            this.durabilitySwapTimer.reset();
-         }
+         ClientAccess.schizoMinecraft.executeIfPossible(() -> {
+            if (!this.isToggled() || ClientAccess.schizoMinecraft.player == null) {
+               return;
+            }
+            if (rocketPosition.distanceToSqr(ClientAccess.schizoMinecraft.player.position()) <= 36.0D) {
+               this.durabilitySwapTimer.reset();
+            }
+         });
       }
       this.getActiveMode().handleIncomingPacket(event);
    }

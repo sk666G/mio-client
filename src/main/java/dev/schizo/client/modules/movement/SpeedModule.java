@@ -182,7 +182,11 @@ public class SpeedModule extends Module {
    @EventHandler
    private void onPacketReceive(PacketEvent.Receive event) {
       if (event.getPacket() instanceof ClientboundPlayerPositionPacket) {
-         this.reset();
+         ClientAccess.schizoMinecraft.executeIfPossible(() -> {
+            if (this.isToggled()) {
+               this.reset();
+            }
+         });
       }
    }
 

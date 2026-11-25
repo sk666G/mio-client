@@ -119,14 +119,24 @@ public class AutoFishModule extends Module {
          var sound = soundPacket.getSound();
          Predicate<ResourceKey<SoundEvent>> splashSound = key -> key.identifier().toString()
             .equalsIgnoreCase("minecraft:entity.fishing_bobber.splash");
-         if (sound.is(splashSound) && ClientAccess.schizoMinecraft.player.fishing != null) {
-            Vec3 capturedSoundPosition = new Vec3(soundPacket.getX(), soundPacket.getY(), soundPacket.getZ());
-            Vec3 hookPosition = ClientAccess.schizoMinecraft.player.fishing.position();
+         if (!sound.is(splashSound)) {
+            return;
+         }
 
+         Vec3 capturedSoundPosition = new Vec3(
+            soundPacket.getX(), soundPacket.getY(), soundPacket.getZ()
+         );
+         ClientAccess.schizoMinecraft.executeIfPossible(() -> {
+            if (!this.isToggled()
+               || ClientAccess.schizoMinecraft.player == null
+               || ClientAccess.schizoMinecraft.player.fishing == null) {
+               return;
+            }
+            Vec3 hookPosition = ClientAccess.schizoMinecraft.player.fishing.position();
             if (capturedSoundPosition.distanceTo(hookPosition) <= 1.0D) {
                this.nearbySplashDetected = true;
             }
-         }
+         });
       }
    }
 

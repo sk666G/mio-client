@@ -101,7 +101,12 @@ public class KillEffectsModule extends Module {
    @Override
    public void onEnable() {
       this.killStreak = 0;
-      this.killSayMessages.reloadMessages((true));
+      this.killSayMessages.reloadMessages(true);
+   }
+
+   @Override
+   public void onDisable() {
+      this.killSayMessages.invalidate();
    }
 
    private void spawnKillLightning(Vec3 position) {
@@ -327,7 +332,11 @@ public class KillEffectsModule extends Module {
       PacketEvent.Receive event
    ) {
       if (event.getPacket() instanceof ClientboundPlayerCombatKillPacket) {
-         this.killStreak = -1;
+         ClientAccess.schizoMinecraft.executeIfPossible(() -> {
+            if (this.isToggled()) {
+               this.killStreak = -1;
+            }
+         });
       }
    }
 
