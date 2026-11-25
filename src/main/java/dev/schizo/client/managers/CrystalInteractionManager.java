@@ -44,8 +44,8 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
 public class CrystalInteractionManager implements ClientAccess {
-   private static final SwingModule swing;
-   private static final AutoCrystalModule autoCrystal;
+   private static volatile SwingModule swing;
+   private static volatile AutoCrystalModule autoCrystal;
    private final ElapsedTimer attackCooldownTimer = new ElapsedTimer();
    private long additionalCooldownMillis;
    private int lastAttackedEntityId;
