@@ -56,7 +56,7 @@ import com.mojang.blaze3d.textures.GpuTextureView;
 import com.mojang.blaze3d.vertex.PoseStack;
 import dev.schizo.mixin.GameRendererAccessor;
 import java.awt.Color;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.function.Predicate;
@@ -87,6 +87,7 @@ import net.minecraft.world.phys.Vec3;
 import org.joml.Vector3f;
 
 public class ChamsModule extends Module {
+   private static final int MAX_POP_GHOSTS = 128;
    private static final Identifier SHINE_TEXTURE;
    private static final Vector3f GLINT_COLOR_VECTOR;
    private static AutoCrystalModule autoCrystalModule;
@@ -234,7 +235,7 @@ public class ChamsModule extends Module {
                   Boolean xQZValue = this.xQZSetting.getValue();
                   if (xQZValue) {
                      NoRenderModule noRenderSnapshot = noRenderModule;
-                     if (!noRenderSnapshot.shouldHideEntity(entity)) {
+                     if (noRenderSnapshot == null || !noRenderSnapshot.shouldHideEntity(entity)) {
                         Integer opacityValue = this.opacitySetting.getValue();
                         if (opacityValue > 0) {
                            this.renderingBaseModel = true;
@@ -277,10 +278,11 @@ public class ChamsModule extends Module {
          RenderUtils.setRenderColor(
             1.0F, 1.0F, 1.0F, wallOpacity / 1e+02F
          );
-         RenderUtils.INSTANCE
-            .flushEntities();
-         RenderUtils.setRenderColor(
-            1.0F, 1.0F, 1.0F,1.0F);
+         try {
+            RenderUtils.INSTANCE.flushEntities();
+         } finally {
+            RenderUtils.setRenderColor(1.0F, 1.0F, 1.0F, 1.0F);
+         }
       }
       Setting<Boolean> popSettingSnapshot = this.popSetting;
       Boolean popValue = popSettingSnapshot.getValue();
@@ -395,8 +397,8 @@ public class ChamsModule extends Module {
             int crystalTicks = crystal.tickCount;
             if (crystalTicks < 10) {
                AutoCrystalModule autoCrystalSnapshot = autoCrystalModule;
-               if (autoCrystalSnapshot.isToggled()) {
-                  AutoCrystalInstantChoice instantChoice = autoCrystalModule.instantSetting.getValue();
+               if (autoCrystalSnapshot != null && autoCrystalSnapshot.isToggled()) {
+                  AutoCrystalInstantChoice instantChoice = autoCrystalSnapshot.instantSetting.getValue();
                   if (instantChoice.isEnabled()
                      && ((EndCrystalState)crystal).isClientAttacked()) {
                      return false;
@@ -409,7 +411,7 @@ public class ChamsModule extends Module {
       } else if (entity instanceof Player) {
          FreecamModule freecamSnapshot = freecamModule;
          boolean selfVisibleInCamera = true;
-         if (!freecamSnapshot.isToggled()) {
+         if (freecamSnapshot == null || !freecamSnapshot.isToggled()) {
             selfVisibleInCamera = ClientAccess.schizoMinecraft.options.getCameraType() != CameraType.FIRST_PERSON;
          }
          if (entity != ClientAccess.schizoMinecraft.player) {
@@ -591,8 +593,15 @@ public class ChamsModule extends Module {
             }
             synchronized (this.popGhostTimes) {
                Map<SidePlayer, Long> ghostTimes = this.popGhostTimes;
-               long createdAt = System.currentTimeMillis();
-               ghostTimes.putIfAbsent(ghost, createdAt);
+               while (ghostTimes.size() >= MAX_POP_GHOSTS) {
+                  Iterator<SidePlayer> oldest = ghostTimes.keySet().iterator();
+                  if (!oldest.hasNext()) {
+                     break;
+                  }
+                  oldest.next();
+                  oldest.remove();
+               }
+               ghostTimes.putIfAbsent(ghost, System.nanoTime());
             }
          }
       }
@@ -620,21 +629,26 @@ public class ChamsModule extends Module {
 
    public boolean usesStaticPlayerAnimation() {
       AnimationsModule animationsSnapshot = animationsModule;
-      return animationsSnapshot.isStaticPlayerAnimationEnabled();
+      return animationsSnapshot != null && animationsSnapshot.isStaticPlayerAnimationEnabled();
    }
 
    public Vector3f getGlintColor() {
       EntityRenderRelation relation = this.activeGlintRelation;
       Setting<Color> relationColorSetting;
+      ColorsModule colorsSnapshot = colorsModule;
       switch (relation) {
          case DEFAULT:
             relationColorSetting = this.shineColorSetting;
             break;
          case FRIEND:
-            relationColorSetting = colorsModule.friendColorSetting;
+            relationColorSetting = colorsSnapshot == null
+               ? this.shineColorSetting
+               : colorsSnapshot.friendColorSetting;
             break;
          case ENEMY:
-            relationColorSetting = colorsModule.enemyColorSetting;
+            relationColorSetting = colorsSnapshot == null
+               ? this.shineColorSetting
+               : colorsSnapshot.enemyColorSetting;
             break;
          default:
             throw new MatchException(null, null);
@@ -657,15 +671,15 @@ public class ChamsModule extends Module {
 
    private void renderPopGhosts(WorldRenderEvent event) {
       synchronized (this.popGhostTimes) {
+         long nowNanos = System.nanoTime();
+         double durationSeconds = this.timeSetting.getValue();
+         long durationNanos = (long)(durationSeconds * 1_000_000_000.0D);
+         if (durationNanos <= 0L) {
+            this.popGhostTimes.clear();
+            return;
+         }
          this.popGhostTimes.entrySet().removeIf(
-            entry -> {
-               float expiryTime = (float)(entry.getValue()).longValue();
-               Setting<Float> timeSettingSnapshot = this.timeSetting;
-               Float timeValue = timeSettingSnapshot.getValue();
-               float durationSeconds = timeValue;
-               expiryTime += durationSeconds * 1e+03F;
-               return expiryTime < (float)System.currentTimeMillis();
-            }
+            entry -> nowNanos - entry.getValue() >= durationNanos
          );
          this.popGhostTimes.forEach(
             (ghost, createdAt) -> {
@@ -673,13 +687,11 @@ public class ChamsModule extends Module {
                if (!extraLayerValue) {
                   ((ForcedEntityLayers)ghost).schizo$setForcedLayers(true);
                }
-               long now = System.currentTimeMillis();
-               float elapsedMillis = (float)(now - createdAt);
-               Setting<Float> timeSettingSnapshot = this.timeSetting;
-               Float timeValue = timeSettingSnapshot.getValue();
-               float durationSeconds = timeValue;
-               float unclampedElapsedFraction = elapsedMillis / (durationSeconds * 1e+03F);
-               float elapsedFraction = unclampedElapsedFraction;
+               float elapsedFraction = Mth.clamp(
+                  (float)(nowNanos - createdAt) / (float)durationNanos,
+                  0.0F,
+                  1.0F
+               );
                float opacity = 1.0F - Mth.clamp(elapsedFraction, 0.0F, 1.0F);
                Boolean easeValue = this.easeSetting.getValue();
                if (easeValue) {
@@ -723,6 +735,16 @@ public class ChamsModule extends Module {
             }
          );
       }
+   }
+
+   @Override
+   public void onDisable() {
+      synchronized (this.popGhostTimes) {
+         this.popGhostTimes.clear();
+      }
+      this.renderingBaseModel = false;
+      renderingShineModels = false;
+      renderingGlintBatch = false;
    }
 
    @EventHandler(priority = 200)
@@ -830,7 +852,7 @@ public class ChamsModule extends Module {
       this.shineColorSetting = this.add(new ColorSetting("Shine", new Color(2076023295, true)).dependsOn(colorsRegistered));
       this.popFillSetting = this.add(new ColorSetting("PopFill", new Color(935172607, true)).dependsOn(colorsRegistered));
       this.popLineSetting = this.add(new ColorSetting("PopLine", new Color(12425727, true)).dependsOn(colorsRegistered));
-      this.popGhostTimes = new HashMap<>();
+      this.popGhostTimes = new LinkedHashMap<>();
       this.playersSetting.setConfigName("PlayerRange");
       this.crystalsSetting.setConfigName("CrystalRange");
       this.othersSetting.setConfigName("OtherRange");
