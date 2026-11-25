@@ -2124,6 +2124,122 @@ public final class ModuleCompatibility {
       Map.entry(setting(NukerModule.class, "Color"), settingAssessed(
          Classification.VISUAL_ONLY,
          "Changes only the local queued-target render color."
+      )),
+      Map.entry(setting(SelfFillModule.class, "Blocks"), settingAssessed(
+         Classification.WORLD_INTERACTION,
+         "Selects which block types are eligible for reviewed self-placement."
+      )),
+      Map.entry(setting(SelfFillModule.class, "Selection"), settingAssessed(
+         Classification.WORLD_INTERACTION,
+         "Selects how the configured block list is applied during reviewed self-placement."
+      )),
+      Map.entry(setting(SelfFillModule.class, "Mode"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Selects the reviewed self-placement movement/packet sequencing path."
+      )),
+      Map.entry(setting(SelfFillModule.class, "Rotate"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Enables reviewed rotation toward the self-placement interaction."
+      )),
+      Map.entry(setting(SelfFillModule.class, "Attack"), settingAssessed(
+         Classification.WORLD_INTERACTION,
+         "Controls whether blocking entities are attacked before reviewed self-placement."
+      )),
+      Map.entry(setting(SelfFillModule.class, "Center"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Enables reviewed local-player centering/repositioning before self-placement."
+      )),
+      Map.entry(setting(SelfFillModule.class, "Alternative"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Selects an alternate reviewed self-placement packet/movement sequence."
+      )),
+      Map.entry(setting(SelfFillModule.class, "Head"), settingAssessed(
+         Classification.WORLD_INTERACTION,
+         "Controls whether reviewed self-placement also considers the head-level position."
+      )),
+      Map.entry(setting(SelfFillModule.class, "MultiPlace"), settingAssessed(
+         Classification.WORLD_INTERACTION,
+         "Controls whether multiple reviewed self-placement positions may be acted on in one placement cycle."
+      )),
+      Map.entry(setting(SelfFillModule.class, "Persistent"), settingAssessed(
+         Classification.WORLD_INTERACTION,
+         "Keeps reviewed self-placement behavior active across repeated placement opportunities."
+      )),
+      Map.entry(setting(SelfFillModule.class, "JumpDisable"), settingAssessed(
+         Classification.CLIENT_ONLY,
+         "Only controls whether the module disables itself when jump input is detected."
+      )),
+      Map.entry(setting(AutoLogModule.class, "Health"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls the health threshold that can trigger the reviewed automatic disconnect path."
+      )),
+      Map.entry(setting(AutoLogModule.class, "InvincTimeout"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls the local invincibility-time assumption used by reviewed automatic disconnect decisions."
+      )),
+      Map.entry(setting(AutoLogModule.class, "Reconnect"), settingAssessed(
+         Classification.CLIENT_ONLY,
+         "Controls only the local post-disconnect automatic reconnect flow."
+      )),
+      Map.entry(setting(AutoLogModule.class, "AutoDisable"), settingAssessed(
+         Classification.CLIENT_ONLY,
+         "Controls only whether AutoLog disables its own module state after triggering."
+      )),
+      Map.entry(setting(AutoLogModule.class, "GearedOnly"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Restricts when reviewed automatic disconnect behavior is eligible based on local equipment state."
+      )),
+      Map.entry(setting(AutoLogModule.class, "UnfocusedOnly"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Restricts when reviewed automatic disconnect behavior is eligible based on local window focus state."
+      )),
+      Map.entry(setting(AutoLogModule.class, "OnRender"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Changes which local health snapshot is used when deciding whether to trigger reviewed automatic disconnect behavior."
+      )),
+      Map.entry(setting(AutoLogModule.class, "Crystal"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Enables crystal-danger detection as a trigger for reviewed automatic disconnect behavior."
+      )),
+      Map.entry(setting(AutoLogModule.class, "TNTMinecart"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Enables TNT-minecart danger detection as a trigger for reviewed automatic disconnect behavior."
+      )),
+      Map.entry(setting(AutoLogModule.class, "Totems"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Enables totem-count state as a trigger for reviewed automatic disconnect behavior."
+      )),
+      Map.entry(setting(AutoLogModule.class, "TotemCount"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls the totem-count threshold used by reviewed automatic disconnect behavior."
+      )),
+      Map.entry(setting(AutoLogModule.class, "Elytra"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Enables elytra durability/equipment state as a trigger for reviewed automatic disconnect behavior."
+      )),
+      Map.entry(setting(AutoLogModule.class, "Durability"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls the elytra durability threshold used by reviewed automatic disconnect behavior."
+      )),
+      Map.entry(setting(AutoLogModule.class, "AssumeInventory"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Changes whether inventory-held equipment is included in reviewed disconnect-risk evaluation."
+      )),
+      Map.entry(setting(AutoLogModule.class, "YLevel"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Enables vertical-position state as a trigger for reviewed automatic disconnect behavior."
+      )),
+      Map.entry(setting(AutoLogModule.class, "Y"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls the vertical threshold used by reviewed automatic disconnect behavior."
+      )),
+      Map.entry(setting(AutoLogModule.class, "Waypoints"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Enables local waypoint proximity as a condition in reviewed automatic disconnect behavior."
+      )),
+      Map.entry(setting(AutoLogModule.class, "Distance"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls the waypoint-distance threshold used by reviewed automatic disconnect behavior."
       ))
    );
 
