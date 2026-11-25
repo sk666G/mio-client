@@ -186,14 +186,18 @@ public final class AutoPresetRegistry implements ClientAccess, JsonConfigurable 
    }
 
    public boolean removeKit(String server) {
-      AutoPresetServerEntry settings = server == null
-         ? null
-         : (AutoPresetServerEntry)this.serverSettings.get(normalizeServerKey(server));
-      if (settings == null) {
+      if (server == null) {
+         return false;
+      }
+
+      String serverKey = normalizeServerKey(server);
+      AutoPresetServerEntry settings = (AutoPresetServerEntry)this.serverSettings.get(serverKey);
+      if (settings == null || !settings.hasKit()) {
          return false;
       }
 
       settings.setKitName(null);
+      this.pruneEmptyServer(serverKey, settings);
       return true;
    }
 
@@ -205,14 +209,27 @@ public final class AutoPresetRegistry implements ClientAccess, JsonConfigurable 
    }
 
    public boolean removePreset(String server, PresetCategory category) {
-      AutoPresetServerEntry settings = server == null
-         ? null
-         : (AutoPresetServerEntry)this.serverSettings.get(normalizeServerKey(server));
+      if (server == null || category == null) {
+         return false;
+      }
+
+      String serverKey = normalizeServerKey(server);
+      AutoPresetServerEntry settings = (AutoPresetServerEntry)this.serverSettings.get(serverKey);
       if (settings == null) {
          return false;
       }
 
-      return settings.getPresets().remove(category) != null;
+      boolean removed = settings.getPresets().remove(category) != null;
+      if (removed) {
+         this.pruneEmptyServer(serverKey, settings);
+      }
+      return removed;
+   }
+
+   private void pruneEmptyServer(String serverKey, AutoPresetServerEntry settings) {
+      if (settings != null && settings.getPresets().isEmpty() && !settings.hasKit()) {
+         this.serverSettings.remove(serverKey);
+      }
    }
 
    public void setPreset(
