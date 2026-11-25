@@ -2,7 +2,7 @@ name: Build
 
 on:
   push:
-    branches: [main, codex/reliability-hardening, codex/schizo-master-integration, lunyx/integration-candidate, lunyx/verified-candidate-v7]
+    branches: [main, codex/reliability-hardening, codex/schizo-master-integration, lunyx/integration-candidate, lunyx/verified-candidate-v7, codex/post-v8-release-hardening]
   pull_request:
   workflow_dispatch:
 
@@ -76,7 +76,8 @@ jobs:
             printf '%s\n' '(none)'
           fi
           sha256sum "$jar_file" > build/libs/SHA256SUMS.txt
-          printf '%s\n' "$GITHUB_SHA" > build/libs/COMMIT_SHA.txt
+          git rev-parse HEAD > build/libs/COMMIT_SHA.txt
+          cat build/libs/COMMIT_SHA.txt build/libs/SHA256SUMS.txt
 
       - name: Upload verified remapped mod jar
         uses: actions/upload-artifact@v6
