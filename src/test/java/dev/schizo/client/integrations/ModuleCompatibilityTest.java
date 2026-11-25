@@ -453,7 +453,7 @@ class ModuleCompatibilityTest {
 
    @Test
    void settingReviewCountIncludesExplicitReviewsOnly() {
-      assertTrue(ModuleCompatibility.reviewedSettingCount() >= 108);
+      assertTrue(ModuleCompatibility.reviewedSettingCount() >= 111);
    }
 
    @Test
@@ -467,6 +467,22 @@ class ModuleCompatibilityTest {
       assertTrue(response.individuallyReviewed());
       assertEquals(ModuleCompatibility.Classification.UNVERIFIED, proseOnlyAlias.classification());
       assertFalse(proseOnlyAlias.individuallyReviewed());
+   }
+
+   @Test
+   void packetUtilitySettingsRemainExplicitlyReviewed() {
+      assertEquals(
+         ModuleCompatibility.Classification.PACKET_AFFECTING,
+         ModuleCompatibility.assessSetting(RocketExtenderModule.class, "Hold").classification()
+      );
+      assertEquals(
+         ModuleCompatibility.Classification.PACKET_AFFECTING,
+         ModuleCompatibility.assessSetting(NoRotateModule.class, "InBlocks").classification()
+      );
+      assertEquals(
+         ModuleCompatibility.Classification.WORLD_INTERACTION,
+         ModuleCompatibility.assessSetting(XCarryModule.class, "AutoPickup").classification()
+      );
    }
 
    @Test
