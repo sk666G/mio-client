@@ -325,6 +325,11 @@ public final class ModuleRegistry extends Registry<Module> implements ClientAcce
                   module.getName(),
                   serializationFailure
                );
+               throw new IllegalStateException(
+                  "Refusing to write a partial modules.json after module serialization failure: "
+                     + module.getName(),
+                  serializationFailure
+               );
             }
          }
       }
