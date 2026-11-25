@@ -97,21 +97,41 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
       this.compatibilityPolicySuppressed = false;
       this.enabled = true;
       EventBus eventBus = ClientAccess.eventBus;
-      boolean enableHookStarted = false;
+      eventBus.subscribe(this);
+
+      Throwable lifecycleFailure = null;
       try {
-         eventBus.subscribe(this);
-         ModuleToggleEvent toggleEvent = new ModuleToggleEvent(this);
-         eventBus.post(toggleEvent);
+         eventBus.post(new ModuleToggleEvent(this));
+      } catch (RuntimeException | Error notificationFailure) {
+         lifecycleFailure = notificationFailure;
+      }
+      try {
          this.onToggle();
-         enableHookStarted = true;
-         this.onEnable();
-      } catch (RuntimeException | Error enableFailure) {
+      } catch (RuntimeException | Error toggleFailure) {
+         if (lifecycleFailure != null && lifecycleFailure != toggleFailure) {
+            lifecycleFailure.addSuppressed(toggleFailure);
+         } else if (lifecycleFailure == null) {
+            lifecycleFailure = toggleFailure;
+         }
+      }
+
+      boolean enableHookStarted = false;
+      if (lifecycleFailure == null) {
+         try {
+            enableHookStarted = true;
+            this.onEnable();
+         } catch (RuntimeException | Error enableFailure) {
+            lifecycleFailure = enableFailure;
+         }
+      }
+
+      if (lifecycleFailure != null) {
          if (enableHookStarted) {
             try {
                this.onDisable();
             } catch (RuntimeException | Error cleanupFailure) {
-               if (cleanupFailure != enableFailure) {
-                  enableFailure.addSuppressed(cleanupFailure);
+               if (cleanupFailure != lifecycleFailure) {
+                  lifecycleFailure.addSuppressed(cleanupFailure);
                }
             }
          }
@@ -121,8 +141,11 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
          eventBus.unsubscribe(this);
          this.enabled = false;
          this.compatibilityPolicySuppressed = false;
-         ClientAccess.logger.error("Module {} failed while enabling and was rolled back", this.getName(), enableFailure);
-         throw enableFailure;
+         ClientAccess.logger.error("Module {} failed while enabling and was rolled back", this.getName(), lifecycleFailure);
+         if (lifecycleFailure instanceof RuntimeException runtimeFailure) {
+            throw runtimeFailure;
+         }
+         throw (Error)lifecycleFailure;
       }
    }
 
@@ -310,11 +333,19 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
 
       Throwable lifecycleFailure = null;
       try {
-         ModuleToggleEvent toggleEvent = new ModuleToggleEvent(this);
-         eventBus.post(toggleEvent);
+         eventBus.post(new ModuleToggleEvent(this));
+      } catch (RuntimeException | Error notificationFailure) {
+         lifecycleFailure = notificationFailure;
+      }
+
+      try {
          this.onToggle();
-      } catch (RuntimeException | Error failure) {
-         lifecycleFailure = failure;
+      } catch (RuntimeException | Error toggleFailure) {
+         if (lifecycleFailure != null && lifecycleFailure != toggleFailure) {
+            lifecycleFailure.addSuppressed(toggleFailure);
+         } else if (lifecycleFailure == null) {
+            lifecycleFailure = toggleFailure;
+         }
       }
 
       try {
