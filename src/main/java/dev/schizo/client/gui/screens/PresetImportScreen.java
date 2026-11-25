@@ -9,6 +9,7 @@
 
 package dev.schizo.client.gui.screens;
 
+import dev.schizo.client.diagnostics.RuntimeDiagnostics;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.gui.panels.Panel;
@@ -120,7 +121,7 @@ public final class PresetImportScreen extends ClientScreen {
       try {
          Files.copy(sourcePath, targetCategory.getDirectory().resolve(fileName));
       } catch (IOException copyFailure) {
-         copyFailure.printStackTrace();
+         RuntimeDiagnostics.record(RuntimeDiagnostics.Area.FILE_IO, "Preset import", copyFailure);
       }
 
       ClientContext.configurationManager
