@@ -86,7 +86,7 @@ public enum NukerShapeChoice implements NamedEntry {
       public List collectPositions(NukerModule nukerModule) {
 
          NukerBlockQueue queueSnapshot = nukerModule.getBlockQueue();
-         Setting<Boolean> extraBreakSettingRef = NukerShapeChoice.speedMineModule.extraBreakSetting;
+         Setting<Boolean> extraBreakSettingRef = NukerShapeChoice.schizo$speedMineModule().extraBreakSetting;
          Boolean extraBreakEnabled = extraBreakSettingRef.getValue();
          boolean extraBreakFlag = extraBreakEnabled;
 
@@ -105,7 +105,6 @@ public enum NukerShapeChoice implements NamedEntry {
       }
    };
 
-   private static SpeedMineModule speedMineModule = (SpeedMineModule)ClientContext.getModule(SpeedMineModule.class);
    private final String displayName;
 
    @Override
@@ -120,6 +119,10 @@ public enum NukerShapeChoice implements NamedEntry {
    public abstract List collectPositions(NukerModule nukerModule);
 
    public static void bindModules(ModuleRegistry modules) {
-      speedMineModule = (SpeedMineModule)modules.getModule(SpeedMineModule.class);
+      schizo$speedMineModule() = (SpeedMineModule)modules.getModule(SpeedMineModule.class);
+   }
+
+   private static SpeedMineModule schizo$speedMineModule() {
+      return ClientContext.requireModule(SpeedMineModule.class);
    }
 }
