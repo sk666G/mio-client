@@ -24,7 +24,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(DeathScreen.class)
 public class DeathScreenMixin {
-   private static CustomDeathTextModule customDeathTextModule = ClientContext.getModule(CustomDeathTextModule.class);
+
    @Mutable
    @Shadow
    @Final
@@ -34,9 +34,14 @@ public class DeathScreenMixin {
    public void applyCustomDeathText(
       Component deathMessage, boolean hardcore, LocalPlayer localPlayer, CallbackInfo callback
    ) {
-      if (customDeathTextModule != null
-         && customDeathTextModule.isToggled()) {
-         this.causeOfDeath = customDeathTextModule.getDeathText();
+      if (schizo$customDeathTextModule() != null
+         && schizo$customDeathTextModule().isToggled()) {
+         this.causeOfDeath = schizo$customDeathTextModule().getDeathText();
       }
+   }
+
+   @org.spongepowered.asm.mixin.Unique
+   private static CustomDeathTextModule schizo$customDeathTextModule() {
+      return dev.schizo.client.bootstrap.MixinModuleRegistry.require(CustomDeathTextModule.class);
    }
 }
