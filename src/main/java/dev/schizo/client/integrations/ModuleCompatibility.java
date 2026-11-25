@@ -149,6 +149,26 @@ import dev.schizo.client.modules.movement.FastSwimModule;
 import dev.schizo.client.modules.movement.FastWebModule;
 import dev.schizo.client.modules.combat.FeetPlaceModule;
 import dev.schizo.client.modules.combat.FishTrapModule;
+import dev.schizo.client.modules.movement.FlightModule;
+import dev.schizo.client.modules.player.FreecamModule;
+import dev.schizo.client.modules.misc.HeavenModule;
+import dev.schizo.client.modules.movement.HighJumpModule;
+import dev.schizo.client.modules.exploit.HitboxDesyncModule;
+import dev.schizo.client.modules.combat.HoleFillModule;
+import dev.schizo.client.modules.movement.HoleSnapModule;
+import dev.schizo.client.modules.exploit.IllegalDisconnectModule;
+import dev.schizo.client.modules.player.InventoryTweaksModule;
+import dev.schizo.client.modules.player.ItemSaverModule;
+import dev.schizo.client.modules.movement.JesusModule;
+import dev.schizo.client.modules.combat.KeyPearlModule;
+import dev.schizo.client.modules.movement.LongJumpModule;
+import dev.schizo.client.modules.combat.MainhandModule;
+import dev.schizo.client.modules.exploit.MultiTaskModule;
+import dev.schizo.client.modules.misc.NoPacketKickModule;
+import dev.schizo.client.modules.player.NukerModule;
+import dev.schizo.client.modules.combat.OffhandModule;
+import dev.schizo.client.modules.combat.PistonCrystalModule;
+import dev.schizo.client.modules.combat.PusherModule;
 import java.util.Map;
 
 /**
@@ -530,6 +550,86 @@ public final class ModuleCompatibility {
       Map.entry(FishTrapModule.class, assessed(
          Classification.WORLD_INTERACTION,
          "Inherits AutoTrap placement automation and targets crawling-player positions with predicted placement offsets."
+      )),
+      Map.entry(FlightModule.class, assessed(
+         Classification.SERVER_SENSITIVE,
+         "Directly rewrites local player velocity while flying and reacts to server position corrections."
+      )),
+      Map.entry(FreecamModule.class, assessed(
+         Classification.PACKET_AFFECTING,
+         "Separates camera/player interaction state and can cancel/rewrite use-item position handling while emitting explicit position/rotation packets."
+      )),
+      Map.entry(HeavenModule.class, assessed(
+         Classification.VISUAL_ONLY,
+         "Only moves the local camera upward during the death screen and cancels the default camera setup."
+      )),
+      Map.entry(HighJumpModule.class, assessed(
+         Classification.SERVER_SENSITIVE,
+         "Changes jump power beyond vanilla values and can issue repeated shulker interactions for its shulker-based mode."
+      )),
+      Map.entry(HitboxDesyncModule.class, assessed(
+         Classification.SERVER_SENSITIVE,
+         "Directly repositions the local player to desynchronize hitbox/position behavior."
+      )),
+      Map.entry(HoleFillModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Placement-module automation that fills nearby eligible holes with configured blocks."
+      )),
+      Map.entry(HoleSnapModule.class, assessed(
+         Classification.INPUT_MODIFYING,
+         "Requests forward/sneak input and high-priority rotation to steer the local player toward holes."
+      )),
+      Map.entry(IllegalDisconnectModule.class, assessed(
+         Classification.PACKET_AFFECTING,
+         "Intentionally sends an invalid signed-command packet to force a disconnect; classification documents existing behavior only."
+      )),
+      Map.entry(InventoryTweaksModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Changes inventory click handling and can cancel/reissue container click actions."
+      )),
+      Map.entry(ItemSaverModule.class, assessed(
+         Classification.INPUT_MODIFYING,
+         "Cancels local item-use/attack actions when configured durability thresholds are reached."
+      )),
+      Map.entry(JesusModule.class, assessed(
+         Classification.PACKET_AFFECTING,
+         "Changes water-walking movement behavior and mutates outgoing movement packet position state."
+      )),
+      Map.entry(KeyPearlModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automatically selects and uses an ender pearl through the normal use-item path."
+      )),
+      Map.entry(LongJumpModule.class, assessed(
+         Classification.SERVER_SENSITIVE,
+         "Changes jump/movement behavior and can coordinate additional movement-sensitive actions."
+      )),
+      Map.entry(MainhandModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automatically manages main-hand/offhand inventory state and use-item interactions."
+      )),
+      Map.entry(MultiTaskModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Allows normally exclusive attack/use actions to be invoked together through client interaction hooks."
+      )),
+      Map.entry(NoPacketKickModule.class, assessed(
+         Classification.PACKET_AFFECTING,
+         "Changes the connection exception boundary so selected packet-processing failures are intercepted instead of disconnecting the client."
+      )),
+      Map.entry(NukerModule.class, assessed(
+         Classification.PACKET_AFFECTING,
+         "Automates block breaking and can cancel normal handling while emitting explicit start/stop destroy action packets."
+      )),
+      Map.entry(OffhandModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automatically performs inventory swaps, offhand use and discard actions based on combat state."
+      )),
+      Map.entry(PistonCrystalModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automates piston/crystal placement and use-item interactions with coordinated rotation."
+      )),
+      Map.entry(PusherModule.class, assessed(
+         Classification.WORLD_INTERACTION,
+         "Automatically places pistons and power sources around selected targets using ordinary placement/swing helpers."
       )),
       Map.entry(AmbienceModule.class, assessed(
          Classification.VISUAL_ONLY,
