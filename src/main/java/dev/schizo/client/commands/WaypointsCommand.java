@@ -222,7 +222,7 @@ public final class WaypointsCommand extends Command {
                MutableComponent renameMessage = Component.literal(messagePrefix);
                renameMessage = renameMessage.append(name);
 
-               String messageSuffix = " has been renamed to";
+               String messageSuffix = " has been renamed to ";
                MutableComponent messageForSuffix = renameMessage;
                renameMessage = messageForSuffix.append(messageSuffix);
                renameMessage = renameMessage.append(targetName);
