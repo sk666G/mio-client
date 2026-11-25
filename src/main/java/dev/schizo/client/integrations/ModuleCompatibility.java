@@ -1956,6 +1956,174 @@ public final class ModuleCompatibility {
       Map.entry(setting(ElytraFlyModule.class, "InfDurability"), settingAssessed(
          Classification.PACKET_AFFECTING,
          "Selects the reviewed durability-management path, which coordinates inventory and fall-flying state actions."
+      )),
+      Map.entry(setting(ChorusControlModule.class, "Yaw"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls the reported yaw used when the reviewed delayed teleport state is released."
+      )),
+      Map.entry(setting(ChorusControlModule.class, "Smart"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Enables reviewed distance-aware selection/release of the held teleport/acknowledgement state."
+      )),
+      Map.entry(setting(ChorusControlModule.class, "Range"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls the distance threshold used by the reviewed smart teleport-state selection."
+      )),
+      Map.entry(setting(ChorusControlModule.class, "Render"), settingAssessed(
+         Classification.VISUAL_ONLY,
+         "Controls only local rendering of the selected teleport position."
+      )),
+      Map.entry(setting(ChorusControlModule.class, "Fill"), settingAssessed(
+         Classification.VISUAL_ONLY,
+         "Changes only the local target-position fill color."
+      )),
+      Map.entry(setting(ChorusControlModule.class, "Outline"), settingAssessed(
+         Classification.VISUAL_ONLY,
+         "Changes only the local target-position outline color."
+      )),
+      Map.entry(setting(ChorusControlModule.class, "LineWidth"), settingAssessed(
+         Classification.VISUAL_ONLY,
+         "Changes only the local target-position outline width."
+      )),
+      Map.entry(setting(FastWebModule.class, "Mode"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Selects the reviewed cobweb escape path, including movement and explicit block-action behavior."
+      )),
+      Map.entry(setting(FastWebModule.class, "Horizontal"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Enables reviewed horizontal movement scaling while inside cobwebs."
+      )),
+      Map.entry(setting(FastWebModule.class, "Speed"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls reviewed horizontal cobweb movement speed."
+      )),
+      Map.entry(setting(FastWebModule.class, "Vertical"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Enables reviewed vertical movement scaling while inside cobwebs."
+      )),
+      Map.entry(setting(FastWebModule.class, "VSpeed"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls reviewed vertical cobweb movement speed."
+      )),
+      Map.entry(setting(FastWebModule.class, "Upwards"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls whether reviewed vertical cobweb movement may accelerate upward."
+      )),
+      Map.entry(setting(FreecamModule.class, "Speed"), settingAssessed(
+         Classification.CLIENT_ONLY,
+         "Controls only local free-camera horizontal movement speed."
+      )),
+      Map.entry(setting(FreecamModule.class, "VerticalSpeed"), settingAssessed(
+         Classification.CLIENT_ONLY,
+         "Controls only local free-camera vertical movement speed."
+      )),
+      Map.entry(setting(FreecamModule.class, "Scroll"), settingAssessed(
+         Classification.INPUT_MODIFYING,
+         "Consumes local scroll input to adjust free-camera movement speed."
+      )),
+      Map.entry(setting(FreecamModule.class, "NoHands"), settingAssessed(
+         Classification.VISUAL_ONLY,
+         "Controls only local first-person hand rendering while Freecam is active."
+      )),
+      Map.entry(setting(FreecamModule.class, "Rotate"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Enables reviewed rotation of the real player toward the free-camera interaction target."
+      )),
+      Map.entry(setting(FreecamModule.class, "Always"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls whether reviewed real-player rotation follows the free-camera target continuously."
+      )),
+      Map.entry(setting(FreecamModule.class, "ClampY"), settingAssessed(
+         Classification.CLIENT_ONLY,
+         "Enables local free-camera vertical clamping."
+      )),
+      Map.entry(setting(FreecamModule.class, "Min"), settingAssessed(
+         Classification.CLIENT_ONLY,
+         "Controls only the local free-camera minimum vertical bound."
+      )),
+      Map.entry(setting(FreecamModule.class, "Value"), settingAssessed(
+         Classification.CLIENT_ONLY,
+         "Controls the local replacement height used by free-camera vertical clamping."
+      )),
+      Map.entry(setting(FreecamModule.class, "Max"), settingAssessed(
+         Classification.CLIENT_ONLY,
+         "Controls only the local free-camera maximum vertical bound."
+      )),
+      Map.entry(setting(JesusModule.class, "Mode"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Selects the reviewed water-walking movement/packet handling mode."
+      )),
+      Map.entry(setting(JesusModule.class, "Strict"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Changes reviewed outgoing movement-position handling while water-walking behavior is active."
+      )),
+      Map.entry(setting(JesusModule.class, "Ascending"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Controls reviewed upward movement strength while leaving liquid."
+      )),
+      Map.entry(setting(NukerModule.class, "Blocks"), settingAssessed(
+         Classification.WORLD_INTERACTION,
+         "Selects which block types are eligible for automated breaking."
+      )),
+      Map.entry(setting(NukerModule.class, "Mode"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Selects the reviewed automated mining/action sequencing mode."
+      )),
+      Map.entry(setting(NukerModule.class, "Shape"), settingAssessed(
+         Classification.WORLD_INTERACTION,
+         "Selects the spatial region used to choose automated mining targets."
+      )),
+      Map.entry(setting(NukerModule.class, "Sort"), settingAssessed(
+         Classification.WORLD_INTERACTION,
+         "Controls local ordering of eligible automated mining targets."
+      )),
+      Map.entry(setting(NukerModule.class, "BPT"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls how many reviewed block-breaking actions may be advanced per tick."
+      )),
+      Map.entry(setting(NukerModule.class, "Delay"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Controls the cadence of reviewed automated block-breaking actions."
+      )),
+      Map.entry(setting(NukerModule.class, "Range"), settingAssessed(
+         Classification.WORLD_INTERACTION,
+         "Controls the maximum range used when selecting automated mining targets."
+      )),
+      Map.entry(setting(NukerModule.class, "WallRange"), settingAssessed(
+         Classification.WORLD_INTERACTION,
+         "Controls the maximum range used for targets without direct line-of-sight."
+      )),
+      Map.entry(setting(NukerModule.class, "Height"), settingAssessed(
+         Classification.WORLD_INTERACTION,
+         "Controls the vertical extent of the reviewed tunnel-shaped mining selection."
+      )),
+      Map.entry(setting(NukerModule.class, "StrictDirection"), settingAssessed(
+         Classification.WORLD_INTERACTION,
+         "Restricts reviewed block-breaking target faces/directions."
+      )),
+      Map.entry(setting(NukerModule.class, "Rotate"), settingAssessed(
+         Classification.SERVER_SENSITIVE,
+         "Enables rotation requests toward automated mining targets."
+      )),
+      Map.entry(setting(NukerModule.class, "Creative"), settingAssessed(
+         Classification.PACKET_AFFECTING,
+         "Selects reviewed creative-style block-breaking action handling."
+      )),
+      Map.entry(setting(NukerModule.class, "Flatten"), settingAssessed(
+         Classification.WORLD_INTERACTION,
+         "Changes the spatial target-selection filter for automated mining."
+      )),
+      Map.entry(setting(NukerModule.class, "BaritoneArea"), settingAssessed(
+         Classification.WORLD_INTERACTION,
+         "Restricts automated mining targets to the locally supplied Baritone area when available."
+      )),
+      Map.entry(setting(NukerModule.class, "PlayerProximity"), settingAssessed(
+         Classification.WORLD_INTERACTION,
+         "Changes reviewed target eligibility based on nearby player positions."
+      )),
+      Map.entry(setting(NukerModule.class, "Color"), settingAssessed(
+         Classification.VISUAL_ONLY,
+         "Changes only the local queued-target render color."
       ))
    );
 
