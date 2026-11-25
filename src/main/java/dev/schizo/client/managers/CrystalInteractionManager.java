@@ -129,13 +129,16 @@ public class CrystalInteractionManager implements ClientAccess {
    }
 
    public CrystalInteractionManager() {
+      swing = (SwingModule)java.util.Objects.requireNonNull(
+         ClientContext.getModule(SwingModule.class),
+         "Required module is not registered: SwingModule"
+      );
+      autoCrystal = (AutoCrystalModule)java.util.Objects.requireNonNull(
+         ClientContext.getModule(AutoCrystalModule.class),
+         "Required module is not registered: AutoCrystalModule"
+      );
       EventBus eventBus = ClientAccess.eventBus;
       eventBus.subscribe(this);
-   }
-
-   static {
-      swing = (SwingModule)ClientContext.getModule(SwingModule.class);
-      autoCrystal = (AutoCrystalModule)ClientContext.getModule(AutoCrystalModule.class);
    }
 
    private void resetAttackCooldown(InteractionHand hand) {
