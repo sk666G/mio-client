@@ -21,6 +21,7 @@ import dev.schizo.client.events.PacketEvent;
 import dev.schizo.client.events.CrystalPlacementEvent;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.LocalPlayerTickEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.events.bus.EventBus;
 import dev.schizo.client.modules.client.AntiCheatModule;
 import dev.schizo.client.modules.misc.SwingModule;
@@ -42,6 +43,7 @@ public final class SwingInteractionManager implements ClientAccess {
    private static final AntiCheatModule antiCheat;
    private static final SwingModule swingModule;
    private final List<PendingCrystalPlacement> pendingCrystals;
+   private volatile long sessionGeneration;
 
    public SwingInteractionManager() {
       List<PendingCrystalPlacement> pending = new ArrayList<>(initialCrystalCapacity());
@@ -160,14 +162,26 @@ public final class SwingInteractionManager implements ClientAccess {
             AABB spawnBoundsSnapshot = spawnTypeSnapshot.getSpawnAABB(spawnXSnapshot, spawnYSnapshot, spawnZ);
             double inset = -BoundingBoxUtils.blockCornerInset;
             AABB crystalBounds = spawnBoundsSnapshot.inflate(inset);
+            long expectedGeneration = this.sessionGeneration;
             BlockableEventLoop<?> executor = ClientAccess.schizoMinecraft;
-            Runnable removePlacement = () -> this.pendingCrystals.removeIf(pending -> {
-               AABB placementBounds = new AABB(capturePlacementPosition(pending));
-               return crystalBounds.intersects(placementBounds);
-            });
+            Runnable removePlacement = () -> {
+               if (this.sessionGeneration != expectedGeneration) {
+                  return;
+               }
+               this.pendingCrystals.removeIf(pending -> {
+                  AABB placementBounds = new AABB(capturePlacementPosition(pending));
+                  return crystalBounds.intersects(placementBounds);
+               });
+            };
             executor.execute(removePlacement);
          }
       }
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.sessionGeneration++;
+      this.pendingCrystals.clear();
    }
 
    private static BlockPos capturePlacementPosition(PendingCrystalPlacement pending) {
