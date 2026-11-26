@@ -70,8 +70,6 @@ public class AutoEatModule extends Module {
    private final Setting<Boolean> autoEscapeSetting;
    private final Setting<Boolean> autoDisableSetting;
    private final dev.schizo.client.utils.inventory.TemporaryHotbarSelection selectionOwner = new dev.schizo.client.utils.inventory.TemporaryHotbarSelection();
-   private int previousSelectedSlot = -1;
-   private int temporarySelectedSlot = -1;
    private boolean eating;
    private boolean continueUntilFull;
    private int swappedContainerSlot = -1;
@@ -79,6 +77,8 @@ public class AutoEatModule extends Module {
    private int swappedContainerId = -1;
    private LocalPlayer swappedContainerOwner;
    private AbstractContainerMenu swappedContainerMenu;
+   private ItemStack expectedContainerStack = ItemStack.EMPTY;
+   private ItemStack expectedHotbarStack = ItemStack.EMPTY;
 
    @Override
    public void onEnable() {
@@ -118,12 +118,7 @@ public class AutoEatModule extends Module {
    }
 
    private void restoreTemporaryHotbarSelection() {
-      try {
-         this.selectionOwner.restore(this.autoSwapSetting.getValue() && this.swapBackSetting.getValue());
-      } finally {
-         this.previousSelectedSlot = -1;
-         this.temporarySelectedSlot = -1;
-      }
+      this.selectionOwner.restore(this.autoSwapSetting.getValue() && this.swapBackSetting.getValue());
    }
 
    private void restoreSwappedContainerSlot() {
@@ -137,7 +132,10 @@ public class AutoEatModule extends Module {
          if (containerSlot >= 0 && hotbarSlot >= 0 && hotbarSlot < 9
             && currentPlayer != null && currentPlayer == owner
             && currentPlayer.containerMenu == menu && menu != null
-            && menu.containerId == containerId) {
+            && menu.containerId == containerId && containerSlot < menu.slots.size()
+            && ItemStack.matches(menu.getSlot(containerSlot).getItem(), this.expectedContainerStack)
+            && (owner.getInventory().getItem(hotbarSlot).isEmpty()
+               || ItemStack.isSameItemSameComponents(owner.getInventory().getItem(hotbarSlot), this.expectedHotbarStack))) {
             this.swapWithHotbarSlot(owner, menu, containerSlot, hotbarSlot);
          }
       } finally {
@@ -146,18 +144,20 @@ public class AutoEatModule extends Module {
          this.swappedContainerId = -1;
          this.swappedContainerOwner = null;
          this.swappedContainerMenu = null;
+      this.expectedContainerStack = ItemStack.EMPTY;
+      this.expectedHotbarStack = ItemStack.EMPTY;
       }
    }
 
    private void clearSwapState() {
       this.selectionOwner.clear();
-      this.previousSelectedSlot = -1;
-      this.temporarySelectedSlot = -1;
       this.swappedContainerSlot = -1;
       this.swappedContainerHotbarSlot = -1;
       this.swappedContainerId = -1;
       this.swappedContainerOwner = null;
       this.swappedContainerMenu = null;
+      this.expectedContainerStack = ItemStack.EMPTY;
+      this.expectedHotbarStack = ItemStack.EMPTY;
    }
 
    private void swapWithHotbarSlot(
@@ -222,6 +222,8 @@ public class AutoEatModule extends Module {
                this.swappedContainerId = escapeMenu.containerId;
                this.swappedContainerOwner = escapePlayer;
                this.swappedContainerMenu = escapeMenu;
+               this.expectedContainerStack = escapeMenu.getSlot(chorusContainerSlot).getItem().copy();
+               this.expectedHotbarStack = escapePlayer.getInventory().getItem(escapeHotbarSlot).copy();
             }
          }
       }
@@ -254,13 +256,21 @@ public class AutoEatModule extends Module {
       }
 
       boolean useOffHand = foodSlot == (40);
+      this.clearPauseReason();
+      var mainhand = ClientContext.getModule(dev.schizo.client.modules.combat.MainhandModule.class);
+      if (dev.schizo.client.utils.inventory.InventoryActionPriority.pauseFood(
+            mainhand != null && mainhand.requiresEmergencyProtection(), useOffHand)) {
+         if (this.eating && ClientAccess.schizoMinecraft.player.getUsedItemHand() == InteractionHand.MAIN_HAND) {
+            ClientAccess.schizoMinecraft.gameMode.releaseUsingItem(ClientAccess.schizoMinecraft.player);
+            this.setEating(false);
+         }
+         this.selectionOwner.clear();
+         this.pauseWithReason("Mainhand emergency protection");
+         return;
+      }
       if ((this.autoSwapSetting.getValue()) && !useOffHand && foodSlot != -1) {
          if (ClientAccess.schizoMinecraft.player.getInventory().getSelectedSlot() != foodSlot) {
-            if (this.previousSelectedSlot == -1) {
-               this.previousSelectedSlot = InventoryUtils.getSelectedSlot();
-            }
             this.selectionOwner.select(foodSlot);
-            this.temporarySelectedSlot = foodSlot;
          }
       }
 

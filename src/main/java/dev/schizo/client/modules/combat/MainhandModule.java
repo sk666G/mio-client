@@ -57,6 +57,7 @@ public class MainhandModule extends Module implements LethalDamageTracker.Lethal
    final Setting<Integer> delaySetting;
    private final Setting<Float> safeSetting;
    private final Setting<Boolean> autoSelectSetting;
+   private final Setting<Boolean> emergencyPrioritySetting;
    private final Setting<Integer> autoSelectDelaySetting;
    private final Setting<Boolean> lethalSetting;
    private final Setting<Float> healthSetting;
@@ -73,8 +74,6 @@ public class MainhandModule extends Module implements LethalDamageTracker.Lethal
    private int previousReplacementSlot;
    private final dev.schizo.client.utils.inventory.TemporaryHotbarSelection selectionOwner = new dev.schizo.client.utils.inventory.TemporaryHotbarSelection();
    private boolean temporaryHotbarSelection;
-   private int previousSelectedHotbarSlot;
-   private int temporarySelectedHotbarSlot = -1;
    private final LethalDamageTracker lethalDamageTracker;
 
    @Override
@@ -88,8 +87,7 @@ public class MainhandModule extends Module implements LethalDamageTracker.Lethal
 
    @Override
    public void onEnable() {
-      this.previousSelectedHotbarSlot = this.previousReplacementSlot = -1;
-      this.temporarySelectedHotbarSlot = -1;
+      this.previousReplacementSlot = -1;
       this.temporaryHotbarSelection = false;
    }
 
@@ -116,8 +114,6 @@ public class MainhandModule extends Module implements LethalDamageTracker.Lethal
    private void clearTemporaryHotbarSelection() {
       this.selectionOwner.clear();
       this.temporaryHotbarSelection = false;
-      this.previousSelectedHotbarSlot = -1;
-      this.temporarySelectedHotbarSlot = -1;
    }
 
    private boolean shouldTemporarilySelectGapple() {
@@ -172,6 +168,14 @@ public class MainhandModule extends Module implements LethalDamageTracker.Lethal
       float health = EntityUtils.getPlayerHealthWithAbsorption();
       Float safeHealth = this.safeSetting.getValue();
       return health >= safeHealth;
+   }
+
+   public boolean requiresEmergencyProtection() {
+      if (this.isWorldUnavailable() || !this.emergencyPrioritySetting.getValue()) return false;
+      return dev.schizo.client.utils.inventory.InventoryActionPriority.protectMainhand(
+         this.isToggled(), this.autoSelectSetting.getValue(),
+         ClientAccess.schizoMinecraft.player.getInventory().getItem(this.getConfiguredHotbarSlot()).is(Items.TOTEM_OF_UNDYING),
+         this.lethalDamageTracker.shouldHoldTotem(), EntityUtils.getPlayerHealthWithAbsorption(), this.healthSetting.getValue());
    }
 
    private void autoSelectTotem() {
@@ -252,8 +256,6 @@ public class MainhandModule extends Module implements LethalDamageTracker.Lethal
             if (previousSlot == gappleSlot) {
                return;
             }
-            this.previousSelectedHotbarSlot = previousSlot;
-            this.temporarySelectedHotbarSlot = gappleSlot;
             this.temporaryHotbarSelection = true;
             this.selectionOwner.select(gappleSlot);
             return;
@@ -295,7 +297,8 @@ public class MainhandModule extends Module implements LethalDamageTracker.Lethal
       }
 
       if (autoEatModule.isToggled()) {
-         if (autoEatModule.isEating()) {
+         if (autoEatModule.isEating() && !this.requiresEmergencyProtection()) {
+            this.pauseWithReason("AutoEat owns item use");
             return;
          }
       }
@@ -429,6 +432,7 @@ public class MainhandModule extends Module implements LethalDamageTracker.Lethal
       this.delaySetting = this.add(new NumberSetting<>("Delay", 25, 0, 500).withUnit("ms"));
       this.safeSetting = this.add(new NumberSetting<>("Safe", 8.0F, 0.0F, 36.0F).withUnit("hp"));
       Setting<Boolean> autoSelectOption = this.add(new BooleanSetting("AutoSelect", false).markVisibilityDependency());
+      this.emergencyPrioritySetting = this.add(new BooleanSetting("EmergencyPriority", true));
       this.autoSelectSetting = autoSelectOption;
       this.autoSelectDelaySetting = this.add(new NumberSetting<>("Delay", 25, 0, 500).withUnit("ms").dependsOn(autoSelectOption));
       this.lethalSetting = this.add(new BooleanSetting("Lethal", true).dependsOn(autoSelectOption));
