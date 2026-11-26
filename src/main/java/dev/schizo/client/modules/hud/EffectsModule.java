@@ -42,7 +42,7 @@ public class EffectsModule extends HudWidgetModule {
          effectReference -> this.effectRows.add(
             new EffectHudRow(effectReference, () -> {
                LocalPlayer player = ClientAccess.schizoMinecraft.player;
-               if (!player.getActiveEffectsMap().containsKey(effectReference)) {
+               if (player == null || !player.getActiveEffectsMap().containsKey(effectReference)) {
                   return false;
                }
                Setting<ListFilterMode> selectionOption = this.selectionSetting;
