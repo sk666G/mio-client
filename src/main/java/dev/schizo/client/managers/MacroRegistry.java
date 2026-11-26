@@ -53,17 +53,21 @@ public final class MacroRegistry extends Registry<Macro> implements ClientAccess
 
    @Override
    public boolean unregisterEntry(NamedEntry entry) {
-      if (!(entry instanceof Macro macro) || !this.entries.contains(macro)) {
+      if (!(entry instanceof Macro macro) || !this.entries.remove(macro)) {
          return false;
       }
 
       releaseMacroState(macro);
-      return this.entries.remove(macro);
+      return true;
    }
 
    private static void releaseMacroState(Macro macro) {
       if (macro instanceof HoldMacro holdMacro) {
-         holdMacro.updatePressed(false);
+         try {
+            holdMacro.updatePressed(false);
+         } catch (RuntimeException releaseFailure) {
+            ClientAccess.logger.warn("Hold macro {} failed while releasing lifecycle state", macro.getName(), releaseFailure);
+         }
       }
    }
 
