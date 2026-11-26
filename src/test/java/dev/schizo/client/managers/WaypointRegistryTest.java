@@ -119,9 +119,24 @@ class WaypointRegistryTest {
       WaypointRegistry registry = new WaypointRegistry();
 
       assertFalse(registry.registerWaypoint(new Waypoint("Home", 1, 64, 2, null, "example.org")));
-      assertFalse(registry.registerWaypoint(new Waypoint("Home", Double.NaN, 64, 2, "overworld", "example.org")));
-      assertFalse(registry.registerWaypoint(new Waypoint("Home", 1, Double.POSITIVE_INFINITY, 2, "overworld", "example.org")));
-      assertFalse(registry.registerWaypoint(new Waypoint("Home", 1, 64, Double.NEGATIVE_INFINITY, "overworld", "example.org")));
+      assertFalse(registry.registerWaypoint(new Waypoint("Home", 1, 64, 2, "overworld", "example.org") {
+         @Override
+         public double getX() {
+            return Double.NaN;
+         }
+      }));
+      assertFalse(registry.registerWaypoint(new Waypoint("Home", 1, 64, 2, "overworld", "example.org") {
+         @Override
+         public double getY() {
+            return Double.POSITIVE_INFINITY;
+         }
+      }));
+      assertFalse(registry.registerWaypoint(new Waypoint("Home", 1, 64, 2, "overworld", "example.org") {
+         @Override
+         public double getZ() {
+            return Double.NEGATIVE_INFINITY;
+         }
+      }));
       assertTrue(registry.getRegistry().isEmpty());
    }
 
