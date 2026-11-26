@@ -80,6 +80,7 @@ jobs:
           test -s "$run_dir/screenshots/0001_schizo-command-palette.png"
           test -s "$run_dir/screenshots/0002_schizo-performance-center.png"
           test -s "$run_dir/screenshots/0003_schizo-hud-editor.png"
+          test -s "$run_dir/screenshots/0004_schizo-hud-editor-reconnect.png"
 
           if grep -E '\[.*(WARN|ERROR).*\] \(Schizo\)|\(Schizo\).*\[(WARN|ERROR)\]' "$log"; then
             echo "Schizo emitted WARN/ERROR diagnostics during the successful client gametest" >&2
@@ -99,6 +100,7 @@ jobs:
               root / "0001_schizo-command-palette.png",
               root / "0002_schizo-performance-center.png",
               root / "0003_schizo-hud-editor.png",
+              root / "0004_schizo-hud-editor-reconnect.png",
           ]
           for path in files:
               data = path.read_bytes()

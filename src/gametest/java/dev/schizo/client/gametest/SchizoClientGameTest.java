@@ -10,12 +10,19 @@ import dev.schizo.client.modules.client.UIModule;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
+import java.util.concurrent.atomic.AtomicReference;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.player.LocalPlayer;
 import org.lwjgl.glfw.GLFW;
 
 @SuppressWarnings("UnstableApiUsage")
 public final class SchizoClientGameTest implements FabricClientGameTest {
    @Override
    public void runTest(ClientGameTestContext context) {
+      long failuresBefore = EventFailureTracker.GLOBAL.totalFailures();
+      AtomicReference<ClientLevel> firstLevel = new AtomicReference<>();
+      AtomicReference<LocalPlayer> firstPlayer = new AtomicReference<>();
+
       try (TestSingleplayerContext singleplayer = GameTestWorlds.create(context)) {
          singleplayer.getClientWorld().waitForChunksRender();
          context.waitTicks(5);
@@ -30,9 +37,9 @@ public final class SchizoClientGameTest implements FabricClientGameTest {
                || ClientContext.frameTiming == null) {
                throw new IllegalStateException("Schizo client services are incomplete");
             }
+            firstLevel.set(minecraft.level);
+            firstPlayer.set(minecraft.player);
          });
-
-         long failuresBefore = EventFailureTracker.GLOBAL.totalFailures();
 
          context.getInput().pressKey(GLFW.GLFW_KEY_RIGHT_SHIFT);
          context.waitForScreen(ClickGuiScreen.class);
@@ -73,14 +80,40 @@ public final class SchizoClientGameTest implements FabricClientGameTest {
          context.takeScreenshot("schizo-hud-editor");
          context.setScreen(() -> null);
          context.waitForScreen(null);
+      }
 
-         long failuresAfter = EventFailureTracker.GLOBAL.totalFailures();
-         if (failuresAfter != failuresBefore) {
-            throw new IllegalStateException(
-               "Schizo event callback failures increased during GUI gametest: "
-                  + failuresBefore + " -> " + failuresAfter
-            );
-         }
+      context.waitTicks(3);
+
+      try (TestSingleplayerContext secondSingleplayer = GameTestWorlds.create(context)) {
+         secondSingleplayer.getClientWorld().waitForChunksRender();
+         context.waitTicks(5);
+
+         context.runOnClient(minecraft -> {
+            if (minecraft.level == null || minecraft.player == null) {
+               throw new IllegalStateException("Second singleplayer world did not initialize");
+            }
+            if (minecraft.level == firstLevel.get()) {
+               throw new IllegalStateException("Client level instance was not replaced across world recreation");
+            }
+            if (minecraft.player == firstPlayer.get()) {
+               throw new IllegalStateException("Local player instance was not replaced across world recreation");
+            }
+         });
+
+         context.setScreen(HudEditorScreen::new);
+         context.waitForScreen(HudEditorScreen.class);
+         context.waitTicks(3);
+         context.takeScreenshot("schizo-hud-editor-reconnect");
+         context.setScreen(() -> null);
+         context.waitForScreen(null);
+      }
+
+      long failuresAfter = EventFailureTracker.GLOBAL.totalFailures();
+      if (failuresAfter != failuresBefore) {
+         throw new IllegalStateException(
+            "Schizo event callback failures increased during GUI/world lifecycle gametest: "
+               + failuresBefore + " -> " + failuresAfter
+         );
       }
    }
 }
