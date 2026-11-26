@@ -332,29 +332,46 @@ public class StashFinderModule extends Module {
    }
 
    private int countStackedMinecarts(ChunkPos chunk) {
-      int overlappingCount = 0;
-      ArrayList<MinecartChest> seenMinecarts = new ArrayList<>();
+      ArrayList<AABB> minecartBounds = new ArrayList<>();
       ClientLevel level = ClientAccess.schizoMinecraft.level;
       Iterator entities = level.entitiesForRendering().iterator();
 
       while (entities.hasNext()) {
          Entity entity = (Entity)entities.next();
          if (entity instanceof MinecartChest minecart && minecart.chunkPosition().equals(chunk)) {
-            Iterator<MinecartChest> previousMinecarts = seenMinecarts.iterator();
-            while (previousMinecarts.hasNext()) {
-               MinecartChest previousMinecart = previousMinecarts.next();
-               AABB boundsSnapshot = minecart.getBoundingBox();
-               AABB previousBounds = previousMinecart.getBoundingBox();
-               if (boundsSnapshot.intersects(previousBounds)) {
-                  overlappingCount++;
-                  break;
-               }
-            }
-            seenMinecarts.add(minecart);
+            minecartBounds.add(minecart.getBoundingBox());
          }
       }
 
-      return overlappingCount;
+      return countStackedMinecartBounds(minecartBounds);
+   }
+
+   static int countStackedMinecartBounds(java.util.List<AABB> minecartBounds) {
+      if (minecartBounds.size() < 2) {
+         return 0;
+      }
+
+      boolean[] stacked = new boolean[minecartBounds.size()];
+      int stackedCount = 0;
+      for (int currentIndex = 0; currentIndex < minecartBounds.size(); currentIndex++) {
+         AABB currentBounds = minecartBounds.get(currentIndex);
+         for (int previousIndex = 0; previousIndex < currentIndex; previousIndex++) {
+            AABB previousBounds = minecartBounds.get(previousIndex);
+            if (!currentBounds.intersects(previousBounds)) {
+               continue;
+            }
+            if (!stacked[currentIndex]) {
+               stacked[currentIndex] = true;
+               stackedCount++;
+            }
+            if (!stacked[previousIndex]) {
+               stacked[previousIndex] = true;
+               stackedCount++;
+            }
+         }
+      }
+
+      return stackedCount;
    }
 
    @Override
