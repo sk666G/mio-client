@@ -117,6 +117,51 @@ class MacroRegistryLifecycleTest {
       }
    }
 
+   @Test
+   void disablingHoldMacroContainsReleaseFailure() {
+      ThrowingReleaseHoldMacro macro = new ThrowingReleaseHoldMacro("hold");
+
+      assertDoesNotThrow(() -> macro.setToggled(false));
+
+      assertFalse(macro.isToggled());
+      assertEquals(1, macro.releaseAttempts);
+   }
+
+   @Test
+   void oneHoldMacroReleaseFailureDoesNotBlockDisconnectCleanup() {
+      MacroRegistry registry = new MacroRegistry();
+      try {
+         ThrowingReleaseHoldMacro failing = new ThrowingReleaseHoldMacro("failing");
+         TrackingHoldMacro healthy = new TrackingHoldMacro("healthy");
+         assertTrue(registry.registerEntry(failing));
+         assertTrue(registry.registerEntry(healthy));
+         healthy.updatePressed(true);
+
+         assertDoesNotThrow(() -> ClientAccess.eventBus.post(new MinecraftDisconnectEvent()));
+
+         assertEquals(1, failing.releaseAttempts);
+         assertFalse(healthy.lastPressed);
+      } finally {
+         ClientAccess.eventBus.unsubscribe(registry);
+      }
+   }
+
+   @Test
+   void unregisterStillRemovesMacroWhenReleaseFails() {
+      MacroRegistry registry = new MacroRegistry();
+      try {
+         ThrowingReleaseHoldMacro macro = new ThrowingReleaseHoldMacro("hold");
+         assertTrue(registry.registerEntry(macro));
+
+         assertTrue(registry.unregisterEntry(macro));
+
+         assertEquals(1, macro.releaseAttempts);
+         assertTrue(registry.getRegistry().isEmpty());
+      } finally {
+         ClientAccess.eventBus.unsubscribe(registry);
+      }
+   }
+
    private static final class TrackingHoldMacro extends HoldMacro {
       private boolean lastPressed;
       private int updateCalls;
@@ -129,6 +174,22 @@ class MacroRegistryLifecycleTest {
       public void updatePressed(boolean pressed) {
          this.lastPressed = pressed;
          this.updateCalls++;
+      }
+   }
+
+   private static final class ThrowingReleaseHoldMacro extends HoldMacro {
+      private int releaseAttempts;
+
+      private ThrowingReleaseHoldMacro(String name) {
+         super(name, Keybind.toggle(65, false));
+      }
+
+      @Override
+      public void updatePressed(boolean pressed) {
+         if (!pressed) {
+            this.releaseAttempts++;
+            throw new IllegalStateException("release failure");
+         }
       }
    }
 }
