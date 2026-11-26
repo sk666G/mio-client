@@ -73,23 +73,13 @@ public class MapModule extends HudWidgetModule {
       return this.dimensions(width, height);
    }
 
-   private boolean isChunkWithinRange(ChunkPos chunk) {
-      Setting<Float> widthOption = this.widthSetting;
-      Float width = widthOption.getValue();
-      double radiusOperand = width.floatValue();
-      Setting<Float> heightOption = this.heightSetting;
-      Float height = heightOption.getValue();
-      double mapHeight = height.floatValue();
-      double mapWidth = radiusOperand;
-      radiusOperand = Math.hypot(mapWidth, mapHeight);
+   private int getChunkRadius() {
+      double mapWidth = this.widthSetting.getValue();
+      double mapHeight = this.heightSetting.getValue();
+      return (int)Math.ceil(Math.hypot(mapWidth, mapHeight) / 16.0D);
+   }
 
-      double radius = radiusOperand / 16.0D;
-      int chunkRadius = (int)Math.ceil(radius);
-      LocalPlayer player = ClientAccess.schizoMinecraft.player;
-      if (player == null) {
-         return false;
-      }
-      ChunkPos playerChunk = player.chunkPosition();
+   private static boolean isChunkWithinRange(ChunkPos chunk, ChunkPos playerChunk, int chunkRadius) {
       return chunk.distanceSquared(playerChunk) <= chunkRadius * chunkRadius;
    }
 
@@ -148,52 +138,40 @@ public class MapModule extends HudWidgetModule {
          try {
             float mapDepth = 0.0F;
             poses.translate(centerX, centerY, mapDepth);
-            NewChunksModule dungeonSource = newChunks();
 
-         Iterator chunks = dungeonSource.getDetectedDungeons().iterator();
+            LocalPlayer player = ClientAccess.schizoMinecraft.player;
+            if (player != null) {
+               NewChunksModule newChunksModule = newChunks();
+               ChunkPos playerChunk = player.chunkPosition();
+               int chunkRadius = this.getChunkRadius();
+               Vec3 cameraPosition = ClientAccess.schizoMinecraft.gameRenderer.getMainCamera().position();
 
-         while (chunks.hasNext()) {
-            BlockPos dungeonPosition = (BlockPos)chunks.next();
-            ChunkPos dungeonChunk = new ChunkPos(dungeonPosition);
-            if (this.isChunkWithinRange(dungeonChunk)) {
-               Setting<Color> dungeonColorOption = newChunks().dungeonFillSetting;
-               Color dungeonFill = dungeonColorOption.getValue();
+               Iterator<BlockPos> dungeons = newChunksModule.getDetectedDungeons().iterator();
+               while (dungeons.hasNext()) {
+                  ChunkPos dungeonChunk = new ChunkPos(dungeons.next());
+                  if (isChunkWithinRange(dungeonChunk, playerChunk, chunkRadius)) {
+                     Color dungeonColor = ColorUtils.withAlpha(
+                        newChunksModule.dungeonFillSetting.getValue(), 0.4F
+                     );
+                     this.renderChunk(poses, cameraPosition, dungeonChunk, dungeonColor);
+                  }
+               }
 
-               Color dungeonColor = ColorUtils.withAlpha(
-                  dungeonFill, 0.4F
-               );
-               this.renderChunk(poses, dungeonChunk, dungeonColor);
-            }
-         }
+               Iterator<DetectedChunk> chunks = newChunksModule.getVisibleChunks().iterator();
+               while (chunks.hasNext()) {
+                  DetectedChunk visibleChunk = chunks.next();
+                  ChunkPos chunkPosition = visibleChunk.chunkPosition();
+                  if (!isChunkWithinRange(chunkPosition, playerChunk, chunkRadius)) {
+                     continue;
+                  }
 
-         NewChunksModule visibleChunkSource = newChunks();
-
-         chunks = visibleChunkSource.getVisibleChunks().iterator();
-
-         while (chunks.hasNext()) {
-            DetectedChunk visibleChunk = (DetectedChunk)chunks.next();
-
-            ChunkPos chunkPosition = visibleChunk.chunkPosition();
-            if (this.isChunkWithinRange(chunkPosition)) {
-
-               ChunkKind visibleKind = visibleChunk.kind();
-               NewChunksModule moduleForKindColors = newChunks();
-               if (visibleKind.getColors(moduleForKindColors) != null) {
-
-                  ChunkKind visibleColoredKind = visibleChunk.kind();
-                  NewChunksModule moduleForFillColor = newChunks();
-                  Color chunkColor = visibleColoredKind.getColors(moduleForFillColor)[0];
-
-                  chunkColor = ColorUtils.withAlpha(
-                     chunkColor, 0.25F
-                  );
-
-                  ChunkPos drawnChunkPosition = visibleChunk.chunkPosition();
-                  Color drawnChunkColor = chunkColor;
-                  this.renderChunk(poses, drawnChunkPosition, drawnChunkColor);
+                  Color[] chunkColors = visibleChunk.kind().getColors(newChunksModule);
+                  if (chunkColors != null) {
+                     Color chunkColor = ColorUtils.withAlpha(chunkColors[0], 0.25F);
+                     this.renderChunk(poses, cameraPosition, chunkPosition, chunkColor);
+                  }
                }
             }
-         }
          } finally {
             poses.popPose();
          }
@@ -215,11 +193,8 @@ public class MapModule extends HudWidgetModule {
    }
 
    private void renderChunk(
-      PoseStack poses, ChunkPos chunk, Color color
+      PoseStack poses, Vec3 cameraPosition, ChunkPos chunk, Color color
    ) {
-      GameRenderer gameRenderer = ClientAccess.schizoMinecraft.gameRenderer;
-      Camera camera = gameRenderer.getMainCamera();
-      Vec3 cameraPosition = camera.position();
       double cameraCoordinate = cameraPosition.x;
       float cameraOffsetX = (float)(cameraCoordinate - chunk.getMinBlockX());
 
