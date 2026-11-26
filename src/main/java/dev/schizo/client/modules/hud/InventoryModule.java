@@ -95,10 +95,10 @@ public class InventoryModule extends HudWidgetModule {
    private Collection<ItemStack> getSelectedItemTotals() {
       HashMap<Item, Integer> itemCounts = new HashMap<>();
       LocalPlayer player = ClientAccess.schizoMinecraft.player;
-      Iterator<ItemStack> stacks = player.getInventory().iterator();
+      Iterator<?> stacks = player.getInventory().iterator();
 
       while (stacks.hasNext()) {
-         ItemStack stack = stacks.next();
+         ItemStack stack = (ItemStack)stacks.next();
          Item item = stack.getItem();
          if (!stack.isEmpty()) {
             Setting<ListFilterMode> selectionOption = this.selectionSetting;
