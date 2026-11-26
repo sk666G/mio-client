@@ -34,12 +34,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(ClientPacketListener.class)
 public class ClientPacketListenerChatTimeMixin {
-   private static AmbienceModule ambienceModule() {
-      return MixinModuleRegistry.getModule(AmbienceModule.class);
-   }
-   private static FastLatencyModule fastLatencyModule() {
-      return MixinModuleRegistry.getModule(FastLatencyModule.class);
-   }
    @Shadow
    private ClientLevel level;
    @Unique
@@ -85,9 +79,9 @@ public class ClientPacketListenerChatTimeMixin {
       cancellable = true
    )
    private void overrideServerTimeForAmbience(ClientboundSetTimePacket packet, CallbackInfo callback) {
-      if (ambienceModule().isToggled() && ambienceModule().worldTimeSetting.getValue()) {
-         ambienceModule().updateServerTimeSnapshot(packet.gameTime(), packet.dayTime());
-         this.level.setTimeFromServer(ambienceModule().getWorldTime(), ambienceModule().getWorldTime(), false);
+      if (MixinModuleRegistry.levelAmbience.isToggled() && MixinModuleRegistry.levelAmbience.worldTimeSetting.getValue()) {
+         MixinModuleRegistry.levelAmbience.updateServerTimeSnapshot(packet.gameTime(), packet.dayTime());
+         this.level.setTimeFromServer(MixinModuleRegistry.levelAmbience.getWorldTime(), MixinModuleRegistry.levelAmbience.getWorldTime(), false);
          callback.cancel();
       }
    }
@@ -105,7 +99,7 @@ public class ClientPacketListenerChatTimeMixin {
    @WrapWithCondition(method = "applyPlayerInfoUpdate", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/multiplayer/PlayerInfo;setLatency(I)V"))
    private boolean allowPlayerInfoLatencyUpdate(PlayerInfo playerInfo, int latencyMillis) {
       return ClientAccess.schizoMinecraft.player == null
-         || !fastLatencyModule().isToggled()
+         || !MixinModuleRegistry.clientPacketFastLatency.isToggled()
          || !playerInfo.getProfile().id().equals(ClientAccess.schizoMinecraft.player.getUUID());
    }
 }
