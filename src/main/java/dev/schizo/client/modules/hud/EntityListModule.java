@@ -97,63 +97,38 @@ public class EntityListModule extends HudWidgetModule {
    private void onLocalPlayerTickEvent(LocalPlayerTickEvent ignoredEvent) {
       this.countsByName.clear();
       ClientLevel level = ClientAccess.schizoMinecraft.level;
+      ListFilterMode entitySelection = this.selectionSetting.getValue();
+      Collection<?> selectedEntityTypes = this.entitiesSetting.getValue();
+      ListFilterMode itemSelection = this.itemSelectionSetting.getValue();
+      Collection<?> selectedItems = this.itemsSetting.getValue();
+      boolean useCustomNames = this.customNamesSetting.getValue();
+
       for (Entity entity : level.entitiesForRendering()) {
-         Setting<ListFilterMode> selectionOption = this.selectionSetting;
-         ListFilterMode selection = selectionOption.getValue();
-         EntityType entityType = entity.getType();
-         Setting<Set<EntityType<?>>> entityTypesOption = this.entitiesSetting;
-         Collection<?> selectedEntityTypes = (Collection<?>)entityTypesOption.getValue();
-         if (ListFilterMode.matches(selection, entityType, selectedEntityTypes)) {
-            if (entity instanceof ItemEntity itemEntity) {
-               ItemStack stackForEmptyCheck = itemEntity.getItem();
-               if (stackForEmptyCheck.isEmpty()) {
-                  continue;
-               }
-               ItemStack stackForItem = itemEntity.getItem();
-               Item item = stackForItem.getItem();
-               Setting<ListFilterMode> itemSelectionOption = this.itemSelectionSetting;
-               selection = itemSelectionOption.getValue();
-               Setting<Set<Item>> selectedItemsOption = this.itemsSetting;
-               ListFilterMode itemSelection = selection;
-               if (!ListFilterMode.matches(itemSelection, item, selectedItemsOption)) {
-                  continue;
-               }
-            }
-
-            Boolean useCustomNames = this.customNamesSetting.getValue();
-            String entityName;
-            if (useCustomNames) {
-               Component nameText = entity.getName();
-               entityName = nameText.getString();
-            } else {
-               EntityType typeForName = entity.getType();
-               Component description = typeForName.getDescription();
-               entityName = description.getString();
-            }
-
-            String name = entityName;
-            if (entity instanceof ItemEntity namedItemEntity) {
-               ItemStack stackForName = namedItemEntity.getItem();
-               Component hoverName = stackForName.getHoverName();
-               name = hoverName.getString();
-            }
-
-            int countedAmount;
-            if (entity instanceof ItemEntity countedItemEntity) {
-               ItemStack stackForCount = countedItemEntity.getItem();
-               countedAmount = stackForCount.getCount();
-            } else {
-               countedAmount = 1;
-            }
-
-            int countContribution = countedAmount;
-            this.countsByName.compute(
-               name,
-               (ignoredName, previousCount) -> previousCount == null
-                  ? countContribution
-                  : previousCount + countContribution
-            );
+         EntityType<?> entityType = entity.getType();
+         if (!ListFilterMode.matches(entitySelection, entityType, selectedEntityTypes)) {
+            continue;
          }
+
+         ItemStack itemStack = null;
+         if (entity instanceof ItemEntity itemEntity) {
+            itemStack = itemEntity.getItem();
+            if (itemStack.isEmpty()
+               || !ListFilterMode.matches(itemSelection, itemStack.getItem(), selectedItems)) {
+               continue;
+            }
+         }
+
+         String name;
+         if (itemStack != null) {
+            name = itemStack.getHoverName().getString();
+         } else if (useCustomNames) {
+            name = entity.getName().getString();
+         } else {
+            name = entityType.getDescription().getString();
+         }
+
+         int countContribution = itemStack != null ? itemStack.getCount() : 1;
+         this.countsByName.merge(name, countContribution, Integer::sum);
       }
 
       this.entries.clear();
