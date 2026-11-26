@@ -17,10 +17,12 @@ import dev.schizo.client.ClientAccess;
 import dev.schizo.client.audio.OfflineSoundAssets;
 import dev.schizo.client.config.ConfigPathGuard;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -37,6 +39,7 @@ public final class SoundManager implements ClientAccess {
    private static final long MAX_CUSTOM_SOUND_BYTES = 16L * 1024L * 1024L;
    private static final long MAX_CUSTOM_SOUND_TOTAL_BYTES = 128L * 1024L * 1024L;
    private static final int MAX_CUSTOM_SOUND_FILES = 512;
+   private static final int MAX_CUSTOM_DIRECTORY_ENTRIES = 4096;
    private static final int MAX_CUSTOM_SOUND_CATEGORIES = 128;
    private static final List<String> KILLSTREAK_DIRECTORIES = List.of(
       "doublekill_2", "triplekill_3", "dominating_4", "megakill_5",
@@ -59,15 +62,13 @@ public final class SoundManager implements ClientAccess {
             return List.of();
          }
          try (var paths = Files.list(directory)) {
-            var files = paths
-               .filter(this::isSafeSoundFile)
-               .filter(path -> path.toString().endsWith(".ogg"))
-               .iterator();
-            while (files.hasNext() && !budget.exhausted()) {
+            var files = paths.iterator();
+            while (!budget.exhausted() && files.hasNext() && budget.visitEntry()) {
                Path file = files.next();
+               if (!file.toString().endsWith(".ogg") || !this.isSafeSoundFile(file)) continue;
                try {
-                  byte[] bytes = this.readCustomSound(file);
-                  if (!budget.reserve(bytes.length)) {
+                  byte[] bytes = readCustomSound(file, budget);
+                  if (bytes == null) {
                      LOGGER.warn("Custom sound load budget exhausted in {}", directory.getFileName());
                      break;
                   }
@@ -77,7 +78,7 @@ public final class SoundManager implements ClientAccess {
                }
             }
          }
-      } catch (IOException failure) {
+      } catch (IOException | UncheckedIOException failure) {
          LOGGER.warn("Could not read sound directory {}", directory.getFileName(), failure);
       }
       return List.copyOf(clips);
@@ -89,17 +90,15 @@ public final class SoundManager implements ClientAccess {
             return;
          }
          try (var files = Files.list(directory)) {
-            var soundFiles = files
-               .filter(this::isSafeSoundFile)
-               .filter(path -> path.toString().endsWith(".ogg"))
-               .iterator();
-            while (soundFiles.hasNext() && !budget.exhausted()) {
+            var soundFiles = files.iterator();
+            while (!budget.exhausted() && soundFiles.hasNext() && budget.visitEntry()) {
                Path file = soundFiles.next();
+               if (!file.toString().endsWith(".ogg") || !this.isSafeSoundFile(file)) continue;
                String filename = file.getFileName().toString();
                String name = filename.substring(0, filename.length() - 4);
                try {
-                  byte[] bytes = this.readCustomSound(file);
-                  if (!budget.reserve(bytes.length)) {
+                  byte[] bytes = readCustomSound(file, budget);
+                  if (bytes == null) {
                      LOGGER.warn("Custom sound load budget exhausted in {}", directory.getFileName());
                      break;
                   }
@@ -112,7 +111,7 @@ public final class SoundManager implements ClientAccess {
                }
             }
          }
-      } catch (IOException failure) {
+      } catch (IOException | UncheckedIOException failure) {
          LOGGER.warn("Could not read sound category {}", directory.getFileName(), failure);
       }
    }
@@ -127,16 +126,22 @@ public final class SoundManager implements ClientAccess {
          && Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS);
    }
 
-   private byte[] readCustomSound(Path file) throws IOException {
-      if (Files.isSymbolicLink(file)
-         || !Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)) {
+   static byte[] readCustomSound(Path file, CustomSoundLoadBudget budget) throws IOException {
+      BasicFileAttributes attributes = Files.readAttributes(file, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+      if (!attributes.isRegularFile()) {
          throw new IOException("Custom sound is not a regular file");
       }
-
+      if (attributes.size() > MAX_CUSTOM_SOUND_BYTES) {
+         throw new IOException("Custom sound exceeds " + MAX_CUSTOM_SOUND_BYTES + " bytes");
+      }
+      int size = (int)attributes.size();
+      if (!budget.reserve(size)) {
+         return null;
+      }
       try (InputStream input = Files.newInputStream(file, LinkOption.NOFOLLOW_LINKS)) {
-         byte[] bytes = input.readNBytes((int)MAX_CUSTOM_SOUND_BYTES + 1);
-         if (bytes.length > MAX_CUSTOM_SOUND_BYTES) {
-            throw new IOException("Custom sound exceeds " + MAX_CUSTOM_SOUND_BYTES + " bytes");
+         byte[] bytes = input.readNBytes(size);
+         if (bytes.length != size || input.read() != -1) {
+            throw new IOException("Custom sound size changed while reading");
          }
          return bytes;
       }
@@ -180,24 +185,24 @@ public final class SoundManager implements ClientAccess {
       try {
          if (this.ensureSafeSoundDirectory(ConfigurationManager.SOUNDS_DIRECTORY)) {
             try (var directories = Files.list(ConfigurationManager.SOUNDS_DIRECTORY)) {
-               var customDirectories = directories
-                  .filter(path -> !Files.isSymbolicLink(path))
-                  .filter(path -> Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS))
-                  .filter(path -> !path.getFileName().toString().equalsIgnoreCase("killstreaks"))
-                  .iterator();
+               var customDirectories = directories.iterator();
                int categoryCount = 0;
-               while (customDirectories.hasNext()
-                  && categoryCount < MAX_CUSTOM_SOUND_CATEGORIES
-                  && !customBudget.exhausted()) {
-                  loadSoundCategory(customDirectories.next(), sounds, customBudget);
+               while (categoryCount < MAX_CUSTOM_SOUND_CATEGORIES && !customBudget.exhausted()
+                  && customDirectories.hasNext() && customBudget.visitEntry()) {
+                  Path category = customDirectories.next();
+                  if (category.getFileName().toString().equalsIgnoreCase("killstreaks")
+                     || !Files.isDirectory(category, LinkOption.NOFOLLOW_LINKS)) {
+                     continue;
+                  }
+                  loadSoundCategory(category, sounds, customBudget);
                   categoryCount++;
                }
-               if (customDirectories.hasNext() && categoryCount >= MAX_CUSTOM_SOUND_CATEGORIES) {
-                  LOGGER.warn("Skipping custom sound categories beyond the limit of {}", MAX_CUSTOM_SOUND_CATEGORIES);
+               if (categoryCount >= MAX_CUSTOM_SOUND_CATEGORIES && customDirectories.hasNext()) {
+                  LOGGER.warn("Stopping custom sound discovery at the category limit of {}", MAX_CUSTOM_SOUND_CATEGORIES);
                }
             }
          }
-      } catch (IOException failure) {
+      } catch (IOException | UncheckedIOException failure) {
          LOGGER.warn("Could not list custom sounds", failure);
       }
 
@@ -207,6 +212,15 @@ public final class SoundManager implements ClientAccess {
    static final class CustomSoundLoadBudget {
       private long remainingBytes;
       private int remainingFiles;
+      private int remainingEntries = MAX_CUSTOM_DIRECTORY_ENTRIES;
+
+      boolean visitEntry() {
+         if (remainingEntries == 0) {
+            return false;
+         }
+         remainingEntries--;
+         return true;
+      }
 
       CustomSoundLoadBudget(long maximumBytes, int maximumFiles) {
          if (maximumBytes < 1L || maximumFiles < 1) {
