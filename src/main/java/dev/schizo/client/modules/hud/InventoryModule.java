@@ -79,7 +79,7 @@ public class InventoryModule extends HudWidgetModule {
          return stacks;
       }
       Inventory inventory = player.getInventory();
-      NonNullList inventorySlots = inventory.getNonEquipmentItems();
+      NonNullList<ItemStack> inventorySlots = inventory.getNonEquipmentItems();
       int index = 0;
 
       while (true) {
