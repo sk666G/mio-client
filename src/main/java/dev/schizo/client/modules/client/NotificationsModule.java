@@ -16,6 +16,7 @@ import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.managers.AliasRegistry;
 import dev.schizo.client.managers.SocialRegistry;
 import dev.schizo.client.events.ModuleToggleEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.utils.chat.ChatUtils;
 import dev.schizo.client.managers.ConfigurationManager;
 import dev.schizo.client.config.ConfigFileReader;
@@ -79,6 +80,11 @@ public class NotificationsModule extends Module {
 
    @Override
    public void onDisable() {
+      this.invalidateTotemWork();
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
       this.invalidateTotemWork();
    }
 
