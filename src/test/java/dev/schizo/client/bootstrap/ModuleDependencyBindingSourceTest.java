@@ -5,14 +5,19 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
 class ModuleDependencyBindingSourceTest {
    private static final Pattern MODULE_REGISTRY_BINDER = Pattern.compile(
-      "(?s)\\bstatic\\s+void\\s+\\w+\\s*\\([^)]*\\bModuleRegistry\\b[^)]*\\)"
+      "(?s)\\bstatic\\s+void\\s+(\\w+)\\s*\\([^)]*\\bModuleRegistry\\b[^)]*\\)"
+   );
+   private static final Pattern REGISTERED_MODULE = Pattern.compile(
+      "registerModule\\(\\s*new\\s+(?:dev\\.schizo\\.client\\.modules(?:\\.[\\w$]+)*\\.)?([A-Za-z_$][\\w$]*)\\s*\\("
    );
    private static final Pattern STATIC_FIELD_MODULE_LOOKUP = Pattern.compile(
       "(?s)\\bstatic\\s+(?:(?:final|volatile|transient)\\s+)*[^;{}=]+\\s+[A-Za-z_$][\\w$]*\\s*=\\s*ClientContext\\.getModule\\("
@@ -58,6 +63,56 @@ class ModuleDependencyBindingSourceTest {
       assertTrue(
          offenders.isEmpty(),
          "Module sources must not resolve dependencies through ClientContext.getModule(...) during static initialization: " + offenders
+      );
+   }
+
+   @Test
+   void registeredModuleBindersAreInvokedByModuleDependencies() throws IOException {
+      Path sourceRoot = Path.of("src", "main", "java", "dev", "schizo", "client");
+      Path moduleRoot = sourceRoot.resolve("modules");
+      String registrySource = Files.readString(sourceRoot.resolve("managers").resolve("ModuleRegistry.java"));
+      String dependenciesSource = Files.readString(sourceRoot.resolve("bootstrap").resolve("ModuleDependencies.java"));
+
+      Set<String> registeredModules = new HashSet<>();
+      var registeredMatcher = REGISTERED_MODULE.matcher(registrySource);
+      while (registeredMatcher.find()) {
+         registeredModules.add(registeredMatcher.group(1));
+      }
+
+      List<String> missingBindings;
+      try (Stream<Path> sources = Files.walk(moduleRoot)) {
+         missingBindings = sources
+            .filter(path -> path.toString().endsWith(".java"))
+            .flatMap(path -> {
+               String fileName = path.getFileName().toString();
+               String moduleName = fileName.substring(0, fileName.length() - ".java".length());
+               if (!registeredModules.contains(moduleName)) {
+                  return Stream.empty();
+               }
+
+               try {
+                  String text = Files.readString(path);
+                  var binders = MODULE_REGISTRY_BINDER.matcher(text);
+                  var missing = new java.util.ArrayList<String>();
+                  while (binders.find()) {
+                     String binderName = binders.group(1);
+                     String invocation = moduleName + "." + binderName + "(registry)";
+                     if (!dependenciesSource.contains(invocation)) {
+                        missing.add(moduleName + "#" + binderName);
+                     }
+                  }
+                  return missing.stream();
+               } catch (IOException readFailure) {
+                  throw new IllegalStateException("Could not inspect module binder " + path, readFailure);
+               }
+            })
+            .sorted()
+            .toList();
+      }
+
+      assertTrue(
+         missingBindings.isEmpty(),
+         "Registered module binders must be invoked by ModuleDependencies.bind(...): " + missingBindings
       );
    }
 
