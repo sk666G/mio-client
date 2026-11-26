@@ -3,6 +3,9 @@ package dev.schizo.client.managers;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.google.gson.JsonObject;
+import dev.schizo.client.ClientContext;
+import dev.schizo.client.integrations.xaero.DisabledWaypointAdapter;
+import dev.schizo.client.integrations.xaero.WaypointAdapter;
 import dev.schizo.client.modules.misc.StashEntry;
 import dev.schizo.client.modules.misc.StashFinderModule;
 import java.lang.reflect.Field;
@@ -84,6 +87,18 @@ class StashRegistryTest {
 
       assertEquals(1, registry.getRegistry().size());
       assertSame(existing, registry.getRegistry().iterator().next());
+   }
+
+   private static StashFinderModule newTestStashFinderModule() {
+      WaypointAdapter previousAdapter = ClientContext.waypointAdapter;
+      try {
+         if (previousAdapter == null) {
+            ClientContext.waypointAdapter = new DisabledWaypointAdapter();
+         }
+         return new StashFinderModule();
+      } finally {
+         ClientContext.waypointAdapter = previousAdapter;
+      }
    }
 
    private static Object replaceStashFinderBinding(StashFinderModule replacement) throws Exception {
