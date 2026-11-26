@@ -19,11 +19,11 @@ public final class GlowyShaderPipeline extends ShaderPipeline {
    private static final Supplier<RenderTarget> VERTICAL_TARGET = RenderTargetRegistry.createLazyRenderTarget("zio_glow_vertical", 2);
 
    private static RenderTarget horizontalTarget() {
-      return horizontalTarget().get();
+      return HORIZONTAL_TARGET.get();
    }
 
    private static RenderTarget verticalTarget() {
-      return verticalTarget().get();
+      return VERTICAL_TARGET.get();
    }
 
    public GlowyShaderPipeline() {

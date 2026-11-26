@@ -30,15 +30,15 @@ public final class MaskShaderRenderer implements ClientAccess {
    private static float modulate;
 
    public static RenderTarget maskTarget() {
-      return maskTarget().get();
+      return MASK_TARGET.get();
    }
 
    public static RenderTarget horizontalTarget() {
-      return horizontalTarget().get();
+      return HORIZONTAL_TARGET.get();
    }
 
    public static RenderTarget verticalTarget() {
-      return verticalTarget().get();
+      return VERTICAL_TARGET.get();
    }
 
    public static float getBlurWidth() {

@@ -68,7 +68,7 @@ public class PostProcessShaderPass extends BaseShaderPass {
    }
 
    protected static RenderTarget postTarget() {
-      return postTarget().get();
+      return POST_TARGET.get();
    }
 
    @Override
