@@ -9,6 +9,7 @@
 
 package dev.schizo.client.managers;
 
+import dev.schizo.client.ClientAccess;
 import dev.schizo.client.utils.network.HttpRequests;
 
 import com.google.gson.JsonElement;
@@ -261,7 +262,9 @@ public final class WebhookManager implements JsonConfigurable {
          }
          long delayMillis = attempt == 0 ? 250L : 750L;
          return CompletableFuture.runAsync(() -> { },
-            CompletableFuture.delayedExecutor(delayMillis, TimeUnit.MILLISECONDS))
+            CompletableFuture.delayedExecutor(
+               delayMillis, TimeUnit.MILLISECONDS, ClientAccess.executorService
+            ))
             .thenCompose(ignored -> this.sendWithRetry(request, attempt + 1));
       });
    }
