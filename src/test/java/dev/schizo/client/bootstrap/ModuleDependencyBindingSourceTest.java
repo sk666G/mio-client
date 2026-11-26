@@ -46,8 +46,8 @@ class ModuleDependencyBindingSourceTest {
    }
 
    @Test
-   void moduleSourcesDoNotResolveModulesDuringStaticInitialization() throws IOException {
-      Path moduleRoot = Path.of("src", "main", "java", "dev", "schizo", "client", "modules");
+   void clientSourcesDoNotResolveModulesDuringStaticInitialization() throws IOException {
+      Path moduleRoot = Path.of("src", "main", "java", "dev", "schizo", "client");
 
       List<String> offenders;
       try (Stream<Path> sources = Files.walk(moduleRoot)) {
@@ -62,7 +62,7 @@ class ModuleDependencyBindingSourceTest {
 
       assertTrue(
          offenders.isEmpty(),
-         "Module sources must not resolve dependencies through ClientContext.getModule(...) during static initialization: " + offenders
+         "Client sources must not resolve dependencies through ClientContext.getModule(...) during static initialization: " + offenders
       );
    }
 
