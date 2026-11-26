@@ -347,31 +347,45 @@ public class StashFinderModule extends Module {
    }
 
    static int countStackedMinecartBounds(java.util.List<AABB> minecartBounds) {
-      if (minecartBounds.size() < 2) {
+      int minecartCount = minecartBounds.size();
+      if (minecartCount < 2) {
          return 0;
       }
 
-      boolean[] stacked = new boolean[minecartBounds.size()];
-      int stackedCount = 0;
-      for (int currentIndex = 0; currentIndex < minecartBounds.size(); currentIndex++) {
-         AABB currentBounds = minecartBounds.get(currentIndex);
-         for (int previousIndex = 0; previousIndex < currentIndex; previousIndex++) {
-            AABB previousBounds = minecartBounds.get(previousIndex);
-            if (!currentBounds.intersects(previousBounds)) {
-               continue;
+      boolean[] visited = new boolean[minecartCount];
+      int largestStack = 0;
+      for (int startIndex = 0; startIndex < minecartCount; startIndex++) {
+         if (visited[startIndex]) {
+            continue;
+         }
+
+         java.util.ArrayDeque<Integer> pending = new java.util.ArrayDeque<>();
+         pending.add(startIndex);
+         visited[startIndex] = true;
+         int clusterSize = 0;
+
+         while (!pending.isEmpty()) {
+            int currentIndex = pending.removeFirst();
+            clusterSize++;
+            AABB currentBounds = minecartBounds.get(currentIndex);
+
+            for (int candidateIndex = 0; candidateIndex < minecartCount; candidateIndex++) {
+               if (visited[candidateIndex] || candidateIndex == currentIndex) {
+                  continue;
+               }
+               if (currentBounds.intersects(minecartBounds.get(candidateIndex))) {
+                  visited[candidateIndex] = true;
+                  pending.addLast(candidateIndex);
+               }
             }
-            if (!stacked[currentIndex]) {
-               stacked[currentIndex] = true;
-               stackedCount++;
-            }
-            if (!stacked[previousIndex]) {
-               stacked[previousIndex] = true;
-               stackedCount++;
-            }
+         }
+
+         if (clusterSize > 1) {
+            largestStack = Math.max(largestStack, clusterSize);
          }
       }
 
-      return stackedCount;
+      return largestStack;
    }
 
    @Override
