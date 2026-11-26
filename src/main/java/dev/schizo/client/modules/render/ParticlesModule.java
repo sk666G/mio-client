@@ -76,7 +76,7 @@ public class ParticlesModule extends Module {
       if (event.getParticle() instanceof TotemParticle totem) {
          if (this.ignoreSelfSetting.getValue()) {
             LocalPlayer player = ClientAccess.schizoMinecraft.player;
-            if (player.getBoundingBox().intersects(totem.getBoundingBox())) {
+            if (player != null && player.getBoundingBox().intersects(totem.getBoundingBox())) {
                event.cancel();
             }
          }
