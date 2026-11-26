@@ -18,6 +18,7 @@ import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.ConnectScreenConnectEvent;
 import dev.schizo.client.events.EventHandler;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.settings.JsonConfigurable;
 import dev.schizo.client.settings.options.PresetCategory;
 
@@ -302,6 +303,11 @@ public final class AutoPresetRegistry implements ClientAccess, JsonConfigurable 
             .thenComparingInt(entry -> entry.getKey().ordinal())
       );
       return List.copyOf(ordered);
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.lastServer = null;
    }
 
    public boolean removeServer(String server) {
