@@ -34,6 +34,7 @@ public final class ExpeditionScreen extends Screen {
    private String query = "";
    private int tab, offset, selected = -1;
    private int left, panelWidth, visibleRows;
+   private int rowsTop, rowsBottom, statusY;
    private boolean localOnly = true;
    private boolean showCoordinates;
    private boolean privacyAtRefresh;
@@ -50,8 +51,13 @@ public final class ExpeditionScreen extends Screen {
    protected void init() {
       this.panelWidth = Math.max(1, Math.min(720, this.width - 16));
       this.left = (this.width - this.panelWidth) / 2;
-      this.visibleRows = Math.max(0, (this.height - 164) / 34);
-      this.search = new EditBox(this.font, this.left, 27, this.panelWidth, 18, Component.literal("Filter"));
+      ExpeditionLayout layout = ExpeditionLayout.forViewportHeight(this.height);
+      this.visibleRows = layout.visibleRows();
+      this.rowsTop = layout.rowsTop();
+      this.rowsBottom = layout.rowsBottom();
+      this.statusY = layout.statusY();
+
+      this.search = new EditBox(this.font, this.left, layout.searchY(), this.panelWidth, 18, Component.literal("Filter"));
       this.search.setMaxLength(128);
       this.search.setValue(this.query);
       this.search.setResponder(value -> {
@@ -61,10 +67,11 @@ public final class ExpeditionScreen extends Screen {
          this.refresh();
       });
       this.addRenderableWidget(this.search);
+
       int width = Math.max(1, (this.panelWidth - 6) / TABS.length);
       for (int index = 0; index < TABS.length; index++) {
          int target = index;
-         this.button(this.fit(TABS[index], width - 6), this.left + index * (width + 2), 49, width, () -> {
+         this.button(this.fit(TABS[index], width - 6), this.left + index * (width + 2), layout.tabsY(), width, () -> {
             this.tab = target;
             this.profileSnapshot = null;
             this.offset = 0;
@@ -72,22 +79,32 @@ public final class ExpeditionScreen extends Screen {
             this.rebuildWidgets();
          });
       }
+
       int half = Math.max(1, (this.panelWidth - 2) / 2);
-      this.button(this.tab == 0 ? "Server filter" : "Refresh view", this.left, 72, half, () -> {
-         if (this.tab == 0) this.localOnly = !this.localOnly;
-         this.profileSnapshot = null;
-         this.offset = 0;
-         this.selected = -1;
-         this.refresh();
-      });
-      this.button("Show / hide coordinates", this.left + half + 2, 72, half, () -> {
-         this.showCoordinates = !this.showCoordinates;
-         this.refresh();
-      });
-      this.copyButton = this.button("Copy selected", this.left, this.height - 49, half, this::copySelected);
-      this.waypointButton = this.button("Use as waypoint", this.left + half + 2, this.height - 49, half, this::createWaypoint);
-      this.button("Previous", this.left, this.height - 26, half, () -> this.movePage(-1));
-      this.button("Next", this.left + half + 2, this.height - 26, half, () -> this.movePage(1));
+      if (layout.showSecondaryControls()) {
+         this.button(this.tab == 0 ? "Server filter" : "Refresh view", this.left, layout.secondaryY(), half, () -> {
+            if (this.tab == 0) this.localOnly = !this.localOnly;
+            this.profileSnapshot = null;
+            this.offset = 0;
+            this.selected = -1;
+            this.refresh();
+         });
+         this.button("Show / hide coordinates", this.left + half + 2, layout.secondaryY(), half, () -> {
+            this.showCoordinates = !this.showCoordinates;
+            this.refresh();
+         });
+      }
+
+      this.copyButton = this.button("Copy selected", this.left, layout.actionY(), half, this::copySelected);
+      this.waypointButton = this.button("Use as waypoint", this.left + half + 2, layout.actionY(), half, this::createWaypoint);
+      this.copyButton.visible = layout.showActions();
+      this.waypointButton.visible = layout.showActions();
+
+      if (layout.showPagination()) {
+         this.button("Previous", this.left, layout.pageY(), half, () -> this.movePage(-1));
+         this.button("Next", this.left + half + 2, layout.pageY(), half, () -> this.movePage(1));
+      }
+
       this.refresh();
       this.setInitialFocus(this.search);
    }
@@ -268,8 +285,9 @@ public final class ExpeditionScreen extends Screen {
    @Override
    public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
       if (event.button() == 0 && event.x() >= this.left && event.x() < this.left + this.panelWidth) {
-         int index = (int)((event.y() - 100) / 34);
-         if (event.y() >= 100 && index < this.visibleRows && this.offset + index < this.rows.size()) {
+         int index = (int)((event.y() - this.rowsTop) / 34);
+         if (event.y() >= this.rowsTop && event.y() < this.rowsBottom
+            && index >= 0 && index < this.visibleRows && this.offset + index < this.rows.size()) {
             this.selected = this.offset + index;
             this.copyButton.active = true;
             this.waypointButton.active = this.rows.get(this.selected).discovery() != null;
@@ -291,7 +309,8 @@ public final class ExpeditionScreen extends Screen {
 
    @Override
    public boolean mouseScrolled(double x, double y, double horizontal, double vertical) {
-      if (x >= this.left && x < this.left + this.panelWidth && y >= 100 && y < this.height - 60 && vertical != 0) {
+      if (x >= this.left && x < this.left + this.panelWidth
+         && y >= this.rowsTop && y < this.rowsBottom && vertical != 0) {
          this.movePage(vertical < 0 ? 1 : -1);
          return true;
       }
@@ -302,10 +321,11 @@ public final class ExpeditionScreen extends Screen {
    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
       if (this.privacyAtRefresh != dev.schizo.client.utils.CoordinatePrivacy.isEnabled()) this.refresh();
       graphics.fill(0, 0, this.width, this.height, 0xee080c12);
-      graphics.drawString(this.font, this.fit("Schizo Expedition / " + TABS[this.tab], this.panelWidth), this.left, 10, 0xffa4d5ff);
+      ExpeditionLayout layout = ExpeditionLayout.forViewportHeight(this.height);
+      graphics.drawString(this.font, this.fit("Schizo Expedition / " + TABS[this.tab], this.panelWidth), this.left, layout.titleY(), 0xffa4d5ff);
       int visible = Math.min(this.visibleRows, this.rows.size() - this.offset);
       for (int i = 0; i < visible; i++) {
-         int index = this.offset + i, y = 100 + i * 34;
+         int index = this.offset + i, y = this.rowsTop + i * 34;
          Row row = this.rows.get(index);
          graphics.fill(this.left, y, this.left + this.panelWidth, y + 32, index == this.selected ? 0xff25435e : 0xff131e2a);
          graphics.drawString(this.font, this.fit(row.title(), this.panelWidth - 8), this.left + 4, y + 4, 0xffffffff);
@@ -313,7 +333,7 @@ public final class ExpeditionScreen extends Screen {
       }
       String status = this.message.isEmpty() ? (this.rows.isEmpty() ? "No matching entries" : this.rows.size() + " entries") : this.message;
       status += this.localOnly ? " | current server" : " | all servers";
-      graphics.drawString(this.font, this.fit(status, this.panelWidth), this.left, this.height - 61, 0xffacb9c9);
+      graphics.drawString(this.font, this.fit(status, this.panelWidth), this.left, this.statusY, 0xffacb9c9);
       super.render(graphics, mouseX, mouseY, partialTick);
    }
 
