@@ -2,7 +2,7 @@ name: Schizo client launch smoke
 
 on:
   push:
-    branches: [zio-rebuild-v7, 'lunyx/runtime-*']
+    branches: [zio-rebuild-v7, 'lunyx/runtime-*', 'lunyx/final-*']
   workflow_dispatch:
 
 permissions:
