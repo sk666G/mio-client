@@ -97,6 +97,7 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 public class LogoutSpotsModule extends Module {
+   private static final int MAX_LOGOUT_SPOTS = 256;
    private static FontsModule fontsModule;
    private static boolean renderingTexturedModel;
    public final Setting<Float> distanceSetting;
@@ -200,8 +201,28 @@ public class LogoutSpotsModule extends Module {
    public void putSpot(
       String playerName, LogoutSpotsModule.LogoutSpot spot
    ) {
+      if (playerName == null || spot == null) {
+         return;
+      }
+
       synchronized (this.spotsByName) {
          Object2ObjectOpenHashMap<String, LogoutSpot> spots = this.spotsByName;
+         if (!spots.containsKey(playerName) && spots.size() >= MAX_LOGOUT_SPOTS) {
+            String oldestName = null;
+            long oldestTimestamp = Long.MAX_VALUE;
+            ObjectIterator<Entry<String, LogoutSpot>> iterator = spots.entrySet().iterator();
+            while (iterator.hasNext()) {
+               Entry<String, LogoutSpot> entry = iterator.next();
+               LogoutSpot candidate = entry.getValue();
+               if (candidate != null && candidate.timestamp() < oldestTimestamp) {
+                  oldestTimestamp = candidate.timestamp();
+                  oldestName = entry.getKey();
+               }
+            }
+            if (oldestName != null) {
+               spots.remove(oldestName);
+            }
+         }
          spots.put(playerName, spot);
       }
    }
