@@ -75,6 +75,8 @@ public class CryptoModule extends HudWidgetModule {
             PriceFetchResult result = null;
             try {
                result = this.fetchPrice(coinSymbol, fiatSymbol, cachedCoinSlug);
+            } catch (InterruptedException interrupted) {
+               Thread.currentThread().interrupt();
             } catch (Exception ignoredException) {
             } finally {
                this.refreshInProgress.set(false);
@@ -166,13 +168,13 @@ public class CryptoModule extends HudWidgetModule {
       this.updateQuotedPrice(result.price());
    }
 
-   private JsonObject requestPrices(URI uri) {
+   private JsonObject requestPrices(URI uri) throws Exception {
       HttpRequest request = HttpRequest.newBuilder().GET().uri(uri)
+         .timeout(Duration.ofSeconds(15L))
          .header("Accept", "application/json")
          .header("User-Agent", SchizoClient.USER_AGENT)
          .build();
-      HttpResponse<String> response = this.httpClient.sendAsync(request, BodyHandlers.ofString())
-         .orTimeout(15L, TimeUnit.SECONDS).join();
+      HttpResponse<String> response = this.httpClient.send(request, BodyHandlers.ofString());
       if (response.statusCode() != 200) {
          return null;
       }
