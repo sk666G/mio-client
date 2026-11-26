@@ -42,7 +42,31 @@ jobs:
         env:
           ORG_GRADLE_JAVA_INSTALLATIONS_PATHS: ${{ env.JAVA_HOME_21_X64 }}
           JAVA_TOOL_OPTIONS: -Dfabric.client.gametest.disableNetworkSynchronizer=true
-        run: ./gradlew --no-daemon runClientGameTest
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            rm -f client-gametest-gradle.out
+            set +e
+            ./gradlew --no-daemon runClientGameTest 2>&1 | tee client-gametest-gradle.out
+            gradle_status=${PIPESTATUS[0]}
+            set -e
+
+            if [ "$gradle_status" -eq 0 ]; then
+              exit 0
+            fi
+
+            if ! grep -Eiq '429|Too Many Requests|HTTP (500|502|503|504)|Received status code (500|502|503|504)|Connection reset|Connection timed out|Read timed out|Temporary failure|Could not GET .*maven|Could not GET .*gradle' client-gametest-gradle.out; then
+              exit "$gradle_status"
+            fi
+
+            if [ "$attempt" -eq 3 ]; then
+              exit "$gradle_status"
+            fi
+
+            printf 'Transient dependency/network failure detected; retrying client gametest (%s/3).\n' "$attempt" >&2
+            sleep $((attempt * 15))
+          done
 
       - name: Verify client gametest evidence and clean Schizo diagnostics
         shell: bash

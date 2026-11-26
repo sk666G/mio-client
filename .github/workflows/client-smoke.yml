@@ -54,10 +54,33 @@ jobs:
           rm -rf run/logs run/crash-reports
           rm -f client-smoke.out
 
-          set +e
-          timeout --signal=TERM --kill-after=15s 150s             xvfb-run -a -s "-screen 0 1280x720x24"             ./gradlew --no-daemon runClient > client-smoke.out 2>&1
-          launch_status=$?
-          set -e
+          launch_status=1
+          for attempt in 1 2 3; do
+            rm -rf run/logs run/crash-reports
+            rm -f client-smoke.out
+
+            set +e
+            timeout --signal=TERM --kill-after=15s 150s \
+              xvfb-run -a -s "-screen 0 1280x720x24" \
+              ./gradlew --no-daemon runClient > client-smoke.out 2>&1
+            launch_status=$?
+            set -e
+
+            if [ "$launch_status" -eq 0 ] || [ "$launch_status" -eq 124 ] || [ "$launch_status" -eq 143 ]; then
+              break
+            fi
+
+            if ! grep -Eiq '429|Too Many Requests|HTTP (500|502|503|504)|Received status code (500|502|503|504)|Connection reset|Connection timed out|Read timed out|Temporary failure|Could not GET .*maven|Could not GET .*gradle' client-smoke.out; then
+              break
+            fi
+
+            if [ "$attempt" -eq 3 ]; then
+              break
+            fi
+
+            printf 'Transient dependency/network failure detected; retrying client launch smoke (%s/3).\n' "$attempt" >&2
+            sleep $((attempt * 15))
+          done
 
           printf '%s\n' '--- client smoke output tail ---'
           tail -n 250 client-smoke.out || true
