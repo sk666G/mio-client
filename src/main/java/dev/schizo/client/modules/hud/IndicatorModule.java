@@ -18,6 +18,7 @@ import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.LivingEntityAddEffectEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.render.ColorUtils;
 import dev.schizo.client.render.FontRenderer;
 import dev.schizo.client.render.GuiDrawUtils;
@@ -78,6 +79,30 @@ public class IndicatorModule extends HudWidgetModule {
          this.visibilityAnimations.put(mode, new FloatAnimation());
       }
       this.setRenderer(new ResizableHudWidgetRenderer(this));
+   }
+
+   @Override
+   public void onEnable() {
+      this.resetSessionState();
+   }
+
+   @Override
+   public void onDisable() {
+      this.resetSessionState();
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnectEvent(MinecraftDisconnectEvent event) {
+      this.resetSessionState();
+   }
+
+   private void resetSessionState() {
+      this.warpChargeAnimation.setValue(0.0F);
+      this.resistance.reset();
+      this.strength.reset();
+      for (FloatAnimation animation : this.visibilityAnimations.values()) {
+         animation.setValue(0.0F);
+      }
    }
 
    @Override
@@ -291,6 +316,11 @@ public class IndicatorModule extends HudWidgetModule {
             this.durationTicks = incoming.getDuration();
             this.animation.setValue(1.0F);
          }
+      }
+
+      void reset() {
+         this.durationTicks = 0;
+         this.animation.setValue(0.0F);
       }
 
       DisplayData getData() {
