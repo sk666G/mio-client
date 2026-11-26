@@ -92,7 +92,7 @@ public class AutoEatModule extends Module {
 
    @Override
    public void onDisable() {
-      ClientAccess.schizoMinecraft.options.keyUse.setDown(false);
+      this.releaseOwnedUse();
       ClientContext.baritoneBridge.releasePause(this);
       try {
          if (!this.isWorldUnavailable()) {
@@ -113,11 +113,22 @@ public class AutoEatModule extends Module {
 
    @EventHandler
    private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
-      ClientAccess.schizoMinecraft.options.keyUse.setDown(false);
+      this.releaseOwnedUse();
       ClientContext.baritoneBridge.releasePause(this);
       this.setEating(false);
       this.continueUntilFull = false;
       this.clearSwapState();
+   }
+
+   private void releaseOwnedUse() {
+      if (!this.eating) {
+         return;
+      }
+      LocalPlayer player = ClientAccess.schizoMinecraft.player;
+      MultiPlayerGameMode gameMode = ClientAccess.schizoMinecraft.gameMode;
+      if (player != null && gameMode != null && player.isUsingItem()) {
+         gameMode.releaseUsingItem(player);
+      }
    }
 
    private void restoreTemporaryHotbarSelection() {
