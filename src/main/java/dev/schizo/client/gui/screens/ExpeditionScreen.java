@@ -51,7 +51,7 @@ public final class ExpeditionScreen extends Screen {
    protected void init() {
       this.panelWidth = Math.max(1, Math.min(720, this.width - 16));
       this.left = (this.width - this.panelWidth) / 2;
-      ExpeditionLayout layout = ExpeditionLayout.forViewportHeight(this.height);
+      ExpeditionLayout.Geometry layout = ExpeditionLayout.forViewportHeight(this.height);
       this.visibleRows = layout.visibleRows();
       this.rowsTop = layout.rowsTop();
       this.rowsBottom = layout.rowsBottom();
