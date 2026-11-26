@@ -10,6 +10,7 @@
 package dev.schizo.client.audio;
 
 import dev.schizo.client.config.ConfigPathGuard;
+import dev.schizo.client.utils.FileUtils;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -59,7 +60,7 @@ public final class OfflineSoundAssets {
                         }
                         continue;
                     }
-                    Files.copy(inputStream, destination);
+                    FileUtils.writeBytesAtomically(destination, inputStream.readAllBytes());
                 } finally {
                     inputStream.close();
                 }
