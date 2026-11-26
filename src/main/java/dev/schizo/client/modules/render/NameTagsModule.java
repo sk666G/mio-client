@@ -17,6 +17,7 @@ import dev.schizo.client.events.WorldRenderEvent;
 import dev.schizo.client.events.NameTagRenderEvent;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.MinecraftRunTickEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.render.RenderTargetUtils;
 import dev.schizo.client.render.GuiDrawUtils;
 import dev.schizo.client.utils.math.Vec3Utils;
@@ -163,6 +164,23 @@ public class NameTagsModule extends Module {
    private final ElapsedTimer entityRefreshTimer;
    private boolean hasEquipmentItem;
    private boolean hasDurabilityText;
+   @Override
+   public void onDisable() {
+      this.clearTransientRenderState();
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.clearTransientRenderState();
+   }
+
+   private void clearTransientRenderState() {
+      this.visibleEntities.clear();
+      this.equipmentItems.clear();
+      this.hasEquipmentItem = false;
+      this.hasDurabilityText = false;
+   }
+
    private void collectEquipment(Player player) {
       this.equipmentItems.clear();
       Setting<Boolean> itemsOption = this.itemsSetting;
@@ -662,6 +680,7 @@ public class NameTagsModule extends Module {
    @EventHandler
    private void refreshVisibleEntities(MinecraftRunTickEvent event) {
       if (this.isWorldUnavailable()) {
+         this.visibleEntities.clear();
          return;
       }
       ElapsedTimer refreshTimerSnapshot = this.entityRefreshTimer;
