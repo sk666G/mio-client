@@ -19,6 +19,16 @@ class ReconnectAttemptsTest {
    }
 
    @Test
+   void backoffNeverShortensTheConfiguredInterval() {
+      var retries = new ReconnectAttempts();
+      retries.select("server");
+      for (int i = 0; i < 100; i++) {
+         retries.claim(100);
+         assertEquals(900.0, retries.delaySeconds(900, true));
+      }
+   }
+
+   @Test
    void backoffIsBoundedAndCountdownHandlesNanoTimeWrap() {
       var retries = new ReconnectAttempts();
       assertEquals(5.0, retries.delaySeconds(5, true));

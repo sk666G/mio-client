@@ -26,7 +26,7 @@ public final class ReconnectAttempts {
 
    public double delaySeconds(double configured, boolean backoff) {
       if (!backoff || this.attempts == 0) return configured;
-      return Math.min(60.0, Math.max(1.0, configured) * (1L << Math.min(6, this.attempts)));
+      return Math.min(Math.max(60.0, configured), Math.max(1.0, configured) * (1L << Math.min(6, this.attempts)));
    }
 
    public void reset() {
