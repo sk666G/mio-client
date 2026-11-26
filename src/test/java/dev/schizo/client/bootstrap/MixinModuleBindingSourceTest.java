@@ -6,10 +6,15 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
 class MixinModuleBindingSourceTest {
+   private static final Pattern STATIC_REGISTRY_LOOKUP = Pattern.compile(
+      "(?m)^\\s*private\\s+static\\s+.*=\\s*MixinModuleRegistry\\.getModule\\("
+   );
+
    @Test
    void mixinsDoNotResolveModulesBeforeRegistryBinding() throws IOException {
       Path mixinRoot = Path.of("src", "main", "java", "dev", "schizo", "mixin");
@@ -18,7 +23,7 @@ class MixinModuleBindingSourceTest {
       try (Stream<Path> sources = Files.walk(mixinRoot)) {
          offenders = sources
             .filter(path -> path.toString().endsWith(".java"))
-            .filter(path -> containsDirectModuleLookup(path))
+            .filter(MixinModuleBindingSourceTest::containsUnsafeModuleLookup)
             .map(mixinRoot::relativize)
             .map(Path::toString)
             .sorted()
@@ -27,13 +32,15 @@ class MixinModuleBindingSourceTest {
 
       assertTrue(
          offenders.isEmpty(),
-         "Mixin sources must use MixinModuleRegistry instead of ClientContext.getModule(...): " + offenders
+         "Mixin sources must not resolve modules from static initialization or bypass MixinModuleRegistry: " + offenders
       );
    }
 
-   private static boolean containsDirectModuleLookup(Path source) {
+   private static boolean containsUnsafeModuleLookup(Path source) {
       try {
-         return Files.readString(source).contains("ClientContext.getModule(");
+         String text = Files.readString(source);
+         return text.contains("ClientContext.getModule(")
+            || STATIC_REGISTRY_LOOKUP.matcher(text).find();
       } catch (IOException readFailure) {
          throw new IllegalStateException("Could not inspect mixin source " + source, readFailure);
       }

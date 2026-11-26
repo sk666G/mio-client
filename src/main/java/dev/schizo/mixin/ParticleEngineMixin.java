@@ -26,7 +26,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(ParticleEngine.class)
 public abstract class ParticleEngineMixin {
-   private static final NoRenderModule noRenderModule = MixinModuleRegistry.getModule(NoRenderModule.class);
+   private static NoRenderModule noRenderModule() {
+      return MixinModuleRegistry.getModule(NoRenderModule.class);
+   }
 
    @Shadow
    @Nullable
@@ -48,7 +50,7 @@ public abstract class ParticleEngineMixin {
    private void suppressSelectedParticle(
       ParticleOptions options, double x, double y, double z, double velocityX, double velocityY, double velocityZ, CallbackInfoReturnable<Particle> callback
    ) {
-      if (noRenderModule.shouldHideParticle(
+      if (noRenderModule().shouldHideParticle(
          options
       )) {
          callback.setReturnValue(this.makeParticle(options, x, y, z, velocityX, velocityY, velocityZ));

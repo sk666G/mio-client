@@ -29,8 +29,12 @@ import org.spongepowered.asm.mixin.injection.invoke.arg.Args;
 
 @Mixin(ModelBlockRenderer.class)
 public class ModelBlockRendererMixin {
-   private static final XrayModule xrayModule = MixinModuleRegistry.getModule(XrayModule.class);
-   private static final NoRenderModule noRenderModule = MixinModuleRegistry.getModule(NoRenderModule.class);
+   private static XrayModule xrayModule() {
+      return MixinModuleRegistry.getModule(XrayModule.class);
+   }
+   private static NoRenderModule noRenderModule() {
+      return MixinModuleRegistry.getModule(NoRenderModule.class);
+   }
 
    @Inject(method = {"tesselateWithAO", "tesselateWithoutAO"}, at = @At("HEAD"), cancellable = true)
    private void suppressHiddenBlockEntityMesh(
@@ -47,7 +51,7 @@ public class ModelBlockRendererMixin {
             .shouldHideUnselectedBlocks()) {
          callback.cancel();
       } else {
-         if (noRenderModule.shouldHideBlockEntity(blockState)) {
+         if (noRenderModule().shouldHideBlockEntity(blockState)) {
             callback.cancel();
          }
       }
@@ -60,18 +64,18 @@ public class ModelBlockRendererMixin {
    private void applyXrayQuadAlpha(
       Args arguments, @Local(argsOnly = true) BlockPos blockPos, @Local(argsOnly = true) BlockState blockState
    ) {
-      if (xrayModule.isToggled()
-         && !xrayModule.alphaSetting
+      if (xrayModule().isToggled()
+         && !xrayModule().alphaSetting
             .isAtMinimum()
-         && !xrayModule.alphaSetting
+         && !xrayModule().alphaSetting
             .isAtMaximum()
-         && !xrayModule.shouldRenderBlock(
+         && !xrayModule().shouldRenderBlock(
             blockPos,
             blockState.getBlock()
          )) {
          arguments.set(
             6,
-            (xrayModule.alphaSetting.getValue()).intValue()
+            (xrayModule().alphaSetting.getValue()).intValue()
                / 100.0F
          );
       }

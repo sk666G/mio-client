@@ -26,7 +26,9 @@ import org.spongepowered.asm.mixin.injection.invoke.arg.Args;
 
 @Mixin(LightTexture.class)
 public class LightTextureMixin {
-   private static final AmbienceModule ambienceModule = MixinModuleRegistry.getModule(AmbienceModule.class);
+   private static AmbienceModule ambienceModule() {
+      return MixinModuleRegistry.getModule(AmbienceModule.class);
+   }
    @Unique
    private static final Vector3f lightmapTint = new Vector3f();
 
@@ -35,14 +37,14 @@ public class LightTextureMixin {
       at = @At(value = "FIELD", target = "Lnet/minecraft/client/renderer/RenderPipelines;LIGHTMAP:Lcom/mojang/blaze3d/pipeline/RenderPipeline;")
    )
    private RenderPipeline overrideLightmapPipeline(RenderPipeline originalPipeline) {
-      if (ambienceModule.isToggled()
-         && ambienceModule.brightnessSetting.getValue()
+      if (ambienceModule().isToggled()
+         && ambienceModule().brightnessSetting.getValue()
             == AmbienceModule.BrightnessChoice.SCREEN) {
          return ClientRenderPipelines.AMBIENCE;
       } else {
-         return ambienceModule.isToggled()
-               && ambienceModule.occlusionSetting.getValue()
-               && ambienceModule.occlusionSetting
+         return ambienceModule().isToggled()
+               && ambienceModule().occlusionSetting.getValue()
+               && ambienceModule().occlusionSetting
                   .isVisible()
             ? ClientRenderPipelines.OCCLUSION
             : originalPipeline;
@@ -58,16 +60,16 @@ public class LightTextureMixin {
       )
    )
    private void overrideLightmapTint(Args arguments) {
-      boolean tintEnabled = ambienceModule.brightnessSetting.getValue()
+      boolean tintEnabled = ambienceModule().brightnessSetting.getValue()
             == AmbienceModule.BrightnessChoice.SCREEN
-         || ambienceModule.occlusionSetting.getValue()
-            && ambienceModule.occlusionSetting
+         || ambienceModule().occlusionSetting.getValue()
+            && ambienceModule().occlusionSetting
                .isVisible();
-      Color tintColor = ambienceModule.brightnessSetting.getValue()
+      Color tintColor = ambienceModule().brightnessSetting.getValue()
             == AmbienceModule.BrightnessChoice.SCREEN
-         ? ambienceModule.colorSetting.getValue()
-         : ambienceModule.occlusionColorSetting.getValue();
-      if (ambienceModule.isToggled() && tintEnabled) {
+         ? ambienceModule().colorSetting.getValue()
+         : ambienceModule().occlusionColorSetting.getValue();
+      if (ambienceModule().isToggled() && tintEnabled) {
          arguments.set(
             0,
             lightmapTint.set(
@@ -80,15 +82,15 @@ public class LightTextureMixin {
 
    @ModifyReturnValue(method = "pack", at = @At("RETURN"))
    private static int overridePackedLight(int originalLight) {
-      if (ambienceModule.isToggled()
-         && ambienceModule.brightnessSetting.getValue()
+      if (ambienceModule().isToggled()
+         && ambienceModule().brightnessSetting.getValue()
             == AmbienceModule.BrightnessChoice.SCREEN) {
          return 0;
       } else {
-         return ambienceModule.isToggled()
-               && ambienceModule.occlusionSetting
+         return ambienceModule().isToggled()
+               && ambienceModule().occlusionSetting
                   .isVisible()
-               && ambienceModule.occlusionSetting.getValue()
+               && ambienceModule().occlusionSetting.getValue()
                && originalLight == 15728880
             ? 15728864
             : originalLight;

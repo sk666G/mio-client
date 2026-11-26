@@ -20,13 +20,15 @@ import org.spongepowered.asm.mixin.injection.At;
 
 @Mixin(AtmosphericFogEnvironment.class)
 public class AtmosphericFogEnvironmentMixin {
-   private static final SkyboxModule skyboxModule = MixinModuleRegistry.getModule(SkyboxModule.class);
+   private static SkyboxModule skyboxModule() {
+      return MixinModuleRegistry.getModule(SkyboxModule.class);
+   }
 
    @ModifyReturnValue(method = "getBaseColor", at = @At("RETURN"))
    private int blendConfiguredFogColor(int originalColor) {
-      if (skyboxModule.isToggled()
-         && skyboxModule.isCurrentDimensionEnabled()) {
-         Color configuredColor = skyboxModule.backgroundSetting.getValue();
+      if (skyboxModule().isToggled()
+         && skyboxModule().isCurrentDimensionEnabled()) {
+         Color configuredColor = skyboxModule().backgroundSetting.getValue();
          Color baseColor = new Color(originalColor, true);
          return ColorUtils.blend(
                configuredColor, baseColor, configuredColor.getAlpha() / 255.0F

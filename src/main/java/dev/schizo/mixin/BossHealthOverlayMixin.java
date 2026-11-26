@@ -22,23 +22,27 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(BossHealthOverlay.class)
 public class BossHealthOverlayMixin {
-   private static final NoRenderModule noRenderModule = MixinModuleRegistry.getModule(NoRenderModule.class);
-   private static final SkyboxModule skyboxModule = MixinModuleRegistry.getModule(SkyboxModule.class);
+   private static NoRenderModule noRenderModule() {
+      return MixinModuleRegistry.getModule(NoRenderModule.class);
+   }
+   private static SkyboxModule skyboxModule() {
+      return MixinModuleRegistry.getModule(SkyboxModule.class);
+   }
 
    @Inject(method = "render", at = @At("HEAD"), cancellable = true)
    private void suppressBossBars(GuiGraphics graphics, CallbackInfo callback) {
-      if (noRenderModule.isToggled()
-         && noRenderModule.bossBarsSetting.getValue()) {
+      if (noRenderModule().isToggled()
+         && noRenderModule().bossBarsSetting.getValue()) {
          callback.cancel();
       }
    }
 
    @Inject(method = "shouldDarkenScreen", at = @At("HEAD"), cancellable = true)
    private void suppressBossBarDarkening(CallbackInfoReturnable<Boolean> callback) {
-      if (noRenderModule.isToggled()
-            && noRenderModule.bossBarsSetting.getValue()
-         || skyboxModule.isToggled()
-            && skyboxModule.isCurrentDimensionEnabled()) {
+      if (noRenderModule().isToggled()
+            && noRenderModule().bossBarsSetting.getValue()
+         || skyboxModule().isToggled()
+            && skyboxModule().isCurrentDimensionEnabled()) {
          callback.setReturnValue(false);
          callback.cancel();
       }

@@ -41,7 +41,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public abstract class GuiGraphicsMixin {
    @Unique
    private boolean renderingPreviewItemCount;
-   private static TooltipsModule tooltips = MixinModuleRegistry.getModule(TooltipsModule.class);
+   private static TooltipsModule tooltips() {
+      return MixinModuleRegistry.getModule(TooltipsModule.class);
+   }
 
    @Shadow
    public abstract void renderItemCount(Font font, ItemStack stack, int x, int y, @Nullable String countText);
@@ -53,14 +55,14 @@ public abstract class GuiGraphicsMixin {
    private void renderContainerItemPreview(
       Font font, ItemStack stack, int x, int y, @Nullable String countText, CallbackInfo callback
    ) {
-      if (!tooltips.isToggled() || !tooltips.majorityItemSetting.getValue()) {
+      if (!tooltips().isToggled() || !tooltips().majorityItemSetting.getValue()) {
          return;
       }
-      for (ShulkerBoxItemPreview preview : tooltips.inventoryContainerSnapshots) {
+      for (ShulkerBoxItemPreview preview : tooltips().inventoryContainerSnapshots) {
          if (preview.containerStack() != stack || preview.previewStack() == null) {
             continue;
          }
-         tooltips.renderItemPreview((GuiGraphics)(Object)this, preview.previewStack(), x, y);
+         tooltips().renderItemPreview((GuiGraphics)(Object)this, preview.previewStack(), x, y);
          break;
       }
    }

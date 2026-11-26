@@ -39,7 +39,9 @@ public abstract class AbstractClientPlayerMixin extends Player {
    private static final Identifier protectedSkinTexture = Identifier.fromNamespaceAndPath(
       "schizo-mount", "textures/skin_protect.png"
    );
-   private static final NameProtectModule nameProtectModule = MixinModuleRegistry.getModule(NameProtectModule.class);
+   private static NameProtectModule nameProtectModule() {
+      return MixinModuleRegistry.getModule(NameProtectModule.class);
+   }
    @Unique
    private static final List<CapeEntry> playerCapes = List.of(
       new CapeEntry("cattyyyn", "pepsi.png"), new CapeEntry("u3o", "tetris.png"), new CapeEntry("asphyxia1337", "suckmy.png")
@@ -58,11 +60,11 @@ public abstract class AbstractClientPlayerMixin extends Player {
       PlayerModelType modelType = originalSkin.model();
       String playerName = this.getGameProfile().name();
       if (localPlayer != null
-         && nameProtectModule.isToggled()
-         && nameProtectModule.skinSetting.getValue()
+         && nameProtectModule().isToggled()
+         && nameProtectModule().skinSetting.getValue()
          && localPlayer.getGameProfile().name().equals(playerName)) {
          bodyTexture = new ResourceTexture(protectedSkinTexture, protectedSkinTexture);
-         modelType = nameProtectModule.slimSetting.getValue() ? PlayerModelType.SLIM : PlayerModelType.WIDE;
+         modelType = nameProtectModule().slimSetting.getValue() ? PlayerModelType.SLIM : PlayerModelType.WIDE;
       }
 
       CapesModule capesModule = ClientAccess.isLocalPlayer(this) ? MixinModuleRegistry.getModule(CapesModule.class) : null;

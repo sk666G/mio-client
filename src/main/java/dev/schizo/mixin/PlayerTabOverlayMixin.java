@@ -50,17 +50,23 @@ public class PlayerTabOverlayMixin {
    @Shadow
    @Final
    private Minecraft minecraft;
-   private static final NoRenderModule noRenderModule = MixinModuleRegistry.getModule(NoRenderModule.class);
-   private static final ExtraTabModule extraTabModule = MixinModuleRegistry.getModule(ExtraTabModule.class);
-   private static final NameProtectModule nameProtectModule = MixinModuleRegistry.getModule(NameProtectModule.class);
+   private static NoRenderModule noRenderModule() {
+      return MixinModuleRegistry.getModule(NoRenderModule.class);
+   }
+   private static ExtraTabModule extraTabModule() {
+      return MixinModuleRegistry.getModule(ExtraTabModule.class);
+   }
+   private static NameProtectModule nameProtectModule() {
+      return MixinModuleRegistry.getModule(NameProtectModule.class);
+   }
 
    @ModifyReceiver(
       method = "getPlayerInfos",
       at = @At(value = "INVOKE", target = "Ljava/util/stream/Stream;sorted(Ljava/util/Comparator;)Ljava/util/stream/Stream;")
    )
    private Stream filterTabPlayers(Stream players, Comparator comparator) {
-      if (extraTabModule.isToggled()
-         && extraTabModule.displaySetting.getValue()
+      if (extraTabModule().isToggled()
+         && extraTabModule().displaySetting.getValue()
             != ExtraTabModule.DisplayChoice.ALL) {
          String ownName = Minecraft.getInstance().getUser().getName();
          return players.filter(
@@ -78,19 +84,19 @@ public class PlayerTabOverlayMixin {
 
    @ModifyExpressionValue(method = "getPlayerInfos", at = @At(value = "FIELD", target = "Lnet/minecraft/client/gui/components/PlayerTabOverlay;PLAYER_COMPARATOR:Ljava/util/Comparator;"))
    private Comparator overridePlayerComparator(Comparator originalComparator) {
-      return extraTabModule.isToggled()
-            && extraTabModule.sortSetting.getValue()
-         ? extraTabModule.createPlayerComparator()
+      return extraTabModule().isToggled()
+            && extraTabModule().sortSetting.getValue()
+         ? extraTabModule().createPlayerComparator()
          : originalComparator;
    }
 
    @ModifyArg(method = "getPlayerInfos", at = @At(value = "INVOKE", target = "Ljava/util/stream/Stream;limit(J)Ljava/util/stream/Stream;"))
    private long overridePlayerLimit(long originalLimit) {
-      if (extraTabModule.isToggled()) {
-         return extraTabModule.limitSetting
+      if (extraTabModule().isToggled()) {
+         return extraTabModule().limitSetting
                .isAtMaximum()
             ? Long.MAX_VALUE
-            : (extraTabModule.limitSetting.getValue())
+            : (extraTabModule().limitSetting.getValue())
                .intValue();
       } else {
          return originalLimit;
@@ -99,8 +105,8 @@ public class PlayerTabOverlayMixin {
 
    @ModifyExpressionValue(method = "render", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/multiplayer/PlayerInfo;showHat()Z"))
    private boolean enablePlayerHatLayer(boolean originalHatVisible) {
-      return extraTabModule.isToggled()
-            && extraTabModule.betterSkinSetting.getValue()
+      return extraTabModule().isToggled()
+            && extraTabModule().betterSkinSetting.getValue()
          ? true
          : originalHatVisible;
    }
@@ -109,15 +115,15 @@ public class PlayerTabOverlayMixin {
    private void highlightPlayerName(
       PlayerInfo playerInfo, CallbackInfoReturnable<Component> callback
    ) {
-      if (extraTabModule.isToggled()
-         && extraTabModule.highlightSetting.getValue()) {
+      if (extraTabModule().isToggled()
+         && extraTabModule().highlightSetting.getValue()) {
          String plainName = ChatFormatting.stripFormatting(((Component)callback.getReturnValue()).getString());
          if (plainName == null) {
             return;
          }
 
          String profileName = playerInfo.getProfile().name();
-         if (extraTabModule.socialSetting.getValue()) {
+         if (extraTabModule().socialSetting.getValue()) {
             Color socialColor = ClientContext.socialRegistry
                .getColor(profileName, null);
             if (socialColor != null) {
@@ -130,7 +136,7 @@ public class PlayerTabOverlayMixin {
                Component.literal(plainName)
                   .withStyle(
                      selfStyle -> selfStyle.withColor(
-                        (extraTabModule.selfSetting.getValue())
+                        (extraTabModule().selfSetting.getValue())
                            .hashCode()
                      )
                   )
@@ -151,7 +157,7 @@ public class PlayerTabOverlayMixin {
       @Local(ordinal = 6) LocalIntRef columnCountRef,
       @Local(ordinal = 0) List players
    ) {
-      if (extraTabModule.isToggled()) {
+      if (extraTabModule().isToggled()) {
          int playerCount = players.size();
          int rowCount = playerCount;
 
@@ -176,14 +182,14 @@ public class PlayerTabOverlayMixin {
    private void renderCustomLatency(
       GuiGraphics graphics, int entryWidth, int entryX, int entryY, PlayerInfo playerInfo, CallbackInfo callback
    ) {
-      if (extraTabModule.isToggled()
-         && extraTabModule.latencySetting.getValue()
+      if (extraTabModule().isToggled()
+         && extraTabModule().latencySetting.getValue()
             != ExtraTabModule.LatencyChoice.VANILLA) {
-         if (extraTabModule.latencySetting.getValue()
+         if (extraTabModule().latencySetting.getValue()
             == ExtraTabModule.LatencyChoice.NONE) {
             callback.cancel();
          } else {
-            int latencyColor = extraTabModule.coloredSetting.getValue()
+            int latencyColor = extraTabModule().coloredSetting.getValue()
                ? ColorUtils.getLatencyColor(playerInfo.getLatency())
                   .hashCode()
                : ChatFormatting.YELLOW.getColor();
@@ -196,8 +202,8 @@ public class PlayerTabOverlayMixin {
 
    @ModifyExpressionValue(method = "render", at = @At(value = "CONSTANT", args = "intValue=13"))
    private int overridePingIconWidth(int originalWidth) {
-      return extraTabModule.isToggled()
-            && extraTabModule.latencySetting.getValue()
+      return extraTabModule().isToggled()
+            && extraTabModule().latencySetting.getValue()
                != ExtraTabModule.LatencyChoice.VANILLA
          ? 0
          : originalWidth;
@@ -205,8 +211,8 @@ public class PlayerTabOverlayMixin {
 
    @ModifyArgs(method = "render", at = @At(value = "INVOKE", target = "Ljava/lang/Math;max(II)I", ordinal = 0))
    private void includeLatencyTextInEntryWidth(Args arguments, @Local PlayerInfo playerInfo) {
-      if (extraTabModule.isToggled()
-         && extraTabModule.latencySetting.getValue()
+      if (extraTabModule().isToggled()
+         && extraTabModule().latencySetting.getValue()
             == ExtraTabModule.LatencyChoice.TEXT) {
          arguments.set(1, arguments.<Integer>get(1) + this.minecraft.font.width(" " + playerInfo.getLatency()));
       }
@@ -220,8 +226,8 @@ public class PlayerTabOverlayMixin {
       )
    )
    private void reserveLatencyTextInScoreBounds(Args arguments, @Local PlayerInfo playerInfo) {
-      if (extraTabModule.isToggled()
-         && extraTabModule.latencySetting.getValue()
+      if (extraTabModule().isToggled()
+         && extraTabModule().latencySetting.getValue()
             == ExtraTabModule.LatencyChoice.TEXT) {
          int reservedWidth = this.minecraft.font.width(playerInfo.getLatency() + "")
             + 2;
@@ -238,20 +244,20 @@ public class PlayerTabOverlayMixin {
    @ModifyExpressionValue(method = "render", at = @At(value = "INVOKE", target = "Lnet/minecraft/network/Connection;isEncrypted()Z"))
    private boolean suppressTabIcons(boolean originalVisible) {
       return originalVisible
-         && !noRenderModule.shouldHideTabIcons();
+         && !noRenderModule().shouldHideTabIcons();
    }
 
    @Inject(method = "render", at = @At("HEAD"))
    private void applyTabScale(
       GuiGraphics graphics, int screenWidth, Scoreboard scoreboard, Objective objective, CallbackInfo callback
    ) {
-      if (extraTabModule.getTabScale()
+      if (extraTabModule().getTabScale()
          != 1.0F) {
          graphics.pose().pushMatrix();
          graphics.pose()
             .scale(
-               extraTabModule.getTabScale(),
-               extraTabModule.getTabScale()
+               extraTabModule().getTabScale(),
+               extraTabModule().getTabScale()
             );
       }
    }
@@ -260,7 +266,7 @@ public class PlayerTabOverlayMixin {
    private void restoreTabScale(
       GuiGraphics graphics, int screenWidth, Scoreboard scoreboard, Objective objective, CallbackInfo callback
    ) {
-      if (extraTabModule.getTabScale()
+      if (extraTabModule().getTabScale()
          != 1.0F) {
          graphics.pose().popMatrix();
       }
@@ -268,12 +274,12 @@ public class PlayerTabOverlayMixin {
 
    @ModifyVariable(method = "render", at = @At("HEAD"), argsOnly = true)
    private int adjustTabWidthForScale(int originalWidth) {
-      return extraTabModule.getTabScale()
+      return extraTabModule().getTabScale()
             == 1.0F
          ? originalWidth
          : (int)(
             originalWidth
-               / extraTabModule.getTabScale()
+               / extraTabModule().getTabScale()
          );
    }
 
@@ -283,12 +289,12 @@ public class PlayerTabOverlayMixin {
       PlayerInfo playerInfo, CallbackInfoReturnable<String> callback
    ) {
       GameProfile localProfile = Minecraft.getInstance().player.getGameProfile();
-      if (nameProtectModule.isToggled()) {
+      if (nameProtectModule().isToggled()) {
          if (playerInfo.getProfile().equals(localProfile)) {
             callback.setReturnValue(
-               nameProtectModule.getProtectedName()
+               nameProtectModule().getProtectedName()
             );
-         } else if (nameProtectModule.othersSetting.getValue()) {
+         } else if (nameProtectModule().othersSetting.getValue()) {
             callback.setReturnValue("redacted");
          }
       }

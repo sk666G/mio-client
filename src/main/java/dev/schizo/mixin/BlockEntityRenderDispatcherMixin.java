@@ -25,25 +25,29 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(BlockEntityRenderDispatcher.class)
 public class BlockEntityRenderDispatcherMixin {
-   private static final ESPModule espModule = MixinModuleRegistry.getModule(ESPModule.class);
-   private static final NoRenderModule noRenderModule = MixinModuleRegistry.getModule(NoRenderModule.class);
+   private static ESPModule espModule() {
+      return MixinModuleRegistry.getModule(ESPModule.class);
+   }
+   private static NoRenderModule noRenderModule() {
+      return MixinModuleRegistry.getModule(NoRenderModule.class);
+   }
 
    @Inject(method = "submit", at = @At("HEAD"), cancellable = true)
    private void suppressBlockEntitySubmission(
       BlockEntityRenderState renderState, PoseStack poses, SubmitNodeCollector collector, CameraRenderState cameraState, CallbackInfo callback
    ) {
-      if (!espModule.isRenderingBlockEntities()) {
-         if (noRenderModule.shouldHideBlockEntityType(
+      if (!espModule().isRenderingBlockEntities()) {
+         if (noRenderModule().shouldHideBlockEntityType(
             renderState.blockEntityType
          )) {
             callback.cancel();
          } else {
-            if (noRenderModule.isToggled()
-               && noRenderModule.tileEntitiesSetting.getValue()
+            if (noRenderModule().isToggled()
+               && noRenderModule().tileEntitiesSetting.getValue()
                && renderState.blockPos.distSqr(Minecraft.getInstance().gameRenderer.getMainCamera().blockPosition())
-                  > noRenderModule.tileDistanceSetting
+                  > noRenderModule().tileDistanceSetting
                         .getValue()
-                     * noRenderModule.tileDistanceSetting
+                     * noRenderModule().tileDistanceSetting
                         .getValue()) {
                callback.cancel();
             }

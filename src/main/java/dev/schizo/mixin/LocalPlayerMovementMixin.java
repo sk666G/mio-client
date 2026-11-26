@@ -54,11 +54,21 @@ import org.spongepowered.asm.mixin.injection.invoke.arg.Args;
 
 @Mixin(LocalPlayer.class)
 public abstract class LocalPlayerMovementMixin extends AbstractClientPlayer implements ClientAccess, LocalPlayerTickAccess {
-   private static final SwingModule swingModule = MixinModuleRegistry.getModule(SwingModule.class);
-   private static final NoSlowModule noSlowModule = MixinModuleRegistry.getModule(NoSlowModule.class);
-   private static final EntityControlModule entityControlModule = MixinModuleRegistry.getModule(EntityControlModule.class);
-   private static final SprintModule sprintModule = MixinModuleRegistry.getModule(SprintModule.class);
-   private static final ReachModule reachModule = MixinModuleRegistry.getModule(ReachModule.class);
+   private static SwingModule swingModule() {
+      return MixinModuleRegistry.getModule(SwingModule.class);
+   }
+   private static NoSlowModule noSlowModule() {
+      return MixinModuleRegistry.getModule(NoSlowModule.class);
+   }
+   private static EntityControlModule entityControlModule() {
+      return MixinModuleRegistry.getModule(EntityControlModule.class);
+   }
+   private static SprintModule sprintModule() {
+      return MixinModuleRegistry.getModule(SprintModule.class);
+   }
+   private static ReachModule reachModule() {
+      return MixinModuleRegistry.getModule(ReachModule.class);
+   }
    @Unique
    private LocalPlayerSendPositionEvent sendPositionEvent;
    @Shadow
@@ -79,13 +89,13 @@ public abstract class LocalPlayerMovementMixin extends AbstractClientPlayer impl
 
    @Inject(method = "swing(Lnet/minecraft/world/InteractionHand;)V", at = @At("HEAD"), cancellable = true)
    public void applySwingOverride(InteractionHand hand, CallbackInfo callback) {
-      if (swingModule.isToggled()
-         && swingModule.handSetting.getValue()
+      if (swingModule().isToggled()
+         && swingModule().handSetting.getValue()
             != SwingModule.HandChoice.VANILLA) {
-         if (swingModule.handSetting.getValue()
+         if (swingModule().handSetting.getValue()
             != SwingModule.HandChoice.PACKET) {
             super.swing(
-               (swingModule.handSetting
+               (swingModule().handSetting
                      .getValue())
                   .getHand()
             );
@@ -240,13 +250,13 @@ public abstract class LocalPlayerMovementMixin extends AbstractClientPlayer impl
 
    @ModifyExpressionValue(method = "aiStep", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/player/Input;sprint()Z"))
    private boolean overrideSprintInput(boolean vanillaSprint) {
-      return (sprintModule.isToggled() && sprintModule.shouldDeferToVanillaSprinting()) || vanillaSprint;
+      return (sprintModule().isToggled() && sprintModule().shouldDeferToVanillaSprinting()) || vanillaSprint;
    }
 
    @ModifyArgs(method = "aiStep", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/player/LocalPlayer;setSprinting(Z)V"), require = 0)
    private void forceSprintingWhenAllowed(Args arguments) {
-      if (sprintModule.isToggled()
-         && sprintModule.canStartSprinting()) {
+      if (sprintModule().isToggled()
+         && sprintModule().canStartSprinting()) {
          arguments.set(0, true);
       }
    }
@@ -273,15 +283,15 @@ public abstract class LocalPlayerMovementMixin extends AbstractClientPlayer impl
 
    @Inject(method = "getJumpRidingScale", at = @At("HEAD"), cancellable = true)
    private void maximizeRidingJumpScale(CallbackInfoReturnable<Float> callback) {
-      if (entityControlModule.isToggled()
-         && entityControlModule.horseJumpSetting.getValue()) {
+      if (entityControlModule().isToggled()
+         && entityControlModule().horseJumpSetting.getValue()) {
          callback.setReturnValue(1.0F);
       }
    }
 
    @Inject(method = "handlePortalTransitionEffect", at = @At("HEAD"))
    private void suppressPortalTransitionEffect(CallbackInfo callback) {
-      if (noSlowModule.isToggled() && this.portalProcess != null) {
+      if (noSlowModule().isToggled() && this.portalProcess != null) {
          this.portalProcess.setAsInsidePortalThisTick(false);
       }
    }
@@ -289,18 +299,18 @@ public abstract class LocalPlayerMovementMixin extends AbstractClientPlayer impl
    @Inject(method = "isMovingSlowly", at = @At("HEAD"), cancellable = true)
    private void overrideMovingSlowly(CallbackInfoReturnable<Boolean> callback) {
       boolean bypassCrawl = ClientAccess.schizoMinecraft.player.isVisuallyCrawling()
-         && noSlowModule.crawlSetting.getValue();
+         && noSlowModule().crawlSetting.getValue();
       boolean bypassSneak = !bypassCrawl
          && ClientAccess.schizoMinecraft.player.isShiftKeyDown()
-         && noSlowModule.sneakSetting.getValue();
-      if (noSlowModule.isToggled() && (bypassCrawl || bypassSneak)) {
+         && noSlowModule().sneakSetting.getValue();
+      if (noSlowModule().isToggled() && (bypassCrawl || bypassSneak)) {
          callback.setReturnValue(false);
       }
    }
 
    @ModifyExpressionValue(method = "isSlowDueToUsingItem", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/player/LocalPlayer;isUsingItem()Z"))
    private boolean overrideItemUseForSlowdown(boolean originalUsingItem) {
-      return !(noSlowModule.isToggled() && noSlowModule.itemsSetting.getValue()) && originalUsingItem;
+      return !(noSlowModule().isToggled() && noSlowModule().itemsSetting.getValue()) && originalUsingItem;
    }
 
    @Inject(
@@ -314,7 +324,7 @@ public abstract class LocalPlayerMovementMixin extends AbstractClientPlayer impl
    private static void useBlockHitWhenEntityTraceIgnored(
       Entity entity, double blockRange, double entityRange, float partialTick, CallbackInfoReturnable<HitResult> callback, @Local HitResult blockHit
    ) {
-      if (reachModule.shouldIgnoreEntityTrace()) {
+      if (reachModule().shouldIgnoreEntityTrace()) {
          callback.setReturnValue(blockHit);
       }
    }

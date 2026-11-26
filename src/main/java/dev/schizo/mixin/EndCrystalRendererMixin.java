@@ -41,9 +41,15 @@ import org.spongepowered.asm.mixin.injection.invoke.arg.Args;
 
 @Mixin(EndCrystalRenderer.class)
 public class EndCrystalRendererMixin {
-   private static final AutoCrystalModule autoCrystalModule = MixinModuleRegistry.getModule(AutoCrystalModule.class);
-   private static final ChamsModule chamsModule = MixinModuleRegistry.getModule(ChamsModule.class);
-   private static final AnimationsModule animationsModule = MixinModuleRegistry.getModule(AnimationsModule.class);
+   private static AutoCrystalModule autoCrystalModule() {
+      return MixinModuleRegistry.getModule(AutoCrystalModule.class);
+   }
+   private static ChamsModule chamsModule() {
+      return MixinModuleRegistry.getModule(ChamsModule.class);
+   }
+   private static AnimationsModule animationsModule() {
+      return MixinModuleRegistry.getModule(AnimationsModule.class);
+   }
    @Shadow
    @Final
    private static Identifier END_CRYSTAL_LOCATION;
@@ -52,33 +58,33 @@ public class EndCrystalRendererMixin {
 
    @ModifyArgs(method = "submit*", at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/vertex/PoseStack;scale(FFF)V", ordinal = 0))
    private void applyCrystalScale(Args arguments) {
-      if (animationsModule.isToggled()
-         && animationsModule.crystalsSetting.getValue()) {
+      if (animationsModule().isToggled()
+         && animationsModule().crystalsSetting.getValue()) {
          arguments.set(
             0,
             arguments.<Float>get(0)
-               * animationsModule.crystalScaleSetting.getValue()
+               * animationsModule().crystalScaleSetting.getValue()
          );
          arguments.set(
             1,
             arguments.<Float>get(1)
-               * animationsModule.crystalScaleSetting.getValue()
+               * animationsModule().crystalScaleSetting.getValue()
          );
          arguments.set(
             2,
             arguments.<Float>get(2)
-               * animationsModule.crystalScaleSetting.getValue()
+               * animationsModule().crystalScaleSetting.getValue()
          );
       }
    }
 
    @ModifyExpressionValue(method = "submit(Lnet/minecraft/client/renderer/entity/state/EndCrystalRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/renderer/state/CameraRenderState;)V", at = @At(value = "FIELD", target = "Lnet/minecraft/client/renderer/entity/EndCrystalRenderer;RENDER_TYPE:Lnet/minecraft/client/renderer/rendertype/RenderType;"))
    private RenderType selectCrystalRenderType(RenderType originalType) {
-      return chamsModule.isToggled()
-            && chamsModule.shouldRenderEntityInRange(
+      return chamsModule().isToggled()
+            && chamsModule().shouldRenderEntityInRange(
                renderedCrystal
             )
-            && chamsModule.xQZSetting.getValue()
+            && chamsModule().xQZSetting.getValue()
             && !ClientContext.shaderRegistry.renderingIntoTarget
          ? ClientRenderTypes.armorCutoutNoCull(END_CRYSTAL_LOCATION)
          : originalType;
@@ -101,8 +107,8 @@ public class EndCrystalRendererMixin {
                )
             && renderedCrystal.tickCount
                < 10
-            && autoCrystalModule.isToggled()
-            && (autoCrystalModule.instantSetting
+            && autoCrystalModule().isToggled()
+            && (autoCrystalModule().instantSetting
                   .getValue())
                .isEnabled()
             && ((EndCrystalState)renderedCrystal).isClientAttacked()) {
@@ -115,20 +121,20 @@ public class EndCrystalRendererMixin {
    private static void applyCrystalBobOffset(
       float age, CallbackInfoReturnable<Float> callback
    ) {
-      if (animationsModule.isToggled()
-         && animationsModule.crystalsSetting.getValue()) {
+      if (animationsModule().isToggled()
+         && animationsModule().crystalsSetting.getValue()) {
          float bobOffset = Mth.sin(age * 0.2F) / 2.0F + 0.5F;
          float floatFactor = 1.0F;
-         if (animationsModule.isToggled()
-            && animationsModule.crystalsSetting.getValue()) {
-            floatFactor = animationsModule.floatFactorSetting.getValue();
+         if (animationsModule().isToggled()
+            && animationsModule().crystalsSetting.getValue()) {
+            floatFactor = animationsModule().floatFactorSetting.getValue();
          }
 
          if (age < 10.0F
-            && autoCrystalModule.isToggled()
-            && animationsModule.floatFactorSetting.getValue()
+            && autoCrystalModule().isToggled()
+            && animationsModule().floatFactorSetting.getValue()
                != 0.0F
-            && (autoCrystalModule.instantSetting
+            && (autoCrystalModule().instantSetting
                   .getValue())
                .isEnabled()
             && ((EndCrystalState)renderedCrystal).isClientAttacked()) {

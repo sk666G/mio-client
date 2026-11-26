@@ -19,13 +19,15 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(SkyLightEngine.class)
 public class SkyLightEngineMixin {
-   private static NoRenderModule noRenderModule = MixinModuleRegistry.getModule(NoRenderModule.class);
+   private static NoRenderModule noRenderModule() {
+      return MixinModuleRegistry.getModule(NoRenderModule.class);
+   }
 
    @Inject(at = @At("HEAD"), method = "getLowestSourceY", cancellable = true)
    private void suppressSkyLightSource(
       int chunkX, int chunkZ, int blockY, CallbackInfoReturnable<Integer> callback
    ) {
-      if (noRenderModule.isToggled() && noRenderModule.skyLightSetting.getValue()) {
+      if (noRenderModule().isToggled() && noRenderModule().skyLightSetting.getValue()) {
          callback.setReturnValue(15);
          callback.cancel();
       }

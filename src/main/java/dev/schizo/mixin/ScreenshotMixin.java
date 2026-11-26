@@ -24,21 +24,23 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(Screenshot.class)
 public class ScreenshotMixin {
-   private static ExtraScreenshotModule extraScreenshotModule = MixinModuleRegistry.getModule(ExtraScreenshotModule.class);
+   private static ExtraScreenshotModule extraScreenshotModule() {
+      return MixinModuleRegistry.getModule(ExtraScreenshotModule.class);
+   }
 
    // Mojang leaves the screenshot save lambda unnamed.
    @Inject(method = "method_22691(Lcom/mojang/blaze3d/platform/NativeImage;Ljava/io/File;Ljava/util/function/Consumer;)V", at = @At("HEAD"), cancellable = true)
    private static void processExtraScreenshot(
       NativeImage image, File directory, Consumer messageConsumer, CallbackInfo callback
    ) {
-      if (extraScreenshotModule.isToggled()) {
+      if (extraScreenshotModule().isToggled()) {
          Util.ioPool()
             .execute(
-               () -> extraScreenshotModule.processScreenshot(
+               () -> extraScreenshotModule().processScreenshot(
                   image
                )
             );
-         if (extraScreenshotModule.shouldDeleteFile()) {
+         if (extraScreenshotModule().shouldDeleteFile()) {
             callback.cancel();
          }
       }
@@ -46,8 +48,8 @@ public class ScreenshotMixin {
 
    @ModifyVariable(method = "grab(Ljava/io/File;Ljava/lang/String;Lcom/mojang/blaze3d/pipeline/RenderTarget;ILjava/util/function/Consumer;)V", at = @At("HEAD"), ordinal = 0, argsOnly = true)
    private static Consumer suppressVanillaScreenshotMessage(Consumer messageConsumer) {
-      return extraScreenshotModule.isToggled()
-            && !extraScreenshotModule.isModeNone()
+      return extraScreenshotModule().isToggled()
+            && !extraScreenshotModule().isModeNone()
          ? ignoredMessage -> {}
          : messageConsumer;
    }

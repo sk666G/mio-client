@@ -36,8 +36,12 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(FireworkRocketEntity.class)
 public abstract class FireworkRocketEntityMixin extends Entity {
-   private static final FireworksModule fireworksModule = MixinModuleRegistry.getModule(FireworksModule.class);
-   private static final ElytraFlyModule elytraFlyModule = MixinModuleRegistry.getModule(ElytraFlyModule.class);
+   private static FireworksModule fireworksModule() {
+      return MixinModuleRegistry.getModule(FireworksModule.class);
+   }
+   private static ElytraFlyModule elytraFlyModule() {
+      return MixinModuleRegistry.getModule(ElytraFlyModule.class);
+   }
    @Shadow
    @Nullable
    private LivingEntity attachedToEntity;
@@ -62,7 +66,7 @@ public abstract class FireworkRocketEntityMixin extends Entity {
       cancellable = true
    )
    private void cancelGrimRocketMovement(CallbackInfo callback) {
-      if (fireworksModule.isGrimBoostEnabled()) {
+      if (fireworksModule().isGrimBoostEnabled()) {
          callback.cancel();
       }
    }
@@ -75,15 +79,15 @@ public abstract class FireworkRocketEntityMixin extends Entity {
    private void applyAdditionalBoost(
       CallbackInfo callback, @Local(ordinal = 0) Vec3 lookDirection
    ) {
-      if (fireworksModule.resetRocketAge) {
+      if (fireworksModule().resetRocketAge) {
          this.tickCount = 1;
-         fireworksModule.resetRocketAge = false;
+         fireworksModule().resetRocketAge = false;
       }
-      if (fireworksModule.isGrimBoostEnabled()) {
+      if (fireworksModule().isGrimBoostEnabled()) {
          callback.cancel();
          return;
       }
-      float additionalBoost = fireworksModule.getAdditionalBoost(true);
+      float additionalBoost = fireworksModule().getAdditionalBoost(true);
       if (this.attachedToEntity != Minecraft.getInstance().player || additionalBoost == 0.0F) {
          return;
       }
@@ -91,7 +95,7 @@ public abstract class FireworkRocketEntityMixin extends Entity {
       if (additionalBoost > 0.5) {
          additionalBoost = Mth.clamp(0.2F + 0.3F * this.tickCount, 0.0F, additionalBoost);
       }
-      if (!fireworksModule.isFastLaunchActive() && !fireworksModule.directionalSetting.getValue()) {
+      if (!fireworksModule().isFastLaunchActive() && !fireworksModule().directionalSetting.getValue()) {
          this.attachedToEntity.push(Mth.sin(yawRadians) * -additionalBoost, 0.0, Mth.cos(yawRadians) * additionalBoost);
       } else {
          this.attachedToEntity.push(lookDirection.scale(additionalBoost));
@@ -100,7 +104,7 @@ public abstract class FireworkRocketEntityMixin extends Entity {
 
    @ModifyExpressionValue(method = "tick", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/LivingEntity;isFallFlying()Z"))
    private boolean useActualFlightState(boolean original) {
-      ElytraFlyModule.InfDurabilityChoice durability = elytraFlyModule.infDurabilitySetting.getValue();
+      ElytraFlyModule.InfDurabilityChoice durability = elytraFlyModule().infDurabilitySetting.getValue();
       if (!durability.isDisabled() && ClientAccess.isLocalPlayer(this.attachedToEntity)) {
          return PlayerStateUtils.isFallFlying();
       }

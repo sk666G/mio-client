@@ -20,13 +20,15 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(ClientLevelData.class)
 public class ClientLevelClientLevelDataMixin {
-   private static final SkyboxModule skyboxModule = MixinModuleRegistry.getModule(SkyboxModule.class);
+   private static SkyboxModule skyboxModule() {
+      return MixinModuleRegistry.getModule(SkyboxModule.class);
+   }
 
    @Inject(method = "getHorizonHeight", at = @At("HEAD"), cancellable = true)
    private void overrideHorizonHeightForSkybox(CallbackInfoReturnable<Double> callback) {
       if (ClientAccess.schizoMinecraft.level != null) {
-         if (skyboxModule.isToggled()
-            && skyboxModule.isCurrentDimensionEnabled()
+         if (skyboxModule().isToggled()
+            && skyboxModule().isCurrentDimensionEnabled()
             && !ClientAccess.schizoMinecraft
                .level
                .dimension()

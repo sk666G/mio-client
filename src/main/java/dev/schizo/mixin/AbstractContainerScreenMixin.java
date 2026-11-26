@@ -53,9 +53,15 @@ import org.spongepowered.asm.mixin.injection.invoke.arg.Args;
 
 @Mixin(AbstractContainerScreen.class)
 public class AbstractContainerScreenMixin implements ClientAccess {
-   private static final ChestSearchBarModule schizo$chestSearchBar = MixinModuleRegistry.getModule(ChestSearchBarModule.class);
-   private static final TooltipsModule schizo$tooltips = MixinModuleRegistry.getModule(TooltipsModule.class);
-   private static final InventoryTweaksModule schizo$inventoryTweaks = MixinModuleRegistry.getModule(InventoryTweaksModule.class);
+   private static ChestSearchBarModule schizo$chestSearchBar() {
+      return MixinModuleRegistry.getModule(ChestSearchBarModule.class);
+   }
+   private static TooltipsModule schizo$tooltips() {
+      return MixinModuleRegistry.getModule(TooltipsModule.class);
+   }
+   private static InventoryTweaksModule schizo$inventoryTweaks() {
+      return MixinModuleRegistry.getModule(InventoryTweaksModule.class);
+   }
    @Shadow
    @Nullable
    protected Slot hoveredSlot;

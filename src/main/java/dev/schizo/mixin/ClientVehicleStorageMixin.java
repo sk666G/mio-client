@@ -20,11 +20,13 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Pseudo
 @Mixin(targets = "com/viaversion/viaversion/protocols/v1_21to1_21_2/storage/ClientVehicleStorage", remap = false)
 public class ClientVehicleStorageMixin {
-   private static final EntityControlModule entityControl = MixinModuleRegistry.getModule(EntityControlModule.class);
+   private static EntityControlModule entityControl() {
+      return MixinModuleRegistry.getModule(EntityControlModule.class);
+   }
 
    @Inject(method = {"sidewaysMovement", "forwardMovement"}, at = @At("HEAD"), cancellable = true, remap = false)
    private void applyGrimOverflow(CallbackInfoReturnable<Float> callback) {
-      if (entityControl.isGrimOverflowActive()) {
+      if (entityControl().isGrimOverflowActive()) {
          callback.setReturnValue(Float.NaN);
       }
    }

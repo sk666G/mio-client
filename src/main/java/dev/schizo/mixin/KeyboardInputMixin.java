@@ -31,7 +31,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(KeyboardInput.class)
 public class KeyboardInputMixin extends ClientInput {
-    private static final NoSlowModule NO_SLOW = MixinModuleRegistry.getModule(NoSlowModule.class);
+    private static NoSlowModule NO_SLOW() {
+       return MixinModuleRegistry.getModule(NoSlowModule.class);
+    }
     @Unique
     private final SoftwareKeyMapping softwareKey = new SoftwareKeyMapping();
     @Shadow
@@ -58,9 +60,9 @@ public class KeyboardInputMixin extends ClientInput {
 
     @ModifyReceiver(method = "tick", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/KeyMapping;isDown()Z"))
     private KeyMapping useGuiMovementKey(KeyMapping key) {
-        if (NO_SLOW.isToggled()
-            && NO_SLOW.isGuiMoveAllowed()
-            && NO_SLOW.guiMoveSetting.getValue()
+        if (NO_SLOW().isToggled()
+            && NO_SLOW().isGuiMoveAllowed()
+            && NO_SLOW().guiMoveSetting.getValue()
             && key != this.options.keyShift) {
             int keyCode = ((KeyMappingAccessor)key).getKey().getValue();
             if (keyCode == -1) {
