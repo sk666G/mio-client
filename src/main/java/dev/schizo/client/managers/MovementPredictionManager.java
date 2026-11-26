@@ -78,6 +78,8 @@ public final class MovementPredictionManager implements ClientAccess {
    @EventHandler
    private void onMinecraftDisconnectEvent(MinecraftDisconnectEvent event) {
       this.playerPredictions.clear();
+      this.previousPlayerPosition = null;
+      this.predictionTimer.clear();
    }
 
    public synchronized AABB getPredictedBoundingBox(Player player, int tickIndex) {
