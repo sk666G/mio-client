@@ -2,6 +2,7 @@
 
 This document describes Draft PR #167 (`codex/anarchy-workflows-v2`). It is based on
 `lunyx/runtime-validation-v1` at `c2cc55d53dc86e125fcbb9dae54fd1bdcc0ba1a6`.
+Its PR comparison base is pinned at that SHA through `codex/anarchy-workflows-base-c2cc55d`.
 The frozen v8 branch is unchanged. The earlier PR #137 was closed as superseded;
 its workflow changes were reapplied onto the newer runtime-validated implementation.
 
@@ -107,6 +108,19 @@ It already includes lifecycle rollback, bounded owner-scoped scheduling, frame-a
 scan budgets, registry/configuration hardening, responsive GUI work and the Fabric
 client gametest harness. Those implementations were retained, rather than replaying
 older manager implementations from PR #127 or the closed PR #137.
+
+During final verification the runtime-validation branch advanced to
+`66720b12dd1ca10b3f98361903ed469974e5cba1` (remaining mixin bindings and a new source
+predicate). Its Builds #1921/#1922 failed; the predicate rejects direct module lookups
+still present in 65 mixin sources in the existing code. The original PR-merge Build
+#1924 also failed that new test. This delta is not integrated or silently reverted:
+PR #167 compares against the pinned verified snapshot instead. Reconcile this upstream
+gate separately before assembling the next combined candidate.
+
+The first changed-layout gametest also exposed an invalid fixture: the first exported
+widget does not necessarily support resizing. The regression now finds a real
+`ResizableHudWidgetRenderer`, requires its preview to change the layout, and then
+requires cancellation to restore the original. The assertion remains mandatory.
 
 Local verification uses Java 25 for Gradle with the installed Java 21 toolchain:
 

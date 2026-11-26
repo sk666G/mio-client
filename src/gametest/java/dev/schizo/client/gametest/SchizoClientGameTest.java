@@ -123,7 +123,21 @@ public final class SchizoClientGameTest implements FabricClientGameTest {
             layoutBefore.set(layout.deepCopy());
             var widgets = layout.getAsJsonArray("widgets");
             if (widgets.isEmpty()) throw new IllegalStateException("No widgets available for preview regression");
-            var widget = widgets.get(0).getAsJsonObject();
+            com.google.gson.JsonObject widget = null;
+            for (Object candidate : ClientContext.moduleRegistry.getRegistry()) {
+               if (candidate instanceof dev.schizo.client.modules.HudWidgetModule hud
+                  && hud.getRenderer() instanceof dev.schizo.client.render.ResizableHudWidgetRenderer) {
+                  for (var entry : widgets) {
+                     var value = entry.getAsJsonObject();
+                     if (value.get("module").getAsString().equals(hud.getConfigName())) {
+                        widget = value;
+                        break;
+                     }
+                  }
+               }
+               if (widget != null) break;
+            }
+            if (widget == null) throw new IllegalStateException("No resizable widget available for preview regression");
             widget.addProperty("scale", widget.get("scale").getAsFloat() < 1.5F ? 1.5F : 0.75F);
             minecraft.setScreen(new HudLayoutPreviewScreen(layout));
             if (layoutBefore.get().equals(ClientContext.getHudEditor().exportLayoutPreset())) {
