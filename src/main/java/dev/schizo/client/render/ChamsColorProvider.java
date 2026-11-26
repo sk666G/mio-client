@@ -104,12 +104,12 @@ public interface ChamsColorProvider extends ClientAccess {
       return false;
    }
 
-   static void bindModuleRegistry(ModuleRegistry registry) {
+   public static void bindModuleRegistry(ModuleRegistry registry) {
       ColorsBinding.module = (ColorsModule)registry.getModule(ColorsModule.class);
    }
 
    final class ColorsBinding {
-      private static ColorsModule module = (ColorsModule)ClientContext.getModule(ColorsModule.class);
+      private static ColorsModule module;
 
       private ColorsBinding() {
       }

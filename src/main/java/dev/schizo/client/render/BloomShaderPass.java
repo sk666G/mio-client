@@ -20,7 +20,6 @@ import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL13;
 
 public class BloomShaderPass extends PreprocessedShaderPass {
-   private static final ShaderModule shaderModule;
 
    @Override
    public void updateUniforms() {
@@ -123,9 +122,4 @@ public class BloomShaderPass extends PreprocessedShaderPass {
 
       this.initializeProgram();
    }
-
-   static {
-      shaderModule = (ShaderModule)ClientContext.getModule(ShaderModule.class);
-   }
-
 }

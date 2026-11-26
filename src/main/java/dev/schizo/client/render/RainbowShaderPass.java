@@ -20,7 +20,6 @@ import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL13;
 
 public class RainbowShaderPass extends PreprocessedShaderPass {
-   private static final ShaderModule shaderModule;
 
    @Override
    public void updateUniforms() {
@@ -144,9 +143,4 @@ public class RainbowShaderPass extends PreprocessedShaderPass {
 
       this.initializeProgram();
    }
-
-   static {
-      shaderModule = (ShaderModule)ClientContext.getModule(ShaderModule.class);
-   }
-
 }

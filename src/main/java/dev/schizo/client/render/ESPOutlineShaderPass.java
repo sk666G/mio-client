@@ -9,11 +9,11 @@
 
 package dev.schizo.client.render;
 
-import dev.schizo.client.ClientContext;
+import dev.schizo.client.managers.ModuleRegistry;
 import dev.schizo.client.modules.render.ESPModule;
 
 public class ESPOutlineShaderPass extends PostProcessShaderPass {
-   private static final ESPModule espModule;
+   private static ESPModule espModule;
 
    @Override
    public void updateUniforms() {
@@ -30,8 +30,8 @@ public class ESPOutlineShaderPass extends PostProcessShaderPass {
       fillOpacityUniforms.set("u_FillOpacity", fillOpacity);
    }
 
-   static {
-      espModule = (ESPModule)ClientContext.getModule(ESPModule.class);
+   public static void bindModules(ModuleRegistry registry) {
+      espModule = (ESPModule)registry.getModule(ESPModule.class);
    }
 
    public ESPOutlineShaderPass() {

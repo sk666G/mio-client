@@ -9,7 +9,7 @@
 
 package dev.schizo.client.render;
 
-import dev.schizo.client.ClientContext;
+import dev.schizo.client.managers.ModuleRegistry;
 import dev.schizo.client.modules.client.FontsModule;
 
 import dev.schizo.mixin.GuiGraphicsAccessor;
@@ -27,7 +27,7 @@ import org.joml.Matrix3x2f;
 import org.joml.Vector2f;
 
 public class FontActiveTextCollector implements Consumer<Style>, ActiveTextCollector {
-   private static final FontsModule fontsModule;
+   private static FontsModule fontsModule;
    public static boolean customChatTextEnabled;
    private Parameters parameters;
    private final GuiGraphicsAccessor graphicsAccessor;
@@ -86,9 +86,8 @@ public class FontActiveTextCollector implements Consumer<Style>, ActiveTextColle
       this.styleConsumer = styleConsumer;
    }
 
-   static {
-      fontsModule = (FontsModule)ClientContext.getModule(FontsModule.class);
-      customChatTextEnabled = false;
+   public static void bindModules(ModuleRegistry registry) {
+      fontsModule = (FontsModule)registry.getModule(FontsModule.class);
    }
 
    static void visitHoveredStyle(

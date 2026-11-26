@@ -11,7 +11,7 @@ package dev.schizo.client.render;
 
 import com.mojang.blaze3d.buffers.Std140Builder;
 import com.mojang.blaze3d.pipeline.RenderTarget;
-import dev.schizo.client.ClientContext;
+import dev.schizo.client.managers.ModuleRegistry;
 import dev.schizo.client.managers.ConfigurationManager;
 import dev.schizo.client.managers.RenderStateManager;
 import dev.schizo.client.modules.render.SkyboxModule;
@@ -31,7 +31,7 @@ import org.lwjgl.opengl.GL32C;
 import org.lwjgl.system.MemoryStack;
 
 public class SkyboxShaderPass extends BaseShaderPass implements ReloadableShaderPass {
-   private static final SkyboxModule SKYBOX_MODULE;
+   private static SkyboxModule SKYBOX_MODULE;
    private static final int CONFIG_BINDING = 0;
    private static final int CONFIG_SIZE = 48;
    private int configBlock = GL31C.GL_INVALID_INDEX;
@@ -138,9 +138,8 @@ public class SkyboxShaderPass extends BaseShaderPass implements ReloadableShader
       this.reload(this);
    }
 
-   static {
-
-      SKYBOX_MODULE = (SkyboxModule)ClientContext.getModule(SkyboxModule.class);
+   public static void bindModules(ModuleRegistry registry) {
+      SKYBOX_MODULE = (SkyboxModule)registry.getModule(SkyboxModule.class);
    }
 
 }

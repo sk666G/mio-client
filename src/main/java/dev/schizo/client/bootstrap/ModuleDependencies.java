@@ -11,6 +11,12 @@ package dev.schizo.client.bootstrap;
 
 import dev.schizo.client.utils.world.BlockBreakTracker;
 import dev.schizo.client.utils.inventory.ChestSearchController;
+import dev.schizo.client.render.ChamsColorProvider;
+import dev.schizo.client.render.DepthOfFieldPipeline;
+import dev.schizo.client.render.ESPOutlineShaderPass;
+import dev.schizo.client.render.FontActiveTextCollector;
+import dev.schizo.client.render.PreprocessedShaderPass;
+import dev.schizo.client.render.SkyboxShaderPass;
 import dev.schizo.client.modules.PlacementModule;
 import dev.schizo.client.managers.RotationManager;
 import dev.schizo.client.managers.ServerStateManager;
@@ -148,6 +154,12 @@ public final class ModuleDependencies {
       KeyPearlModule.bindReferencedModules(registry);
       ChestSearchController.bindReferencedModules(registry);
       ShaderModule.bindModules(registry);
+      PreprocessedShaderPass.bindModules(registry);
+      DepthOfFieldPipeline.bindModules(registry);
+      ESPOutlineShaderPass.bindModules(registry);
+      FontActiveTextCollector.bindModules(registry);
+      SkyboxShaderPass.bindModules(registry);
+      ChamsColorProvider.bindModuleRegistry(registry);
       HitmarkerModule.bindCrosshair(registry);
       SearchModule.bindModules(registry);
       AutoArmorModule.bindModuleRegistry(registry);

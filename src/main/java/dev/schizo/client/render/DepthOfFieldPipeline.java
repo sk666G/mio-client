@@ -10,7 +10,7 @@
 package dev.schizo.client.render;
 
 import dev.schizo.client.ClientAccess;
-import dev.schizo.client.ClientContext;
+import dev.schizo.client.managers.ModuleRegistry;
 import dev.schizo.client.modules.render.AmbienceModule;
 import dev.schizo.client.settings.Setting;
 
@@ -21,10 +21,10 @@ import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL13;
 
 public class DepthOfFieldPipeline extends ShaderPipeline {
-   private static final AmbienceModule ambience;
+   private static AmbienceModule ambience;
 
-   static {
-      ambience = ClientContext.getModule(AmbienceModule.class);
+   public static void bindModules(ModuleRegistry registry) {
+      ambience = (AmbienceModule)registry.getModule(AmbienceModule.class);
    }
 
    public DepthOfFieldPipeline() {

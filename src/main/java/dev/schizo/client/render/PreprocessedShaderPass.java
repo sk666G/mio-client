@@ -9,17 +9,21 @@
 
 package dev.schizo.client.render;
 
-import dev.schizo.client.ClientContext;
+import dev.schizo.client.managers.ModuleRegistry;
 import dev.schizo.client.managers.RenderTargetRegistry;
 import dev.schizo.client.modules.render.ShaderModule;
 import com.mojang.blaze3d.pipeline.RenderTarget;
 
 public abstract class PreprocessedShaderPass extends PostProcessShaderPass {
-   private static final ShaderModule shaderModule = ClientContext.getModule(ShaderModule.class);
+   protected static ShaderModule shaderModule;
    private static final RenderTarget PRE_TARGET = RenderTargetRegistry.createRenderTarget("zio_pre_pass");
    protected static final PrePass COVERAGE_PASS = new PrePass("multi/coverage.frag", "u_Coverage", true);
    protected static final PrePass DISTANCE_PASS = new PrePass("multi/distance.frag", "u_Distance", false);
    private final PrePass prePass;
+
+   public static void bindModules(ModuleRegistry registry) {
+      shaderModule = (ShaderModule)registry.getModule(ShaderModule.class);
+   }
 
    protected PreprocessedShaderPass(String vertexResource, String fragmentResource, PrePass prePass) {
       super(vertexResource, fragmentResource);
