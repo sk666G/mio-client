@@ -75,6 +75,9 @@ public class InventoryModule extends HudWidgetModule {
    private Collection<ItemStack> getSlotStacks() {
       ArrayList<ItemStack> stacks = new ArrayList<>(27);
       LocalPlayer player = ClientAccess.schizoMinecraft.player;
+      if (player == null) {
+         return stacks;
+      }
       Inventory inventory = player.getInventory();
       NonNullList inventorySlots = inventory.getNonEquipmentItems();
       int index = 0;
@@ -95,6 +98,9 @@ public class InventoryModule extends HudWidgetModule {
    private Collection<ItemStack> getSelectedItemTotals() {
       HashMap<Item, Integer> itemCounts = new HashMap<>();
       LocalPlayer player = ClientAccess.schizoMinecraft.player;
+      if (player == null) {
+         return java.util.List.of();
+      }
       Iterator<?> stacks = player.getInventory().iterator();
 
       while (stacks.hasNext()) {
