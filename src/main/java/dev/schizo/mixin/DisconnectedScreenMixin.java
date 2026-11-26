@@ -48,6 +48,8 @@ public class DisconnectedScreenMixin extends Screen {
    @Unique
    private boolean reconnectStarted;
    @Unique
+   private boolean reconnectServerCaptured;
+   @Unique
    private ServerData reconnectServer;
    @Shadow
    @Final
@@ -74,8 +76,12 @@ public class DisconnectedScreenMixin extends Screen {
       if (autoReconnectModule == null || ClientContext.serverStateManager == null) {
          return;
       }
-      this.reconnectServer = ClientContext.serverStateManager.getServerData();
-      autoReconnectModule.attempts.select(this.reconnectServer == null ? null : this.reconnectServer.ip);
+      // Reinitialization on resize must not retarget an existing disconnect screen.
+      if (!this.reconnectServerCaptured) {
+         this.reconnectServer = ClientContext.serverStateManager.getServerData();
+         this.reconnectServerCaptured = true;
+         autoReconnectModule.attempts.select(this.reconnectServer == null ? null : this.reconnectServer.ip);
+      }
       Builder reconnectBuilder = Button.builder(
             Component.literal("Reconnect"),
             button -> {
@@ -101,8 +107,7 @@ public class DisconnectedScreenMixin extends Screen {
          .width(200);
       this.reconnectButton = reconnectBuilder.build();
       this.autoReconnectButton = autoReconnectBuilder.build();
-      if (ClientContext.serverStateManager.getServerData()
-         != null) {
+      if (this.reconnectServer != null) {
          this.addRenderableWidget(this.reconnectButton);
          this.addRenderableWidget(this.autoReconnectButton);
       }
