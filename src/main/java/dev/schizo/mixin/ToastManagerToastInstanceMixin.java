@@ -9,7 +9,7 @@
 
 package dev.schizo.mixin;
 
-import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.modules.render.NoRenderModule;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.toasts.SystemToast.SystemToastId;
@@ -24,7 +24,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(targets = "net/minecraft/client/gui/components/toasts/ToastManager$ToastInstance")
 public class ToastManagerToastInstanceMixin {
-   private static NoRenderModule noRenderModule = ClientContext.getModule(NoRenderModule.class);
+   private static NoRenderModule noRenderModule = MixinModuleRegistry.getModule(NoRenderModule.class);
    @Final
    @Shadow
    private Toast toast;

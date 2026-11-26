@@ -10,7 +10,7 @@
 package dev.schizo.mixin;
 
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
-import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.render.RenderUtils;
 import dev.schizo.client.modules.render.CrosshairModule;
 import dev.schizo.client.modules.misc.ExtraTabModule;
@@ -38,11 +38,11 @@ import org.spongepowered.asm.mixin.injection.invoke.arg.Args;
 
 @Mixin(Gui.class)
 public class GuiMixin {
-   private static final ExtraTabModule extraTabModule = ClientContext.getModule(ExtraTabModule.class);
-   private static final HUDModule hudModule = ClientContext.getModule(HUDModule.class);
-   private static final NoRenderModule noRenderModule = ClientContext.getModule(NoRenderModule.class);
-   private static final CrosshairModule crosshair = ClientContext.getModule(CrosshairModule.class);
-   private static final NoHitDelayModule noHitDelayModule = ClientContext.getModule(NoHitDelayModule.class);
+   private static final ExtraTabModule extraTabModule = MixinModuleRegistry.getModule(ExtraTabModule.class);
+   private static final HUDModule hudModule = MixinModuleRegistry.getModule(HUDModule.class);
+   private static final NoRenderModule noRenderModule = MixinModuleRegistry.getModule(NoRenderModule.class);
+   private static final CrosshairModule crosshair = MixinModuleRegistry.getModule(CrosshairModule.class);
+   private static final NoHitDelayModule noHitDelayModule = MixinModuleRegistry.getModule(NoHitDelayModule.class);
    @Shadow
    @Final
    private PlayerTabOverlay tabList;

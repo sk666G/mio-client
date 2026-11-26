@@ -9,7 +9,7 @@
 
 package dev.schizo.mixin;
 
-import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.modules.movement.ElytraFlyModule;
 import net.minecraft.client.resources.sounds.AbstractTickableSoundInstance;
 import net.minecraft.client.resources.sounds.ElytraOnPlayerSoundInstance;
@@ -23,7 +23,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(ElytraOnPlayerSoundInstance.class)
 public abstract class ElytraOnPlayerSoundInstanceMixin extends AbstractTickableSoundInstance {
-   private static ElytraFlyModule elytrafly = ClientContext.getModule(ElytraFlyModule.class);
+   private static ElytraFlyModule elytrafly = MixinModuleRegistry.getModule(ElytraFlyModule.class);
 
    protected ElytraOnPlayerSoundInstanceMixin(SoundEvent sound, SoundSource source, RandomSource random) {
       super(sound, source, random);

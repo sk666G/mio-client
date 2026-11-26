@@ -12,7 +12,7 @@ package dev.schizo.mixin;
 import com.mojang.authlib.GameProfile;
 import dev.schizo.client.events.AbstractClientPlayerTickEvent;
 import dev.schizo.client.ClientAccess;
-import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.modules.client.CapesModule;
 import dev.schizo.client.modules.player.NameProtectModule;
 import dev.schizo.client.render.CapeEntry;
@@ -39,7 +39,7 @@ public abstract class AbstractClientPlayerMixin extends Player {
    private static final Identifier protectedSkinTexture = Identifier.fromNamespaceAndPath(
       "schizo-mount", "textures/skin_protect.png"
    );
-   private static final NameProtectModule nameProtectModule = ClientContext.getModule(NameProtectModule.class);
+   private static final NameProtectModule nameProtectModule = MixinModuleRegistry.getModule(NameProtectModule.class);
    @Unique
    private static final List<CapeEntry> playerCapes = List.of(
       new CapeEntry("cattyyyn", "pepsi.png"), new CapeEntry("u3o", "tetris.png"), new CapeEntry("asphyxia1337", "suckmy.png")
@@ -65,7 +65,7 @@ public abstract class AbstractClientPlayerMixin extends Player {
          modelType = nameProtectModule.slimSetting.getValue() ? PlayerModelType.SLIM : PlayerModelType.WIDE;
       }
 
-      CapesModule capesModule = ClientAccess.isLocalPlayer(this) ? ClientContext.getModule(CapesModule.class) : null;
+      CapesModule capesModule = ClientAccess.isLocalPlayer(this) ? MixinModuleRegistry.getModule(CapesModule.class) : null;
       if (capesModule != null && capesModule.isToggled()) {
          capeTexture = capesModule.getCapeTexture();
       } else {

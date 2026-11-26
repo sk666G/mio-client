@@ -9,7 +9,7 @@
 
 package dev.schizo.mixin;
 
-import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.modules.render.NoRenderModule;
 import net.minecraft.world.level.lighting.SkyLightEngine;
 import org.spongepowered.asm.mixin.Mixin;
@@ -19,7 +19,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(SkyLightEngine.class)
 public class SkyLightEngineMixin {
-   private static NoRenderModule noRenderModule = ClientContext.getModule(NoRenderModule.class);
+   private static NoRenderModule noRenderModule = MixinModuleRegistry.getModule(NoRenderModule.class);
 
    @Inject(at = @At("HEAD"), method = "getLowestSourceY", cancellable = true)
    private void suppressSkyLightSource(

@@ -12,7 +12,7 @@ package dev.schizo.mixin;
 import com.llamalad7.mixinextras.injector.v2.WrapWithCondition;
 import dev.schizo.client.modules.render.AmbienceModule;
 import dev.schizo.client.ClientAccess;
-import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.events.ClientPacketListenerHandleMoveVehicleEvent;
 import dev.schizo.client.events.ClientPacketListenerSendChatEvent;
 import dev.schizo.client.managers.CommandRegistry;
@@ -34,8 +34,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(ClientPacketListener.class)
 public class ClientPacketListenerChatTimeMixin {
-   private static final AmbienceModule ambienceModule = ClientContext.getModule(AmbienceModule.class);
-   private static final FastLatencyModule fastLatencyModule = ClientContext.getModule(FastLatencyModule.class);
+   private static final AmbienceModule ambienceModule = MixinModuleRegistry.getModule(AmbienceModule.class);
+   private static final FastLatencyModule fastLatencyModule = MixinModuleRegistry.getModule(FastLatencyModule.class);
    @Shadow
    private ClientLevel level;
    @Unique

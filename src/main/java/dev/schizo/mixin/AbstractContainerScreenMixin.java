@@ -17,6 +17,7 @@ import dev.schizo.client.events.AbstractContainerScreenRenderTooltipEvent;
 import dev.schizo.client.modules.misc.ChestSearchBarModule;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.utils.inventory.ContainerTooltipComponent;
 import dev.schizo.client.access.TooltipComponentCapture;
 import dev.schizo.client.utils.KeyUtils;
@@ -52,9 +53,9 @@ import org.spongepowered.asm.mixin.injection.invoke.arg.Args;
 
 @Mixin(AbstractContainerScreen.class)
 public class AbstractContainerScreenMixin implements ClientAccess {
-   private static final ChestSearchBarModule schizo$chestSearchBar = ClientContext.getModule(ChestSearchBarModule.class);
-   private static final TooltipsModule schizo$tooltips = ClientContext.getModule(TooltipsModule.class);
-   private static final InventoryTweaksModule schizo$inventoryTweaks = ClientContext.getModule(InventoryTweaksModule.class);
+   private static final ChestSearchBarModule schizo$chestSearchBar = MixinModuleRegistry.getModule(ChestSearchBarModule.class);
+   private static final TooltipsModule schizo$tooltips = MixinModuleRegistry.getModule(TooltipsModule.class);
+   private static final InventoryTweaksModule schizo$inventoryTweaks = MixinModuleRegistry.getModule(InventoryTweaksModule.class);
    @Shadow
    @Nullable
    protected Slot hoveredSlot;

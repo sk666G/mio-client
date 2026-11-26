@@ -15,6 +15,7 @@ import com.llamalad7.mixinextras.sugar.Local;
 import com.llamalad7.mixinextras.sugar.ref.LocalIntRef;
 import com.mojang.authlib.GameProfile;
 import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.render.ColorUtils;
 import dev.schizo.client.modules.misc.ExtraTabModule;
 import dev.schizo.client.modules.player.NameProtectModule;
@@ -49,9 +50,9 @@ public class PlayerTabOverlayMixin {
    @Shadow
    @Final
    private Minecraft minecraft;
-   private static final NoRenderModule noRenderModule = ClientContext.getModule(NoRenderModule.class);
-   private static final ExtraTabModule extraTabModule = ClientContext.getModule(ExtraTabModule.class);
-   private static final NameProtectModule nameProtectModule = ClientContext.getModule(NameProtectModule.class);
+   private static final NoRenderModule noRenderModule = MixinModuleRegistry.getModule(NoRenderModule.class);
+   private static final ExtraTabModule extraTabModule = MixinModuleRegistry.getModule(ExtraTabModule.class);
+   private static final NameProtectModule nameProtectModule = MixinModuleRegistry.getModule(NameProtectModule.class);
 
    @ModifyReceiver(
       method = "getPlayerInfos",

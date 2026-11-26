@@ -14,7 +14,7 @@ import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.llamalad7.mixinextras.sugar.Local;
 import dev.schizo.client.modules.misc.BetterChatModule;
-import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.access.ChatLineAccess;
 import dev.schizo.client.access.ChatGraphicsXOffset;
 import dev.schizo.client.modules.render.NoRenderModule;
@@ -29,8 +29,8 @@ import org.spongepowered.asm.mixin.injection.At;
 
 @Mixin(targets = "net/minecraft/client/gui/components/ChatComponent$1")
 public class ChatComponent1Mixin {
-   private static final NoRenderModule noRenderModule = ClientContext.getModule(NoRenderModule.class);
-   private static final BetterChatModule betterChatModule = ClientContext.getModule(BetterChatModule.class);
+   private static final NoRenderModule noRenderModule = MixinModuleRegistry.getModule(NoRenderModule.class);
+   private static final BetterChatModule betterChatModule = MixinModuleRegistry.getModule(BetterChatModule.class);
 
    @ModifyExpressionValue(method = "accept", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/GuiMessage$Line;tag()Lnet/minecraft/client/GuiMessageTag;"))
    private GuiMessageTag hideMessageIndicator(GuiMessageTag originalTag) {

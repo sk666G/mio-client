@@ -9,7 +9,7 @@
 
 package dev.schizo.mixin;
 
-import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.render.ClientLightningState;
 import dev.schizo.client.modules.misc.KillEffectsModule;
 import java.awt.Color;
@@ -26,7 +26,7 @@ import org.spongepowered.asm.mixin.injection.invoke.arg.Args;
 
 @Mixin(LightningBoltRenderer.class)
 public final class LightningBoltRendererMixin {
-   private static final KillEffectsModule killEffectsModule = ClientContext.getModule(KillEffectsModule.class);
+   private static final KillEffectsModule killEffectsModule = MixinModuleRegistry.getModule(KillEffectsModule.class);
    @Unique
    private static LightningBolt renderedLightningBolt;
 

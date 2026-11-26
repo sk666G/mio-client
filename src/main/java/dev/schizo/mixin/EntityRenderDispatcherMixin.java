@@ -15,6 +15,7 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import dev.schizo.client.modules.render.ChamsModule;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.events.EntityRenderEvent;
 import dev.schizo.client.render.EntityRenderStateAccess;
 import dev.schizo.client.modules.render.NoRenderModule;
@@ -32,8 +33,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(EntityRenderDispatcher.class)
 public class EntityRenderDispatcherMixin {
-   private static final NoRenderModule noRenderModule = ClientContext.getModule(NoRenderModule.class);
-   private static final ChamsModule chamsModule = ClientContext.getModule(ChamsModule.class);
+   private static final NoRenderModule noRenderModule = MixinModuleRegistry.getModule(NoRenderModule.class);
+   private static final ChamsModule chamsModule = MixinModuleRegistry.getModule(ChamsModule.class);
 
    @ModifyExpressionValue(method = "submit", at = @At(value = "INVOKE", target = "Ljava/util/List;isEmpty()Z"))
    private static boolean applyEntityGlintAndShadow(

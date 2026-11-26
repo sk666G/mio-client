@@ -18,6 +18,7 @@ import dev.schizo.client.modules.combat.AutoClickerModule;
 import dev.schizo.client.modules.player.AutoToolModule;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.utils.world.BlockBreakingState;
 import dev.schizo.client.utils.network.PacketSender;
 import dev.schizo.client.utils.inventory.InventoryUtils;
@@ -66,12 +67,12 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(MultiPlayerGameMode.class)
 public abstract class MultiPlayerGameModeInteractionMixin implements ClientAccess, BlockBreakingState {
-   private static final AutoToolModule autoToolModule = ClientContext.getModule(AutoToolModule.class);
-   private static final AutoClickerModule autoClickerModule = ClientContext.getModule(AutoClickerModule.class);
-   private static final NoInteractModule noInteractModule = ClientContext.getModule(NoInteractModule.class);
-   private static final InventoryTweaksModule inventoryTweaksModule = ClientContext.getModule(InventoryTweaksModule.class);
-   private static final AntiCheatModule antiCheatModule = ClientContext.getModule(AntiCheatModule.class);
-   private static SpeedMineModule speedmine = ClientContext.getModule(SpeedMineModule.class);
+   private static final AutoToolModule autoToolModule = MixinModuleRegistry.getModule(AutoToolModule.class);
+   private static final AutoClickerModule autoClickerModule = MixinModuleRegistry.getModule(AutoClickerModule.class);
+   private static final NoInteractModule noInteractModule = MixinModuleRegistry.getModule(NoInteractModule.class);
+   private static final InventoryTweaksModule inventoryTweaksModule = MixinModuleRegistry.getModule(InventoryTweaksModule.class);
+   private static final AntiCheatModule antiCheatModule = MixinModuleRegistry.getModule(AntiCheatModule.class);
+   private static SpeedMineModule speedmine = MixinModuleRegistry.getModule(SpeedMineModule.class);
    @Shadow
    private boolean isDestroying;
    @Shadow

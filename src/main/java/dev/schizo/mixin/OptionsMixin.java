@@ -10,7 +10,7 @@
 package dev.schizo.mixin;
 
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
-import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.modules.render.ViewClipModule;
 import net.minecraft.client.CameraType;
 import net.minecraft.client.Options;
@@ -22,7 +22,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(Options.class)
 public abstract class OptionsMixin {
-   private static final ViewClipModule viewClip = ClientContext.getModule(ViewClipModule.class);
+   private static final ViewClipModule viewClip = MixinModuleRegistry.getModule(ViewClipModule.class);
 
    @Shadow
    public abstract void setCameraType(CameraType cameraType);

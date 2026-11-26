@@ -18,6 +18,7 @@ import com.mojang.math.Axis;
 import dev.schizo.client.modules.render.AnimationsModule;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.render.EntityRenderStateAccess;
 import dev.schizo.client.events.NameTagRenderEvent;
 import dev.schizo.client.render.ClientRenderTypes;
@@ -50,9 +51,9 @@ import org.spongepowered.asm.mixin.injection.invoke.arg.Args;
 
 @Mixin(AvatarRenderer.class)
 public abstract class AvatarRendererMixin extends LivingEntityRenderer {
-   private static final AnimationsModule avatarAnimationsModule = ClientContext.getModule(AnimationsModule.class);
-   private static final NoRenderModule noRenderModule = ClientContext.getModule(NoRenderModule.class);
-   private static final ElytraFlyModule elytraFlyModule = ClientContext.getModule(ElytraFlyModule.class);
+   private static final AnimationsModule avatarAnimationsModule = MixinModuleRegistry.getModule(AnimationsModule.class);
+   private static final NoRenderModule noRenderModule = MixinModuleRegistry.getModule(NoRenderModule.class);
+   private static final ElytraFlyModule elytraFlyModule = MixinModuleRegistry.getModule(ElytraFlyModule.class);
    @Unique
    AbstractClientPlayer cachedScalingPlayer;
 

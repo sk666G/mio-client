@@ -15,7 +15,7 @@ import com.llamalad7.mixinextras.sugar.Local;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import dev.schizo.client.ClientAccess;
-import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.utils.inventory.ItemUtils;
 import dev.schizo.client.modules.combat.NoHitDelayModule;
 import dev.schizo.client.modules.misc.SwingModule;
@@ -46,9 +46,9 @@ import org.spongepowered.asm.mixin.injection.invoke.arg.Args;
 
 @Mixin(value = ItemInHandRenderer.class, priority = 9999)
 public abstract class ItemInHandRendererMixin {
-   private static final ViewModelModule viewModel = ClientContext.getModule(ViewModelModule.class);
-   private static final SwingModule swing = ClientContext.getModule(SwingModule.class);
-   private static final NoHitDelayModule noHitDelayModule = ClientContext.getModule(NoHitDelayModule.class);
+   private static final ViewModelModule viewModel = MixinModuleRegistry.getModule(ViewModelModule.class);
+   private static final SwingModule swing = MixinModuleRegistry.getModule(SwingModule.class);
+   private static final NoHitDelayModule noHitDelayModule = MixinModuleRegistry.getModule(NoHitDelayModule.class);
    @Unique
    private static final Vector3f blockingRotation = new Vector3f(
       120.0F, 15.0F, 100.0F

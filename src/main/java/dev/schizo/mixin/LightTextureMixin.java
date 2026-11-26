@@ -13,7 +13,7 @@ import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import dev.schizo.client.modules.render.AmbienceModule;
-import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.render.ClientRenderPipelines;
 import java.awt.Color;
 import net.minecraft.client.renderer.LightTexture;
@@ -26,7 +26,7 @@ import org.spongepowered.asm.mixin.injection.invoke.arg.Args;
 
 @Mixin(LightTexture.class)
 public class LightTextureMixin {
-   private static final AmbienceModule ambienceModule = ClientContext.getModule(AmbienceModule.class);
+   private static final AmbienceModule ambienceModule = MixinModuleRegistry.getModule(AmbienceModule.class);
    @Unique
    private static final Vector3f lightmapTint = new Vector3f();
 

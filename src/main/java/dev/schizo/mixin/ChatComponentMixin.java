@@ -15,7 +15,7 @@ import com.llamalad7.mixinextras.sugar.Local;
 import dev.schizo.client.modules.misc.BetterChatModule;
 import dev.schizo.client.modules.hud.ChatModule;
 import dev.schizo.client.ClientAccess;
-import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.events.ChatMessageEvent;
 import dev.schizo.client.access.ChatLineAccess;
 import dev.schizo.client.access.VisibleChatLinesAccess;
@@ -51,9 +51,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(ChatComponent.class)
 public abstract class ChatComponentMixin implements ClientAccess, VisibleChatLinesAccess {
-   private static final BetterChatModule betterChatModule = ClientContext.getModule(BetterChatModule.class);
-   private static final ChatModule chatModule = ClientContext.getModule(ChatModule.class);
-   private static final FontsModule fontsModule = ClientContext.getModule(FontsModule.class);
+   private static final BetterChatModule betterChatModule = MixinModuleRegistry.getModule(BetterChatModule.class);
+   private static final ChatModule chatModule = MixinModuleRegistry.getModule(ChatModule.class);
+   private static final FontsModule fontsModule = MixinModuleRegistry.getModule(FontsModule.class);
    @Shadow
    @Final
    public List trimmedMessages;

@@ -9,7 +9,7 @@
 
 package dev.schizo.mixin;
 
-import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.render.RenderUtils;
 import dev.schizo.client.modules.render.NoRenderModule;
 import dev.schizo.client.modules.render.XrayModule;
@@ -26,8 +26,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(ItemBlockRenderTypes.class)
 public class ItemBlockRenderTypesMixin {
-   private static final NoRenderModule noRenderModule = ClientContext.getModule(NoRenderModule.class);
-   private static final XrayModule xrayModule = ClientContext.getModule(XrayModule.class);
+   private static final NoRenderModule noRenderModule = MixinModuleRegistry.getModule(NoRenderModule.class);
+   private static final XrayModule xrayModule = MixinModuleRegistry.getModule(XrayModule.class);
 
    @Inject(method = "getRenderType", at = @At("HEAD"), cancellable = true)
    private static void applyTranslucentHandRenderType(

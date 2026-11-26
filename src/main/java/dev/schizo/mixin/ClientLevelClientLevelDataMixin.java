@@ -10,7 +10,7 @@
 package dev.schizo.mixin;
 
 import dev.schizo.client.ClientAccess;
-import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.modules.render.SkyboxModule;
 import net.minecraft.client.multiplayer.ClientLevel.ClientLevelData;
 import org.spongepowered.asm.mixin.Mixin;
@@ -20,7 +20,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(ClientLevelData.class)
 public class ClientLevelClientLevelDataMixin {
-   private static final SkyboxModule skyboxModule = ClientContext.getModule(SkyboxModule.class);
+   private static final SkyboxModule skyboxModule = MixinModuleRegistry.getModule(SkyboxModule.class);
 
    @Inject(method = "getHorizonHeight", at = @At("HEAD"), cancellable = true)
    private void overrideHorizonHeightForSkybox(CallbackInfoReturnable<Double> callback) {

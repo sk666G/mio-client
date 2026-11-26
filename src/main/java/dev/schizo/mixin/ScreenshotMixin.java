@@ -10,7 +10,7 @@
 package dev.schizo.mixin;
 
 import com.mojang.blaze3d.platform.NativeImage;
-import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.modules.misc.ExtraScreenshotModule;
 import java.io.File;
 import java.util.function.Consumer;
@@ -24,7 +24,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(Screenshot.class)
 public class ScreenshotMixin {
-   private static ExtraScreenshotModule extraScreenshotModule = ClientContext.getModule(ExtraScreenshotModule.class);
+   private static ExtraScreenshotModule extraScreenshotModule = MixinModuleRegistry.getModule(ExtraScreenshotModule.class);
 
    // Mojang leaves the screenshot save lambda unnamed.
    @Inject(method = "method_22691(Lcom/mojang/blaze3d/platform/NativeImage;Ljava/io/File;Ljava/util/function/Consumer;)V", at = @At("HEAD"), cancellable = true)

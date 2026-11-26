@@ -10,6 +10,7 @@
 package dev.schizo.client.bootstrap;
 
 import dev.schizo.client.managers.ModuleRegistry;
+import dev.schizo.client.modules.Module;
 import dev.schizo.client.modules.client.DiscordModule;
 import dev.schizo.client.modules.client.UIModule;
 import dev.schizo.client.modules.client.HUDModule;
@@ -54,7 +55,21 @@ import java.util.Objects;
 
 /** Cached module references consumed by mixin hooks without adding synthetic methods to Minecraft classes. */
 public final class MixinModuleRegistry {
+   private static volatile ModuleRegistry moduleRegistry;
+
    private MixinModuleRegistry() {}
+
+   public static <T extends Module> T getModule(Class<T> moduleType) {
+      Objects.requireNonNull(moduleType, "Module type is required");
+      ModuleRegistry registry = moduleRegistry;
+      if (registry == null) {
+         throw new IllegalStateException("Mixin module registry has not been bound yet: " + moduleType.getSimpleName());
+      }
+      return moduleType.cast(Objects.requireNonNull(
+         registry.getModule(moduleType),
+         "Required module is not registered: " + moduleType.getSimpleName()
+      ));
+   }
 
    public static volatile NoSlowModule blockNoslow;
    public static volatile NoPacketKickModule connectionNoPacketKickModule;
@@ -181,5 +196,6 @@ public final class MixinModuleRegistry {
       playerSprintModule = (SprintModule)Objects.requireNonNull(registry.getModule(SprintModule.class), "Required module is not registered: SprintModule");
       playerReachModule = (ReachModule)Objects.requireNonNull(registry.getModule(ReachModule.class), "Required module is not registered: ReachModule");
       playerNoSlowModule = (NoSlowModule)Objects.requireNonNull(registry.getModule(NoSlowModule.class), "Required module is not registered: NoSlowModule");
+      moduleRegistry = registry;
    }
 }

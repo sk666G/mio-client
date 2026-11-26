@@ -12,7 +12,7 @@ package dev.schizo.mixin;
 import com.llamalad7.mixinextras.sugar.Local;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.modules.render.NoRenderModule;
 import dev.schizo.client.modules.render.XrayModule;
 import java.util.List;
@@ -29,8 +29,8 @@ import org.spongepowered.asm.mixin.injection.invoke.arg.Args;
 
 @Mixin(ModelBlockRenderer.class)
 public class ModelBlockRendererMixin {
-   private static final XrayModule xrayModule = ClientContext.getModule(XrayModule.class);
-   private static final NoRenderModule noRenderModule = ClientContext.getModule(NoRenderModule.class);
+   private static final XrayModule xrayModule = MixinModuleRegistry.getModule(XrayModule.class);
+   private static final NoRenderModule noRenderModule = MixinModuleRegistry.getModule(NoRenderModule.class);
 
    @Inject(method = {"tesselateWithAO", "tesselateWithoutAO"}, at = @At("HEAD"), cancellable = true)
    private void suppressHiddenBlockEntityMesh(

@@ -12,7 +12,7 @@ package dev.schizo.mixin;
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.vertex.PoseStack;
-import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.render.RenderTargetUtils;
 import dev.schizo.client.render.MaskShaderRenderer;
 import dev.schizo.client.render.RenderUtils;
@@ -38,8 +38,8 @@ import org.spongepowered.asm.mixin.injection.invoke.arg.Args;
 
 @Mixin(SkyRenderer.class)
 public class SkyRendererMixin {
-   private static final SkyboxModule skyboxModule = ClientContext.getModule(SkyboxModule.class);
-   private static final NoRenderModule noRenderModule = ClientContext.getModule(NoRenderModule.class);
+   private static final SkyboxModule skyboxModule = MixinModuleRegistry.getModule(SkyboxModule.class);
+   private static final NoRenderModule noRenderModule = MixinModuleRegistry.getModule(NoRenderModule.class);
    @Unique
    private static boolean hook = false;
 

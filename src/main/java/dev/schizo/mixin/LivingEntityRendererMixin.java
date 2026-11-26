@@ -17,6 +17,7 @@ import dev.schizo.client.modules.render.AnimationsModule;
 import dev.schizo.client.modules.render.ChamsModule;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.managers.RotationManager;
 import dev.schizo.client.render.ColorUtils;
 import dev.schizo.client.render.EntityRenderStateAccess;
@@ -50,8 +51,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class LivingEntityRendererMixin implements ClientAccess {
    @Shadow
    protected EntityModel model;
-   private static final AnimationsModule animationsModule = ClientContext.getModule(AnimationsModule.class);
-   private static final NoRenderModule noRenderModule = ClientContext.getModule(NoRenderModule.class);
+   private static final AnimationsModule animationsModule = MixinModuleRegistry.getModule(AnimationsModule.class);
+   private static final NoRenderModule noRenderModule = MixinModuleRegistry.getModule(NoRenderModule.class);
 
    @WrapWithCondition(
       method = "submit(Lnet/minecraft/client/renderer/entity/state/LivingEntityRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/renderer/state/CameraRenderState;)V",

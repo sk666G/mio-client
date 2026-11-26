@@ -14,6 +14,7 @@ import com.llamalad7.mixinextras.sugar.Local;
 import com.mojang.authlib.GameProfile;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.events.LocalPlayerTickPhaseEvent;
 import dev.schizo.client.utils.network.PacketSender;
 import dev.schizo.client.managers.RotationManager;
@@ -53,11 +54,11 @@ import org.spongepowered.asm.mixin.injection.invoke.arg.Args;
 
 @Mixin(LocalPlayer.class)
 public abstract class LocalPlayerMovementMixin extends AbstractClientPlayer implements ClientAccess, LocalPlayerTickAccess {
-   private static final SwingModule swingModule = ClientContext.getModule(SwingModule.class);
-   private static final NoSlowModule noSlowModule = ClientContext.getModule(NoSlowModule.class);
-   private static final EntityControlModule entityControlModule = ClientContext.getModule(EntityControlModule.class);
-   private static final SprintModule sprintModule = ClientContext.getModule(SprintModule.class);
-   private static final ReachModule reachModule = ClientContext.getModule(ReachModule.class);
+   private static final SwingModule swingModule = MixinModuleRegistry.getModule(SwingModule.class);
+   private static final NoSlowModule noSlowModule = MixinModuleRegistry.getModule(NoSlowModule.class);
+   private static final EntityControlModule entityControlModule = MixinModuleRegistry.getModule(EntityControlModule.class);
+   private static final SprintModule sprintModule = MixinModuleRegistry.getModule(SprintModule.class);
+   private static final ReachModule reachModule = MixinModuleRegistry.getModule(ReachModule.class);
    @Unique
    private LocalPlayerSendPositionEvent sendPositionEvent;
    @Shadow

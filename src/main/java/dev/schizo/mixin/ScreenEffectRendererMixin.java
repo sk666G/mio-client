@@ -10,7 +10,7 @@
 package dev.schizo.mixin;
 
 import com.mojang.blaze3d.vertex.PoseStack;
-import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.modules.player.FreecamModule;
 import dev.schizo.client.modules.render.NoRenderModule;
 import net.minecraft.client.Minecraft;
@@ -24,8 +24,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(ScreenEffectRenderer.class)
 public class ScreenEffectRendererMixin {
-   private static final NoRenderModule noRenderModule = ClientContext.getModule(NoRenderModule.class);
-   private static final FreecamModule freecamModule = ClientContext.getModule(FreecamModule.class);
+   private static final NoRenderModule noRenderModule = MixinModuleRegistry.getModule(NoRenderModule.class);
+   private static final FreecamModule freecamModule = MixinModuleRegistry.getModule(FreecamModule.class);
 
    @Inject(method = "renderFire", at = @At("HEAD"), cancellable = true)
    private static void suppressFireOverlay(

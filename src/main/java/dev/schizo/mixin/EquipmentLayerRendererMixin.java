@@ -12,7 +12,7 @@ package dev.schizo.mixin;
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import com.llamalad7.mixinextras.sugar.Local;
 import com.mojang.blaze3d.vertex.PoseStack;
-import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.render.ColorUtils;
 import dev.schizo.client.modules.render.NoRenderModule;
 import java.awt.Color;
@@ -38,7 +38,7 @@ import org.spongepowered.asm.mixin.injection.invoke.arg.Args;
 @Mixin(EquipmentLayerRenderer.class)
 public class EquipmentLayerRendererMixin {
    @Unique
-   private static final NoRenderModule noRenderModule = ClientContext.getModule(NoRenderModule.class);
+   private static final NoRenderModule noRenderModule = MixinModuleRegistry.getModule(NoRenderModule.class);
    @Unique
    private LayerType currentLayerType;
 

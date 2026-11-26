@@ -9,7 +9,7 @@
 
 package dev.schizo.mixin;
 
-import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.modules.render.NoRenderModule;
 import net.minecraft.client.renderer.WorldBorderRenderer;
 import net.minecraft.client.renderer.state.WorldBorderRenderState;
@@ -21,7 +21,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(WorldBorderRenderer.class)
 public class WorldBorderRendererMixin {
-   private static final NoRenderModule noRenderModule = ClientContext.getModule(NoRenderModule.class);
+   private static final NoRenderModule noRenderModule = MixinModuleRegistry.getModule(NoRenderModule.class);
 
    @Inject(method = "render", at = @At("HEAD"), cancellable = true)
    private void suppressWorldBorder(

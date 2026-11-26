@@ -13,7 +13,7 @@ import com.llamalad7.mixinextras.sugar.Local;
 import com.llamalad7.mixinextras.sugar.ref.LocalFloatRef;
 import dev.schizo.client.events.CameraSetupEvent;
 import dev.schizo.client.ClientAccess;
-import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.utils.movement.EntityMotionAccess;
 import dev.schizo.client.render.RenderUtils;
 import dev.schizo.client.modules.movement.ElytraFlyModule;
@@ -43,11 +43,11 @@ import org.spongepowered.asm.mixin.injection.invoke.arg.Args;
 
 @Mixin(Camera.class)
 public abstract class CameraMixin {
-   private static ViewClipModule viewClip = ClientContext.getModule(ViewClipModule.class);
-   private static NoRenderModule noRenderModule = ClientContext.getModule(NoRenderModule.class);
-   private static ElytraFlyModule elytrafly = ClientContext.getModule(ElytraFlyModule.class);
-   private static FreecamModule freecam = ClientContext.getModule(FreecamModule.class);
-   private static FreeLookModule freelook = ClientContext.getModule(FreeLookModule.class);
+   private static ViewClipModule viewClip = MixinModuleRegistry.getModule(ViewClipModule.class);
+   private static NoRenderModule noRenderModule = MixinModuleRegistry.getModule(NoRenderModule.class);
+   private static ElytraFlyModule elytrafly = MixinModuleRegistry.getModule(ElytraFlyModule.class);
+   private static FreecamModule freecam = MixinModuleRegistry.getModule(FreecamModule.class);
+   private static FreeLookModule freelook = MixinModuleRegistry.getModule(FreeLookModule.class);
    @Final
    @Shadow
    private Vector3f forwards;

@@ -10,7 +10,7 @@
 package dev.schizo.mixin;
 
 import com.llamalad7.mixinextras.sugar.Local;
-import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.access.TooltipComponentCapture;
 import dev.schizo.client.render.FontActiveTextCollector;
 import dev.schizo.client.utils.inventory.ShulkerBoxItemPreview;
@@ -41,7 +41,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public abstract class GuiGraphicsMixin {
    @Unique
    private boolean renderingPreviewItemCount;
-   private static TooltipsModule tooltips = ClientContext.getModule(TooltipsModule.class);
+   private static TooltipsModule tooltips = MixinModuleRegistry.getModule(TooltipsModule.class);
 
    @Shadow
    public abstract void renderItemCount(Font font, ItemStack stack, int x, int y, @Nullable String countText);

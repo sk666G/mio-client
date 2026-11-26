@@ -9,7 +9,7 @@
 
 package dev.schizo.mixin;
 
-import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.modules.movement.EntityControlModule;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;
@@ -20,7 +20,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Pseudo
 @Mixin(targets = "com/viaversion/viaversion/protocols/v1_21to1_21_2/storage/ClientVehicleStorage", remap = false)
 public class ClientVehicleStorageMixin {
-   private static final EntityControlModule entityControl = ClientContext.getModule(EntityControlModule.class);
+   private static final EntityControlModule entityControl = MixinModuleRegistry.getModule(EntityControlModule.class);
 
    @Inject(method = {"sidewaysMovement", "forwardMovement"}, at = @At("HEAD"), cancellable = true, remap = false)
    private void applyGrimOverflow(CallbackInfoReturnable<Float> callback) {

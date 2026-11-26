@@ -11,7 +11,7 @@ package dev.schizo.mixin;
 
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
-import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.modules.misc.NoPacketKickModule;
 import io.netty.buffer.ByteBuf;
 import io.netty.handler.codec.DecoderException;
@@ -22,7 +22,7 @@ import org.spongepowered.asm.mixin.injection.At;
 
 @Mixin(IdDispatchCodec.class)
 public class IdDispatchCodecMixin {
-   private static final NoPacketKickModule noPacketKickModule = ClientContext.getModule(NoPacketKickModule.class);
+   private static final NoPacketKickModule noPacketKickModule = MixinModuleRegistry.getModule(NoPacketKickModule.class);
 
    @WrapOperation(method = "decode", at = @At(value = "INVOKE", target = "Lnet/minecraft/network/codec/StreamCodec;decode(Ljava/lang/Object;)Ljava/lang/Object;"))
    private Object decodeWithPacketKickHandling(

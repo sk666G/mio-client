@@ -10,7 +10,7 @@
 package dev.schizo.mixin;
 
 import com.mojang.blaze3d.vertex.PoseStack;
-import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.modules.render.NoRenderModule;
 import net.minecraft.client.renderer.MapRenderer;
 import net.minecraft.client.renderer.SubmitNodeCollector;
@@ -22,7 +22,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(MapRenderer.class)
 public class MapRendererMixin {
-   private static final NoRenderModule noRenderModule = ClientContext.getModule(NoRenderModule.class);
+   private static final NoRenderModule noRenderModule = MixinModuleRegistry.getModule(NoRenderModule.class);
 
    @Inject(method = "render", at = @At("HEAD"), cancellable = true)
    private void suppressMapRendering(

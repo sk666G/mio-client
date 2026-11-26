@@ -9,7 +9,7 @@
 
 package dev.schizo.mixin;
 
-import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.modules.player.NameProtectModule;
 import net.minecraft.client.Minecraft;
 import net.minecraft.util.StringDecomposer;
@@ -19,7 +19,7 @@ import org.spongepowered.asm.mixin.injection.ModifyArg;
 
 @Mixin(StringDecomposer.class)
 public class StringDecomposerMixin {
-   private static final NameProtectModule nameProtectModule = ClientContext.getModule(NameProtectModule.class);
+   private static final NameProtectModule nameProtectModule = MixinModuleRegistry.getModule(NameProtectModule.class);
 
    @ModifyArg(
       method = "iterateFormatted(Ljava/lang/String;ILnet/minecraft/network/chat/Style;Lnet/minecraft/util/FormattedCharSink;)Z",

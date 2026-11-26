@@ -11,7 +11,7 @@ package dev.schizo.mixin;
 
 import com.llamalad7.mixinextras.injector.ModifyReceiver;
 import dev.schizo.client.ClientAccess;
-import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.utils.SoftwareKeyMapping;
 import dev.schizo.client.utils.KeyUtils;
 import dev.schizo.client.events.KeyboardInputTickEvent;
@@ -31,7 +31,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(KeyboardInput.class)
 public class KeyboardInputMixin extends ClientInput {
-    private static final NoSlowModule NO_SLOW = ClientContext.getModule(NoSlowModule.class);
+    private static final NoSlowModule NO_SLOW = MixinModuleRegistry.getModule(NoSlowModule.class);
     @Unique
     private final SoftwareKeyMapping softwareKey = new SoftwareKeyMapping();
     @Shadow

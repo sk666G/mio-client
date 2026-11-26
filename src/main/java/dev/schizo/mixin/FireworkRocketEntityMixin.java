@@ -12,7 +12,7 @@ package dev.schizo.mixin;
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import com.llamalad7.mixinextras.sugar.Local;
 import dev.schizo.client.ClientAccess;
-import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.utils.math.MathUtils;
 import dev.schizo.client.utils.entity.PlayerStateUtils;
 import dev.schizo.client.modules.movement.ElytraFlyModule;
@@ -36,8 +36,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(FireworkRocketEntity.class)
 public abstract class FireworkRocketEntityMixin extends Entity {
-   private static final FireworksModule fireworksModule = ClientContext.getModule(FireworksModule.class);
-   private static final ElytraFlyModule elytraFlyModule = ClientContext.getModule(ElytraFlyModule.class);
+   private static final FireworksModule fireworksModule = MixinModuleRegistry.getModule(FireworksModule.class);
+   private static final ElytraFlyModule elytraFlyModule = MixinModuleRegistry.getModule(ElytraFlyModule.class);
    @Shadow
    @Nullable
    private LivingEntity attachedToEntity;

@@ -19,7 +19,7 @@ import com.mojang.brigadier.context.ParsedCommandNode;
 import com.mojang.brigadier.suggestion.Suggestions;
 import com.mojang.brigadier.tree.CommandNode;
 import dev.schizo.client.modules.misc.BetterChatModule;
-import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.access.ChatLineAccess;
 import dev.schizo.client.gui.screens.PresetImportScreen;
 import dev.schizo.client.render.FontActiveTextCollector;
@@ -51,9 +51,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(ChatScreen.class)
 public abstract class ChatScreenMixin extends Screen {
-   private static final FontsModule fontsModule = ClientContext.getModule(FontsModule.class);
-   private static final BetterChatModule betterChatModule = ClientContext.getModule(BetterChatModule.class);
-   private static final HUDModule hudModule = ClientContext.getModule(HUDModule.class);
+   private static final FontsModule fontsModule = MixinModuleRegistry.getModule(FontsModule.class);
+   private static final BetterChatModule betterChatModule = MixinModuleRegistry.getModule(BetterChatModule.class);
+   private static final HUDModule hudModule = MixinModuleRegistry.getModule(HUDModule.class);
    @Shadow
    protected EditBox input;
    @Shadow

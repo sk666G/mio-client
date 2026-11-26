@@ -12,7 +12,7 @@ package dev.schizo.mixin;
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import dev.schizo.client.modules.render.AmbienceModule;
 import dev.schizo.client.ClientAccess;
-import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import net.minecraft.client.renderer.WeatherEffectRenderer;
 import net.minecraft.util.ARGB;
 import net.minecraft.world.level.biome.Biome.Precipitation;
@@ -21,7 +21,7 @@ import org.spongepowered.asm.mixin.injection.At;
 
 @Mixin(WeatherEffectRenderer.class)
 public class WeatherEffectRendererMixin implements ClientAccess {
-   private static final AmbienceModule ambienceModule = ClientContext.getModule(AmbienceModule.class);
+   private static final AmbienceModule ambienceModule = MixinModuleRegistry.getModule(AmbienceModule.class);
 
    @ModifyExpressionValue(method = "renderInstances", at = @At(value = "INVOKE", target = "Lnet/minecraft/util/ARGB;white(F)I"))
    private int schizo$applyWeatherOpacity(int originalColor) {

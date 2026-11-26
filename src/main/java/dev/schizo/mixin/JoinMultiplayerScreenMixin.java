@@ -10,6 +10,7 @@
 package dev.schizo.mixin;
 
 import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.modules.exploit.FakeVanillaModule;
 import dev.schizo.client.commands.PanicCommand;
 import dev.schizo.client.modules.client.UIModule;
@@ -28,8 +29,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(JoinMultiplayerScreen.class)
 public class JoinMultiplayerScreenMixin extends Screen {
-   private static final FakeVanillaModule fakeVanillaModule = ClientContext.getModule(FakeVanillaModule.class);
-   private static final UIModule uiModule = ClientContext.getModule(UIModule.class);
+   private static final FakeVanillaModule fakeVanillaModule = MixinModuleRegistry.getModule(FakeVanillaModule.class);
+   private static final UIModule uiModule = MixinModuleRegistry.getModule(UIModule.class);
 
    protected JoinMultiplayerScreenMixin(Component title) {
       super(title);

@@ -10,7 +10,7 @@
 package dev.schizo.mixin;
 
 import com.llamalad7.mixinextras.injector.ModifyReturnValue;
-import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.render.ColorUtils;
 import dev.schizo.client.modules.render.SkyboxModule;
 import java.awt.Color;
@@ -20,7 +20,7 @@ import org.spongepowered.asm.mixin.injection.At;
 
 @Mixin(AtmosphericFogEnvironment.class)
 public class AtmosphericFogEnvironmentMixin {
-   private static final SkyboxModule skyboxModule = ClientContext.getModule(SkyboxModule.class);
+   private static final SkyboxModule skyboxModule = MixinModuleRegistry.getModule(SkyboxModule.class);
 
    @ModifyReturnValue(method = "getBaseColor", at = @At("RETURN"))
    private int blendConfiguredFogColor(int originalColor) {

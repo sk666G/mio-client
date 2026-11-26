@@ -11,7 +11,7 @@ package dev.schizo.mixin;
 
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import dev.schizo.client.modules.misc.BetterChatModule;
-import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.render.FontRenderer;
 import dev.schizo.client.render.AtlasTextRenderer;
 import dev.schizo.client.modules.client.FontsModule;
@@ -24,8 +24,8 @@ import org.spongepowered.asm.mixin.injection.ModifyVariable;
 
 @Mixin(ComponentRenderUtils.class)
 public class ComponentRenderUtilsMixin {
-   private static final BetterChatModule betterChatModule = ClientContext.getModule(BetterChatModule.class);
-   private static final FontsModule fontsModule = ClientContext.getModule(FontsModule.class);
+   private static final BetterChatModule betterChatModule = MixinModuleRegistry.getModule(BetterChatModule.class);
+   private static final FontsModule fontsModule = MixinModuleRegistry.getModule(FontsModule.class);
 
    @ModifyExpressionValue(method = "wrapComponents", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/Font;getSplitter()Lnet/minecraft/client/StringSplitter;"))
    private static StringSplitter useChatFontSplitter(StringSplitter originalSplitter) {

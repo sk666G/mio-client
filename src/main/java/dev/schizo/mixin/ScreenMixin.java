@@ -10,7 +10,7 @@
 package dev.schizo.mixin;
 
 import dev.schizo.client.modules.render.BlurModule;
-import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.managers.CommandRegistry;
 import dev.schizo.client.modules.render.NoRenderModule;
 import net.minecraft.client.Minecraft;
@@ -27,8 +27,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(Screen.class)
 public abstract class ScreenMixin {
-   private static final NoRenderModule noRenderModule = ClientContext.getModule(NoRenderModule.class);
-   private static final BlurModule blurModule = ClientContext.getModule(BlurModule.class);
+   private static final NoRenderModule noRenderModule = MixinModuleRegistry.getModule(NoRenderModule.class);
+   private static final BlurModule blurModule = MixinModuleRegistry.getModule(BlurModule.class);
    @Shadow
    @Nullable
    protected Minecraft minecraft;

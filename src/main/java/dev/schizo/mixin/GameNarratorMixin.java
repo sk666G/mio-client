@@ -9,7 +9,7 @@
 
 package dev.schizo.mixin;
 
-import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.modules.misc.NoNarratorModule;
 import net.minecraft.client.GameNarrator;
 import net.minecraft.client.NarratorStatus;
@@ -21,7 +21,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(GameNarrator.class)
 public class GameNarratorMixin {
-   private static NoNarratorModule noNarratorModule = ClientContext.getModule(NoNarratorModule.class);
+   private static NoNarratorModule noNarratorModule = MixinModuleRegistry.getModule(NoNarratorModule.class);
 
    @Inject(method = "getStatus", at = @At("HEAD"), cancellable = true)
    private void forceNarratorOff(CallbackInfoReturnable<NarratorStatus> callback) {
