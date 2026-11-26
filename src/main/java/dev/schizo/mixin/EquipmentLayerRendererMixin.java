@@ -39,7 +39,7 @@ import org.spongepowered.asm.mixin.injection.invoke.arg.Args;
 public class EquipmentLayerRendererMixin {
    @Unique
    private static NoRenderModule noRenderModule() {
-      return MixinModuleRegistry.getModule(NoRenderModule.class);
+      return MixinModuleRegistry.gameNoRender;
    }
    @Unique
    private LayerType currentLayerType;

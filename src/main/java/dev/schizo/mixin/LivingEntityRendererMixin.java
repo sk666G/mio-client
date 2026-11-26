@@ -55,7 +55,7 @@ public abstract class LivingEntityRendererMixin implements ClientAccess {
       return MixinModuleRegistry.getModule(AnimationsModule.class);
    }
    private static NoRenderModule noRenderModule() {
-      return MixinModuleRegistry.getModule(NoRenderModule.class);
+      return MixinModuleRegistry.gameNoRender;
    }
 
    @WrapWithCondition(

@@ -55,10 +55,10 @@ public abstract class AvatarRendererMixin extends LivingEntityRenderer {
       return MixinModuleRegistry.getModule(AnimationsModule.class);
    }
    private static NoRenderModule noRenderModule() {
-      return MixinModuleRegistry.getModule(NoRenderModule.class);
+      return MixinModuleRegistry.gameNoRender;
    }
    private static ElytraFlyModule elytraFlyModule() {
-      return MixinModuleRegistry.getModule(ElytraFlyModule.class);
+      return MixinModuleRegistry.entityElytraFlyModule;
    }
    @Unique
    AbstractClientPlayer cachedScalingPlayer;

@@ -30,7 +30,7 @@ import org.spongepowered.asm.mixin.injection.At;
 @Mixin(EndCrystalModel.class)
 public class EndCrystalModelMixin {
    private static AutoCrystalModule autoCrystalModule() {
-      return MixinModuleRegistry.getModule(AutoCrystalModule.class);
+      return MixinModuleRegistry.minecraftAutoCrystalModule;
    }
    private static AnimationsModule animationsModule() {
       return MixinModuleRegistry.getModule(AnimationsModule.class);

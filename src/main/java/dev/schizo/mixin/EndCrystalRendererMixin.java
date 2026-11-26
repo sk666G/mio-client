@@ -42,10 +42,10 @@ import org.spongepowered.asm.mixin.injection.invoke.arg.Args;
 @Mixin(EndCrystalRenderer.class)
 public class EndCrystalRendererMixin {
    private static AutoCrystalModule autoCrystalModule() {
-      return MixinModuleRegistry.getModule(AutoCrystalModule.class);
+      return MixinModuleRegistry.minecraftAutoCrystalModule;
    }
    private static ChamsModule chamsModule() {
-      return MixinModuleRegistry.getModule(ChamsModule.class);
+      return MixinModuleRegistry.levelChams;
    }
    private static AnimationsModule animationsModule() {
       return MixinModuleRegistry.getModule(AnimationsModule.class);

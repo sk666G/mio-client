@@ -21,7 +21,7 @@ import org.spongepowered.asm.mixin.injection.At;
 @Mixin(HumanoidMobRenderer.class)
 public class HumanoidMobRendererMixin {
    private static NoRenderModule noRenderModule() {
-      return MixinModuleRegistry.getModule(NoRenderModule.class);
+      return MixinModuleRegistry.gameNoRender;
    }
 
    @ModifyReturnValue(method = "getEquipmentIfRenderable", at = @At("RETURN"))
