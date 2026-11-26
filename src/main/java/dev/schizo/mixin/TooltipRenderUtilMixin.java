@@ -24,7 +24,7 @@ import org.spongepowered.asm.mixin.injection.At;
 @Mixin(TooltipRenderUtil.class)
 public class TooltipRenderUtilMixin {
    private static TooltipsModule tooltipsModule() {
-      return MixinModuleRegistry.getModule(TooltipsModule.class);
+      return MixinModuleRegistry.bundleContentsTooltipsModule;
    }
 
    @WrapWithCondition(

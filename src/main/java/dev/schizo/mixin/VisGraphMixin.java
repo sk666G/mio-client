@@ -22,7 +22,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(VisGraph.class)
 public class VisGraphMixin {
    private static FreecamModule freecam() {
-      return MixinModuleRegistry.getModule(FreecamModule.class);
+      return MixinModuleRegistry.levelFreecam;
    }
 
    @Inject(method = "setOpaque", at = @At("HEAD"), cancellable = true)
