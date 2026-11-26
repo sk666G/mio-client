@@ -20,6 +20,7 @@ import dev.schizo.client.events.PacketEvent;
 import dev.schizo.client.events.ConnectScreenConnectEvent;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.LocalPlayerTickEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.events.bus.EventBus;
 import dev.schizo.client.managers.ModuleRegistry;
 import dev.schizo.client.modules.player.SpeedMineModule;
@@ -87,6 +88,15 @@ public final class BlockBreakTracker implements ClientAccess {
             action.run();
          }
       });
+   }
+
+   private void resetSessionState() {
+      this.sessionGeneration++;
+      this.entries.clear();
+   }
+
+   long sessionGeneration() {
+      return this.sessionGeneration;
    }
 
    public BlockBreakTracker() {
@@ -211,9 +221,13 @@ public final class BlockBreakTracker implements ClientAccess {
    }
 
    @EventHandler
-   private void onConnectScreenConnectEvent(ConnectScreenConnectEvent event) {
-      this.sessionGeneration++;
-      this.entries.clear();
+   void onConnectScreenConnectEvent(ConnectScreenConnectEvent event) {
+      this.resetSessionState();
+   }
+
+   @EventHandler
+   void onMinecraftDisconnectEvent(MinecraftDisconnectEvent event) {
+      this.resetSessionState();
    }
 
    @EventHandler
