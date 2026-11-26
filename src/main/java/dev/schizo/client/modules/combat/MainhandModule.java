@@ -87,8 +87,9 @@ public class MainhandModule extends Module implements LethalDamageTracker.Lethal
 
    @Override
    public void onEnable() {
+      this.clearTemporaryHotbarSelection();
       this.previousReplacementSlot = -1;
-      this.temporaryHotbarSelection = false;
+      this.tickReady = false;
    }
 
    @Override
