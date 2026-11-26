@@ -17,8 +17,11 @@ import java.io.IOException;
 public sealed interface PresetUndoAction {
    void undo() throws IOException;
 
-   static PresetUndoAction beforeLoad(String name) {
-      return new Load(name, PresetCategory.ALL.toJson());
+   static PresetUndoAction beforeLoad(PresetCategory category, String name) {
+      if (category == null) {
+         throw new IllegalArgumentException("Preset category is required");
+      }
+      return new Load(name, category, category.toJson());
    }
 
    static PresetUndoAction beforeSave(PresetRegistry registry, String name) {
@@ -34,10 +37,10 @@ public sealed interface PresetUndoAction {
       return new Rename(registry, oldName, newName, registry.getPreset(newName), registry.getPreset(oldName));
    }
 
-   record Load(String name, JsonElement snapshot) implements PresetUndoAction {
+   record Load(String name, PresetCategory category, JsonElement snapshot) implements PresetUndoAction {
       @Override
       public void undo() {
-         PresetCategory.ALL.fromJson(this.snapshot);
+         this.category.fromJson(this.snapshot);
       }
    }
 
