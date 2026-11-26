@@ -70,7 +70,7 @@ public class DepthOfFieldPipeline extends ShaderPipeline {
          capturedFocusUniforms.set("FocusDistance", focusDistance);
          ShaderUniforms capturedStrengthUniforms = this.uniforms;
 
-         Setting<Float> strengthOption = DepthOfFieldPipeline.ambience.strengthSetting;
+         Setting<Float> strengthOption = DepthOfFieldPipeline.ambience().strengthSetting;
          Float strengthValue = strengthOption.getValue();
          float rawStrength = strengthValue;
 

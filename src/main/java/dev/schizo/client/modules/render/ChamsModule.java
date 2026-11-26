@@ -764,7 +764,6 @@ public class ChamsModule extends Module {
       colorsModule = (ColorsModule)modules.getModule(
          ColorsModule.class
       );
-      ChamsColorProvider.bindModuleRegistry(modules);
    }
 
    public ChamsModule() {

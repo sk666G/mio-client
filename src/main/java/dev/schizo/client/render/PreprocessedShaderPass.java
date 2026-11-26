@@ -20,7 +20,7 @@ public abstract class PreprocessedShaderPass extends PostProcessShaderPass {
    protected static final PrePass DISTANCE_PASS = new PrePass("multi/distance.frag", "u_Distance", false);
    private final PrePass prePass;
 
-   private static ShaderModule shaderModule() {
+   protected static ShaderModule shaderModule() {
       return ClientContext.getModule(ShaderModule.class);
    }
 
