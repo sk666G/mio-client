@@ -20,7 +20,6 @@ import dev.schizo.client.events.MinecraftRunTickEvent;
 import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.render.RenderTargetUtils;
 import dev.schizo.client.render.GuiDrawUtils;
-import dev.schizo.client.utils.math.Vec3Utils;
 import dev.schizo.client.utils.combat.TotemPopTracker;
 import dev.schizo.client.managers.RotationManager;
 import dev.schizo.client.render.MeshBuffer;
@@ -692,13 +691,14 @@ public class NameTagsModule extends Module {
       GameRenderer gameRenderer = ClientAccess.schizoMinecraft.gameRenderer;
       Vec3 cameraPosition = gameRenderer.getMainCamera().position();
       int maximumRange = this.rangeSetting.getValue();
+      double maximumRangeSquared = (double)maximumRange * maximumRange;
       for (Entity entity : level.entitiesForRendering()) {
          if (!this.shouldRenderEntity(entity)) {
             continue;
          }
-         Vec3 entityPosition = entity.position();
-         float distance = Vec3Utils.horizontalDistance(cameraPosition, entityPosition);
-         if (distance > maximumRange) {
+         double deltaX = entity.getX() - cameraPosition.x;
+         double deltaZ = entity.getZ() - cameraPosition.z;
+         if (deltaX * deltaX + deltaZ * deltaZ > maximumRangeSquared) {
             continue;
          }
          AABB boundsSnapshot = entity.getBoundingBox();
@@ -706,9 +706,12 @@ public class NameTagsModule extends Module {
             this.visibleEntities.add(entity);
          }
       }
-      this.visibleEntities.sort(Comparator.comparingDouble(
-         sortedEntity -> -cameraPosition.distanceToSqr(sortedEntity.position())
-      ));
+      this.visibleEntities.sort(Comparator.comparingDouble(sortedEntity -> {
+         double deltaX = sortedEntity.getX() - cameraPosition.x;
+         double deltaY = sortedEntity.getY() - cameraPosition.y;
+         double deltaZ = sortedEntity.getZ() - cameraPosition.z;
+         return -(deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ);
+      }));
    }
    private static boolean isEntityRefreshDue(ElapsedTimer timer) {
       return timer.hasElapsedAndReset(50L);
