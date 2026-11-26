@@ -31,7 +31,7 @@ import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
@@ -48,7 +48,9 @@ import net.minecraft.world.phys.Vec3;
 public class TrailsModule extends Module {
    private static final int MAX_POINTS_PER_TRAIL = 8192;
    private static final int TRAIL_PRUNE_BATCH = 2048;
-   private final HashMap<Integer, List<TrailPoint>> trailsByEntityId = new HashMap<>();
+   private static final int MAX_TRAIL_OWNERS = 64;
+   private final LinkedHashMap<Integer, List<TrailPoint>> trailsByEntityId =
+      new LinkedHashMap<>(16, 0.75F, true);
    private final Setting<Boolean> renderSetting;
    private final Setting<Boolean> bloomSetting;
    private final Setting<Float> delaySetting;
@@ -138,9 +140,8 @@ public class TrailsModule extends Module {
 
                if (this.shouldTrackEntity(entity)) {
                   TrailsModule.TrailPoint point = new TrailsModule.TrailPoint(entity.getPosition(RenderUtils.getPartialTick()));
-                  HashMap<Integer, List<TrailPoint>> trailMap = this.trailsByEntityId;
                   int newEntityId = entity.getId();
-                  List<TrailPoint> entityTrail = trailMap.computeIfAbsent(newEntityId, entityId -> new ArrayList<>());
+                  List<TrailPoint> entityTrail = this.getOrCreateTrail(newEntityId);
                   if (!this.fadeSetting.getValue() && entityTrail.size() >= MAX_POINTS_PER_TRAIL) {
                      entityTrail.subList(0, TRAIL_PRUNE_BATCH).clear();
                   }
@@ -149,6 +150,25 @@ public class TrailsModule extends Module {
             }
          }
       }
+   }
+
+   private List<TrailPoint> getOrCreateTrail(int entityId) {
+      List<TrailPoint> existing = this.trailsByEntityId.get(entityId);
+      if (existing != null) {
+         return existing;
+      }
+
+      if (this.trailsByEntityId.size() >= MAX_TRAIL_OWNERS) {
+         var eldest = this.trailsByEntityId.entrySet().iterator();
+         if (eldest.hasNext()) {
+            eldest.next();
+            eldest.remove();
+         }
+      }
+
+      List<TrailPoint> created = new ArrayList<>();
+      this.trailsByEntityId.put(entityId, created);
+      return created;
    }
 
    private void renderTrail(PoseStack poseStack, List<TrailPoint> points, float lineWidth) {
