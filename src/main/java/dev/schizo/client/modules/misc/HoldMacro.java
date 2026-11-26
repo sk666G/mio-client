@@ -9,6 +9,7 @@
 
 package dev.schizo.client.modules.misc;
 
+import dev.schizo.client.ClientAccess;
 import dev.schizo.client.modules.Keybind;
 import dev.schizo.client.settings.options.MacroType;
 
@@ -27,7 +28,11 @@ public class HoldMacro extends Macro {
    public void setToggled(boolean toggled) {
       super.setToggled(toggled);
       if (!toggled) {
-         this.updatePressed(false);
+         try {
+            this.updatePressed(false);
+         } catch (RuntimeException releaseFailure) {
+            ClientAccess.logger.warn("Hold macro {} failed while releasing disabled state", this.getName(), releaseFailure);
+         }
       }
    }
 
