@@ -167,7 +167,7 @@ public final class MapDataCache implements ClientAccess {
          Path target = mapsDirectory.resolve(FontRenderer.sanitizeFileName(address) + ".data");
          FileUtils.writeBytesAtomically(target, CompressionUtils.deflate(snapshot, 2));
       } catch (IOException | RuntimeException failure) {
-         ClientAccess.logger.warn("Could not save map cache {}", target, failure);
+         ClientAccess.logger.warn("Could not save map cache for {}", address, failure);
       }
    }
 
