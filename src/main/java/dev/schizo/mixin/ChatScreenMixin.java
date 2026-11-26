@@ -51,12 +51,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(ChatScreen.class)
 public abstract class ChatScreenMixin extends Screen {
-   private static FontsModule fontsModule() {
-      return MixinModuleRegistry.getModule(FontsModule.class);
-   }
-   private static BetterChatModule betterChatModule() {
-      return MixinModuleRegistry.getModule(BetterChatModule.class);
-   }
    private static HUDModule hudModule() {
       return MixinModuleRegistry.gameHud;
    }
@@ -74,8 +68,8 @@ public abstract class ChatScreenMixin extends Screen {
 
    @Inject(method = "init()V", at = @At("HEAD"))
    private void resetChatLineAnimations(CallbackInfo callback) {
-      if (betterChatModule().alwaysSetting.getValue()
-         && betterChatModule().isAnimationEnabled()) {
+      if (MixinModuleRegistry.chatBetterChat.alwaysSetting.getValue()
+         && MixinModuleRegistry.chatBetterChat.isAnimationEnabled()) {
          for (Line line : Minecraft.getInstance().gui.getChat().trimmedMessages) {
             ((ChatLineAccess)(Object)line)
                .getProgress()
@@ -167,8 +161,8 @@ public abstract class ChatScreenMixin extends Screen {
    private Style findCustomFontClickedStyle(
       Style originalStyle, @Local(argsOnly = true) MouseButtonEvent mouseEvent
    ) {
-      if (fontsModule().isToggled()
-         && fontsModule().chatSetting.getValue()) {
+      if (MixinModuleRegistry.clientFonts.isToggled()
+         && MixinModuleRegistry.clientFonts.chatSetting.getValue()) {
          int screenHeight = this.minecraft.getWindow().getGuiScaledHeight();
          FontActiveTextCollector.ClickableStyleFinder styleFinder = new FontActiveTextCollector.ClickableStyleFinder(mouseEvent.x(), mouseEvent.y(), this.insertionClickMode());
          this.minecraft.gui.getChat().captureClickableText(styleFinder, screenHeight, this.minecraft.gui.getGuiTicks(), true);

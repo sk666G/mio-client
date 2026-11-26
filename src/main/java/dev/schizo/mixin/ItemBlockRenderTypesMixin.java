@@ -29,9 +29,6 @@ public class ItemBlockRenderTypesMixin {
    private static NoRenderModule noRenderModule() {
       return MixinModuleRegistry.gameNoRender;
    }
-   private static XrayModule xrayModule() {
-      return MixinModuleRegistry.getModule(XrayModule.class);
-   }
 
    @Inject(method = "getRenderType", at = @At("HEAD"), cancellable = true)
    private static void applyTranslucentHandRenderType(
@@ -49,12 +46,12 @@ public class ItemBlockRenderTypesMixin {
    private static void applyXrayTranslucentChunkLayer(
       BlockState blockState, CallbackInfoReturnable<ChunkSectionLayer> callback
    ) {
-      if (xrayModule().isToggled()
-         && !xrayModule().alphaSetting
+      if (MixinModuleRegistry.renderXray.isToggled()
+         && !MixinModuleRegistry.renderXray.alphaSetting
             .isAtMinimum()
-         && !xrayModule().alphaSetting
+         && !MixinModuleRegistry.renderXray.alphaSetting
             .isAtMaximum()
-         && !xrayModule().shouldRenderBlock(
+         && !MixinModuleRegistry.renderXray.shouldRenderBlock(
             BlockPos.ZERO,
             blockState.getBlock()
          )) {

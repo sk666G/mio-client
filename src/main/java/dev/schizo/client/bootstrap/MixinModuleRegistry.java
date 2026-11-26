@@ -12,6 +12,7 @@ package dev.schizo.client.bootstrap;
 import dev.schizo.client.managers.ModuleRegistry;
 import dev.schizo.client.modules.Module;
 import dev.schizo.client.modules.client.DiscordModule;
+import dev.schizo.client.modules.client.FontsModule;
 import dev.schizo.client.modules.client.CapesModule;
 import dev.schizo.client.modules.client.UIModule;
 import dev.schizo.client.modules.client.HUDModule;
@@ -25,11 +26,13 @@ import dev.schizo.client.modules.exploit.PingSpoofModule;
 import dev.schizo.client.modules.exploit.ReachModule;
 import dev.schizo.client.modules.exploit.TridentModule;
 import dev.schizo.client.modules.misc.AntiQuitModule;
+import dev.schizo.client.modules.misc.BetterChatModule;
 import dev.schizo.client.modules.misc.ExtraTabModule;
 import dev.schizo.client.modules.misc.NoNarratorModule;
 import dev.schizo.client.modules.misc.NoPacketKickModule;
 import dev.schizo.client.modules.misc.SwingModule;
 import dev.schizo.client.modules.movement.ElytraFlyModule;
+import dev.schizo.client.modules.movement.FireworksModule;
 import dev.schizo.client.modules.movement.EntityControlModule;
 import dev.schizo.client.modules.movement.FastClimbModule;
 import dev.schizo.client.modules.movement.FastWebModule;
@@ -44,10 +47,12 @@ import dev.schizo.client.modules.player.FreecamModule;
 import dev.schizo.client.modules.player.ScaffoldModule;
 import dev.schizo.client.modules.player.NameProtectModule;
 import dev.schizo.client.modules.render.AmbienceModule;
+import dev.schizo.client.modules.render.AnimationsModule;
 import dev.schizo.client.modules.render.BlurModule;
 import dev.schizo.client.modules.render.CrosshairModule;
 import dev.schizo.client.modules.render.NameTagsModule;
 import dev.schizo.client.modules.render.ChamsModule;
+import dev.schizo.client.modules.render.ESPModule;
 import dev.schizo.client.modules.render.FreeLookModule;
 import dev.schizo.client.modules.render.GlintModule;
 import dev.schizo.client.modules.render.NoRenderModule;
@@ -56,6 +61,7 @@ import dev.schizo.client.modules.render.SkyboxModule;
 import dev.schizo.client.modules.render.ViewClipModule;
 import dev.schizo.client.modules.render.ShaderModule;
 import dev.schizo.client.modules.render.ViewModelModule;
+import dev.schizo.client.modules.render.XrayModule;
 import dev.schizo.client.modules.render.ZoomModule;
 import dev.schizo.client.modules.render.NoBobModule;
 import java.util.Objects;
@@ -152,6 +158,12 @@ public final class MixinModuleRegistry {
    public static volatile NameProtectModule abstractClientPlayerNameProtect;
    public static volatile CapesModule abstractClientPlayerCapes;
    public static volatile BlurModule screenBlur;
+   public static volatile AnimationsModule renderAnimations;
+   public static volatile ESPModule renderEsp;
+   public static volatile XrayModule renderXray;
+   public static volatile BetterChatModule chatBetterChat;
+   public static volatile FontsModule clientFonts;
+   public static volatile FireworksModule entityFireworks;
 
    public static void bind(ModuleRegistry registry) {
       Objects.requireNonNull(registry, "Module registry is not initialized");
@@ -227,6 +239,12 @@ public final class MixinModuleRegistry {
       abstractClientPlayerNameProtect = (NameProtectModule)Objects.requireNonNull(registry.getModule(NameProtectModule.class), "Required module is not registered: NameProtectModule");
       abstractClientPlayerCapes = (CapesModule)Objects.requireNonNull(registry.getModule(CapesModule.class), "Required module is not registered: CapesModule");
       screenBlur = (BlurModule)Objects.requireNonNull(registry.getModule(BlurModule.class), "Required module is not registered: BlurModule");
+      renderAnimations = (AnimationsModule)Objects.requireNonNull(registry.getModule(AnimationsModule.class), "Required module is not registered: AnimationsModule");
+      renderEsp = (ESPModule)Objects.requireNonNull(registry.getModule(ESPModule.class), "Required module is not registered: ESPModule");
+      renderXray = (XrayModule)Objects.requireNonNull(registry.getModule(XrayModule.class), "Required module is not registered: XrayModule");
+      chatBetterChat = (BetterChatModule)Objects.requireNonNull(registry.getModule(BetterChatModule.class), "Required module is not registered: BetterChatModule");
+      clientFonts = (FontsModule)Objects.requireNonNull(registry.getModule(FontsModule.class), "Required module is not registered: FontsModule");
+      entityFireworks = (FireworksModule)Objects.requireNonNull(registry.getModule(FireworksModule.class), "Required module is not registered: FireworksModule");
       moduleRegistry = registry;
    }
 }

@@ -32,9 +32,6 @@ public class EndCrystalModelMixin {
    private static AutoCrystalModule autoCrystalModule() {
       return MixinModuleRegistry.minecraftAutoCrystalModule;
    }
-   private static AnimationsModule animationsModule() {
-      return MixinModuleRegistry.getModule(AnimationsModule.class);
-   }
    @Shadow
    @Final
    public ModelPart base;
@@ -68,13 +65,13 @@ public class EndCrystalModelMixin {
          speedMultiplier *= 1.5F;
       }
 
-      if (animationsModule().isToggled()
-         && animationsModule().crystalsSetting.getValue()) {
-         speedMultiplier *= animationsModule().rotationSpeedSetting.getValue();
-         this.base.skipDraw = animationsModule().shouldHideCrystalPart(0);
-         this.outerGlass.skipDraw = animationsModule().shouldHideCrystalPart(1);
-         this.innerGlass.skipDraw = animationsModule().shouldHideCrystalPart(2);
-         this.cube.skipDraw = animationsModule().shouldHideCrystalPart(3);
+      if (MixinModuleRegistry.renderAnimations.isToggled()
+         && MixinModuleRegistry.renderAnimations.crystalsSetting.getValue()) {
+         speedMultiplier *= MixinModuleRegistry.renderAnimations.rotationSpeedSetting.getValue();
+         this.base.skipDraw = MixinModuleRegistry.renderAnimations.shouldHideCrystalPart(0);
+         this.outerGlass.skipDraw = MixinModuleRegistry.renderAnimations.shouldHideCrystalPart(1);
+         this.innerGlass.skipDraw = MixinModuleRegistry.renderAnimations.shouldHideCrystalPart(2);
+         this.cube.skipDraw = MixinModuleRegistry.renderAnimations.shouldHideCrystalPart(3);
       }
       return speedMultiplier;
    }
