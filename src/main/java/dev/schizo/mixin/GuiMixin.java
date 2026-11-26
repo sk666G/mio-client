@@ -38,12 +38,6 @@ import org.spongepowered.asm.mixin.injection.invoke.arg.Args;
 
 @Mixin(Gui.class)
 public class GuiMixin {
-   private static ExtraTabModule extraTabModule() {
-      return MixinModuleRegistry.getModule(ExtraTabModule.class);
-   }
-   private static CrosshairModule crosshair() {
-      return MixinModuleRegistry.getModule(CrosshairModule.class);
-   }
    @Shadow
    @Final
    private PlayerTabOverlay tabList;
@@ -80,15 +74,15 @@ public class GuiMixin {
 
    @Inject(method = "renderCrosshair", at = @At("HEAD"), cancellable = true)
    private void cancelVanillaCrosshair(GuiGraphics graphics, DeltaTracker deltaTracker, CallbackInfo callback) {
-      if (!crosshair().isToggled()) {
+      if (!MixinModuleRegistry.guiCrosshair.isToggled()) {
          return;
       }
-      if (crosshair().shouldHideVanillaCrosshair()) {
+      if (MixinModuleRegistry.guiCrosshair.shouldHideVanillaCrosshair()) {
          callback.cancel();
          return;
       }
       float guiScale = this.minecraft.getWindow().getGuiScale();
-      int pixelScale = Math.max(1, Math.round(guiScale * crosshair().scaleSetting.getValue() / 2.0F));
+      int pixelScale = Math.max(1, Math.round(guiScale * MixinModuleRegistry.guiCrosshair.scaleSetting.getValue() / 2.0F));
       float scale = pixelScale / guiScale;
       int left = (graphics.guiWidth() - 15) / 2;
       int top = (graphics.guiHeight() - 15) / 2;
@@ -103,14 +97,14 @@ public class GuiMixin {
 
    @Inject(method = "renderCrosshair", at = @At("RETURN"))
    private void restoreCrosshairPose(GuiGraphics graphics, DeltaTracker deltaTracker, CallbackInfo callback) {
-      if (crosshair().isToggled() && !crosshair().shouldHideVanillaCrosshair()) {
+      if (MixinModuleRegistry.guiCrosshair.isToggled() && !MixinModuleRegistry.guiCrosshair.shouldHideVanillaCrosshair()) {
          graphics.pose().popMatrix();
       }
    }
 
    @ModifyExpressionValue(method = "renderCrosshair", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/CameraType;isFirstPerson()Z"))
    private boolean showVanillaCrosshairInThirdPerson(boolean firstPerson) {
-      return firstPerson || crosshair().isToggled() && !crosshair().shouldHideVanillaCrosshair() && crosshair().thirdPersonSetting.getValue();
+      return firstPerson || MixinModuleRegistry.guiCrosshair.isToggled() && !MixinModuleRegistry.guiCrosshair.shouldHideVanillaCrosshair() && MixinModuleRegistry.guiCrosshair.thirdPersonSetting.getValue();
    }
 
    @ModifyExpressionValue(method = "renderCrosshair", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/OptionInstance;get()Ljava/lang/Object;"))
@@ -159,13 +153,13 @@ public class GuiMixin {
    private void renderSmoothTabList(
       GuiGraphics graphics, DeltaTracker deltaTracker, CallbackInfo callback
    ) {
-      if (extraTabModule().isToggled()
-         && extraTabModule().smoothSetting.getValue()) {
+      if (MixinModuleRegistry.guiExtraTab.isToggled()
+         && MixinModuleRegistry.guiExtraTab.smoothSetting.getValue()) {
          callback.cancel();
          Scoreboard scoreboard = this.minecraft.level.getScoreboard();
          Objective objective = scoreboard.getDisplayObjective(DisplaySlot.LIST);
          Matrix3x2fStack poses = graphics.pose();
-         float openProgress = extraTabModule().getOpenProgress();
+         float openProgress = MixinModuleRegistry.guiExtraTab.getOpenProgress();
          if (openProgress != 0.0F) {
             poses.pushMatrix();
             poses.translate(0.0F, (1.0F - openProgress) * -graphics.guiHeight());
