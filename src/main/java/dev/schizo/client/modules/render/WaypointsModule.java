@@ -152,9 +152,11 @@ public class WaypointsModule extends Module {
       }
 
       float maximumDistance = this.distanceSetting.getValue();
-      if (!this.distanceSetting.isAtMaximum()
-         && waypointPosition.distanceTo(cameraPosition) > maximumDistance * DISTANCE_UNITS_PER_KILOMETER) {
-         return;
+      if (!this.distanceSetting.isAtMaximum()) {
+         double maximumBlocks = maximumDistance * DISTANCE_UNITS_PER_KILOMETER;
+         if (waypointPosition.distanceToSqr(cameraPosition) > maximumBlocks * maximumBlocks) {
+            return;
+         }
       }
 
       Vec3 renderPosition = this.getRenderPosition(cameraPosition, waypointPosition);
@@ -215,8 +217,12 @@ public class WaypointsModule extends Module {
 
    private static AABB around(Vec3 position, double halfSize) {
       return new AABB(
-         position.add(-halfSize, -halfSize, -halfSize),
-         position.add(halfSize, halfSize, halfSize)
+         position.x - halfSize,
+         position.y - halfSize,
+         position.z - halfSize,
+         position.x + halfSize,
+         position.y + halfSize,
+         position.z + halfSize
       );
    }
 
