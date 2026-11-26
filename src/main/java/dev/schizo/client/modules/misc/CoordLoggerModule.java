@@ -124,7 +124,7 @@ public class CoordLoggerModule extends Module {
 
       StringBuilder entry = new StringBuilder().append(coordinates).append(" | ").append(reason);
       KeyboardHandler keyboard = ClientAccess.schizoMinecraft.keyboardHandler;
-      keyboard.setClipboard(entry.toString());
+      if (!dev.schizo.client.utils.CoordinatePrivacy.isEnabled()) keyboard.setClipboard(entry.toString());
 
       if (this.fileSetting.getValue()) {
          String timestamp = LocalDateTime.now().format(timestampFormatter);

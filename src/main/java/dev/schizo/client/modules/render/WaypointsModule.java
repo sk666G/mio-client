@@ -261,6 +261,7 @@ public class WaypointsModule extends Module {
       COORDS("Coords") {
          @Override
          public String formatInfo(Vec3 position) {
+            if (dev.schizo.client.utils.CoordinatePrivacy.isEnabled()) return "Coordinates hidden";
             Locale locale = Locale.US;
             return String.format(locale, "X: %.1f, Y: %.1f, Z: %.1f", position.x(), position.y(), position.z());
          }

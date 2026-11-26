@@ -154,7 +154,7 @@ public final class ExpeditionScreen extends Screen {
       for (DiscoveryEntry entry : entries) {
          if (!entry.matches(this.query, this.server(), this.localOnly)) continue;
          String observed = entry.lastSeen() == 0 ? "" : " | last " + java.time.Instant.ofEpochMilli(entry.lastSeen());
-         String location = this.showCoordinates ? entry.coordinates() : "Coordinates hidden";
+         String location = this.showCoordinates && !dev.schizo.client.utils.CoordinatePrivacy.isEnabled() ? entry.coordinates() : "Coordinates hidden";
          rows.add(new Row(entry.kind() + " - " + entry.name(), location + " | " + entry.server() + " | " + entry.dimension() + observed, entry));
       }
    }
@@ -206,11 +206,15 @@ public final class ExpeditionScreen extends Screen {
 
    private void copySelected() {
       if (this.selected < 0 || this.selected >= this.rows.size()) return;
+      if (dev.schizo.client.utils.CoordinatePrivacy.isEnabled()) {
+         this.message = "Disable CoordinatePrivacy before exporting data.";
+         return;
+      }
       Row row = this.rows.get(this.selected);
       String text = row.discovery() == null ? row.title() + "\n" + row.detail()
          : dev.schizo.client.ClientAccess.gson.toJson(row.discovery());
       this.minecraft.setScreen(new ConfirmScreen(confirmed -> {
-         if (confirmed) this.minecraft.keyboardHandler.setClipboard(text);
+         if (confirmed && !dev.schizo.client.utils.CoordinatePrivacy.isEnabled()) this.minecraft.keyboardHandler.setClipboard(text);
          this.minecraft.setScreen(this);
       }, Component.literal("Copy selected data?"), Component.literal("Discovery exports include exact coordinates and server identity.")));
    }

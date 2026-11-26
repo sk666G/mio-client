@@ -275,7 +275,7 @@ public class StashFinderModule extends Module {
             MutableComponent notification = moduleNameComponent.append(foundDescription);
             Setting<Boolean> censorCoordsOption = this.censorCoordsSetting;
             Boolean censorCoordinates = censorCoordsOption.getValue();
-            if (!censorCoordinates) {
+            if (!censorCoordinates && !dev.schizo.client.utils.CoordinatePrivacy.isEnabled()) {
 
                Object[] highlightFormatArguments = new Object[(3)];
 
