@@ -141,6 +141,30 @@ public final class WaypointRegistry extends AbstractRegistry<Waypoint> implement
       return this.getRegistry().add(waypoint);
    }
 
+   /** Discovery descriptions are labels, so identical labels must not discard distinct locations. */
+   public Waypoint registerDiscoveryWaypoint(Waypoint requested) {
+      if (requested == null || requested.getName() == null || requested.getName().isBlank()
+         || requested.getServer() == null || requested.getDimension() == null
+         || !Double.isFinite(requested.getX()) || !Double.isFinite(requested.getY())
+         || !Double.isFinite(requested.getZ())) return null;
+      java.util.Set<String> names = new java.util.HashSet<>();
+      for (Waypoint existing : this.entries) {
+         if (!requested.getServer().equalsIgnoreCase(existing.getServer())) continue;
+         if (existing.getName() != null) names.add(existing.getName().toLowerCase(java.util.Locale.ROOT));
+         if (existing.getDimension() != null && dev.schizo.client.utils.world.DimensionCoordinates.canonical(requested.getDimension())
+               .equals(dev.schizo.client.utils.world.DimensionCoordinates.canonical(existing.getDimension()))
+            && requested.getX() == existing.getX() && requested.getY() == existing.getY()
+            && requested.getZ() == existing.getZ()) return existing;
+      }
+      String name = requested.getName();
+      for (int suffix = 2; names.contains(name.toLowerCase(java.util.Locale.ROOT)); suffix++) {
+         name = requested.getName() + " (" + suffix + ")";
+      }
+      Waypoint result = new Waypoint(name, requested.getX(), requested.getY(), requested.getZ(),
+         requested.getDimension(), requested.getServer());
+      return this.registerWaypoint(result) ? result : null;
+   }
+
    public boolean unregisterWaypoint(Waypoint waypoint) {
       return waypoint != null && this.entries.removeIf(candidate -> hasSameIdentity(candidate, waypoint));
    }

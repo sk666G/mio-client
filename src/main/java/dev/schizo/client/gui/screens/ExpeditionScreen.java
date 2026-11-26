@@ -251,10 +251,11 @@ public final class ExpeditionScreen extends Screen {
          return;
       }
       double y = entry.y() == null ? player.getY() : entry.y();
-      boolean added = ClientContext.waypointRegistry.registerWaypoint(new Waypoint(
+      Waypoint waypoint = ClientContext.waypointRegistry.registerDiscoveryWaypoint(new Waypoint(
          entry.name(), entry.x(), y, entry.z(), WorldUtils.getDimension().getName(), entry.server()));
       this.destination = entry;
-      this.message = added ? "Waypoint added. Stashes use your current altitude." : "Waypoint already exists. Travel destination selected.";
+      this.message = waypoint == null ? "Waypoint could not be added." : "Waypoint selected: " + waypoint.getName()
+         + (entry.y() == null ? ". Stashes use your current altitude." : "");
       this.selected = -1;
       this.refresh();
    }
