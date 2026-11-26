@@ -39,10 +39,10 @@ import org.spongepowered.asm.mixin.injection.invoke.arg.Args;
 @Mixin(SkyRenderer.class)
 public class SkyRendererMixin {
    private static SkyboxModule skyboxModule() {
-      return MixinModuleRegistry.getModule(SkyboxModule.class);
+      return MixinModuleRegistry.levelSkybox;
    }
    private static NoRenderModule noRenderModule() {
-      return MixinModuleRegistry.getModule(NoRenderModule.class);
+      return MixinModuleRegistry.gameNoRender;
    }
    @Unique
    private static boolean hook = false;

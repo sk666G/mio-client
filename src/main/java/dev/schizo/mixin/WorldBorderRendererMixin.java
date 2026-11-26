@@ -22,7 +22,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(WorldBorderRenderer.class)
 public class WorldBorderRendererMixin {
    private static NoRenderModule noRenderModule() {
-      return MixinModuleRegistry.getModule(NoRenderModule.class);
+      return MixinModuleRegistry.gameNoRender;
    }
 
    @Inject(method = "render", at = @At("HEAD"), cancellable = true)

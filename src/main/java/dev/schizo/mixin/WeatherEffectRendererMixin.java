@@ -22,7 +22,7 @@ import org.spongepowered.asm.mixin.injection.At;
 @Mixin(WeatherEffectRenderer.class)
 public class WeatherEffectRendererMixin implements ClientAccess {
    private static AmbienceModule ambienceModule() {
-      return MixinModuleRegistry.getModule(AmbienceModule.class);
+      return MixinModuleRegistry.levelAmbience;
    }
 
    @ModifyExpressionValue(method = "renderInstances", at = @At(value = "INVOKE", target = "Lnet/minecraft/util/ARGB;white(F)I"))

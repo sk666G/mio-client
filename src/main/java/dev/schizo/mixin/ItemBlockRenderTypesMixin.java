@@ -27,7 +27,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(ItemBlockRenderTypes.class)
 public class ItemBlockRenderTypesMixin {
    private static NoRenderModule noRenderModule() {
-      return MixinModuleRegistry.getModule(NoRenderModule.class);
+      return MixinModuleRegistry.gameNoRender;
    }
    private static XrayModule xrayModule() {
       return MixinModuleRegistry.getModule(XrayModule.class);

@@ -33,7 +33,7 @@ public class ModelBlockRendererMixin {
       return MixinModuleRegistry.getModule(XrayModule.class);
    }
    private static NoRenderModule noRenderModule() {
-      return MixinModuleRegistry.getModule(NoRenderModule.class);
+      return MixinModuleRegistry.gameNoRender;
    }
 
    @Inject(method = {"tesselateWithAO", "tesselateWithoutAO"}, at = @At("HEAD"), cancellable = true)
