@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 
 class ModuleDependencyBindingSourceTest {
    private static final Pattern MODULE_REGISTRY_BINDER = Pattern.compile(
-      "(?s)\\bstatic\\s+void\\s+\\w+\\s*\\([^)]*\\bModuleRegistry\\b[^)]]*\\)"
+      "(?s)\\bstatic\\s+void\\s+\\w+\\s*\\([^)]*\\bModuleRegistry\\b[^)]*\\)"
    );
 
    @Test
