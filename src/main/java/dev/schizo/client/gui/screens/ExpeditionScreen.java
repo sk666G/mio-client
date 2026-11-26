@@ -34,7 +34,7 @@ public final class ExpeditionScreen extends Screen {
    private String query = "";
    private int tab, offset, selected = -1;
    private int left, panelWidth, visibleRows;
-   private int rowsTop, rowsBottom, statusY;
+   private int rowsTop, rowsBottom, statusY, titleY;
    private boolean localOnly = true;
    private boolean showCoordinates;
    private boolean privacyAtRefresh;
@@ -56,6 +56,7 @@ public final class ExpeditionScreen extends Screen {
       this.rowsTop = layout.rowsTop();
       this.rowsBottom = layout.rowsBottom();
       this.statusY = layout.statusY();
+      this.titleY = layout.titleY();
 
       this.search = new EditBox(this.font, this.left, layout.searchY(), this.panelWidth, 18, Component.literal("Filter"));
       this.search.setMaxLength(128);
@@ -321,8 +322,7 @@ public final class ExpeditionScreen extends Screen {
    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
       if (this.privacyAtRefresh != dev.schizo.client.utils.CoordinatePrivacy.isEnabled()) this.refresh();
       graphics.fill(0, 0, this.width, this.height, 0xee080c12);
-      ExpeditionLayout layout = ExpeditionLayout.forViewportHeight(this.height);
-      graphics.drawString(this.font, this.fit("Schizo Expedition / " + TABS[this.tab], this.panelWidth), this.left, layout.titleY(), 0xffa4d5ff);
+      graphics.drawString(this.font, this.fit("Schizo Expedition / " + TABS[this.tab], this.panelWidth), this.left, this.titleY, 0xffa4d5ff);
       int visible = Math.min(this.visibleRows, this.rows.size() - this.offset);
       for (int i = 0; i < visible; i++) {
          int index = this.offset + i, y = this.rowsTop + i * 34;
