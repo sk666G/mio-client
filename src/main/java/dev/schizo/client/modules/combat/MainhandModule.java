@@ -71,6 +71,7 @@ public class MainhandModule extends Module implements LethalDamageTracker.Lethal
    private final ElapsedTimer interactionCooldownTimer;
    private boolean tickReady;
    private int previousReplacementSlot;
+   private final dev.schizo.client.utils.inventory.TemporaryHotbarSelection selectionOwner = new dev.schizo.client.utils.inventory.TemporaryHotbarSelection();
    private boolean temporaryHotbarSelection;
    private int previousSelectedHotbarSlot;
    private int temporarySelectedHotbarSlot = -1;
@@ -106,17 +107,14 @@ public class MainhandModule extends Module implements LethalDamageTracker.Lethal
 
    private void restoreTemporaryHotbarSelection(boolean restoreSlot) {
       try {
-         if (restoreSlot && this.temporaryHotbarSelection && !this.isWorldUnavailable()
-            && this.previousSelectedHotbarSlot >= 0
-            && InventoryUtils.getSelectedSlot() == this.temporarySelectedHotbarSlot) {
-            InventoryUtils.selectHotbarSlot(this.previousSelectedHotbarSlot);
-         }
+         this.selectionOwner.restore(restoreSlot);
       } finally {
          this.clearTemporaryHotbarSelection();
       }
    }
 
    private void clearTemporaryHotbarSelection() {
+      this.selectionOwner.clear();
       this.temporaryHotbarSelection = false;
       this.previousSelectedHotbarSlot = -1;
       this.temporarySelectedHotbarSlot = -1;
@@ -257,7 +255,7 @@ public class MainhandModule extends Module implements LethalDamageTracker.Lethal
             this.previousSelectedHotbarSlot = previousSlot;
             this.temporarySelectedHotbarSlot = gappleSlot;
             this.temporaryHotbarSelection = true;
-            InventoryUtils.selectHotbarSlotForPlacement(gappleSlot);
+            this.selectionOwner.select(gappleSlot);
             return;
          }
       }
