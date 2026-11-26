@@ -54,7 +54,7 @@ public final class HudLayoutCommand extends Command {
             .executes(context -> renameLayout(context)))));
       root.executes(context -> {
          ChatUtils.printChat(
-            Component.literal("HUD layouts: list, save <name>, load <name>, rename <old> <new>, delete <name>."),
+            Component.literal("HUD layouts: list, save <name>, preview <name>, load <name>, rename <old> <new>, delete <name>."),
             ChatUtils.DEFAULT_SIGNATURE
          );
          return 1;

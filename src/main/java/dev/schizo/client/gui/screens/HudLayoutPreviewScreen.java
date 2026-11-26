@@ -10,6 +10,7 @@ import net.minecraft.network.chat.Component;
 public final class HudLayoutPreviewScreen extends Screen {
    private final JsonObject layout;
    private HudEditorScreen.LayoutPreview preview;
+   private boolean attempted;
    private String status = "Preview HUD layout";
 
    public HudLayoutPreviewScreen(JsonObject layout) {
@@ -19,13 +20,21 @@ public final class HudLayoutPreviewScreen extends Screen {
 
    @Override
    protected void init() {
-      if (this.preview == null) this.preview = ClientContext.getHudEditor().beginLayoutPreview(this.layout);
+      if (!this.attempted) {
+         this.attempted = true;
+         try {
+            this.preview = ClientContext.getHudEditor().beginLayoutPreview(this.layout);
+         } catch (IllegalArgumentException invalidLayout) {
+            this.status = "Invalid HUD layout; previous layout retained.";
+         }
+      }
       int width = Math.max(1, Math.min(100, (this.width - 24) / 2));
-      this.addRenderableWidget(Button.builder(Component.literal("Keep layout"), button -> {
+      Button keep = this.addRenderableWidget(Button.builder(Component.literal("Keep layout"), button -> {
          boolean committed = this.preview.commit();
          if (committed) this.minecraft.setScreen(null);
          else this.status = "Another layout replaced this preview. Close to continue.";
       }).bounds(this.width / 2 - width - 2, 30, width, 20).build());
+      keep.active = this.preview != null;
       this.addRenderableWidget(Button.builder(Component.literal("Cancel"), button -> this.onClose())
          .bounds(this.width / 2 + 2, 30, width, 20).build());
    }
@@ -37,6 +46,11 @@ public final class HudLayoutPreviewScreen extends Screen {
       } finally {
          super.removed();
       }
+   }
+
+   @Override
+   public void renderBackground(GuiGraphics graphics, int x, int y, float partialTick) {
+      // A layout preview needs the actual HUD to remain visible, without the menu blur.
    }
 
    @Override

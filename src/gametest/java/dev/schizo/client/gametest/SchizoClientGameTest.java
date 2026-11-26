@@ -121,7 +121,14 @@ public final class SchizoClientGameTest implements FabricClientGameTest {
          context.runOnClient(minecraft -> {
             var layout = ClientContext.getHudEditor().exportLayoutPreset();
             layoutBefore.set(layout.deepCopy());
+            var widgets = layout.getAsJsonArray("widgets");
+            if (widgets.isEmpty()) throw new IllegalStateException("No widgets available for preview regression");
+            var widget = widgets.get(0).getAsJsonObject();
+            widget.addProperty("scale", widget.get("scale").getAsFloat() < 1.5F ? 1.5F : 0.75F);
             minecraft.setScreen(new HudLayoutPreviewScreen(layout));
+            if (layoutBefore.get().equals(ClientContext.getHudEditor().exportLayoutPreset())) {
+               throw new IllegalStateException("A changed layout preview was not applied");
+            }
          });
          context.waitForScreen(HudLayoutPreviewScreen.class);
          context.waitTicks(2);
@@ -132,7 +139,18 @@ public final class SchizoClientGameTest implements FabricClientGameTest {
             if (!layoutBefore.get().equals(ClientContext.getHudEditor().exportLayoutPreset())) {
                throw new IllegalStateException("Cancelling a layout preview changed the original layout");
             }
+            minecraft.setScreen(new HudLayoutPreviewScreen(new com.google.gson.JsonObject()));
+            if (!layoutBefore.get().equals(ClientContext.getHudEditor().exportLayoutPreset())) {
+               throw new IllegalStateException("Malformed preview changed the original layout");
+            }
+            for (var child : minecraft.screen.children()) {
+               if (child instanceof Button button && button.getMessage().getString().equals("Keep layout") && button.active) {
+                  throw new IllegalStateException("Malformed preview can be committed");
+               }
+            }
          });
+         context.setScreen(() -> null);
+         context.waitForScreen(null);
 
          long failuresAfter = EventFailureTracker.GLOBAL.totalFailures();
          if (failuresAfter != failuresBefore) {
