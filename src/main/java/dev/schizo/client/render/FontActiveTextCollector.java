@@ -9,7 +9,7 @@
 
 package dev.schizo.client.render;
 
-import dev.schizo.client.managers.ModuleRegistry;
+import dev.schizo.client.ClientContext;
 import dev.schizo.client.modules.client.FontsModule;
 
 import dev.schizo.mixin.GuiGraphicsAccessor;
@@ -27,7 +27,6 @@ import org.joml.Matrix3x2f;
 import org.joml.Vector2f;
 
 public class FontActiveTextCollector implements Consumer<Style>, ActiveTextCollector {
-   private static FontsModule fontsModule;
    public static boolean customChatTextEnabled;
    private Parameters parameters;
    private final GuiGraphicsAccessor graphicsAccessor;
@@ -54,7 +53,7 @@ public class FontActiveTextCollector implements Consumer<Style>, ActiveTextColle
 
       if (ARGB.as8BitChannel(parameters.opacity()) != 0) {
          int color = ARGB.color(parameters.opacity(), -1);
-         fontsModule.enqueueText(
+         fontsModule().enqueueText(
             parameters.pose(), text, left, y, color, true
          );
       }
@@ -86,8 +85,8 @@ public class FontActiveTextCollector implements Consumer<Style>, ActiveTextColle
       this.styleConsumer = styleConsumer;
    }
 
-   public static void bindModules(ModuleRegistry registry) {
-      fontsModule = (FontsModule)registry.getModule(FontsModule.class);
+   private static FontsModule fontsModule() {
+      return ClientContext.getModule(FontsModule.class);
    }
 
    static void visitHoveredStyle(

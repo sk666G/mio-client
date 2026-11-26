@@ -13,7 +13,6 @@ import dev.schizo.client.managers.SocialRegistry;
 
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
-import dev.schizo.client.managers.ModuleRegistry;
 import dev.schizo.client.modules.client.ColorsModule;
 import dev.schizo.client.modules.render.ChamsModule;
 import dev.schizo.client.settings.Setting;
@@ -66,7 +65,7 @@ public interface ChamsColorProvider extends ClientAccess {
          Player friendPlayer = socialPlayer;
          SocialRegistry friendRegistry = ClientContext.socialRegistry;
          if (friendRegistry.isFriendPlayer(friendPlayer)) {
-            Setting<Color> friendColorSetting = ColorsBinding.module.friendColorSetting;
+            Setting<Color> friendColorSetting = ColorsBinding.module().friendColorSetting;
             Color friendColor = friendColorSetting.getValue();
             this.applyColorOverride(colors, friendColor);
          }
@@ -74,7 +73,7 @@ public interface ChamsColorProvider extends ClientAccess {
          SocialRegistry enemyRegistrySnapshot = ClientContext.socialRegistry;
          Player enemyPlayer = socialPlayer;
          if (enemyRegistrySnapshot.isEnemyPlayer(enemyPlayer)) {
-            Setting<Color> enemyColorSetting = ColorsBinding.module.enemyColorSetting;
+            Setting<Color> enemyColorSetting = ColorsBinding.module().enemyColorSetting;
             Color enemyColor = enemyColorSetting.getValue();
             this.applyColorOverride(colors, enemyColor);
          }
@@ -104,14 +103,12 @@ public interface ChamsColorProvider extends ClientAccess {
       return false;
    }
 
-   public static void bindModuleRegistry(ModuleRegistry registry) {
-      ColorsBinding.module = (ColorsModule)registry.getModule(ColorsModule.class);
-   }
-
    final class ColorsBinding {
-      private static ColorsModule module;
-
       private ColorsBinding() {
+      }
+
+      private static ColorsModule module() {
+         return ClientContext.getModule(ColorsModule.class);
       }
 
       private static Color createTransparentColor() {
