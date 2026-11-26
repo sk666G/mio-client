@@ -24,7 +24,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(ElytraOnPlayerSoundInstance.class)
 public abstract class ElytraOnPlayerSoundInstanceMixin extends AbstractTickableSoundInstance {
    private static ElytraFlyModule elytrafly() {
-      return MixinModuleRegistry.getModule(ElytraFlyModule.class);
+      return MixinModuleRegistry.entityElytraFlyModule;
    }
 
    protected ElytraOnPlayerSoundInstanceMixin(SoundEvent sound, SoundSource source, RandomSource random) {

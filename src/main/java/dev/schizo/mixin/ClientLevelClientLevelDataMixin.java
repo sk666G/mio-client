@@ -21,7 +21,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(ClientLevelData.class)
 public class ClientLevelClientLevelDataMixin {
    private static SkyboxModule skyboxModule() {
-      return MixinModuleRegistry.getModule(SkyboxModule.class);
+      return MixinModuleRegistry.levelSkybox;
    }
 
    @Inject(method = "getHorizonHeight", at = @At("HEAD"), cancellable = true)

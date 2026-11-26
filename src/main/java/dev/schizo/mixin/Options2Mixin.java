@@ -19,7 +19,7 @@ import org.spongepowered.asm.mixin.injection.At;
 @Mixin(targets = "net/minecraft/client/Options$2")
 public class Options2Mixin {
    private static AmbienceModule ambienceModule() {
-      return MixinModuleRegistry.getModule(AmbienceModule.class);
+      return MixinModuleRegistry.levelAmbience;
    }
 
    // Mojang leaves the option parse error lambda unnamed.

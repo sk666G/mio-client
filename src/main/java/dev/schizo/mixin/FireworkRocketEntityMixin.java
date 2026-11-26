@@ -40,7 +40,7 @@ public abstract class FireworkRocketEntityMixin extends Entity {
       return MixinModuleRegistry.getModule(FireworksModule.class);
    }
    private static ElytraFlyModule elytraFlyModule() {
-      return MixinModuleRegistry.getModule(ElytraFlyModule.class);
+      return MixinModuleRegistry.entityElytraFlyModule;
    }
    @Shadow
    @Nullable

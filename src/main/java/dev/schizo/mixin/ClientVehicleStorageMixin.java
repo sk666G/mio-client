@@ -21,7 +21,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(targets = "com/viaversion/viaversion/protocols/v1_21to1_21_2/storage/ClientVehicleStorage", remap = false)
 public class ClientVehicleStorageMixin {
    private static EntityControlModule entityControl() {
-      return MixinModuleRegistry.getModule(EntityControlModule.class);
+      return MixinModuleRegistry.mobEntityControlModule;
    }
 
    @Inject(method = {"sidewaysMovement", "forwardMovement"}, at = @At("HEAD"), cancellable = true, remap = false)

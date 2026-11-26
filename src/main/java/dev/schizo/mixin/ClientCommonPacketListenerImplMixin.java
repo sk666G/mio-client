@@ -23,7 +23,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(ClientCommonPacketListenerImpl.class)
 public abstract class ClientCommonPacketListenerImplMixin implements PacketListener {
    private static NoPacketKickModule noPacketKickModule() {
-      return MixinModuleRegistry.getModule(NoPacketKickModule.class);
+      return MixinModuleRegistry.connectionNoPacketKickModule;
    }
 
    @Inject(method = "onDisconnect", at = @At("HEAD"), cancellable = true)
