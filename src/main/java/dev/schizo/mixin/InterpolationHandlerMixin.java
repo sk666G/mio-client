@@ -24,7 +24,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(InterpolationHandler.class)
 public abstract class InterpolationHandlerMixin {
    private static NoRenderModule noRenderModule() {
-      return MixinModuleRegistry.getModule(NoRenderModule.class);
+      return MixinModuleRegistry.gameNoRender;
    }
    @Shadow
    @Final

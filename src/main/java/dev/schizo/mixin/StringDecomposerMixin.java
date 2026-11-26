@@ -20,7 +20,7 @@ import org.spongepowered.asm.mixin.injection.ModifyArg;
 @Mixin(StringDecomposer.class)
 public class StringDecomposerMixin {
    private static NameProtectModule nameProtectModule() {
-      return MixinModuleRegistry.getModule(NameProtectModule.class);
+      return MixinModuleRegistry.abstractClientPlayerNameProtect;
    }
 
    @ModifyArg(

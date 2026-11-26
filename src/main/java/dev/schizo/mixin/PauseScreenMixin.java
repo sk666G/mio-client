@@ -37,7 +37,7 @@ public abstract class PauseScreenMixin extends Screen {
    @Inject(method = "method_72129()V", at = @At("HEAD"), cancellable = true)
    private void confirmOrInterceptDisconnect(CallbackInfo callback) {
       Minecraft client = Minecraft.getInstance();
-      AntiQuitModule antiQuitModule = MixinModuleRegistry.getModule(AntiQuitModule.class);
+      AntiQuitModule antiQuitModule = MixinModuleRegistry.minecraftAntiQuitModule;
       IllegalDisconnectModule illegalDisconnectModule = MixinModuleRegistry.getModule(IllegalDisconnectModule.class);
       if (antiQuitModule != null
          && antiQuitModule.isToggled()

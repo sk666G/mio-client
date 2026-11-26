@@ -71,7 +71,7 @@ public abstract class MultiPlayerGameModeInteractionMixin implements ClientAcces
       return MixinModuleRegistry.getModule(AutoToolModule.class);
    }
    private static AutoClickerModule autoClickerModule() {
-      return MixinModuleRegistry.getModule(AutoClickerModule.class);
+      return MixinModuleRegistry.minecraftAutoClickerModule;
    }
    private static NoInteractModule noInteractModule() {
       return MixinModuleRegistry.getModule(NoInteractModule.class);

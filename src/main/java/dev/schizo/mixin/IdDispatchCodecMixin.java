@@ -23,7 +23,7 @@ import org.spongepowered.asm.mixin.injection.At;
 @Mixin(IdDispatchCodec.class)
 public class IdDispatchCodecMixin {
    private static NoPacketKickModule noPacketKickModule() {
-      return MixinModuleRegistry.getModule(NoPacketKickModule.class);
+      return MixinModuleRegistry.connectionNoPacketKickModule;
    }
 
    @WrapOperation(method = "decode", at = @At(value = "INVOKE", target = "Lnet/minecraft/network/codec/StreamCodec;decode(Ljava/lang/Object;)Ljava/lang/Object;"))

@@ -23,7 +23,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(Options.class)
 public abstract class OptionsMixin {
    private static ViewClipModule viewClip() {
-      return MixinModuleRegistry.getModule(ViewClipModule.class);
+      return MixinModuleRegistry.levelViewClip;
    }
 
    @Shadow

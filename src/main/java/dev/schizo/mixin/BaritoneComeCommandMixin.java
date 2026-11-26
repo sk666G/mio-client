@@ -30,7 +30,7 @@ public class BaritoneComeCommandMixin {
       remap = false
    )
    private void useFreecamGoal(Args args) {
-      FreecamModule freecam = MixinModuleRegistry.getModule(FreecamModule.class);
+      FreecamModule freecam = MixinModuleRegistry.levelFreecam;
       if (freecam.isToggled()) {
          BlockPos cameraPosition = ClientAccess.schizoMinecraft.gameRenderer.getMainCamera().blockPosition();
          if (WorldUtils.isAir(cameraPosition)
