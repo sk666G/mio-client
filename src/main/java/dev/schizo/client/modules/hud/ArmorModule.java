@@ -133,13 +133,13 @@ public class ArmorModule extends HudWidgetModule {
 
          int xOffset = 15;
          RenderUtils.clearColor(
-            PostProcessShaderPass.POST_TARGET
+            PostProcessShaderPass.postTarget()
          );
          RenderUtils.clearDepth(
-            PostProcessShaderPass.POST_TARGET
+            PostProcessShaderPass.postTarget()
          );
          RenderTargetUtils.overrideRenderTargets(
-            PostProcessShaderPass.POST_TARGET
+            PostProcessShaderPass.postTarget()
          );
          try {
             LocalPlayer playerForArmor = ClientAccess.schizoMinecraft.player;
@@ -232,10 +232,10 @@ public class ArmorModule extends HudWidgetModule {
             RenderTargetUtils.restoreRenderTargets();
          }
          RenderUtils.clearDepth(
-            PostProcessShaderPass.POST_TARGET
+            PostProcessShaderPass.postTarget()
          );
          RenderUtils.blitToMain(
-            PostProcessShaderPass.POST_TARGET
+            PostProcessShaderPass.postTarget()
          );
       }
    }

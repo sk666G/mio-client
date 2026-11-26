@@ -169,20 +169,20 @@ public class ChamsModule extends Module {
       }
       float maskOpacity = resolvedMaskOpacity;
       RenderUtils.clearColor(
-         MaskShaderRenderer.MASK_TARGET, maskColor
+         MaskShaderRenderer.maskTarget(), maskColor
       );
       RenderTarget mainTarget = ClientAccess.schizoMinecraft.getMainRenderTarget();
-      RenderTargetUtils.setMainRenderTarget(MaskShaderRenderer.MASK_TARGET);
+      RenderTargetUtils.setMainRenderTarget(MaskShaderRenderer.maskTarget());
       try {
          EntityChamsRenderer.flush();
          Boolean blendEnabled = this.blendSetting.getValue();
          if (blendEnabled) {
             RenderUtils.blitToMain(
-               MaskShaderRenderer.MASK_TARGET,
+               MaskShaderRenderer.maskTarget(),
                ClientRenderPipelines.BLIT_LIGHTNING
             );
          } else {
-            RenderTarget maskTarget = MaskShaderRenderer.MASK_TARGET;
+            RenderTarget maskTarget = MaskShaderRenderer.maskTarget();
             GpuTextureView mainColorView = mainTarget.getColorTextureView();
             maskTarget.blitAndBlendToTexture(mainColorView);
          }
@@ -200,11 +200,11 @@ public class ChamsModule extends Module {
       Boolean compositeBlendEnabled = compositeBlendOption.getValue();
       if (compositeBlendEnabled) {
          RenderUtils.blitToMain(
-            MaskShaderRenderer.MASK_TARGET,
+            MaskShaderRenderer.maskTarget(),
             ClientRenderPipelines.BLIT_LIGHTNING
          );
       } else {
-         RenderTarget finalMaskTarget = MaskShaderRenderer.MASK_TARGET;
+         RenderTarget finalMaskTarget = MaskShaderRenderer.maskTarget();
          GpuTextureView finalColorView = mainTarget.getColorTextureView();
          finalMaskTarget.blitAndBlendToTexture(finalColorView);
       }

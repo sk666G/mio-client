@@ -260,13 +260,13 @@ public class SkeletonModule extends Module {
          poseStack.popPose();
       }
       RenderTarget mainTarget = ClientAccess.schizoMinecraft.getMainRenderTarget();
-      RenderTarget maskTarget = MaskShaderRenderer.MASK_TARGET;
+      RenderTarget maskTarget = MaskShaderRenderer.maskTarget();
       RenderUtils.clearColor(maskTarget, this.colorSetting.getValue());
       RenderUtils.clearDepth(
-         MaskShaderRenderer.MASK_TARGET
+         MaskShaderRenderer.maskTarget()
       );
       RenderTargetUtils.setMainRenderTarget(
-         MaskShaderRenderer.MASK_TARGET
+         MaskShaderRenderer.maskTarget()
       );
       try {
          LineMeshRenderer.draw();
@@ -274,7 +274,7 @@ public class SkeletonModule extends Module {
          RenderTargetUtils.setMainRenderTarget(mainTarget);
       }
       RenderUtils.blitToMain(
-         MaskShaderRenderer.MASK_TARGET
+         MaskShaderRenderer.maskTarget()
       );
       if (this.bloomSetting.getValue()) {
          Float bloomLineWidth = this.lineWidthSetting.getValue();

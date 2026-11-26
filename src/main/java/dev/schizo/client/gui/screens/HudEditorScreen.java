@@ -672,7 +672,7 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
             GuiDrawUtils.flush();
          }, Color.black);
          MaskShaderRenderer.renderEffect("glowy");
-         RenderUtils.blitToMain(MaskShaderRenderer.MASK_TARGET, ClientRenderPipelines.BLIT_PREMULTIPLIED_ALPHA);
+         RenderUtils.blitToMain(MaskShaderRenderer.maskTarget(), ClientRenderPipelines.BLIT_PREMULTIPLIED_ALPHA);
       } finally {
          RenderTargetUtils.setMainRenderTarget(mainTarget);
       }

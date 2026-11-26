@@ -134,14 +134,14 @@ public class SkyRendererMixin {
    private void renderStarsToBloomMask(float brightness, PoseStack poses) {
       RenderTarget previousTarget = Minecraft.getInstance().getMainRenderTarget();
       RenderUtils.clearColor(
-         MaskShaderRenderer.MASK_TARGET,
+         MaskShaderRenderer.maskTarget(),
          skyboxModule().starsColorSetting.getValue()
       );
       RenderUtils.clearDepth(
-         MaskShaderRenderer.MASK_TARGET
+         MaskShaderRenderer.maskTarget()
       );
       RenderTargetUtils.setMainRenderTarget(
-         MaskShaderRenderer.MASK_TARGET
+         MaskShaderRenderer.maskTarget()
       );
       hook = true;
       this.renderStars(brightness, poses);

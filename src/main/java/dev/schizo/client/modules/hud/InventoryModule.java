@@ -274,13 +274,13 @@ public class InventoryModule extends HudWidgetModule {
       );
       GuiDrawUtils.flush();
       RenderUtils.clearColor(
-         PostProcessShaderPass.POST_TARGET, Color.black
+         PostProcessShaderPass.postTarget(), Color.black
       );
       RenderUtils.clearDepth(
-         PostProcessShaderPass.POST_TARGET
+         PostProcessShaderPass.postTarget()
       );
       RenderTargetUtils.overrideRenderTargets(
-         PostProcessShaderPass.POST_TARGET
+         PostProcessShaderPass.postTarget()
       );
       try {
          poses.pushPose();
@@ -308,10 +308,10 @@ public class InventoryModule extends HudWidgetModule {
          RenderTargetUtils.restoreRenderTargets();
       }
       RenderUtils.clearDepth(
-         PostProcessShaderPass.POST_TARGET
+         PostProcessShaderPass.postTarget()
       );
       RenderUtils.blitToMain(
-         PostProcessShaderPass.POST_TARGET
+         PostProcessShaderPass.postTarget()
       );
    }
 

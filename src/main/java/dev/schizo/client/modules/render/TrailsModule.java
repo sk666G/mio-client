@@ -255,16 +255,16 @@ public class TrailsModule extends Module {
          Boolean renderEnabled = this.renderSetting.getValue();
          if (renderEnabled) {
             RenderTarget mainTarget = ClientAccess.schizoMinecraft.getMainRenderTarget();
-            RenderTarget maskTarget = MaskShaderRenderer.MASK_TARGET;
+            RenderTarget maskTarget = MaskShaderRenderer.maskTarget();
             Setting<Color> maskColor = this.colorSetting;
             RenderUtils.clearColor(
                maskTarget, maskColor.getValue()
             );
             RenderUtils.clearDepth(
-               MaskShaderRenderer.MASK_TARGET
+               MaskShaderRenderer.maskTarget()
             );
             RenderTargetUtils.setMainRenderTarget(
-               MaskShaderRenderer.MASK_TARGET
+               MaskShaderRenderer.maskTarget()
             );
             try {
                float width = this.lineWidthSetting.getValue();
@@ -277,7 +277,7 @@ public class TrailsModule extends Module {
                RenderTargetUtils.setMainRenderTarget(mainTarget);
             }
             RenderUtils.blitToMain(
-               MaskShaderRenderer.MASK_TARGET
+               MaskShaderRenderer.maskTarget()
             );
             Boolean bloomEnabled = this.bloomSetting.getValue();
             if (!bloomEnabled) {
