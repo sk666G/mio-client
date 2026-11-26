@@ -240,7 +240,7 @@ public final class WebhookManager implements JsonConfigurable {
       }
       CompletableFuture<Void> checked = responseFuture.thenCompose(response -> {
          if (response.statusCode() < 200 || response.statusCode() >= 300) {
-            return CompletableFuture.failedFuture(new IOException("HTTP " + response.statusCode()));
+            return CompletableFuture.failedFuture(new HttpStatusException(response.statusCode()));
          }
          if ("api.telegram.org".equalsIgnoreCase(request.uri().getHost())) {
             try {
@@ -255,12 +255,46 @@ public final class WebhookManager implements JsonConfigurable {
          return CompletableFuture.completedFuture(null);
       });
       return checked.exceptionallyCompose(failure -> {
-         if (attempt >= 2) return CompletableFuture.failedFuture(failure);
+         Throwable cause = unwrapCompletionFailure(failure);
+         if (attempt >= 2 || !isRetryableFailure(cause)) {
+            return CompletableFuture.failedFuture(cause);
+         }
          long delayMillis = attempt == 0 ? 250L : 750L;
          return CompletableFuture.runAsync(() -> { },
             CompletableFuture.delayedExecutor(delayMillis, TimeUnit.MILLISECONDS))
             .thenCompose(ignored -> this.sendWithRetry(request, attempt + 1));
       });
+   }
+
+   private static Throwable unwrapCompletionFailure(Throwable failure) {
+      Throwable cause = failure;
+      while (cause.getCause() != null
+         && (cause instanceof java.util.concurrent.CompletionException
+            || cause instanceof java.util.concurrent.ExecutionException)) {
+         cause = cause.getCause();
+      }
+      return cause;
+   }
+
+   private static boolean isRetryableFailure(Throwable failure) {
+      if (failure instanceof HttpStatusException statusFailure) {
+         int status = statusFailure.statusCode();
+         return status == 408 || status == 425 || status == 429 || status >= 500 && status <= 599;
+      }
+      return failure instanceof IOException;
+   }
+
+   private static final class HttpStatusException extends IOException {
+      private final int statusCode;
+
+      private HttpStatusException(int statusCode) {
+         super("HTTP " + statusCode);
+         this.statusCode = statusCode;
+      }
+
+      private int statusCode() {
+         return this.statusCode;
+      }
    }
 
 }
