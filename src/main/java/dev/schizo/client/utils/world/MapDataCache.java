@@ -10,6 +10,7 @@
 package dev.schizo.client.utils.world;
 
 import dev.schizo.client.managers.ConfigurationManager;
+import dev.schizo.client.config.ConfigPathGuard;
 import dev.schizo.client.managers.TaskScheduler;
 import dev.schizo.client.render.FontRenderer;
 import dev.schizo.client.utils.CompressionUtils;
@@ -57,7 +58,18 @@ public final class MapDataCache implements ClientAccess {
 
    public void load(String address) {
       this.mapDataByName.clear();
-      Path filePath = ConfigurationManager.MAPS_DIRECTORY.resolve(FontRenderer.sanitizeFileName(address) + ".data");
+      Path filePath;
+      try {
+         Path mapsDirectory = ConfigPathGuard.ensureDirectory(
+            ConfigurationManager.ROOT_DIRECTORY,
+            ConfigurationManager.MAPS_DIRECTORY
+         );
+         filePath = mapsDirectory.resolve(FontRenderer.sanitizeFileName(address) + ".data");
+      } catch (IOException unsafeDirectory) {
+         this.preserveUnreadableFile = true;
+         ClientAccess.logger.warn("Could not access map cache directory", unsafeDirectory);
+         return;
+      }
       this.preserveUnreadableFile = false;
       if (Files.notExists(filePath, LinkOption.NOFOLLOW_LINKS)) {
          return;
@@ -147,8 +159,12 @@ public final class MapDataCache implements ClientAccess {
    }
 
    private static void writeSnapshot(String address, byte[] snapshot) {
-      Path target = ConfigurationManager.MAPS_DIRECTORY.resolve(FontRenderer.sanitizeFileName(address) + ".data");
       try {
+         Path mapsDirectory = ConfigPathGuard.ensureDirectory(
+            ConfigurationManager.ROOT_DIRECTORY,
+            ConfigurationManager.MAPS_DIRECTORY
+         );
+         Path target = mapsDirectory.resolve(FontRenderer.sanitizeFileName(address) + ".data");
          FileUtils.writeBytesAtomically(target, CompressionUtils.deflate(snapshot, 2));
       } catch (IOException | RuntimeException failure) {
          ClientAccess.logger.warn("Could not save map cache {}", target, failure);
