@@ -17,6 +17,7 @@ import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.LocalPlayerSendPositionEvent;
 import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.managers.SocialRegistry;
+import dev.schizo.client.managers.ModuleRegistry;
 import dev.schizo.client.utils.entity.EntityUtils;
 import dev.schizo.client.utils.inventory.CustomItemRegistries;
 import dev.schizo.client.settings.SettingLabelCondition;
@@ -24,6 +25,7 @@ import dev.schizo.client.utils.inventory.InventoryUtils;
 import dev.schizo.client.events.EventStage;
 import dev.schizo.client.modules.Module;
 import dev.schizo.client.modules.ModuleCategory;
+import dev.schizo.client.modules.combat.MainhandModule;
 import dev.schizo.client.settings.BooleanSetting;
 import dev.schizo.client.settings.EnumSetting;
 import dev.schizo.client.settings.NamedEntry;
@@ -58,6 +60,7 @@ import net.minecraft.world.item.consume_effects.ApplyStatusEffectsConsumeEffect;
 import net.minecraft.world.item.consume_effects.ConsumeEffect;
 
 public class AutoEatModule extends Module {
+   private static MainhandModule mainhandModule;
    private final Setting<Set<Item>> itemsSetting;
    private final Setting<ListFilterMode> modeSetting;
    private final Setting<Integer> healthSetting;
@@ -257,9 +260,8 @@ public class AutoEatModule extends Module {
 
       boolean useOffHand = foodSlot == (40);
       this.clearPauseReason();
-      var mainhand = ClientContext.getModule(dev.schizo.client.modules.combat.MainhandModule.class);
       if (dev.schizo.client.utils.inventory.InventoryActionPriority.pauseFood(
-            mainhand != null && mainhand.requiresEmergencyProtection(), useOffHand)) {
+            mainhandModule != null && mainhandModule.requiresEmergencyProtection(), useOffHand)) {
          if (this.eating && ClientAccess.schizoMinecraft.player.getUsedItemHand() == InteractionHand.MAIN_HAND) {
             ClientAccess.schizoMinecraft.gameMode.releaseUsingItem(ClientAccess.schizoMinecraft.player);
             this.setEating(false);
@@ -418,6 +420,10 @@ public class AutoEatModule extends Module {
       float healthAndAbsorption = EntityUtils.getPlayerHealthWithAbsorption();
       Integer healthThreshold = this.healthSetting.getValue();
       return healthAndAbsorption > healthThreshold.intValue();
+   }
+
+   public static void bindReferencedModules(ModuleRegistry registry) {
+      mainhandModule = (MainhandModule)registry.getModule(MainhandModule.class);
    }
 
    public AutoEatModule() {
