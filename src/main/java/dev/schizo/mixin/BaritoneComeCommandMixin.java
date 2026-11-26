@@ -24,14 +24,13 @@ import org.spongepowered.asm.mixin.injection.invoke.arg.Args;
 @Pseudo
 @Mixin(targets = "baritone/command/defaults/ComeCommand", remap = false)
 public class BaritoneComeCommandMixin {
-   private static final FreecamModule freecam = MixinModuleRegistry.getModule(FreecamModule.class);
-
    @ModifyArgs(
       method = "execute",
       at = @At(value = "INVOKE", target = "Lbaritone/api/process/ICustomGoalProcess;setGoalAndPath(Lbaritone/api/pathing/goals/Goal;)V"),
       remap = false
    )
    private void useFreecamGoal(Args args) {
+      FreecamModule freecam = MixinModuleRegistry.getModule(FreecamModule.class);
       if (freecam.isToggled()) {
          BlockPos cameraPosition = ClientAccess.schizoMinecraft.gameRenderer.getMainCamera().blockPosition();
          if (WorldUtils.isAir(cameraPosition)
