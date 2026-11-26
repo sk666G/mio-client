@@ -149,7 +149,8 @@ public class Panel implements RegistryContainer, GuiElement, NamedEntry {
          guiScale = clientScreen.getGuiScale();
       }
 
-      return (int)((GuiScaleUtils.getBaseScaledHeight() - 50) / guiScale);
+      int computedLimit = (int)((GuiScaleUtils.getBaseScaledHeight() - 50) / guiScale);
+      return PanelBounds.ensureHeaderVisible(computedLimit, this.getHeaderHeight());
    }
 
    @Override
