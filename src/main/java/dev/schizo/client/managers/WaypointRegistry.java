@@ -62,15 +62,8 @@ public final class WaypointRegistry extends AbstractRegistry<Waypoint> implement
 
       String currentServer = serverAddress;
       return this.entries.stream()
-         .filter(candidate -> {
-            if (candidate.getServer() != null) {
-               String waypointServer = candidate.getServer();
-               if (currentServer.equalsIgnoreCase(waypointServer)) {
-                  return true;
-               }
-            }
-            return false;
-         })
+         .filter(candidate -> isValidWaypoint(candidate)
+            && currentServer.equalsIgnoreCase(candidate.getServer()))
          .sorted(Comparator.comparing((Waypoint waypoint) -> {
             LocalPlayer playerSnapshot = ClientAccess.schizoMinecraft.player;
             double waypointX = waypoint.getX();
@@ -92,9 +85,7 @@ public final class WaypointRegistry extends AbstractRegistry<Waypoint> implement
       for (JsonElement element : waypointArray) {
          try {
             Waypoint waypoint = ClientAccess.gson.fromJson(element, Waypoint.class);
-            if (waypoint == null
-               || waypoint.getName() == null
-               || waypoint.getServer() == null
+            if (!isValidWaypoint(waypoint)
                || loaded.stream().anyMatch(existing -> hasSameIdentity(existing, waypoint))) {
                continue;
             }
@@ -115,6 +106,9 @@ public final class WaypointRegistry extends AbstractRegistry<Waypoint> implement
       Iterator<Waypoint> iterator = this.entries.iterator();
       while (iterator.hasNext()) {
          Waypoint waypoint = iterator.next();
+         if (!isValidWaypoint(waypoint)) {
+            continue;
+         }
          Gson gson = ClientAccess.gson;
          JsonElement waypointJson = gson.toJsonTree(waypoint);
          waypointArray.add(waypointJson);
@@ -129,7 +123,7 @@ public final class WaypointRegistry extends AbstractRegistry<Waypoint> implement
    }
 
    public boolean registerWaypoint(Waypoint waypoint) {
-      if (waypoint == null) {
+      if (!isValidWaypoint(waypoint)) {
          return false;
       }
 
@@ -149,7 +143,8 @@ public final class WaypointRegistry extends AbstractRegistry<Waypoint> implement
          || !Double.isFinite(requested.getZ())) return null;
       java.util.Set<String> names = new java.util.HashSet<>();
       for (Waypoint existing : this.entries) {
-         if (!requested.getServer().equalsIgnoreCase(existing.getServer())) continue;
+         if (existing == null || existing.getServer() == null
+            || !requested.getServer().equalsIgnoreCase(existing.getServer())) continue;
          if (existing.getName() != null) names.add(existing.getName().toLowerCase(java.util.Locale.ROOT));
          if (existing.getDimension() != null && dev.schizo.client.utils.world.DimensionCoordinates.canonical(requested.getDimension())
                .equals(dev.schizo.client.utils.world.DimensionCoordinates.canonical(existing.getDimension()))
@@ -166,7 +161,8 @@ public final class WaypointRegistry extends AbstractRegistry<Waypoint> implement
    }
 
    public boolean unregisterWaypoint(Waypoint waypoint) {
-      return waypoint != null && this.entries.removeIf(candidate -> hasSameIdentity(candidate, waypoint));
+      return waypoint != null
+         && this.entries.removeIf(candidate -> candidate == waypoint || hasSameIdentity(candidate, waypoint));
    }
 
    public boolean renameWaypoint(Waypoint waypoint, String targetName) {
@@ -197,6 +193,16 @@ public final class WaypointRegistry extends AbstractRegistry<Waypoint> implement
 
       this.entries.add(waypoint);
       return false;
+   }
+
+   static boolean isValidWaypoint(Waypoint waypoint) {
+      return waypoint != null
+         && waypoint.getName() != null
+         && waypoint.getServer() != null
+         && waypoint.getDimension() != null
+         && Double.isFinite(waypoint.getX())
+         && Double.isFinite(waypoint.getY())
+         && Double.isFinite(waypoint.getZ());
    }
 
    static boolean hasSameIdentity(Waypoint first, Waypoint second) {

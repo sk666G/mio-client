@@ -55,12 +55,9 @@ public final class StashRegistry extends Registry<StashEntry> implements ClientA
 
    @Override
    public void fromJson(JsonElement element) {
-      if (!element.isJsonObject()) {
-         return;
-      }
-      JsonObject object = element.getAsJsonObject();
-      if (!object.has("stashes") || !object.get("stashes").isJsonArray()) {
-         return;
+      if (!(element instanceof JsonObject object)
+         || !(object.get("stashes") instanceof JsonArray)) {
+         throw new IllegalArgumentException("Stash configuration must contain a stashes array");
       }
 
       List<StashEntry> loaded = new ArrayList<>();

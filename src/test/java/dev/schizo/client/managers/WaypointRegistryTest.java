@@ -33,7 +33,8 @@ class WaypointRegistryTest {
    @Test
    void malformedStoredDimensionsDoNotPreventCreatingDiscoveries() {
       WaypointRegistry registry = new WaypointRegistry();
-      registry.registerWaypoint(new Waypoint("Storage", 10, 64, 20, null, "example.org"));
+      Waypoint malformed = new Waypoint("Storage", 10, 64, 20, null, "example.org");
+      ((java.util.List<Waypoint>)registry.getRegistry()).add(malformed);
       assertNotNull(registry.registerDiscoveryWaypoint(new Waypoint("Storage", 10, 64, 20, "overworld", "example.org")));
       assertNull(registry.registerDiscoveryWaypoint(null));
    }
@@ -111,5 +112,57 @@ class WaypointRegistryTest {
       assertFalse(WaypointRegistry.hasSameIdentity(stored, differentName));
       assertFalse(WaypointRegistry.hasSameIdentity(null, stored));
       assertFalse(WaypointRegistry.hasSameIdentity(stored, null));
+   }
+
+   @Test
+   void registrationRejectsIncompleteAndNonFiniteWaypoints() {
+      WaypointRegistry registry = new WaypointRegistry();
+
+      assertFalse(registry.registerWaypoint(new Waypoint("Home", 1, 64, 2, null, "example.org")));
+      assertFalse(registry.registerWaypoint(new Waypoint("Home", Double.NaN, 64, 2, "overworld", "example.org")));
+      assertFalse(registry.registerWaypoint(new Waypoint("Home", 1, Double.POSITIVE_INFINITY, 2, "overworld", "example.org")));
+      assertFalse(registry.registerWaypoint(new Waypoint("Home", 1, 64, Double.NEGATIVE_INFINITY, "overworld", "example.org")));
+      assertTrue(registry.getRegistry().isEmpty());
+   }
+
+   @Test
+   void unregisterRemovesCorruptWaypointByReference() {
+      WaypointRegistry registry = new WaypointRegistry();
+      Waypoint corrupt = new Waypoint("Broken", 1, 64, 2, null, null);
+      ((java.util.List<Waypoint>)registry.getRegistry()).add(corrupt);
+
+      assertTrue(registry.unregisterWaypoint(corrupt));
+      assertTrue(registry.getRegistry().isEmpty());
+   }
+
+   @Test
+   void reloadSkipsNonFiniteWaypointCoordinates() {
+      WaypointRegistry registry = new WaypointRegistry();
+      com.google.gson.JsonObject root = new com.google.gson.JsonObject();
+      com.google.gson.JsonArray waypoints = new com.google.gson.JsonArray();
+
+      com.google.gson.JsonObject invalid = new com.google.gson.JsonObject();
+      invalid.addProperty("name", "Broken");
+      invalid.addProperty("x", Double.NaN);
+      invalid.addProperty("y", 64.0);
+      invalid.addProperty("z", 2.0);
+      invalid.addProperty("dimension", "overworld");
+      invalid.addProperty("server", "example.org");
+      invalid.addProperty("toggled", true);
+      waypoints.add(invalid);
+      root.add("waypoints", waypoints);
+
+      registry.fromJson(root);
+
+      assertTrue(registry.getRegistry().isEmpty());
+   }
+
+   @Test
+   void serializationSkipsCorruptLegacyEntries() {
+      WaypointRegistry registry = new WaypointRegistry();
+      ((java.util.List<Waypoint>)registry.getRegistry()).add(
+         new Waypoint("Broken", 1, 64, 2, null, "example.org")
+      );
+      assertTrue(registry.toJson().getAsJsonObject().getAsJsonArray("waypoints").isEmpty());
    }
 }

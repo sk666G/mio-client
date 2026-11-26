@@ -113,6 +113,9 @@ public class WaypointsModule extends Module {
          }
 
          String waypointServer = waypoint.getServer();
+         if (waypointServer == null) {
+            continue;
+         }
          boolean serverMatches = currentServer == null
             ? waypointServer.equalsIgnoreCase("singleplayer")
             : waypointServer.equalsIgnoreCase(currentServer);
