@@ -21,6 +21,7 @@ import dev.schizo.client.modules.player.AutoEatModule;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.gui.screens.ConfirmGameCloseScreen;
+import dev.schizo.client.utils.WorkerExecutorShutdown;
 import dev.schizo.client.events.ScreenChangeEvent;
 import dev.schizo.client.events.MinecraftTickEvent;
 import dev.schizo.client.modules.client.DiscordModule;
@@ -87,7 +88,9 @@ public class MinecraftMixin {
             }
             ClientContext.configurationManager.save();
          } finally {
-            ClientAccess.executorService.shutdown();
+            if (!WorkerExecutorShutdown.shutdownAndAwait(ClientAccess.executorService)) {
+               ClientAccess.logger.warn("Schizo worker tasks did not finish before the shutdown deadline");
+            }
          }
       }
    }
