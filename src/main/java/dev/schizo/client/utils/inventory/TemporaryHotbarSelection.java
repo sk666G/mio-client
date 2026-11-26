@@ -1,8 +1,6 @@
 package dev.schizo.client.utils.inventory;
 
 import dev.schizo.client.ClientAccess;
-import dev.schizo.client.events.EventHandler;
-import dev.schizo.client.events.SelectedSlotChangeEvent;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.multiplayer.ClientLevel;
 
@@ -14,15 +12,6 @@ public final class TemporaryHotbarSelection {
    private int originalSlot;
    private int selectedSlot;
    private long revision;
-
-   static {
-      ClientAccess.eventBus.subscribeStatic(TemporaryHotbarSelection.class);
-   }
-
-   @EventHandler
-   private static void onSlotChange(SelectedSlotChangeEvent event) {
-      REVISION.changed();
-   }
 
    public static void selectionChanged() {
       REVISION.changed();
