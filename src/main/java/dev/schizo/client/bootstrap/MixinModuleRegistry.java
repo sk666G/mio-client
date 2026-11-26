@@ -56,19 +56,25 @@ import java.util.Objects;
 /** Cached module references consumed by mixin hooks without adding synthetic methods to Minecraft classes. */
 public final class MixinModuleRegistry {
    private static volatile ModuleRegistry moduleRegistry;
+   private static final ClassValue<Module> moduleCache = new ClassValue<>() {
+      @Override
+      protected Module computeValue(Class<?> moduleType) {
+         ModuleRegistry registry = moduleRegistry;
+         if (registry == null) {
+            throw new IllegalStateException("Mixin module registry has not been bound yet: " + moduleType.getSimpleName());
+         }
+         return Objects.requireNonNull(
+            registry.getModule(moduleType),
+            "Required module is not registered: " + moduleType.getSimpleName()
+         );
+      }
+   };
 
    private MixinModuleRegistry() {}
 
    public static <T extends Module> T getModule(Class<T> moduleType) {
       Objects.requireNonNull(moduleType, "Module type is required");
-      ModuleRegistry registry = moduleRegistry;
-      if (registry == null) {
-         throw new IllegalStateException("Mixin module registry has not been bound yet: " + moduleType.getSimpleName());
-      }
-      return moduleType.cast(Objects.requireNonNull(
-         registry.getModule(moduleType),
-         "Required module is not registered: " + moduleType.getSimpleName()
-      ));
+      return moduleType.cast(moduleCache.get(moduleType));
    }
 
    public static volatile NoSlowModule blockNoslow;
@@ -135,6 +141,10 @@ public final class MixinModuleRegistry {
 
    public static void bind(ModuleRegistry registry) {
       Objects.requireNonNull(registry, "Module registry is not initialized");
+      ModuleRegistry existingRegistry = moduleRegistry;
+      if (existingRegistry != null && existingRegistry != registry) {
+         throw new IllegalStateException("Mixin module registry cannot be rebound to a different module registry");
+      }
       blockNoslow = (NoSlowModule)Objects.requireNonNull(registry.getModule(NoSlowModule.class), "Required module is not registered: NoSlowModule");
       connectionNoPacketKickModule = (NoPacketKickModule)Objects.requireNonNull(registry.getModule(NoPacketKickModule.class), "Required module is not registered: NoPacketKickModule");
       connectionPingSpoofModule = (PingSpoofModule)Objects.requireNonNull(registry.getModule(PingSpoofModule.class), "Required module is not registered: PingSpoofModule");
