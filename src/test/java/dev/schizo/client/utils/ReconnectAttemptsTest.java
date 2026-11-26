@@ -26,6 +26,6 @@ class ReconnectAttemptsTest {
       assertEquals(60.0, retries.delaySeconds(5, true));
       assertEquals(5.0, retries.delaySeconds(5, false));
       long start = Long.MAX_VALUE - 500_000_000L;
-      assertEquals(1.0F, ReconnectAttempts.remainingSeconds(start, start + 1_000_000_000L, 2));
+      assertEquals(1.0F, MonotonicCountdown.remainingSeconds(start, start + 1_000_000_000L, 2));
    }
 }

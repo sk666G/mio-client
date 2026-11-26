@@ -34,7 +34,4 @@ public final class ReconnectAttempts {
       this.attempts = 0;
    }
 
-   public static float remainingSeconds(long started, long now, double delay) {
-      return (float)Math.max(0.0, delay - (now - started) / 1_000_000_000.0);
-   }
 }
