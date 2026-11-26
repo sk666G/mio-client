@@ -4,7 +4,7 @@ This file separates source-verified behavior from work that still needs live Min
 
 ## Runtime and multiplayer
 
-- No live Minecraft client session was available during the v8 or full-client hardening passes. ClickGUI/HUD interaction, command-palette navigation, theme switching, startup/shutdown, resource reload, reconnect/respawn and long-session behavior still need manual runtime testing.
+- The v8/full-client static passes were followed by headless Fabric launch and local-world GUI tests on the runtime-validation line and PR #167. Automated screenshots cover ClickGUI, palette, Performance Center, HUD editor, Expedition and layout preview; they do not replace manual input/visual QA, packaged-JAR launch, resource reload, reconnect/respawn or long-session testing. See [Expedition workflow evidence and remaining gates](ANARCHY_WORKFLOWS.md).
 - No controlled Minecraft server was available. No claim is made that every movement, combat, interaction or packet-facing module is accepted by vanilla servers or specific plugins. The source audit removed `GrimDisablerModule` and `RaytraceBypassModule`, including registration and rebuild-script reinjection; no new anti-cheat evasion mode was added by the v8 quality work.
 - Context Profile baseline capture/partial-restore retry bookkeeping has isolated regression coverage, but connect/disconnect, server switch, dimension/game-mode changes and AutoPreset ordering still need initialized-client runtime validation.
 - AnchorAura and AutoCrystal placement scans no longer read mutable live-world state from worker executors. Both use bounded deterministic client-thread cursors and revalidate results before publication. Live placement behavior and frame-time cost still require in-game profiling.
