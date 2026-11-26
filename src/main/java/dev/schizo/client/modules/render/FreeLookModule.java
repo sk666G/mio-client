@@ -39,7 +39,7 @@ import org.joml.Vector2f;
 
 public class FreeLookModule extends Module {
 
-   private static FreecamModule freecamModule = (FreecamModule)ClientContext.getModule(FreecamModule.class);
+   private static FreecamModule freecamModule;
    private final InterpolatedFloat cameraDistanceAnimation;
    private final Vector2f cameraRotation;
    private CameraType cameraType;

@@ -53,12 +53,6 @@ public class SkeletonModule extends Module {
    private final Setting<Boolean> selfSetting;
    private final Setting<Float> lineWidthSetting;
    private final Setting<Color> colorSetting;
-
-   static {
-
-      freecamModule = (FreecamModule)ClientContext.getModule(FreecamModule.class);
-   }
-
    private void applyModelPartRotation(PoseStack poseStack, ModelPart part) {
       if (part.zRot != 0.0F) {
          poseStack.mulPose(Axis.ZP.rotation(part.zRot));

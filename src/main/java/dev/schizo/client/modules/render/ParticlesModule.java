@@ -61,12 +61,6 @@ public class ParticlesModule extends Module {
    public final Setting<Boolean> dustSetting;
    public final Setting<Color> fromSetting;
    public final Setting<Color> toSetting;
-
-   static {
-
-      colors = (ColorsModule)ClientContext.getModule(ColorsModule.class);
-   }
-
    private void setParticleColor(SingleQuadParticle particle, int argb) {
       float alpha = ((argb >>> 24) & 0xFF) / 255.0F;
       float red = ((argb >>> 16) & 0xFF) / 255.0F;
