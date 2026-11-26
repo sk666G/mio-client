@@ -16,6 +16,7 @@ import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.WorldRenderEvent;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.LocalPlayerTickEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.render.LineMeshRenderer;
 import dev.schizo.client.render.WorldBoxRenderer;
 import dev.schizo.client.utils.world.Waypoint;
@@ -70,6 +71,16 @@ public class WaypointsModule extends Module {
    private static final double FAR_WAYPOINT_RADIUS = 100.0D;
    private static final double WAYPOINT_HALF_SIZE = 0.25D;
    private static final int TEXT_BACKGROUND_ALPHA = 100;
+
+   @Override
+   public void onDisable() {
+      this.visibleWaypoints = List.of();
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnectEvent(MinecraftDisconnectEvent event) {
+      this.visibleWaypoints = List.of();
+   }
 
    @EventHandler
    private void onLocalPlayerTickEvent(LocalPlayerTickEvent event) {
