@@ -57,7 +57,7 @@ public class AbstractContainerScreenMixin implements ClientAccess {
       return MixinModuleRegistry.getModule(ChestSearchBarModule.class);
    }
    private static TooltipsModule schizo$tooltips() {
-      return MixinModuleRegistry.getModule(TooltipsModule.class);
+      return MixinModuleRegistry.bundleContentsTooltipsModule;
    }
    private static InventoryTweaksModule schizo$inventoryTweaks() {
       return MixinModuleRegistry.getModule(InventoryTweaksModule.class);

@@ -44,7 +44,7 @@ public class TitleScreenMixin extends Screen {
    ) {
       if (!PanicCommand.unloaded) {
          WatermarkModule watermarkModule = MixinModuleRegistry.getModule(WatermarkModule.class);
-         HUDModule hudModule = MixinModuleRegistry.getModule(HUDModule.class);
+         HUDModule hudModule = MixinModuleRegistry.gameHud;
          if (watermarkModule != null && hudModule != null) {
             Minecraft client = ClientAccess.schizoMinecraft;
             int hudColor = hudModule.fadeSetting.getValue().getColor(hudModule, 0.0F).getRGB();
@@ -62,7 +62,7 @@ public class TitleScreenMixin extends Screen {
 
    @Override
    public boolean keyPressed(KeyEvent keyEvent) {
-      UIModule uiModule = MixinModuleRegistry.getModule(UIModule.class);
+      UIModule uiModule = MixinModuleRegistry.minecraftUiModule;
       if (uiModule != null
          && !uiModule.getKeybind().mouse()
          && uiModule.getKeybind().code() == keyEvent.key()) {

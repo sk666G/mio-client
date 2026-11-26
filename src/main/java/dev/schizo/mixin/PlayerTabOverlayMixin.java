@@ -51,13 +51,13 @@ public class PlayerTabOverlayMixin {
    @Final
    private Minecraft minecraft;
    private static NoRenderModule noRenderModule() {
-      return MixinModuleRegistry.getModule(NoRenderModule.class);
+      return MixinModuleRegistry.gameNoRender;
    }
    private static ExtraTabModule extraTabModule() {
-      return MixinModuleRegistry.getModule(ExtraTabModule.class);
+      return MixinModuleRegistry.guiExtraTab;
    }
    private static NameProtectModule nameProtectModule() {
-      return MixinModuleRegistry.getModule(NameProtectModule.class);
+      return MixinModuleRegistry.abstractClientPlayerNameProtect;
    }
 
    @ModifyReceiver(

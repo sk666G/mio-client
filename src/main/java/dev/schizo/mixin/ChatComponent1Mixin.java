@@ -30,7 +30,7 @@ import org.spongepowered.asm.mixin.injection.At;
 @Mixin(targets = "net/minecraft/client/gui/components/ChatComponent$1")
 public class ChatComponent1Mixin {
    private static NoRenderModule noRenderModule() {
-      return MixinModuleRegistry.getModule(NoRenderModule.class);
+      return MixinModuleRegistry.gameNoRender;
    }
    private static BetterChatModule betterChatModule() {
       return MixinModuleRegistry.getModule(BetterChatModule.class);

@@ -137,7 +137,7 @@ public class DisconnectedScreenMixin extends Screen {
 
    @Override
    public boolean keyPressed(KeyEvent keyEvent) {
-      UIModule uiModule = MixinModuleRegistry.getModule(UIModule.class);
+      UIModule uiModule = MixinModuleRegistry.minecraftUiModule;
       if (uiModule != null
          && keyEvent.key() == uiModule.getKeybind().code()
          && !(this.getFocused() instanceof EditBox)) {

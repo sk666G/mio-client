@@ -33,7 +33,7 @@ public class JoinMultiplayerScreenMixin extends Screen {
       return MixinModuleRegistry.getModule(FakeVanillaModule.class);
    }
    private static UIModule uiModule() {
-      return MixinModuleRegistry.getModule(UIModule.class);
+      return MixinModuleRegistry.minecraftUiModule;
    }
 
    protected JoinMultiplayerScreenMixin(Component title) {

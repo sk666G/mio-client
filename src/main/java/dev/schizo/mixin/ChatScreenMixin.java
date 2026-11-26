@@ -58,7 +58,7 @@ public abstract class ChatScreenMixin extends Screen {
       return MixinModuleRegistry.getModule(BetterChatModule.class);
    }
    private static HUDModule hudModule() {
-      return MixinModuleRegistry.getModule(HUDModule.class);
+      return MixinModuleRegistry.gameHud;
    }
    @Shadow
    protected EditBox input;
