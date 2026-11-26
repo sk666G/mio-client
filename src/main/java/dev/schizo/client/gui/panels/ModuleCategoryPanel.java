@@ -59,6 +59,10 @@ public class ModuleCategoryPanel extends Panel implements ClientAccess {
             }
          }
 
+         if (TextUtils.containsIgnoreCase(moduleComponent.getModule().getDescription(), query)) return true;
+         for (var setting : moduleComponent.getModule().getSettings()) {
+            if (TextUtils.containsIgnoreCase(setting.getName(), query)) return true;
+         }
          return false;
       } else {
          return true;
