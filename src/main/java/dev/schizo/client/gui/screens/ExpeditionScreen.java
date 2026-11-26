@@ -29,6 +29,7 @@ public final class ExpeditionScreen extends Screen {
    private static final String[] TABS = {"Discoveries", "Travel", "Profiles", "Compatibility"};
    private record Row(String title, String detail, DiscoveryEntry discovery) {}
    private List<Row> rows = List.of();
+   private List<Row> profileSnapshot;
    private EditBox search;
    private String query = "";
    private int tab, offset, selected = -1;
@@ -65,14 +66,16 @@ public final class ExpeditionScreen extends Screen {
          int target = index;
          this.button(this.fit(TABS[index], width - 6), this.left + index * (width + 2), 49, width, () -> {
             this.tab = target;
+            this.profileSnapshot = null;
             this.offset = 0;
             this.selected = -1;
-            this.refresh();
+            this.rebuildWidgets();
          });
       }
       int half = Math.max(1, (this.panelWidth - 2) / 2);
-      this.button("Server filter", this.left, 72, half, () -> {
-         this.localOnly = !this.localOnly;
+      this.button(this.tab == 0 ? "Server filter" : "Refresh view", this.left, 72, half, () -> {
+         if (this.tab == 0) this.localOnly = !this.localOnly;
+         this.profileSnapshot = null;
          this.offset = 0;
          this.selected = -1;
          this.refresh();
@@ -201,16 +204,26 @@ public final class ExpeditionScreen extends Screen {
    }
 
    private void profiles(List<Row> rows) {
+      if (this.profileSnapshot != null) {
+         rows.addAll(this.profileSnapshot);
+         return;
+      }
       var profiles = ClientContext.contextProfileRegistry;
       rows.add(new Row(profiles.isEnabled() ? "Context profiles enabled" : "Context profiles disabled",
-         "Preview of matching rules in application order. No settings are applied by this view.", null));
+         "Rules in application order. JSON differences compare each preset with current state.", null));
       for (var rule : profiles.previewCurrentRules()) {
          var preset = ClientContext.configurationManager.getPresetRegistry(rule.category()).getPreset(rule.presetName());
          rows.add(new Row(rule.category().getName() + " -> " + rule.presetName() + (preset == null ? " [missing]" : ""),
             rule.server() + " | " + rule.dimension() + " | " + rule.gameMode(), null));
+         if (preset != null) {
+            var differences = dev.schizo.client.config.JsonChangePreview.compare(rule.category().toJson(), preset.copyContents());
+            for (String path : differences.paths()) rows.add(new Row(rule.category().getName() + " JSON field difference", path, null));
+            if (differences.truncated()) rows.add(new Row("Additional differences omitted", "Preview is limited to 64 paths per category.", null));
+         }
       }
       String failure = profiles.getFailedContextDescription();
       if (failure != null && !failure.isBlank()) rows.add(new Row("Profile recovery pending", failure, null));
+      this.profileSnapshot = List.copyOf(rows);
    }
 
    private void copySelected() {
@@ -248,7 +261,7 @@ public final class ExpeditionScreen extends Screen {
 
    @Override
    public void tick() {
-      if (System.nanoTime() - this.refreshedAt >= 500_000_000L) this.refresh();
+      if (this.tab != 2 && System.nanoTime() - this.refreshedAt >= 500_000_000L) this.refresh();
    }
 
    @Override
