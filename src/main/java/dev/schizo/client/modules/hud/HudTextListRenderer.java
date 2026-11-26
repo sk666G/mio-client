@@ -9,7 +9,7 @@
 
 package dev.schizo.client.modules.hud;
 
-import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.render.FontRenderer;
 import dev.schizo.client.render.HudWidgetRenderer;
 import dev.schizo.client.modules.HudWidgetModule;
@@ -23,7 +23,6 @@ import net.minecraft.util.Mth;
 
 public class HudTextListRenderer extends HudWidgetRenderer {
 
-   private static final HUDModule hudSettings = ClientContext.getModule(HUDModule.class);
    private final List<? extends HudTextRow> rows;
    private final float[] dimensionBuffer = new float[2];
 
@@ -59,6 +58,7 @@ public class HudTextListRenderer extends HudWidgetRenderer {
          width = 50.0F;
          height = this.getHeight();
       }
+      HUDModule hudSettings = MixinModuleRegistry.getModule(HUDModule.class);
       width *= hudSettings.getTextScale();
       height *= hudSettings.getTextScale();
       this.dimensionBuffer[0] = width;
@@ -69,6 +69,7 @@ public class HudTextListRenderer extends HudWidgetRenderer {
    @Override
    public void render(PoseStack poses, double mouseX, double mouseY) {
       super.render(poses, mouseX, mouseY);
+      HUDModule hudSettings = MixinModuleRegistry.getModule(HUDModule.class);
       float scale = hudSettings.getTextScale();
       float rowY = this.getContentY(
          this.getHeight() * scale

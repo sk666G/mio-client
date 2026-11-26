@@ -10,7 +10,7 @@
 package dev.schizo.client.gui.screens;
 
 import dev.schizo.client.ClientAccess;
-import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.render.GuiDrawUtils;
 import dev.schizo.client.utils.FloatAnimation;
 import dev.schizo.client.render.ColorUtils;
@@ -20,7 +20,6 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
 
 public final class HudMarginController implements ClientAccess {
-   private static final HUDModule hud;
    private boolean draggingFromRight;
    private boolean draggingFromBottom;
    private boolean draggingHorizontalMargin;
@@ -28,11 +27,8 @@ public final class HudMarginController implements ClientAccess {
    private final FloatAnimation horizontalOverlayOpacity = new FloatAnimation();
    private final FloatAnimation verticalOverlayOpacity = new FloatAnimation();
 
-   static {
-      hud = (HUDModule)ClientContext.getModule(HUDModule.class);
-   }
-
    private boolean isOverHorizontalMargin(double mouseX) {
+      HUDModule hud = MixinModuleRegistry.getModule(HUDModule.class);
       return mouseX
             < hud.getSafeX()
                + 1
@@ -45,6 +41,7 @@ public final class HudMarginController implements ClientAccess {
    public void render(
       PoseStack poseStack, int mouseX, int mouseY
    ) {
+      HUDModule hud = MixinModuleRegistry.getModule(HUDModule.class);
       int screenWidth = ClientAccess.schizoMinecraft.getWindow().getGuiScaledWidth();
       int screenHeight = ClientAccess.schizoMinecraft.getWindow().getGuiScaledHeight();
       boolean showHorizontalMargin = this.isOverHorizontalMargin(mouseX)
@@ -157,6 +154,7 @@ public final class HudMarginController implements ClientAccess {
    }
 
    private boolean isOverVerticalMargin(double mouseY) {
+      HUDModule hud = MixinModuleRegistry.getModule(HUDModule.class);
       return mouseY
             < hud.getSafeY()
                + 1
