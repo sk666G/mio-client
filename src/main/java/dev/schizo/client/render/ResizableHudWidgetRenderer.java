@@ -21,8 +21,6 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.resources.Identifier;
 
 public class ResizableHudWidgetRenderer extends HudWidgetRenderer {
-
-   private static final HUDModule hudSettings = (HUDModule)ClientContext.getModule(HUDModule.class);
    static {
       Identifier.fromNamespaceAndPath("schizo", "textures/triangle.png");
    }
@@ -38,8 +36,12 @@ public class ResizableHudWidgetRenderer extends HudWidgetRenderer {
    private boolean applyHudScale;
    private boolean resizingEnabled;
 
+   private static HUDModule hudSettings() {
+      return ClientContext.getModule(HUDModule.class);
+   }
+
    private float getHudScaleMultiplier() {
-      return this.applyHudScale ? hudSettings.getTextScale() : 1.0F;
+      return this.applyHudScale ? hudSettings().getTextScale() : 1.0F;
    }
 
    public float getScale() {
