@@ -12,6 +12,7 @@ package dev.schizo.client.bootstrap;
 import dev.schizo.client.managers.ModuleRegistry;
 import dev.schizo.client.modules.Module;
 import dev.schizo.client.modules.client.DiscordModule;
+import dev.schizo.client.modules.client.CapesModule;
 import dev.schizo.client.modules.client.UIModule;
 import dev.schizo.client.modules.client.HUDModule;
 import dev.schizo.client.modules.combat.ArrowsModule;
@@ -24,6 +25,8 @@ import dev.schizo.client.modules.exploit.PingSpoofModule;
 import dev.schizo.client.modules.exploit.ReachModule;
 import dev.schizo.client.modules.exploit.TridentModule;
 import dev.schizo.client.modules.misc.AntiQuitModule;
+import dev.schizo.client.modules.misc.ExtraTabModule;
+import dev.schizo.client.modules.misc.NoNarratorModule;
 import dev.schizo.client.modules.misc.NoPacketKickModule;
 import dev.schizo.client.modules.misc.SwingModule;
 import dev.schizo.client.modules.movement.ElytraFlyModule;
@@ -39,7 +42,11 @@ import dev.schizo.client.modules.movement.VelocityModule;
 import dev.schizo.client.modules.player.AutoEatModule;
 import dev.schizo.client.modules.player.FreecamModule;
 import dev.schizo.client.modules.player.ScaffoldModule;
+import dev.schizo.client.modules.player.NameProtectModule;
 import dev.schizo.client.modules.render.AmbienceModule;
+import dev.schizo.client.modules.render.BlurModule;
+import dev.schizo.client.modules.render.CrosshairModule;
+import dev.schizo.client.modules.render.NameTagsModule;
 import dev.schizo.client.modules.render.ChamsModule;
 import dev.schizo.client.modules.render.FreeLookModule;
 import dev.schizo.client.modules.render.GlintModule;
@@ -138,6 +145,13 @@ public final class MixinModuleRegistry {
    public static volatile SprintModule playerSprintModule;
    public static volatile ReachModule playerReachModule;
    public static volatile NoSlowModule playerNoSlowModule;
+   public static volatile NoNarratorModule gameNarratorNoNarrator;
+   public static volatile ExtraTabModule guiExtraTab;
+   public static volatile CrosshairModule guiCrosshair;
+   public static volatile NameTagsModule entityRendererNameTags;
+   public static volatile NameProtectModule abstractClientPlayerNameProtect;
+   public static volatile CapesModule abstractClientPlayerCapes;
+   public static volatile BlurModule screenBlur;
 
    public static void bind(ModuleRegistry registry) {
       Objects.requireNonNull(registry, "Module registry is not initialized");
@@ -206,6 +220,13 @@ public final class MixinModuleRegistry {
       playerSprintModule = (SprintModule)Objects.requireNonNull(registry.getModule(SprintModule.class), "Required module is not registered: SprintModule");
       playerReachModule = (ReachModule)Objects.requireNonNull(registry.getModule(ReachModule.class), "Required module is not registered: ReachModule");
       playerNoSlowModule = (NoSlowModule)Objects.requireNonNull(registry.getModule(NoSlowModule.class), "Required module is not registered: NoSlowModule");
+      gameNarratorNoNarrator = (NoNarratorModule)Objects.requireNonNull(registry.getModule(NoNarratorModule.class), "Required module is not registered: NoNarratorModule");
+      guiExtraTab = (ExtraTabModule)Objects.requireNonNull(registry.getModule(ExtraTabModule.class), "Required module is not registered: ExtraTabModule");
+      guiCrosshair = (CrosshairModule)Objects.requireNonNull(registry.getModule(CrosshairModule.class), "Required module is not registered: CrosshairModule");
+      entityRendererNameTags = (NameTagsModule)Objects.requireNonNull(registry.getModule(NameTagsModule.class), "Required module is not registered: NameTagsModule");
+      abstractClientPlayerNameProtect = (NameProtectModule)Objects.requireNonNull(registry.getModule(NameProtectModule.class), "Required module is not registered: NameProtectModule");
+      abstractClientPlayerCapes = (CapesModule)Objects.requireNonNull(registry.getModule(CapesModule.class), "Required module is not registered: CapesModule");
+      screenBlur = (BlurModule)Objects.requireNonNull(registry.getModule(BlurModule.class), "Required module is not registered: BlurModule");
       moduleRegistry = registry;
    }
 }
