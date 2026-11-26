@@ -27,9 +27,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(Screen.class)
 public abstract class ScreenMixin {
-   private static BlurModule blurModule() {
-      return MixinModuleRegistry.getModule(BlurModule.class);
-   }
    @Shadow
    @Nullable
    protected Minecraft minecraft;
@@ -64,7 +61,7 @@ public abstract class ScreenMixin {
    private void replaceBlurredScreenBackground(
       GuiGraphics graphics, int mouseX, int mouseY, float partialTick, CallbackInfo callback
    ) {
-      if (blurModule().isToggled()
+      if (MixinModuleRegistry.screenBlur.isToggled()
          && this.minecraft.level != null
          && this.minecraft.player != null) {
          this.renderMenuBackground(graphics);
