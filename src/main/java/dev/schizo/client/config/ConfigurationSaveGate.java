@@ -10,9 +10,15 @@ import java.util.Objects;
  * asynchronous generation and runs under the same exclusive gate.</p>
  */
 public final class ConfigurationSaveGate {
+   public static final long NO_ASYNC_SAVE = -1L;
+
    private long generation;
+   private boolean asyncClosed;
 
    public synchronized long reserveAsyncSave() {
+      if (this.asyncClosed) {
+         return NO_ASYNC_SAVE;
+      }
       return ++this.generation;
    }
 
@@ -27,5 +33,14 @@ public final class ConfigurationSaveGate {
       Objects.requireNonNull(action, "action");
       this.generation++;
       action.run();
+   }
+
+   /** Permanently rejects new asynchronous saves and invalidates pending generations. */
+   public synchronized void closeAsyncSaves() {
+      if (this.asyncClosed) {
+         return;
+      }
+      this.asyncClosed = true;
+      this.generation++;
    }
 }

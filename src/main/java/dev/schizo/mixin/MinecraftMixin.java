@@ -71,6 +71,7 @@ public class MinecraftMixin {
          if (ClientContext.taskScheduler != null) {
             ClientContext.taskScheduler.shutdown();
          }
+         ClientContext.configurationManager.beginShutdown();
          try {
             if (ClientContext.contextProfileRegistry != null
                && !ClientContext.contextProfileRegistry.restoreBeforeShutdown()) {

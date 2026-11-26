@@ -41,6 +41,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.RejectedExecutionException;
 import net.fabricmc.loader.api.FabricLoader;
 
 public final class ConfigurationManager implements ClientAccess {
@@ -239,6 +240,10 @@ public final class ConfigurationManager implements ClientAccess {
       }
 
       long saveVersion = this.saveGate.reserveAsyncSave();
+      if (saveVersion == ConfigurationSaveGate.NO_ASYNC_SAVE) {
+         return;
+      }
+
       List<ConfigSnapshot> snapshots = new ArrayList<>();
       Iterator<?> configurableIterator = this.configurables.iterator();
       while (configurableIterator.hasNext()) {
@@ -255,7 +260,16 @@ public final class ConfigurationManager implements ClientAccess {
          }
       }
 
-      ClientAccess.executorService.submit(() -> this.writeSnapshots(snapshots, saveVersion));
+      try {
+         ClientAccess.executorService.submit(() -> this.writeSnapshots(snapshots, saveVersion));
+      } catch (RejectedExecutionException shutdownRace) {
+         ClientAccess.logger.debug("Skipping asynchronous configuration save because the worker executor is shutting down");
+      }
+   }
+
+   /** Stops new asynchronous saves before client shutdown begins. */
+   public void beginShutdown() {
+      this.saveGate.closeAsyncSaves();
    }
 
    private void writeSnapshots(List<ConfigSnapshot> snapshots, long saveVersion) {
