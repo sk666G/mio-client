@@ -10,7 +10,9 @@ import java.util.List;
 import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
+import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestFactory;
 
 class ModuleDependencyBindingSourceTest {
    private static final Pattern MODULE_REGISTRY_BINDER = Pattern.compile(
@@ -45,25 +47,27 @@ class ModuleDependencyBindingSourceTest {
       );
    }
 
-   @Test
-   void clientSourcesDoNotResolveModulesDuringStaticInitialization() throws IOException {
-      Path moduleRoot = Path.of("src", "main", "java", "dev", "schizo", "client");
-
+   @TestFactory
+   Stream<DynamicTest> clientSourcesDoNotResolveModulesDuringStaticInitialization() throws IOException {
+      Path sourceRoot = Path.of("src", "main", "java", "dev", "schizo", "client");
       List<String> offenders;
-      try (Stream<Path> sources = Files.walk(moduleRoot)) {
+      try (Stream<Path> sources = Files.walk(sourceRoot)) {
          offenders = sources
             .filter(path -> path.toString().endsWith(".java"))
             .filter(ModuleDependencyBindingSourceTest::resolvesModuleDuringStaticInitialization)
-            .map(moduleRoot::relativize)
+            .map(sourceRoot::relativize)
             .map(Path::toString)
             .sorted()
             .toList();
       }
 
-      assertTrue(
-         offenders.isEmpty(),
-         "Client sources must not resolve dependencies through ClientContext.getModule(...) during static initialization: " + offenders
-      );
+      return offenders.stream().map(offender -> DynamicTest.dynamicTest(
+         offender,
+         () -> assertTrue(
+            false,
+            "Client source must not resolve dependencies through ClientContext.getModule(...) during static initialization: " + offender
+         )
+      ));
    }
 
    @Test
