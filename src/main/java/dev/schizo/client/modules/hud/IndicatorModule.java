@@ -31,9 +31,7 @@ import dev.schizo.client.settings.NumberSetting;
 import dev.schizo.client.settings.Setting;
 import dev.schizo.client.utils.FloatAnimation;
 import java.awt.Color;
-import java.util.ArrayList;
 import java.util.EnumMap;
-import java.util.List;
 import java.util.Map;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.Holder;
@@ -43,6 +41,7 @@ import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 
 public class IndicatorModule extends HudWidgetModule {
+   private static final DisplayMode[] DISPLAY_MODES = DisplayMode.values();
    private static WarpModule warp() {
       return ClientContext.getModule(WarpModule.class);
    }
@@ -75,7 +74,7 @@ public class IndicatorModule extends HudWidgetModule {
       this.warpSetting = this.add(new BooleanSetting("Warp", true).dependsOn(indicators));
       this.resistanceSetting = this.add(new BooleanSetting("Resistance", false).dependsOn(indicators));
       this.strengthSetting = this.add(new BooleanSetting("Strength", false).dependsOn(indicators));
-      for (DisplayMode mode : DisplayMode.values()) {
+      for (DisplayMode mode : DISPLAY_MODES) {
          this.visibilityAnimations.put(mode, new FloatAnimation());
       }
       this.setRenderer(new ResizableHudWidgetRenderer(this));
@@ -91,12 +90,12 @@ public class IndicatorModule extends HudWidgetModule {
          else selected.add(settings.get("Display"));
          JsonObject migratedSettings = migrated.getAsJsonObject("settings");
          migratedSettings.remove("Indicators");
-         for (DisplayMode mode : DisplayMode.values()) {
+         for (DisplayMode mode : DISPLAY_MODES) {
             migratedSettings.addProperty(mode.getName(), false);
          }
          for (JsonElement entry : selected) {
             DisplayMode matched = null;
-            for (DisplayMode mode : DisplayMode.values()) {
+            for (DisplayMode mode : DISPLAY_MODES) {
                if (mode.getName().equalsIgnoreCase(entry.getAsString())) matched = mode;
             }
             if (matched == null) throw new IllegalArgumentException("Unknown indicator: " + entry.getAsString());
@@ -108,12 +107,12 @@ public class IndicatorModule extends HudWidgetModule {
       }
    }
 
-   private List<DisplayMode> selectedIndicators() {
-      List<DisplayMode> selected = new ArrayList<>();
-      if (this.warpSetting.getValue()) selected.add(DisplayMode.WARP);
-      if (this.resistanceSetting.getValue()) selected.add(DisplayMode.RESISTANCE);
-      if (this.strengthSetting.getValue()) selected.add(DisplayMode.STRENGTH);
-      return selected;
+   private boolean isIndicatorSelected(DisplayMode mode) {
+      return switch (mode) {
+         case WARP -> this.warpSetting.getValue();
+         case RESISTANCE -> this.resistanceSetting.getValue();
+         case STRENGTH -> this.strengthSetting.getValue();
+      };
    }
 
    private DisplayData getDisplayData(DisplayMode mode) {
@@ -156,7 +155,10 @@ public class IndicatorModule extends HudWidgetModule {
       float height = 0.0F;
       int count = 0;
       boolean horizontal = this.layoutSetting.getValue() == Layout.HORIZONTAL;
-      for (DisplayMode mode : this.selectedIndicators()) {
+      for (DisplayMode mode : DISPLAY_MODES) {
+         if (!this.isIndicatorSelected(mode)) {
+            continue;
+         }
          float itemWidth = this.indicatorWidth(this.getDisplayData(mode));
          float itemHeight = this.indicatorHeight();
          width = horizontal ? width + itemWidth : Math.max(width, itemWidth);
@@ -181,7 +183,10 @@ public class IndicatorModule extends HudWidgetModule {
          poses.scale(scale, scale, 1.0F);
          float x = 0.0F;
          float y = 0.0F;
-         for (DisplayMode mode : this.selectedIndicators()) {
+         for (DisplayMode mode : DISPLAY_MODES) {
+            if (!this.isIndicatorSelected(mode)) {
+               continue;
+            }
             DisplayData data = this.getDisplayData(mode);
             FloatAnimation visibility = this.visibilityAnimations.get(mode);
             boolean hidden = this.hideSetting.getValue()
