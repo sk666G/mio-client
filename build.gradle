@@ -134,6 +134,10 @@ tasks.named('sourcesJar') {
 
 tasks.withType(Test).configureEach {
     useJUnitPlatform()
+    testLogging {
+        events "failed"
+        exceptionFormat = "full"
+    }
 }
 
 tasks.withType(org.gradle.api.tasks.bundling.AbstractArchiveTask).configureEach {
