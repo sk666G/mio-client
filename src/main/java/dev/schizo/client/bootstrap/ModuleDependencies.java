@@ -73,6 +73,7 @@ import dev.schizo.client.modules.movement.SprintModule;
 import dev.schizo.client.modules.movement.StepModule;
 import dev.schizo.client.modules.movement.VelocityModule;
 import dev.schizo.client.modules.movement.WarpModule;
+import dev.schizo.client.modules.player.AutoEatModule;
 import dev.schizo.client.modules.player.AutoToolModule;
 import dev.schizo.client.modules.player.ChestStealerModule;
 import dev.schizo.client.modules.player.FastPlaceModule;
@@ -133,6 +134,7 @@ public final class ModuleDependencies {
       FastPlaceModule.bindModules(registry);
       ElytraFlyModule.bindModuleReferences(registry);
       AutoWalkModule.bindReferencedModules(registry);
+      AutoEatModule.bindReferencedModules(registry);
       AnchorAuraModule.bindReferencedModules(registry);
       PlacementModule.bindModules(registry);
       FeetPlaceModule.bindReferencedModules(registry);
