@@ -501,27 +501,35 @@ public class AutoCrystalModule extends Module {
    private void advancePlacementScan(AutoCrystalScanState state) {
       long startedNanos = System.nanoTime();
       int processed = 0;
-      int candidateBudget = AdaptiveScanBudget.limit(MAX_SCAN_CANDIDATES_PER_TICK, ClientContext.frameTiming);
-      long timeBudgetNanos = AdaptiveScanBudget.nanos(SCAN_BUDGET_NANOS, ClientContext.frameTiming);
-      while (!state.cursor.isComplete() && processed < candidateBudget) {
-         if (processed > 0 && System.nanoTime() - startedNanos >= timeBudgetNanos) {
-            break;
+      boolean measuring = dev.schizo.client.profiling.EventProfiler.GLOBAL.isEnabled();
+      long scanStart = measuring ? System.nanoTime() : 0L;
+      try {
+         int candidateBudget = AdaptiveScanBudget.limit(MAX_SCAN_CANDIDATES_PER_TICK, ClientContext.frameTiming);
+         long timeBudgetNanos = AdaptiveScanBudget.nanos(SCAN_BUDGET_NANOS, ClientContext.frameTiming);
+         while (!state.cursor.isComplete() && processed < candidateBudget) {
+            if (processed > 0 && System.nanoTime() - startedNanos >= timeBudgetNanos) {
+               break;
+            }
+
+            IncrementalCubeScanCursor.Offset offset = state.cursor.next();
+            if (offset == null) {
+               break;
+            }
+            processed++;
+
+            CrystalPlacementResult candidate = this.evaluatePlacementCandidate(state, offset);
+            if (candidate != null) {
+               state.bestPlacement = candidate.selectBetterPlacement(state.bestPlacement);
+            }
          }
 
-         IncrementalCubeScanCursor.Offset offset = state.cursor.next();
-         if (offset == null) {
-            break;
+         if (state.cursor.isComplete()) {
+            state.finished = true;
          }
-         processed++;
 
-         CrystalPlacementResult candidate = this.evaluatePlacementCandidate(state, offset);
-         if (candidate != null) {
-            state.bestPlacement = candidate.selectBetterPlacement(state.bestPlacement);
-         }
-      }
-
-      if (state.cursor.isComplete()) {
-         state.finished = true;
+      } finally {
+         if (measuring) dev.schizo.client.profiling.ScanWorkTracker.GLOBAL.record(
+            dev.schizo.client.profiling.ScanWorkTracker.Source.AUTO_CRYSTAL, System.nanoTime() - scanStart, processed);
       }
    }
 

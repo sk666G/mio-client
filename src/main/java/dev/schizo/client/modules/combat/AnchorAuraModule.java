@@ -580,33 +580,43 @@ public class AnchorAuraModule extends Module {
    private void advanceScan(AnchorScanState state) {
       long startedNanos = System.nanoTime();
       int processed = 0;
+      boolean measuring = dev.schizo.client.profiling.EventProfiler.GLOBAL.isEnabled();
+      long scanStart = measuring ? System.nanoTime() : 0L;
+      try {
 
-      while (!state.cursor.isComplete() && processed < MAX_SCAN_CANDIDATES_PER_TICK) {
-         if (processed > 0 && System.nanoTime() - startedNanos >= SCAN_BUDGET_NANOS) {
-            break;
+         while (!state.cursor.isComplete() && processed < MAX_SCAN_CANDIDATES_PER_TICK) {
+            if (processed > 0 && System.nanoTime() - startedNanos >= SCAN_BUDGET_NANOS) {
+               break;
+            }
+
+            IncrementalCubeScanCursor.Offset offset = state.cursor.next();
+            if (offset == null) {
+               break;
+            }
+            processed++;
+
+            AnchorPlacementResult candidate = this.evaluatePlacementCandidate(state, offset);
+            if (candidate == null) {
+               continue;
+            }
+
+            if (this.isAnchorBlock(candidate.base())) {
+               state.bestPlacement = candidate;
+               state.finished = true;
+               return;
+            }
+            state.bestPlacement = candidate.selectHigherDamage(state.bestPlacement);
          }
 
-         IncrementalCubeScanCursor.Offset offset = state.cursor.next();
-         if (offset == null) {
-            break;
-         }
-         processed++;
-
-         AnchorPlacementResult candidate = this.evaluatePlacementCandidate(state, offset);
-         if (candidate == null) {
-            continue;
-         }
-
-         if (this.isAnchorBlock(candidate.base())) {
-            state.bestPlacement = candidate;
+         if (state.cursor.isComplete()) {
             state.finished = true;
-            return;
          }
-         state.bestPlacement = candidate.selectHigherDamage(state.bestPlacement);
-      }
 
-      if (state.cursor.isComplete()) {
-         state.finished = true;
+      } finally {
+         if (measuring) {
+            dev.schizo.client.profiling.ScanWorkTracker.GLOBAL.record(
+               dev.schizo.client.profiling.ScanWorkTracker.Source.ANCHOR_AURA, System.nanoTime() - scanStart, processed);
+         }
       }
    }
 

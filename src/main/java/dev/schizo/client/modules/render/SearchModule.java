@@ -283,71 +283,79 @@ public class SearchModule extends Module {
       }
 
       int processed = 0;
-      int scanBudget = AdaptiveScanBudget.limit(CHUNK_SCAN_BUDGET_PER_TICK, ClientContext.frameTiming);
-      while (processed < scanBudget) {
-         if (this.blocksByPosition.size() >= MAX_CACHED_BLOCKS) {
-            this.clearPendingChunkScans();
-            return;
-         }
-
-         if (this.activeChunkScan == null) {
-            QueuedSearchChunk next = this.pendingChunkScans.poll();
-            if (next == null) {
+      boolean measuring = dev.schizo.client.profiling.EventProfiler.GLOBAL.isEnabled();
+      long scanStart = measuring ? System.nanoTime() : 0L;
+      try {
+         int scanBudget = AdaptiveScanBudget.limit(CHUNK_SCAN_BUDGET_PER_TICK, ClientContext.frameTiming);
+         while (processed < scanBudget) {
+            if (this.blocksByPosition.size() >= MAX_CACHED_BLOCKS) {
+               this.clearPendingChunkScans();
                return;
             }
-            int firstY = this.heightSetting.getValue() == HeightChoice.OLD
-               ? 0
-               : this.minimumBuildHeight;
-            this.activeChunkPosition = next.position();
-            this.activeChunk = next.chunk();
-            this.activeChunkScan = new SearchChunkScanCursor(
-               next.position().getMinBlockX(),
-               next.position().getMinBlockZ(),
-               firstY,
-               this.maximumBuildHeight
-            );
-         }
 
-         SearchChunkScanCursor.Cell cell = this.activeChunkScan.next();
-         if (cell == null) {
-            this.queuedChunkScans.remove(this.activeChunkPosition.toLong());
-            this.activeChunkScan = null;
-            this.activeChunkPosition = null;
-            this.activeChunk = null;
-            continue;
-         }
+            if (this.activeChunkScan == null) {
+               QueuedSearchChunk next = this.pendingChunkScans.poll();
+               if (next == null) {
+                  return;
+               }
+               int firstY = this.heightSetting.getValue() == HeightChoice.OLD
+                  ? 0
+                  : this.minimumBuildHeight;
+               this.activeChunkPosition = next.position();
+               this.activeChunk = next.chunk();
+               this.activeChunkScan = new SearchChunkScanCursor(
+                  next.position().getMinBlockX(),
+                  next.position().getMinBlockZ(),
+                  firstY,
+                  this.maximumBuildHeight
+               );
+            }
 
-         scanPosition.set(cell.x(), cell.y(), cell.z());
-         BlockState state = this.activeChunk.getBlockState(scanPosition);
-         if (this.ignoreNaturalSetting.getValue()
-            && WorldUtils.isStructureChest(
-               this.activeChunk,
-               scanPosition,
-               this.fortressSetting.getValue(),
-               this.bastionSetting.getValue(),
-               this.ancientCitySetting.getValue(),
-               this.dungeonSetting.getValue(),
-               this.trialChambersSetting.getValue()
-            )) {
-            processed++;
-            continue;
-         }
+            SearchChunkScanCursor.Cell cell = this.activeChunkScan.next();
+            if (cell == null) {
+               this.queuedChunkScans.remove(this.activeChunkPosition.toLong());
+               this.activeChunkScan = null;
+               this.activeChunkPosition = null;
+               this.activeChunk = null;
+               continue;
+            }
 
-         if (this.shouldSearchBlock(state)) {
-            BlockPos position = scanPosition.immutable();
-            this.knownBlockPositions.add(position);
-            this.blocksByPosition.put(position, SearchResult.create(position, state));
+            scanPosition.set(cell.x(), cell.y(), cell.z());
+            BlockState state = this.activeChunk.getBlockState(scanPosition);
+            if (this.ignoreNaturalSetting.getValue()
+               && WorldUtils.isStructureChest(
+                  this.activeChunk,
+                  scanPosition,
+                  this.fortressSetting.getValue(),
+                  this.bastionSetting.getValue(),
+                  this.ancientCitySetting.getValue(),
+                  this.dungeonSetting.getValue(),
+                  this.trialChambersSetting.getValue()
+               )) {
+               processed++;
+               continue;
+            }
 
-            if (this.rangeSetting.isAtMaximum()) {
-               this.alertPending = true;
-            } else {
-               float range = this.rangeSetting.getValue();
-               if (!this.isOutsideRange(position, range * range)) {
+            if (this.shouldSearchBlock(state)) {
+               BlockPos position = scanPosition.immutable();
+               this.knownBlockPositions.add(position);
+               this.blocksByPosition.put(position, SearchResult.create(position, state));
+
+               if (this.rangeSetting.isAtMaximum()) {
                   this.alertPending = true;
+               } else {
+                  float range = this.rangeSetting.getValue();
+                  if (!this.isOutsideRange(position, range * range)) {
+                     this.alertPending = true;
+                  }
                }
             }
+            processed++;
          }
-         processed++;
+
+      } finally {
+         if (measuring) dev.schizo.client.profiling.ScanWorkTracker.GLOBAL.record(
+            dev.schizo.client.profiling.ScanWorkTracker.Source.SEARCH, System.nanoTime() - scanStart, processed);
       }
    }
 
