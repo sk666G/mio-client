@@ -541,10 +541,12 @@ public class AutoArmorModule extends Module {
 
                   ClientLevel expectedLevel = ClientAccess.schizoMinecraft.level;
                   LocalPlayer expectedPlayer = ClientAccess.schizoMinecraft.player;
+                  var expectedMenu = expectedPlayer.containerMenu;
                   Runnable restoreCursorStack = () -> {
                      if (!this.isToggled()
                         || ClientAccess.schizoMinecraft.level != expectedLevel
                         || ClientAccess.schizoMinecraft.player != expectedPlayer
+                        || expectedPlayer.containerMenu != expectedMenu
                         || ClientAccess.schizoMinecraft.screen != null) {
                         return;
                      }
