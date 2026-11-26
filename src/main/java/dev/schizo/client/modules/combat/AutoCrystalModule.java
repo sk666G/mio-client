@@ -513,27 +513,39 @@ public class AutoCrystalModule extends Module {
    private void advancePlacementScan(AutoCrystalScanState state) {
       long startedNanos = System.nanoTime();
       int processed = 0;
-      int candidateBudget = AdaptiveScanBudget.limit(MAX_SCAN_CANDIDATES_PER_TICK, ClientContext.frameTiming);
-      long timeBudgetNanos = AdaptiveScanBudget.nanos(SCAN_BUDGET_NANOS, ClientContext.frameTiming);
-      while (!state.cursor.isComplete() && processed < candidateBudget) {
-         if (processed > 0 && System.nanoTime() - startedNanos >= timeBudgetNanos) {
-            break;
+      boolean measuring = dev.schizo.client.profiling.EventProfiler.GLOBAL.isEnabled();
+      long scanStart = measuring ? System.nanoTime() : 0L;
+      try {
+         int candidateBudget = AdaptiveScanBudget.limit(MAX_SCAN_CANDIDATES_PER_TICK, ClientContext.frameTiming);
+         long timeBudgetNanos = AdaptiveScanBudget.nanos(SCAN_BUDGET_NANOS, ClientContext.frameTiming);
+         while (!state.cursor.isComplete() && processed < candidateBudget) {
+            if (processed > 0 && System.nanoTime() - startedNanos >= timeBudgetNanos) {
+               break;
+            }
+
+            IncrementalCubeScanCursor.Offset offset = state.cursor.next();
+            if (offset == null) {
+               break;
+            }
+            processed++;
+
+            CrystalPlacementResult candidate = this.evaluatePlacementCandidate(state, offset);
+            if (candidate != null) {
+               state.bestPlacement = candidate.selectBetterPlacement(state.bestPlacement);
+            }
          }
 
-         IncrementalCubeScanCursor.Offset offset = state.cursor.next();
-         if (offset == null) {
-            break;
+         if (state.cursor.isComplete()) {
+            state.finished = true;
          }
-         processed++;
-
-         CrystalPlacementResult candidate = this.evaluatePlacementCandidate(state, offset);
-         if (candidate != null) {
-            state.bestPlacement = candidate.selectBetterPlacement(state.bestPlacement);
+      } finally {
+         if (measuring) {
+            dev.schizo.client.profiling.ScanWorkTracker.GLOBAL.record(
+               dev.schizo.client.profiling.ScanWorkTracker.Source.AUTO_CRYSTAL,
+               System.nanoTime() - scanStart,
+               processed
+            );
          }
-      }
-
-      if (state.cursor.isComplete()) {
-         state.finished = true;
       }
    }
 
@@ -564,6 +576,7 @@ public class AutoCrystalModule extends Module {
 
    private static final class AutoCrystalScanState {
       final ClientLevel world;
+      final long startedNanos = System.nanoTime();
       final Vec3 eyePosition;
       final float placeRange;
       final float selectedCrystalRange;
@@ -894,39 +907,36 @@ public class AutoCrystalModule extends Module {
    }
 
    private boolean shouldPause() {
+      this.clearPauseReason();
       if (this.isWorldUnavailable()) {
-         return true;
+         return this.pauseWithReason("Waiting for world");
       }
 
       if (BlockInteractionUtils.isInteractionCooldownActive()) {
-         return true;
+         return this.pauseWithReason("Interaction cooldown");
       }
 
       if (OffhandModule.isRecentSwapWindowActive()) {
-         return true;
+         return this.pauseWithReason("Offhand swap");
       }
       if (SpeedMineModule.isSwapPending()) {
-         return true;
+         return this.pauseWithReason("Mining swap");
       }
       LivingEntity targetSnapshot = this.target;
       if (this.isInvalidTarget(targetSnapshot)) {
-         return true;
+         return this.pauseWithReason("No valid target");
       }
 
       if (ClientAccess.schizoMinecraft.player.isSleeping()) {
-         return true;
+         return this.pauseWithReason("Sleeping");
       }
 
-      if (ClientAccess.schizoMinecraft.player.isUsingItem()) {
-         if (this.pauseEatingSetting.getValue()) {
-            return true;
-         }
+      if (ClientAccess.schizoMinecraft.player.isUsingItem() && this.pauseEatingSetting.getValue()) {
+         return this.pauseWithReason("Using item");
       }
 
-      if (this.pauseMendingSetting.getValue()) {
-         if (autoExp.isActive()) {
-            return true;
-         }
+      if (this.pauseMendingSetting.getValue() && autoExp.isActive()) {
+         return this.pauseWithReason("Mending");
       }
 
       boolean miningFlag = ClientAccess.schizoMinecraft.gameMode.isDestroying();
@@ -937,40 +947,33 @@ public class AutoCrystalModule extends Module {
          }
       }
 
-      if (miningFlag) {
-         if (this.pauseMiningSetting.getValue()) {
-            return true;
-         }
+      if (miningFlag && this.pauseMiningSetting.getValue()) {
+         return this.pauseWithReason("Mining");
       }
 
       if (!this.forceSuicideSetting.getValue()) {
          return false;
       }
 
-      if (anchorAura.isToggled()) {
-         if (anchorAura.placementData.get() != null
-            && anchorAura.targetDamage
-               != null) {
-            if (this.placementData.get() != null) {
-               double anchorDamage = anchorAura.targetDamage.damage();
-
-               CrystalPlacementResult crystalPlacementSnapshot = (CrystalPlacementResult)this.placementData.get();
-               if (anchorDamage > crystalPlacementSnapshot.damage()) {
-                  return true;
-               }
-            }
+      if (anchorAura.isToggled()
+         && anchorAura.placementData.get() != null
+         && anchorAura.targetDamage != null
+         && this.placementData.get() != null) {
+         double anchorDamage = anchorAura.targetDamage.damage();
+         CrystalPlacementResult crystalPlacementSnapshot = (CrystalPlacementResult)this.placementData.get();
+         if (anchorDamage > crystalPlacementSnapshot.damage()) {
+            return this.pauseWithReason("AnchorAura selected");
          }
       }
 
-      if (RotationManager.isMovementSyncEnabled()) {
-         if (!RotationManager.isSilentRotationMode()) {
-            if (ClientAccess.schizoMinecraft.player.isFallFlying()) {
-               return true;
-            }
-         }
+      if (RotationManager.isMovementSyncEnabled()
+         && !RotationManager.isSilentRotationMode()
+         && ClientAccess.schizoMinecraft.player.isFallFlying()) {
+         return this.pauseWithReason("Flight rotation");
       }
 
-      return ClientAccess.schizoMinecraft.player.isDeadOrDying();
+      return ClientAccess.schizoMinecraft.player.isDeadOrDying()
+         && this.pauseWithReason("Player dead");
    }
 
    public boolean shouldIgnoreMiningBlock() {
