@@ -40,6 +40,7 @@ public final class MultiplayerCompatibilityPolicy implements JsonConfigurable {
 
    public synchronized void setMode(Mode mode) {
       this.mode = Objects.requireNonNull(mode, "mode");
+      MultiplayerCompatibilityWarnings.requestInspection();
    }
 
    /** True only for a remote multiplayer session with the conservative policy active. */
@@ -82,11 +83,18 @@ public final class MultiplayerCompatibilityPolicy implements JsonConfigurable {
 
    public synchronized boolean removeAllowedModule(String moduleClass) {
       String normalized = validateModuleClass(moduleClass);
-      return this.allowedModules.remove(normalized);
+      boolean removed = this.allowedModules.remove(normalized);
+      if (removed) {
+         MultiplayerCompatibilityWarnings.requestInspection();
+      }
+      return removed;
    }
 
    public synchronized void clearAllowedModules() {
-      this.allowedModules.clear();
+      if (!this.allowedModules.isEmpty()) {
+         this.allowedModules.clear();
+         MultiplayerCompatibilityWarnings.requestInspection();
+      }
    }
 
    public synchronized List<String> getAllowedModules() {
@@ -153,6 +161,7 @@ public final class MultiplayerCompatibilityPolicy implements JsonConfigurable {
       this.mode = parsedMode;
       this.allowedModules.clear();
       this.allowedModules.addAll(parsedAllowed);
+      MultiplayerCompatibilityWarnings.requestInspection();
    }
 
    private static String validateModuleClass(String value) {

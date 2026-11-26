@@ -29,6 +29,7 @@ public final class MultiplayerCompatibilityWarnings implements ClientAccess {
    private static final int MAX_CHAT_WARNINGS_PER_CONNECTION = 8;
    private static final Set<Class<?>> WARNED_MODULES = ConcurrentHashMap.newKeySet();
    private static final AtomicInteger CHAT_WARNINGS_SHOWN = new AtomicInteger();
+   private static volatile boolean inspectionPending = true;
 
    public MultiplayerCompatibilityWarnings() {
       EventBus eventBus = ClientAccess.eventBus;
@@ -82,15 +83,19 @@ public final class MultiplayerCompatibilityWarnings implements ClientAccess {
 
    @EventHandler(priority = 1000)
    private void inspectActiveModules(LocalPlayerPreTickEvent event) {
-      enforceActiveModules();
+      if (inspectionPending) {
+         enforceActiveModules();
+      }
    }
 
    /** Applies a newly enabled policy to active modules. Suspended modules are not auto-reactivated. */
    public static void enforceActiveModules() {
       if (!isMultiplayerSession() || ClientContext.moduleRegistry == null) {
+         inspectionPending = true;
          return;
       }
 
+      inspectionPending = false;
       for (Object entry : ClientContext.moduleRegistry.getRegistry()) {
          Module module = (Module)entry;
          if (!module.isToggled()) {
@@ -105,12 +110,18 @@ public final class MultiplayerCompatibilityWarnings implements ClientAccess {
 
    @EventHandler(priority = -100)
    private void resetForNewConnection(ConnectScreenConnectEvent event) {
+      requestInspection();
       resetWarnings();
    }
 
    @EventHandler
    private void resetAfterDisconnect(MinecraftDisconnectEvent event) {
+      requestInspection();
       resetWarnings();
+   }
+
+   public static void requestInspection() {
+      inspectionPending = true;
    }
 
    public static boolean isMultiplayerSession() {
