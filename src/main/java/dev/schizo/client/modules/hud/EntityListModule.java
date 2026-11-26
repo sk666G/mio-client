@@ -14,6 +14,7 @@ import java.util.Set;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.LocalPlayerTickEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.render.FontRenderer;
 import dev.schizo.client.render.ResizableHudWidgetRenderer;
 import dev.schizo.client.modules.HudWidgetModule;
@@ -75,6 +76,21 @@ public class EntityListModule extends HudWidgetModule {
       }
 
       return this.dimensions(maximumWidth, totalHeight);
+   }
+
+   @Override
+   public void onDisable() {
+      this.clearEntitySnapshot();
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.clearEntitySnapshot();
+   }
+
+   private void clearEntitySnapshot() {
+      this.countsByName.clear();
+      this.entries.clear();
    }
 
    @EventHandler
