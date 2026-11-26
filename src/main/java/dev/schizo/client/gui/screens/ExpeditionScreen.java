@@ -280,7 +280,10 @@ public final class ExpeditionScreen extends Screen {
 
    @Override
    public void tick() {
-      if (this.tab != 2 && System.nanoTime() - this.refreshedAt >= 500_000_000L) this.refresh();
+      if ((this.tab == 0 || this.tab == 1)
+         && System.nanoTime() - this.refreshedAt >= 500_000_000L) {
+         this.refresh();
+      }
    }
 
    @Override
