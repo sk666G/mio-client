@@ -15,7 +15,6 @@ import dev.schizo.client.utils.world.BlockInteractionUtils;
 import dev.schizo.client.utils.world.WorldUtils;
 
 import dev.schizo.client.ClientAccess;
-import dev.schizo.client.ClientContext;
 import dev.schizo.client.managers.ModuleRegistry;
 import dev.schizo.client.modules.combat.AutoCrystalModule;
 import dev.schizo.client.modules.combat.AutoMineModule;
@@ -115,8 +114,8 @@ public final class AutoMineFeetProvider extends AutoMineProviderBase {
    }
 
    static {
-      autoCrystal = (AutoCrystalModule)ClientContext.getModule(AutoCrystalModule.class);
-      speedMine = (SpeedMineModule)ClientContext.getModule(SpeedMineModule.class);
+
+
       Vec3i eastOffset = new Vec3i(1, 0, 0);
       Vec3i southOffset = new Vec3i(0, 0, 1);
       Vec3i upOffset = new Vec3i(0, 1, 0);

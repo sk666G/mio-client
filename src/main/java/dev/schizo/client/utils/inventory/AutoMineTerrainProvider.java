@@ -14,7 +14,6 @@ import dev.schizo.client.utils.entity.PlayerStateUtils;
 import dev.schizo.client.utils.world.WorldUtils;
 
 import dev.schizo.client.ClientAccess;
-import dev.schizo.client.ClientContext;
 import dev.schizo.client.managers.ModuleRegistry;
 import dev.schizo.client.modules.combat.AutoMineModule;
 import dev.schizo.client.modules.combat.AutoMineTargetSelector;
@@ -61,9 +60,7 @@ public final class AutoMineTerrainProvider extends AutoMineProviderBase {
       super(module);
    }
 
-   static {
-      speedMine = (SpeedMineModule)ClientContext.getModule(SpeedMineModule.class);
-   }
+   
 
    private BlockPos selectTerrainCandidate(Player target, BlockPos basePosition, BlockPos referencePosition) {
       Set<BlockPos> occupiedPositions = PlayerStateUtils.getSurroundPositions(target);

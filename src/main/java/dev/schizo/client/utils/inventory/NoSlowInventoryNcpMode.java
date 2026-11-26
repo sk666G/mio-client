@@ -43,9 +43,7 @@ public class NoSlowInventoryNcpMode extends NoSlowInventoryMode {
       super(noSlow);
    }
 
-   static {
-      multiTask = (MultiTaskModule)ClientContext.getModule(MultiTaskModule.class);
-   }
+   
 
    @Override
    public void onInventoryAction(InventoryActionEvent event) {
