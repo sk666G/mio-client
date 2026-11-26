@@ -165,9 +165,9 @@ public class MapModule extends HudWidgetModule {
                      continue;
                   }
 
-                  Color[] chunkColors = visibleChunk.kind().getColors(newChunksModule);
-                  if (chunkColors != null) {
-                     Color chunkColor = ColorUtils.withAlpha(chunkColors[0], 0.25F);
+                  Color fillColor = visibleChunk.kind().getFillColor(newChunksModule);
+                  if (fillColor != null) {
+                     Color chunkColor = ColorUtils.withAlpha(fillColor, 0.25F);
                      this.renderChunk(poses, cameraPosition, chunkPosition, chunkColor);
                   }
                }
