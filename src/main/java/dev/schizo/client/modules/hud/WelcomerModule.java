@@ -50,8 +50,12 @@ public class WelcomerModule extends HudWidgetModule {
    private boolean connectionScreenPending;
 
    private boolean tryAddServerWelcomeNotification() {
+      if (!this.connectionScreenPending) {
+         return false;
+      }
       ElapsedTimer timer = this.connectionScreenTimer;
       if (timer.hasElapsed(50L)) {
+         this.connectionScreenPending = false;
          return false;
       }
       Minecraft minecraft = ClientAccess.schizoMinecraft;
@@ -68,6 +72,7 @@ public class WelcomerModule extends HudWidgetModule {
          3000L,
          this.getHudColor(this.renderer.getY())
       ));
+      this.connectionScreenPending = false;
       return true;
    }
 
@@ -334,7 +339,6 @@ public class WelcomerModule extends HudWidgetModule {
       }
       if (event.getNewScreen() == null
          && this.connectionScreenPending) {
-         this.connectionScreenPending = false;
          this.connectionScreenTimer.reset();
       }
    }
