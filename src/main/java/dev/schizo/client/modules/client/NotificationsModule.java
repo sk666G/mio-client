@@ -268,7 +268,9 @@ public class NotificationsModule extends Module {
 
          CompletableFuture.runAsync(
             dispatch,
-            CompletableFuture.delayedExecutor(delayMillis, TimeUnit.MILLISECONDS)
+            CompletableFuture.delayedExecutor(
+               delayMillis, TimeUnit.MILLISECONDS, ClientAccess.executorService
+            )
          ).whenComplete((ignored, failure) -> this.pendingTotemChats.decrementAndGet());
       }
    }
