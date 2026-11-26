@@ -5,6 +5,11 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -19,6 +24,34 @@ class ConfigPathGuardTest {
       assertEquals(this.root.resolve("presets").resolve("auto.json"), target);
       assertTrue(Files.isDirectory(this.root.resolve("presets")));
       assertFalse(Files.exists(target));
+   }
+
+   @Test
+   void concurrentWritersCanShareMissingParentDirectories() throws Exception {
+      var pool = Executors.newFixedThreadPool(4);
+      try {
+         var ready = new CountDownLatch(4);
+         var start = new CountDownLatch(1);
+         var writers = new ArrayList<Future<Path>>();
+         Path directory = root.resolve("profiles").resolve("shared");
+         for (int i = 0; i < 4; i++) {
+            final int index = i;
+            writers.add(pool.submit(() -> {
+               ready.countDown();
+               if (!start.await(10, TimeUnit.SECONDS)) throw new AssertionError("Start timed out");
+               if (index % 2 == 0) return ConfigPathGuard.ensureDirectory(root, directory);
+               return ConfigPathGuard.resolveForWrite(root, "profiles/shared/" + index + ".json").getParent();
+            }));
+         }
+         assertTrue(ready.await(10, TimeUnit.SECONDS));
+         start.countDown();
+         for (Future<Path> writer : writers) {
+            assertEquals(directory, writer.get(10, TimeUnit.SECONDS));
+         }
+         assertTrue(Files.isDirectory(directory));
+      } finally {
+         pool.shutdownNow();
+      }
    }
 
    @Test

@@ -1,6 +1,7 @@
 package dev.schizo.client.config;
 
 import java.io.IOException;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
@@ -40,7 +41,7 @@ public final class ConfigPathGuard {
       for (Path component : normalizedRoot.relativize(normalizedDirectory)) {
          current = current.resolve(component);
          if (!Files.exists(current, LinkOption.NOFOLLOW_LINKS)) {
-            Files.createDirectory(current);
+            createDirectoryIfMissing(current);
          }
          if (Files.isSymbolicLink(current)
             || !Files.isDirectory(current, LinkOption.NOFOLLOW_LINKS)) {
@@ -49,6 +50,17 @@ public final class ConfigPathGuard {
       }
 
       return normalizedDirectory;
+   }
+
+   private static void createDirectoryIfMissing(Path directory) throws IOException {
+      try {
+         Files.createDirectory(directory);
+      } catch (FileAlreadyExistsException raced) {
+         // Another writer may have created this component after our existence check.
+         if (!Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS)) {
+            throw raced;
+         }
+      }
    }
 
    private static Path resolve(Path root, String configName, boolean createParents) throws IOException {
@@ -92,7 +104,7 @@ public final class ConfigPathGuard {
             if (!createParents) {
                return target;
             }
-            Files.createDirectory(current);
+            createDirectoryIfMissing(current);
          }
          if (Files.isSymbolicLink(current)
             || !Files.isDirectory(current, LinkOption.NOFOLLOW_LINKS)) {
