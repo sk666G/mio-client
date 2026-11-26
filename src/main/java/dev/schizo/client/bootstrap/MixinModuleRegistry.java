@@ -77,6 +77,9 @@ public final class MixinModuleRegistry {
    public static volatile TooltipsModule bundleContentsTooltipsModule;
    public static volatile FastLatencyModule clientPacketFastLatency;
    public static volatile NoRenderModule clientPacketNoRender;
+   public static volatile NoRenderModule clientLevelNoRender;
+   public static volatile NoRenderModule fogNoRender;
+   public static volatile SkyboxModule fogSkybox;
    public static volatile SprintModule localPlayerSprint;
    public static volatile ZoomModule gameZoom;
    public static volatile NoRenderModule gameNoRender;
@@ -138,6 +141,9 @@ public final class MixinModuleRegistry {
       bundleContentsTooltipsModule = (TooltipsModule)Objects.requireNonNull(registry.getModule(TooltipsModule.class), "Required module is not registered: TooltipsModule");
       clientPacketFastLatency = (FastLatencyModule)Objects.requireNonNull(registry.getModule(FastLatencyModule.class), "Required module is not registered: FastLatencyModule");
       clientPacketNoRender = (NoRenderModule)Objects.requireNonNull(registry.getModule(NoRenderModule.class), "Required module is not registered: NoRenderModule");
+      clientLevelNoRender = (NoRenderModule)Objects.requireNonNull(registry.getModule(NoRenderModule.class), "Required module is not registered: NoRenderModule");
+      fogNoRender = (NoRenderModule)Objects.requireNonNull(registry.getModule(NoRenderModule.class), "Required module is not registered: NoRenderModule");
+      fogSkybox = (SkyboxModule)Objects.requireNonNull(registry.getModule(SkyboxModule.class), "Required module is not registered: SkyboxModule");
       localPlayerSprint = (SprintModule)Objects.requireNonNull(registry.getModule(SprintModule.class), "Required module is not registered: SprintModule");
       gameZoom = (ZoomModule)Objects.requireNonNull(registry.getModule(ZoomModule.class), "Required module is not registered: ZoomModule");
       gameNoRender = (NoRenderModule)Objects.requireNonNull(registry.getModule(NoRenderModule.class), "Required module is not registered: NoRenderModule");

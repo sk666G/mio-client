@@ -12,8 +12,7 @@ package dev.schizo.mixin;
 import com.llamalad7.mixinextras.sugar.Local;
 import com.mojang.blaze3d.buffers.GpuBuffer.MappedView;
 import com.mojang.blaze3d.systems.RenderSystem;
-import dev.schizo.client.ClientContext;
-import dev.schizo.client.modules.render.NoRenderModule;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.modules.render.SkyboxModule;
 import java.awt.Color;
 import java.nio.ByteBuffer;
@@ -34,8 +33,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(FogRenderer.class)
 public abstract class FogRendererMixin {
-   private static final NoRenderModule noRenderModule = ClientContext.getModule(NoRenderModule.class);
-   private static final SkyboxModule skyboxModule = ClientContext.getModule(SkyboxModule.class);
    @Unique
    private SkyboxModule.FogDistances capturedFogDistances;
 
@@ -60,16 +57,16 @@ public abstract class FogRendererMixin {
    private void applyNoRenderFogSettings(
       Camera camera, int renderDistance, DeltaTracker deltaTracker, float ignoredSetupFloat, ClientLevel level, CallbackInfoReturnable<Vector4f> callback, @Local Vector4f fogColor, @Local FogData fogData
    ) {
-      if (noRenderModule.isToggled()
-         && noRenderModule.fogSetting.getValue()) {
-         noRenderModule.applyFogSettings(
+      if (MixinModuleRegistry.fogNoRender.isToggled()
+         && MixinModuleRegistry.fogNoRender.fogSetting.getValue()) {
+         MixinModuleRegistry.fogNoRender.applyFogSettings(
             fogData, renderDistance
          );
       }
 
-      if (skyboxModule.isToggled()
-         && skyboxModule.isCurrentDimensionEnabled()) {
-         Color configuredColor = skyboxModule.fogSetting.getValue();
+      if (MixinModuleRegistry.fogSkybox.isToggled()
+         && MixinModuleRegistry.fogSkybox.isCurrentDimensionEnabled()) {
+         Color configuredColor = MixinModuleRegistry.fogSkybox.fogSetting.getValue();
          float red = configuredColor.getRed() / 255.0F;
          float green = configuredColor.getGreen() / 255.0F;
          float blue = configuredColor.getBlue() / 255.0F;
@@ -82,16 +79,16 @@ public abstract class FogRendererMixin {
    private void updateSplitSkyFogBuffer(
       Camera camera, int renderDistance, DeltaTracker deltaTracker, float ignoredSetupFloat, ClientLevel level, CallbackInfoReturnable<Vector4f> callback
    ) {
-      if (skyboxModule.isToggled()
-         && skyboxModule.splitFogSetting.getValue()
+      if (MixinModuleRegistry.fogSkybox.isToggled()
+         && MixinModuleRegistry.fogSkybox.splitFogSetting.getValue()
          && this.capturedFogDistances != null) {
-         Color backgroundColor = skyboxModule.backgroundSetting.getValue();
+         Color backgroundColor = MixinModuleRegistry.fogSkybox.backgroundSetting.getValue();
          Vector4f skyColor = new Vector4f(backgroundColor.getRed(), backgroundColor.getGreen(), backgroundColor.getBlue(), backgroundColor.getAlpha()).div(255.0F);
 
          try (MappedView mappedBuffer = RenderSystem.getDevice()
                .createCommandEncoder()
                .mapBuffer(
-                  skyboxModule.getSkyFogBuffer()
+                  MixinModuleRegistry.fogSkybox.getSkyFogBuffer()
                      .currentBuffer(),
                   false,
                   true
