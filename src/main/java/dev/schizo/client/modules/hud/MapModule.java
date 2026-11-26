@@ -85,6 +85,7 @@ public class MapModule extends HudWidgetModule {
 
    @Override
    public void renderContent(PoseStack poses) {
+      if (dev.schizo.client.utils.CoordinatePrivacy.isEnabled()) return;
       float[] widgetSize = this.renderer
          .getDimensions();
       if (widgetSize != null) {
