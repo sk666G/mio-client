@@ -18,16 +18,30 @@ public final class CompatibilityEvidenceStore {
       this.directory = directory.toAbsolutePath().normalize();
    }
 
+   private void ensureDirectory() throws IOException {
+      Path parent = this.directory.getParent();
+      if (parent == null) {
+         throw new IOException("Evidence directory has no parent");
+      }
+      ConfigPathGuard.ensureDirectory(parent, this.directory);
+   }
+
    private Path path(String name) throws IOException {
-      if (!Files.isDirectory(this.directory, LinkOption.NOFOLLOW_LINKS)
-         || Files.isSymbolicLink(this.directory.getParent())) {
+      if (Files.isSymbolicLink(this.directory)
+         || !Files.isDirectory(this.directory, LinkOption.NOFOLLOW_LINKS)) {
          throw new IOException("Evidence directory must be a real directory");
       }
-      return PresetNameValidator.resolve(this.directory, name);
+      Path target = PresetNameValidator.resolve(this.directory, name);
+      if (Files.exists(target, LinkOption.NOFOLLOW_LINKS)
+         && (Files.isSymbolicLink(target)
+            || !Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS))) {
+         throw new IOException("Evidence target is not a regular file");
+      }
+      return target;
    }
 
    public void createTemplate(String name, String module, String settingsHash, String minecraft, String client) throws IOException {
-      if (!Files.exists(this.directory, LinkOption.NOFOLLOW_LINKS)) Files.createDirectory(this.directory);
+      this.ensureDirectory();
       Path target = this.path(name);
       JsonObject receipt = new JsonObject();
       receipt.addProperty("version", 1);
