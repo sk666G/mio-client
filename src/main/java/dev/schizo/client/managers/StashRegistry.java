@@ -10,7 +10,6 @@
 package dev.schizo.client.managers;
 
 import dev.schizo.client.ClientAccess;
-import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.bus.EventBus;
 import dev.schizo.client.managers.Registry;
 import dev.schizo.client.modules.misc.StashFinderModule;
@@ -23,7 +22,6 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import java.util.Iterator;
-import java.util.Collection;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -96,7 +94,7 @@ public final class StashRegistry extends Registry<StashEntry> implements ClientA
 
       JsonArray stashes = new JsonArray();
       JsonObject object = new JsonObject();
-      Iterator<StashEntry> iterator = ClientContext.stashRegistry.getRegistry().iterator();
+      Iterator<StashEntry> iterator = this.entries.iterator();
 
       while (iterator.hasNext()) {
          StashEntry stash = iterator.next();
