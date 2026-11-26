@@ -70,7 +70,7 @@ public class NotificationsModule extends Module {
    private int totemMessageIndex;
    private final List<String> totemMessages;
    private final Random totemRandom;
-   private final AtomicInteger pendingTotemChats = new AtomicInteger();
+   private volatile AtomicInteger pendingTotemChats = new AtomicInteger();
    private long totemGeneration;
 
    @Override
@@ -259,9 +259,10 @@ public class NotificationsModule extends Module {
       if (delayMillis <= 0L) {
          dispatch.run();
       } else {
-         int pending = this.pendingTotemChats.incrementAndGet();
+         AtomicInteger pendingCounter = this.pendingTotemChats;
+         int pending = pendingCounter.incrementAndGet();
          if (pending > MAX_PENDING_TOTEM_CHATS) {
-            this.pendingTotemChats.decrementAndGet();
+            pendingCounter.decrementAndGet();
             ClientAccess.logger.warn("Dropping delayed totem chat because the pending queue is full");
             return;
          }
@@ -271,7 +272,7 @@ public class NotificationsModule extends Module {
             CompletableFuture.delayedExecutor(
                delayMillis, TimeUnit.MILLISECONDS, ClientAccess.executorService
             )
-         ).whenComplete((ignored, failure) -> this.pendingTotemChats.decrementAndGet());
+         ).whenComplete((ignored, failure) -> pendingCounter.decrementAndGet());
       }
    }
 
@@ -387,6 +388,7 @@ public class NotificationsModule extends Module {
    private void invalidateTotemWork() {
       this.totemGeneration++;
       this.totemMessageIndex = 0;
+      this.pendingTotemChats = new AtomicInteger();
    }
 
    public int getBracketColor() {
