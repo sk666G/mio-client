@@ -26,6 +26,7 @@ import dev.schizo.client.modules.exploit.PingSpoofModule;
 import dev.schizo.client.modules.exploit.ReachModule;
 import dev.schizo.client.modules.exploit.TridentModule;
 import dev.schizo.client.modules.misc.AntiQuitModule;
+import dev.schizo.client.modules.misc.AutoReconnectModule;
 import dev.schizo.client.modules.misc.BetterChatModule;
 import dev.schizo.client.modules.misc.ExtraTabModule;
 import dev.schizo.client.modules.misc.NoNarratorModule;
@@ -164,6 +165,7 @@ public final class MixinModuleRegistry {
    public static volatile BetterChatModule chatBetterChat;
    public static volatile FontsModule clientFonts;
    public static volatile FireworksModule entityFireworks;
+   public static volatile AutoReconnectModule disconnectAutoReconnect;
 
    public static void bind(ModuleRegistry registry) {
       Objects.requireNonNull(registry, "Module registry is not initialized");
@@ -245,6 +247,7 @@ public final class MixinModuleRegistry {
       chatBetterChat = (BetterChatModule)Objects.requireNonNull(registry.getModule(BetterChatModule.class), "Required module is not registered: BetterChatModule");
       clientFonts = (FontsModule)Objects.requireNonNull(registry.getModule(FontsModule.class), "Required module is not registered: FontsModule");
       entityFireworks = (FireworksModule)Objects.requireNonNull(registry.getModule(FireworksModule.class), "Required module is not registered: FireworksModule");
+      disconnectAutoReconnect = (AutoReconnectModule)Objects.requireNonNull(registry.getModule(AutoReconnectModule.class), "Required module is not registered: AutoReconnectModule");
       moduleRegistry = registry;
    }
 }
