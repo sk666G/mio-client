@@ -24,19 +24,13 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(ScreenEffectRenderer.class)
 public class ScreenEffectRendererMixin {
-   private static NoRenderModule noRenderModule() {
-      return MixinModuleRegistry.getModule(NoRenderModule.class);
-   }
-   private static FreecamModule freecamModule() {
-      return MixinModuleRegistry.getModule(FreecamModule.class);
-   }
 
    @Inject(method = "renderFire", at = @At("HEAD"), cancellable = true)
    private static void suppressFireOverlay(
       PoseStack poses, MultiBufferSource buffers, TextureAtlasSprite sprite, CallbackInfo callback
    ) {
-      if (noRenderModule().isToggled()
-         && noRenderModule().fireSetting.getValue()) {
+      if (MixinModuleRegistry.gameNoRender.isToggled()
+         && MixinModuleRegistry.gameNoRender.fireSetting.getValue()) {
          callback.cancel();
       }
    }
@@ -45,8 +39,8 @@ public class ScreenEffectRendererMixin {
    private static void suppressWaterOverlay(
       Minecraft client, PoseStack poses, MultiBufferSource buffers, CallbackInfo callback
    ) {
-      if (noRenderModule().isToggled()
-         && noRenderModule().blindnessSetting.getValue()) {
+      if (MixinModuleRegistry.gameNoRender.isToggled()
+         && MixinModuleRegistry.gameNoRender.blindnessSetting.getValue()) {
          callback.cancel();
       }
    }
@@ -55,9 +49,9 @@ public class ScreenEffectRendererMixin {
    private static void suppressTextureOverlay(
       TextureAtlasSprite sprite, PoseStack poses, MultiBufferSource buffers, CallbackInfo callback
    ) {
-      if (noRenderModule().isToggled()
-            && noRenderModule().blindnessSetting.getValue()
-         || freecamModule().isToggled()) {
+      if (MixinModuleRegistry.gameNoRender.isToggled()
+            && MixinModuleRegistry.gameNoRender.blindnessSetting.getValue()
+         || MixinModuleRegistry.levelFreecam.isToggled()) {
          callback.cancel();
       }
    }
