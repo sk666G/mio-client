@@ -76,7 +76,9 @@ public final class ClientInitializer {
       if (this.managersInitialized) {
          return;
       }
-      // Constructors publish services in dependency order before modules bind to them.
+      // Module constructors run before registry publication. Resolve mixin dependencies after
+      // construction and general dependencies in initializeClient(), before events and config activation.
+      // Static initializers must never capture modules or allocate window-dependent resources.
       ClientContext.baritoneBridge = FabricLoader.getInstance().isModLoaded("baritone-meteor")
          ? new BaritoneAdapter() : new DisabledBaritoneBridge();
       ClientContext.waypointAdapter = new DisabledWaypointAdapter();

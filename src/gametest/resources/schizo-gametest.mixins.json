@@ -1,0 +1,18 @@
+{
+  "required": true,
+  "package": "dev.schizo.client.gametest.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "ClientInitializerProbe",
+    "ClientContextLookupProbe",
+    "MixinModuleRegistryLookupProbe",
+    "MinecraftProbe",
+    "TitleScreenProbe",
+    "LevelRendererProbe",
+    "ClientPacketListenerProbe",
+    "KeyboardInputProbe"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

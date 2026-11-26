@@ -108,6 +108,7 @@ public final class SchizoClientGameTest implements FabricClientGameTest {
          context.waitForScreen(null);
       }
 
+      context.runOnClient(minecraft -> StartupTrace.verify());
       long failuresAfter = EventFailureTracker.GLOBAL.totalFailures();
       if (failuresAfter != failuresBefore) {
          throw new IllegalStateException(

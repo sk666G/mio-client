@@ -9,6 +9,7 @@
       "dev.schizo.client.gametest.SchizoClientGameTest"
     ]
   },
+  "mixins": ["schizo-gametest.mixins.json"],
   "depends": {
     "schizo": "*",
     "fabric-api": "*"
