@@ -14,6 +14,7 @@ import dev.schizo.client.config.JsonUtils;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.InputPressEvent;
 import dev.schizo.client.events.MacroTriggerEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.events.WorldRenderEvent;
 import dev.schizo.client.modules.Keybind;
 import dev.schizo.client.modules.misc.HoldMacro;
@@ -50,6 +51,28 @@ public final class MacroRegistry extends Registry<Macro> implements ClientAccess
       return this.entries.add(macro);
    }
 
+   @Override
+   public boolean unregisterEntry(NamedEntry entry) {
+      if (!(entry instanceof Macro macro) || !this.entries.contains(macro)) {
+         return false;
+      }
+
+      releaseMacroState(macro);
+      return this.entries.remove(macro);
+   }
+
+   private static void releaseMacroState(Macro macro) {
+      if (macro instanceof HoldMacro holdMacro) {
+         holdMacro.updatePressed(false);
+      }
+   }
+
+   private void releaseHoldMacros() {
+      for (Macro macro : List.copyOf(this.entries)) {
+         releaseMacroState(macro);
+      }
+   }
+
    public Optional<Macro> findByName(String name) {
       if (!isValidName(name)) {
          return Optional.empty();
@@ -74,7 +97,7 @@ public final class MacroRegistry extends Registry<Macro> implements ClientAccess
          }
       }
 
-      if (!this.entries.remove(previous)) {
+      if (!this.unregisterEntry(previous)) {
          return false;
       }
       if (this.registerEntry(replacement)) {
@@ -126,6 +149,7 @@ public final class MacroRegistry extends Registry<Macro> implements ClientAccess
          }
       }
 
+      this.releaseHoldMacros();
       this.entries.clear();
       this.entries.addAll(loaded);
    }
@@ -248,18 +272,21 @@ public final class MacroRegistry extends Registry<Macro> implements ClientAccess
 
    @EventHandler
    private void onTick(WorldRenderEvent.Main event) {
-      if (ClientAccess.schizoMinecraft.screen == null && !this.isWorldUnavailable()) {
-         Iterator<Macro> macroIterator = this.entries.iterator();
-         while (macroIterator.hasNext()) {
-            Macro macro = macroIterator.next();
-            if (macro instanceof HoldMacro holdMacro) {
-               if (holdMacro.isToggled()) {
-                  Keybind keybind = holdMacro.getKeybind();
-                  boolean physicallyDown = KeyUtils.isPhysicallyDown(keybind);
-                  holdMacro.updatePressed(physicallyDown);
-               }
-            }
+      boolean canRunHoldMacros = ClientAccess.schizoMinecraft.screen == null && !this.isWorldUnavailable();
+      Iterator<Macro> macroIterator = this.entries.iterator();
+      while (macroIterator.hasNext()) {
+         Macro macro = macroIterator.next();
+         if (macro instanceof HoldMacro holdMacro) {
+            boolean physicallyDown = canRunHoldMacros
+               && holdMacro.isToggled()
+               && KeyUtils.isPhysicallyDown(holdMacro.getKeybind());
+            holdMacro.updatePressed(physicallyDown);
          }
       }
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.releaseHoldMacros();
    }
 }
