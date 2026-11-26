@@ -14,6 +14,7 @@ import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.LocalPlayerTickEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.render.GuiDrawUtils;
 import dev.schizo.client.utils.combat.TotemPopTracker;
 import dev.schizo.client.managers.RotationManager;
@@ -108,7 +109,23 @@ public class TextRadarModule extends HudWidgetModule {
 
    @Override
    public void onEnable() {
+      this.clearRadarState();
+   }
+
+   @Override
+   public void onDisable() {
+      this.clearRadarState();
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.clearRadarState();
+   }
+
+   private void clearRadarState() {
       this.radarPlayers.clear();
+      this.displayPlayers.clear();
+      this.displayTexts.clear();
    }
 
    private Component buildPlayerText(Player player) {
