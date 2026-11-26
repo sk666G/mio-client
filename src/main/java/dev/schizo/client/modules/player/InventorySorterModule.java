@@ -35,8 +35,8 @@ import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.world.item.ItemStack;
 
 public class InventorySorterModule extends Module {
-   private static MultiTaskModule multiTaskModule = (MultiTaskModule)ClientContext.getModule(MultiTaskModule.class);
-   private static MainhandModule mainhandModule = (MainhandModule)ClientContext.getModule(MainhandModule.class);
+   private static MultiTaskModule multiTaskModule;
+   private static MainhandModule mainhandModule;
    private final Setting<InventorySorterScopeChoice> scopeSetting;
    private final Setting<InventorySorterModeChoice> modeSetting;
    private final Setting<Integer> delaySetting;

@@ -48,11 +48,11 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 
 public class MainhandModule extends Module implements LethalDamageTracker.LethalCheckPolicy {
-   private static NoInteractModule noInteractModule = (NoInteractModule)ClientContext.getModule(NoInteractModule.class);
-   private static AutoCrystalModule autoCrystalModule = (AutoCrystalModule)ClientContext.getModule(AutoCrystalModule.class);
-   private static AutoEatModule autoEatModule = (AutoEatModule)ClientContext.getModule(AutoEatModule.class);
-   private static AutoExpModule autoExpModule = (AutoExpModule)ClientContext.getModule(AutoExpModule.class);
-   private static OffhandModule offhandModule = (OffhandModule)ClientContext.getModule(OffhandModule.class);
+   private static NoInteractModule noInteractModule;
+   private static AutoCrystalModule autoCrystalModule;
+   private static AutoEatModule autoEatModule;
+   private static AutoExpModule autoExpModule;
+   private static OffhandModule offhandModule;
    final Setting<Integer> slotSetting;
    final Setting<Integer> delaySetting;
    private final Setting<Float> safeSetting;
