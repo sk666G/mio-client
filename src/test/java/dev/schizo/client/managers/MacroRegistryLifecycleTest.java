@@ -5,9 +5,11 @@ import static org.junit.jupiter.api.Assertions.*;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import dev.schizo.client.ClientAccess;
+import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.modules.Keybind;
 import dev.schizo.client.modules.misc.HoldMacro;
+import dev.schizo.client.settings.options.PresetCategory;
 import org.junit.jupiter.api.Test;
 
 class MacroRegistryLifecycleTest {
@@ -73,6 +75,28 @@ class MacroRegistryLifecycleTest {
          assertFalse(macro.lastPressed);
          assertTrue(registry.getRegistry().isEmpty());
       } finally {
+         ClientAccess.eventBus.unsubscribe(registry);
+      }
+   }
+
+   @Test
+   void macroPresetLoadUsesLifecycleSafeRegistryReplacement() {
+      MacroRegistry registry = new MacroRegistry();
+      MacroRegistry previousRegistry = ClientContext.macroRegistry;
+      ClientContext.macroRegistry = registry;
+      try {
+         TrackingHoldMacro macro = new TrackingHoldMacro("hold");
+         assertTrue(registry.registerEntry(macro));
+         macro.updatePressed(true);
+
+         JsonObject root = new JsonObject();
+         root.add("macros", new JsonArray());
+         PresetCategory.MACRO.fromJson(root);
+
+         assertFalse(macro.lastPressed);
+         assertTrue(registry.getRegistry().isEmpty());
+      } finally {
+         ClientContext.macroRegistry = previousRegistry;
          ClientAccess.eventBus.unsubscribe(registry);
       }
    }
