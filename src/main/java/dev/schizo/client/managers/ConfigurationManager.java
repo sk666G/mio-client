@@ -17,6 +17,7 @@ import dev.schizo.client.config.ConfigurationBackupManager;
 import dev.schizo.client.config.ModulePresetCodec;
 import dev.schizo.client.config.JsonStateTransaction;
 import dev.schizo.client.config.ConfigurationSaveGate;
+import dev.schizo.client.config.ConfigPathGuard;
 import dev.schizo.client.config.PresetUndoState;
 import dev.schizo.client.render.BundledResourceInstaller;
 import dev.schizo.client.utils.FileUtils;
@@ -111,12 +112,8 @@ public final class ConfigurationManager implements ClientAccess {
          JsonConfigurable configurable = (JsonConfigurable)configurableIterator.next();
 
          try {
-            Path configPath = ROOT_DIRECTORY.resolve(configurable.getConfigName());
+            Path configPath = ConfigPathGuard.resolveForRead(ROOT_DIRECTORY, configurable.getConfigName());
             if (Files.exists(configPath, LinkOption.NOFOLLOW_LINKS)) {
-               if (Files.isSymbolicLink(configPath) || !Files.isRegularFile(configPath, LinkOption.NOFOLLOW_LINKS)) {
-                  ClientAccess.logger.warn("Skipping configuration {} because it is not a regular file", configurable.getConfigName());
-                  continue;
-               }
                String configText = ConfigFileReader.readUtf8(configPath, (int)ConfigurationBackupManager.MAX_CONFIG_BYTES);
                JsonElement configJson = JsonParser.parseString(configText);
                JsonStateTransaction.apply(
@@ -276,16 +273,7 @@ public final class ConfigurationManager implements ClientAccess {
       Gson gsonSnapshot = ClientAccess.gson;
       for (ConfigSnapshot snapshot : snapshots) {
          try {
-            Path configPath = ROOT_DIRECTORY.resolve(snapshot.name());
-            if (Files.exists(configPath, LinkOption.NOFOLLOW_LINKS)
-               && (Files.isSymbolicLink(configPath)
-                  || !Files.isRegularFile(configPath, LinkOption.NOFOLLOW_LINKS))) {
-               ClientAccess.logger.warn(
-                  "Skipping configuration save because {} is not a regular file",
-                  snapshot.name()
-               );
-               continue;
-            }
+            Path configPath = ConfigPathGuard.resolveForWrite(ROOT_DIRECTORY, snapshot.name());
             try {
                this.backupManager.backupBeforeSave(snapshot.name());
             } catch (IOException | IllegalArgumentException backupFailure) {
@@ -332,16 +320,7 @@ public final class ConfigurationManager implements ClientAccess {
          }
 
          try {
-            Path configPath = ROOT_DIRECTORY.resolve(configurable.getConfigName());
-            if (Files.exists(configPath, LinkOption.NOFOLLOW_LINKS)
-               && (Files.isSymbolicLink(configPath)
-                  || !Files.isRegularFile(configPath, LinkOption.NOFOLLOW_LINKS))) {
-               ClientAccess.logger.warn(
-                  "Skipping configuration save because {} is not a regular file",
-                  configurable.getConfigName()
-               );
-               continue;
-            }
+            Path configPath = ConfigPathGuard.resolveForWrite(ROOT_DIRECTORY, configurable.getConfigName());
             try {
                this.backupManager.backupBeforeSave(configurable.getConfigName());
             } catch (IOException | IllegalArgumentException backupFailure) {
