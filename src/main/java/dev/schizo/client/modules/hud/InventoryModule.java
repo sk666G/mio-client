@@ -90,7 +90,7 @@ public class InventoryModule extends HudWidgetModule {
          }
 
          int slotIndex = index + 9;
-         stacks.add(inventorySlots.get(slotIndex));
+         stacks.add((ItemStack)inventorySlots.get(slotIndex));
          index++;
       }
    }

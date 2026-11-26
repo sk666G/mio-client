@@ -28,10 +28,10 @@ public enum CrystalDamagePolicy implements ClientAccess, NamedEntry {
    private static AutoCrystalModule autoCrystal;
 
    public static void bindModuleRegistry(ModuleRegistry registry) {
-      autoCrystal = java.util.Objects.requireNonNull(
+      autoCrystal = AutoCrystalModule.class.cast(java.util.Objects.requireNonNull(
          registry.getModule(AutoCrystalModule.class),
          "Required module is not registered: AutoCrystalModule"
-      );
+      ));
    }
    CrystalDamagePolicy(String displayName) {
       this.displayName = displayName;
