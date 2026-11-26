@@ -112,7 +112,6 @@ public class DisconnectedScreenMixin extends Screen {
                autoReconnectModule.toggle();
                autoReconnectModule.attempts.select(this.reconnectServer == null ? null : this.reconnectServer.ip);
                this.reconnectTimerStartNanos = System.nanoTime();
-               button.setFocused(false);
             }
          )
          .width(200);
@@ -188,7 +187,6 @@ public class DisconnectedScreenMixin extends Screen {
          return;
       }
       this.autoReconnectButton.setMessage(this.getAutoReconnectButtonMessage());
-      this.autoReconnectButton.setFocused(false);
       super.render(graphics, mouseX, mouseY, partialTick);
    }
 

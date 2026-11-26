@@ -27,7 +27,7 @@ import org.lwjgl.glfw.GLFW;
 /** Client-thread snapshots and explicit actions over existing discovery/profile registries. */
 public final class ExpeditionScreen extends Screen {
    private static final String[] TABS = {"Discoveries", "Travel", "Profiles", "Compatibility"};
-   private record Row(String title, String detail, DiscoveryEntry discovery) {}
+   private record Row(String key, String title, String detail, DiscoveryEntry discovery) {}
    private List<Row> rows = List.of();
    private List<Row> profileSnapshot;
    private EditBox search;
@@ -63,6 +63,7 @@ public final class ExpeditionScreen extends Screen {
       this.search.setValue(this.query);
       this.search.setResponder(value -> {
          this.query = value;
+         this.message = "";
          this.offset = 0;
          this.selected = -1;
          this.refresh();
@@ -74,6 +75,7 @@ public final class ExpeditionScreen extends Screen {
          int target = index;
          this.button(this.fit(TABS[index], width - 6), this.left + index * (width + 2), layout.tabsY(), width, () -> {
             this.tab = target;
+            this.message = "";
             this.profileSnapshot = null;
             this.offset = 0;
             this.selected = -1;
@@ -84,6 +86,7 @@ public final class ExpeditionScreen extends Screen {
       int half = Math.max(1, (this.panelWidth - 2) / 2);
       if (layout.showSecondaryControls()) {
          this.button(this.tab == 0 ? "Server filter" : "Refresh view", this.left, layout.secondaryY(), half, () -> {
+            this.message = "";
             if (this.tab == 0) this.localOnly = !this.localOnly;
             this.profileSnapshot = null;
             this.offset = 0;
@@ -91,6 +94,7 @@ public final class ExpeditionScreen extends Screen {
             this.refresh();
          });
          this.button("Show / hide coordinates", this.left + half + 2, layout.secondaryY(), half, () -> {
+            this.message = "";
             this.showCoordinates = !this.showCoordinates;
             this.refresh();
          });
@@ -130,7 +134,9 @@ public final class ExpeditionScreen extends Screen {
    }
 
    private void refresh() {
-      Row previousSelection = this.selected >= 0 && this.selected < this.rows.size() ? this.rows.get(this.selected) : null;
+      String previousKey = this.selected >= 0 && this.selected < this.rows.size()
+         ? this.rows.get(this.selected).key()
+         : null;
       this.privacyAtRefresh = dev.schizo.client.utils.CoordinatePrivacy.isEnabled();
       this.refreshedAt = System.nanoTime();
       List<Row> result = new ArrayList<>();
@@ -142,7 +148,8 @@ public final class ExpeditionScreen extends Screen {
             for (Object item : ClientContext.moduleRegistry.getRegistry()) {
                Module module = (Module)item;
                var assessment = ModuleCompatibility.assess(module.getClass());
-               result.add(new Row(module.getName() + " - " + assessment.classification(), assessment.reason(), null));
+               result.add(new Row("compat:" + module.getClass().getName(),
+                  module.getName() + " - " + assessment.classification(), assessment.reason(), null));
             }
          }
          default -> throw new IllegalStateException("Unknown expedition tab");
@@ -153,7 +160,7 @@ public final class ExpeditionScreen extends Screen {
       }
       this.rows = List.copyOf(result);
       this.offset = Math.min(this.offset, Math.max(0, this.rows.size() - this.visibleRows));
-      this.selected = previousSelection == null ? -1 : this.rows.indexOf(previousSelection);
+      this.selected = this.findRowByKey(previousKey);
       this.copyButton.active = this.selected >= 0;
       this.waypointButton.active = this.selected >= 0 && this.rows.get(this.selected).discovery() != null;
    }
@@ -185,18 +192,21 @@ public final class ExpeditionScreen extends Screen {
          if (!entry.matches(this.query, this.server(), this.localOnly)) continue;
          String observed = entry.lastSeen() == 0 ? "" : " | last " + java.time.Instant.ofEpochMilli(entry.lastSeen());
          String location = this.showCoordinates && !dev.schizo.client.utils.CoordinatePrivacy.isEnabled() ? entry.coordinates() : "Coordinates hidden";
-         rows.add(new Row(entry.kind() + " - " + entry.name(), location + " | " + entry.server() + " | " + entry.dimension() + observed, entry));
+         rows.add(new Row(discoveryKey(entry), entry.kind() + " - " + entry.name(),
+            location + " | " + entry.server() + " | " + entry.dimension() + observed, entry));
       }
    }
 
    private void travel(List<Row> rows) {
       var player = this.minecraft.player;
       if (player == null || this.minecraft.level == null) {
-         rows.add(new Row("Join a world to view travel resources", "Travel resets on player or dimension replacement.", null));
+         rows.add(new Row("travel:empty", "Join a world to view travel resources",
+            "Travel resets on player or dimension replacement.", null));
          return;
       }
       var session = TravelMonitor.SESSION.snapshot(System.nanoTime());
-      rows.add(new Row(String.format(Locale.ROOT, "Distance %.1f blocks | duration %.0f s", session.distance(), session.seconds()),
+      rows.add(new Row("travel:session",
+         String.format(Locale.ROOT, "Distance %.1f blocks | duration %.0f s", session.distance(), session.seconds()),
          "Discontinuities over 64 blocks per sample excluded: " + session.discontinuities(), null));
       int rockets = 0, food = 0;
       for (var stack : player.getInventory().getNonEquipmentItems()) {
@@ -204,19 +214,22 @@ public final class ExpeditionScreen extends Screen {
          if (stack.has(DataComponents.FOOD)) food += stack.getCount();
       }
       var chest = player.getItemBySlot(EquipmentSlot.CHEST);
-      rows.add(new Row("Rockets " + rockets + " | food items " + food + " | hunger " + player.getFoodData().getFoodLevel(),
+      rows.add(new Row("travel:supplies",
+         "Rockets " + rockets + " | food items " + food + " | hunger " + player.getFoodData().getFoodLevel(),
          chest.is(Items.ELYTRA) ? "Elytra durability " + (chest.getMaxDamage() - chest.getDamageValue()) + "/" + chest.getMaxDamage() : "No elytra equipped", null));
       if (this.destination != null && this.destination.server().equalsIgnoreCase(this.server())
          && DiscoveryEntry.canonicalDimension(this.destination.dimension()).equals(WorldUtils.getDimension().getName())) {
          double distance = Math.hypot(player.getX() - this.destination.x(), player.getZ() - this.destination.z());
          double speed = session.seconds() > 0 ? session.distance() / session.seconds() : 0;
          String eta = speed > 0.1 ? String.format(Locale.ROOT, "Estimate %.0f s at session average speed", distance / speed) : "Move to estimate arrival time";
-         rows.add(new Row(String.format(Locale.ROOT, "Destination %s | horizontal distance %.1f", this.destination.name(), distance), eta, null));
+         rows.add(new Row("travel:destination:" + discoveryKey(this.destination),
+            String.format(Locale.ROOT, "Destination %s | horizontal distance %.1f", this.destination.name(), distance), eta, null));
       }
       for (Object item : ClientContext.moduleRegistry.getRegistry()) {
          Module module = (Module)item;
          if (module.isToggled() && List.of("AutoWalk", "ElytraFly", "AutoEat", "Fireworks", "Baritone").contains(module.getName())) {
-            rows.add(new Row(module.getName(), module.getRuntimeStatus(), null));
+            rows.add(new Row("travel:module:" + module.getClass().getName(),
+               module.getName(), module.getRuntimeStatus(), null));
          }
       }
    }
@@ -227,21 +240,51 @@ public final class ExpeditionScreen extends Screen {
          return;
       }
       var profiles = ClientContext.contextProfileRegistry;
-      rows.add(new Row(profiles.isEnabled() ? "Context profiles enabled" : "Context profiles disabled",
+      rows.add(new Row("profiles:summary",
+         profiles.isEnabled() ? "Context profiles enabled" : "Context profiles disabled",
          "Rules in application order. JSON differences compare each preset with current state.", null));
       for (var rule : profiles.previewCurrentRules()) {
          var preset = ClientContext.configurationManager.getPresetRegistry(rule.category()).getPreset(rule.presetName());
-         rows.add(new Row(rule.category().getName() + " -> " + rule.presetName() + (preset == null ? " [missing]" : ""),
+         String ruleKey = "profiles:rule:" + rule.category().getName() + ":" + rule.presetName()
+            + ":" + rule.server() + ":" + rule.dimension() + ":" + rule.gameMode();
+         rows.add(new Row(ruleKey,
+            rule.category().getName() + " -> " + rule.presetName() + (preset == null ? " [missing]" : ""),
             rule.server() + " | " + rule.dimension() + " | " + rule.gameMode(), null));
          if (preset != null) {
             var differences = dev.schizo.client.config.JsonChangePreview.compare(rule.category().toJson(), preset.copyContents());
-            for (String path : differences.paths()) rows.add(new Row(rule.category().getName() + " JSON field difference", path, null));
-            if (differences.truncated()) rows.add(new Row("Additional differences omitted", "Preview is limited to 64 paths per category.", null));
+            for (String path : differences.paths()) {
+               rows.add(new Row(ruleKey + ":diff:" + path,
+                  rule.category().getName() + " JSON field difference", path, null));
+            }
+            if (differences.truncated()) {
+               rows.add(new Row(ruleKey + ":truncated", "Additional differences omitted",
+                  "Preview is limited to 64 paths per category.", null));
+            }
          }
       }
       String failure = profiles.getFailedContextDescription();
-      if (failure != null && !failure.isBlank()) rows.add(new Row("Profile recovery pending", failure, null));
+      if (failure != null && !failure.isBlank()) {
+         rows.add(new Row("profiles:failure", "Profile recovery pending", failure, null));
+      }
       this.profileSnapshot = List.copyOf(rows);
+   }
+
+   private int findRowByKey(String key) {
+      if (key == null) {
+         return -1;
+      }
+      for (int index = 0; index < this.rows.size(); index++) {
+         if (key.equals(this.rows.get(index).key())) {
+            return index;
+         }
+      }
+      return -1;
+   }
+
+   private static String discoveryKey(DiscoveryEntry entry) {
+      return entry.kind() + "|" + entry.server() + "|"
+         + DiscoveryEntry.canonicalDimension(entry.dimension()) + "|"
+         + entry.x() + "|" + entry.y() + "|" + entry.z();
    }
 
    private void copySelected() {
@@ -293,6 +336,7 @@ public final class ExpeditionScreen extends Screen {
          if (event.y() >= this.rowsTop && event.y() < this.rowsBottom
             && index >= 0 && index < this.visibleRows && this.offset + index < this.rows.size()) {
             this.selected = this.offset + index;
+            this.message = "";
             this.copyButton.active = true;
             this.waypointButton.active = this.rows.get(this.selected).discovery() != null;
             return true;
