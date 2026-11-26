@@ -14,6 +14,10 @@ class ModuleDependencyBindingSourceTest {
    private static final Pattern MODULE_REGISTRY_BINDER = Pattern.compile(
       "(?s)\\bstatic\\s+void\\s+\\w+\\s*\\([^)]*\\bModuleRegistry\\b[^)]*\\)"
    );
+   private static final Pattern STATIC_FIELD_MODULE_LOOKUP = Pattern.compile(
+      "(?s)\\bstatic\\s+(?:(?:final|volatile|transient)\\s+)*[^;{}=]+\\s+[A-Za-z_$][\\w$]*\\s*=\\s*ClientContext\\.getModule\\("
+   );
+   private static final Pattern STATIC_BLOCK_START = Pattern.compile("\\bstatic\\s*\\{");
 
    @Test
    void binderManagedSourcesDoNotResolveModulesBeforeBinding() throws IOException {
@@ -34,6 +38,65 @@ class ModuleDependencyBindingSourceTest {
          offenders.isEmpty(),
          "Sources with an explicit ModuleRegistry binder must not pre-resolve dependencies through ClientContext.getModule(...): " + offenders
       );
+   }
+
+   @Test
+   void moduleSourcesDoNotResolveModulesDuringStaticInitialization() throws IOException {
+      Path moduleRoot = Path.of("src", "main", "java", "dev", "schizo", "client", "modules");
+
+      List<String> offenders;
+      try (Stream<Path> sources = Files.walk(moduleRoot)) {
+         offenders = sources
+            .filter(path -> path.toString().endsWith(".java"))
+            .filter(ModuleDependencyBindingSourceTest::resolvesModuleDuringStaticInitialization)
+            .map(moduleRoot::relativize)
+            .map(Path::toString)
+            .sorted()
+            .toList();
+      }
+
+      assertTrue(
+         offenders.isEmpty(),
+         "Module sources must not resolve dependencies through ClientContext.getModule(...) during static initialization: " + offenders
+      );
+   }
+
+   private static boolean resolvesModuleDuringStaticInitialization(Path source) {
+      try {
+         String text = Files.readString(source);
+         if (STATIC_FIELD_MODULE_LOOKUP.matcher(text).find()) {
+            return true;
+         }
+
+         var staticBlocks = STATIC_BLOCK_START.matcher(text);
+         while (staticBlocks.find()) {
+            int openingBrace = staticBlocks.end() - 1;
+            int closingBrace = findMatchingBrace(text, openingBrace);
+            if (closingBrace > openingBrace
+               && text.substring(openingBrace + 1, closingBrace).contains("ClientContext.getModule(")) {
+               return true;
+            }
+         }
+         return false;
+      } catch (IOException readFailure) {
+         throw new IllegalStateException("Could not inspect module source " + source, readFailure);
+      }
+   }
+
+   private static int findMatchingBrace(String text, int openingBrace) {
+      int depth = 0;
+      for (int index = openingBrace; index < text.length(); index++) {
+         char current = text.charAt(index);
+         if (current == '{') {
+            depth++;
+         } else if (current == '}') {
+            depth--;
+            if (depth == 0) {
+               return index;
+            }
+         }
+      }
+      return -1;
    }
 
    private static boolean mixesEarlyLookupWithBinder(Path source) {
