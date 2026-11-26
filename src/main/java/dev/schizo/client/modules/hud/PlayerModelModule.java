@@ -47,9 +47,12 @@ public class PlayerModelModule extends HudWidgetModule {
 
    @Override
    public void renderContent(PoseStack poses) {
+      LocalPlayer player = ClientAccess.schizoMinecraft.player;
+      if (player == null) {
+         return;
+      }
       Camera camera = ClientAccess.schizoMinecraft.gameRenderer.getMainCamera();
       if (camera.position() != null) {
-         LocalPlayer player = ClientAccess.schizoMinecraft.player;
          Quaternionf quaternion = new Quaternionf();
 
          float rotationZ = 3.1415927F;

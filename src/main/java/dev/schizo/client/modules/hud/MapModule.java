@@ -86,6 +86,9 @@ public class MapModule extends HudWidgetModule {
       double radius = radiusOperand / 16.0D;
       int chunkRadius = (int)Math.ceil(radius);
       LocalPlayer player = ClientAccess.schizoMinecraft.player;
+      if (player == null) {
+         return false;
+      }
       ChunkPos playerChunk = player.chunkPosition();
       return chunk.distanceSquared(playerChunk) <= chunkRadius * chunkRadius;
    }
