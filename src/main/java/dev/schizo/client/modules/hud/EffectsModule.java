@@ -12,8 +12,6 @@ package dev.schizo.client.modules.hud;
 import java.util.Set;
 
 import dev.schizo.client.ClientAccess;
-import dev.schizo.client.events.EventHandler;
-import dev.schizo.client.events.LocalPlayerTickEvent;
 import dev.schizo.client.modules.HudWidgetModule;
 import dev.schizo.client.settings.BooleanSetting;
 import dev.schizo.client.settings.EnumSetting;
@@ -55,16 +53,9 @@ public class EffectsModule extends HudWidgetModule {
             })
          )
       );
-   }
-
-   @EventHandler
-   private void onLocalPlayerTickEvent(LocalPlayerTickEvent ignoredEvent) {
       this.effectRows.sort(
-         Comparator.comparing(
-            (EffectHudRow row) -> {
-               MobEffect effect = row.getEffectHolder().value();
-               return effect.getDisplayName().getString();
-            }
+         Comparator.comparing(row ->
+            row.getEffectHolder().value().getDisplayName().getString()
          )
       );
    }
