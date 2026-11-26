@@ -47,9 +47,6 @@ public class EndCrystalRendererMixin {
    private static ChamsModule chamsModule() {
       return MixinModuleRegistry.levelChams;
    }
-   private static AnimationsModule animationsModule() {
-      return MixinModuleRegistry.getModule(AnimationsModule.class);
-   }
    @Shadow
    @Final
    private static Identifier END_CRYSTAL_LOCATION;
@@ -58,22 +55,22 @@ public class EndCrystalRendererMixin {
 
    @ModifyArgs(method = "submit*", at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/vertex/PoseStack;scale(FFF)V", ordinal = 0))
    private void applyCrystalScale(Args arguments) {
-      if (animationsModule().isToggled()
-         && animationsModule().crystalsSetting.getValue()) {
+      if (MixinModuleRegistry.renderAnimations.isToggled()
+         && MixinModuleRegistry.renderAnimations.crystalsSetting.getValue()) {
          arguments.set(
             0,
             arguments.<Float>get(0)
-               * animationsModule().crystalScaleSetting.getValue()
+               * MixinModuleRegistry.renderAnimations.crystalScaleSetting.getValue()
          );
          arguments.set(
             1,
             arguments.<Float>get(1)
-               * animationsModule().crystalScaleSetting.getValue()
+               * MixinModuleRegistry.renderAnimations.crystalScaleSetting.getValue()
          );
          arguments.set(
             2,
             arguments.<Float>get(2)
-               * animationsModule().crystalScaleSetting.getValue()
+               * MixinModuleRegistry.renderAnimations.crystalScaleSetting.getValue()
          );
       }
    }
@@ -121,18 +118,18 @@ public class EndCrystalRendererMixin {
    private static void applyCrystalBobOffset(
       float age, CallbackInfoReturnable<Float> callback
    ) {
-      if (animationsModule().isToggled()
-         && animationsModule().crystalsSetting.getValue()) {
+      if (MixinModuleRegistry.renderAnimations.isToggled()
+         && MixinModuleRegistry.renderAnimations.crystalsSetting.getValue()) {
          float bobOffset = Mth.sin(age * 0.2F) / 2.0F + 0.5F;
          float floatFactor = 1.0F;
-         if (animationsModule().isToggled()
-            && animationsModule().crystalsSetting.getValue()) {
-            floatFactor = animationsModule().floatFactorSetting.getValue();
+         if (MixinModuleRegistry.renderAnimations.isToggled()
+            && MixinModuleRegistry.renderAnimations.crystalsSetting.getValue()) {
+            floatFactor = MixinModuleRegistry.renderAnimations.floatFactorSetting.getValue();
          }
 
          if (age < 10.0F
             && autoCrystalModule().isToggled()
-            && animationsModule().floatFactorSetting.getValue()
+            && MixinModuleRegistry.renderAnimations.floatFactorSetting.getValue()
                != 0.0F
             && (autoCrystalModule().instantSetting
                   .getValue())

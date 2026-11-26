@@ -51,9 +51,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class LivingEntityRendererMixin implements ClientAccess {
    @Shadow
    protected EntityModel model;
-   private static AnimationsModule animationsModule() {
-      return MixinModuleRegistry.getModule(AnimationsModule.class);
-   }
    private static NoRenderModule noRenderModule() {
       return MixinModuleRegistry.gameNoRender;
    }
@@ -133,7 +130,7 @@ public abstract class LivingEntityRendererMixin implements ClientAccess {
    public boolean isPassengerForPlayerAnimation(
       boolean originalPassenger, @Local(argsOnly = true) LivingEntity entity
    ) {
-      return animationsModule().isStaticPlayerAnimationEnabled()
+      return MixinModuleRegistry.renderAnimations.isStaticPlayerAnimationEnabled()
             && entity instanceof Player
          ? true
          : entity.isPassenger();

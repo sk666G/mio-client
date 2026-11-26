@@ -25,9 +25,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(BlockEntityRenderDispatcher.class)
 public class BlockEntityRenderDispatcherMixin {
-   private static ESPModule espModule() {
-      return MixinModuleRegistry.getModule(ESPModule.class);
-   }
    private static NoRenderModule noRenderModule() {
       return MixinModuleRegistry.levelNoRender;
    }
@@ -36,7 +33,7 @@ public class BlockEntityRenderDispatcherMixin {
    private void suppressBlockEntitySubmission(
       BlockEntityRenderState renderState, PoseStack poses, SubmitNodeCollector collector, CameraRenderState cameraState, CallbackInfo callback
    ) {
-      if (!espModule().isRenderingBlockEntities()) {
+      if (!MixinModuleRegistry.renderEsp.isRenderingBlockEntities()) {
          if (noRenderModule().shouldHideBlockEntityType(
             renderState.blockEntityType
          )) {

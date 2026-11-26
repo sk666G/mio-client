@@ -51,9 +51,6 @@ import org.spongepowered.asm.mixin.injection.invoke.arg.Args;
 
 @Mixin(AvatarRenderer.class)
 public abstract class AvatarRendererMixin extends LivingEntityRenderer {
-   private static AnimationsModule avatarAnimationsModule() {
-      return MixinModuleRegistry.getModule(AnimationsModule.class);
-   }
    private static NoRenderModule noRenderModule() {
       return MixinModuleRegistry.gameNoRender;
    }
@@ -71,7 +68,7 @@ public abstract class AvatarRendererMixin extends LivingEntityRenderer {
    private void applyRemotePlayerSneakOffset(
       AvatarRenderState renderState, CallbackInfoReturnable<Vec3> callback
    ) {
-      if (avatarAnimationsModule().isSneakingAnimationEnabled()
+      if (MixinModuleRegistry.renderAnimations.isSneakingAnimationEnabled()
          && !ClientAccess.isLocalPlayer(
             EntityRenderStateAccess.getEntity(renderState)
          )) {
@@ -92,27 +89,27 @@ public abstract class AvatarRendererMixin extends LivingEntityRenderer {
    private void applyPlayerScaleAndSneakState(
       Args arguments, @Local(argsOnly = true) AvatarRenderState renderState
    ) {
-      if (avatarAnimationsModule().isToggled()
-         && avatarAnimationsModule().isPlayerScalingEnabled()
+      if (MixinModuleRegistry.renderAnimations.isToggled()
+         && MixinModuleRegistry.renderAnimations.isPlayerScalingEnabled()
          && this.cachedScalingPlayer != Minecraft.getInstance().player) {
          arguments.set(
             0,
             arguments.<Float>get(0)
-               * avatarAnimationsModule().playerScaleSetting.getValue()
+               * MixinModuleRegistry.renderAnimations.playerScaleSetting.getValue()
          );
          arguments.set(
             1,
             arguments.<Float>get(1)
-               * avatarAnimationsModule().playerScaleSetting.getValue()
+               * MixinModuleRegistry.renderAnimations.playerScaleSetting.getValue()
          );
          arguments.set(
             2,
             arguments.<Float>get(2)
-               * avatarAnimationsModule().playerScaleSetting.getValue()
+               * MixinModuleRegistry.renderAnimations.playerScaleSetting.getValue()
          );
       }
 
-      if (avatarAnimationsModule().isSneakingAnimationEnabled()
+      if (MixinModuleRegistry.renderAnimations.isSneakingAnimationEnabled()
          && !ClientAccess.isLocalPlayer(
             this.cachedScalingPlayer
          )) {

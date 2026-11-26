@@ -29,9 +29,6 @@ import org.spongepowered.asm.mixin.injection.invoke.arg.Args;
 
 @Mixin(ModelBlockRenderer.class)
 public class ModelBlockRendererMixin {
-   private static XrayModule xrayModule() {
-      return MixinModuleRegistry.getModule(XrayModule.class);
-   }
    private static NoRenderModule noRenderModule() {
       return MixinModuleRegistry.gameNoRender;
    }
@@ -40,14 +37,14 @@ public class ModelBlockRendererMixin {
    private void suppressHiddenBlockEntityMesh(
       BlockAndTintGetter level, List parts, BlockState blockState, BlockPos blockPos, PoseStack poses, VertexConsumer vertices, boolean checkSides, int packedOverlay, CallbackInfo callback
    ) {
-      if (XrayModule.getInstance()
+      if (MixinModuleRegistry.renderXray
             .isToggled()
-         && !XrayModule.getInstance()
+         && !MixinModuleRegistry.renderXray
             .shouldRenderBlock(
                blockPos,
                blockState.getBlock()
             )
-         && XrayModule.getInstance()
+         && MixinModuleRegistry.renderXray
             .shouldHideUnselectedBlocks()) {
          callback.cancel();
       } else {
@@ -64,18 +61,18 @@ public class ModelBlockRendererMixin {
    private void applyXrayQuadAlpha(
       Args arguments, @Local(argsOnly = true) BlockPos blockPos, @Local(argsOnly = true) BlockState blockState
    ) {
-      if (xrayModule().isToggled()
-         && !xrayModule().alphaSetting
+      if (MixinModuleRegistry.renderXray.isToggled()
+         && !MixinModuleRegistry.renderXray.alphaSetting
             .isAtMinimum()
-         && !xrayModule().alphaSetting
+         && !MixinModuleRegistry.renderXray.alphaSetting
             .isAtMaximum()
-         && !xrayModule().shouldRenderBlock(
+         && !MixinModuleRegistry.renderXray.shouldRenderBlock(
             blockPos,
             blockState.getBlock()
          )) {
          arguments.set(
             6,
-            (xrayModule().alphaSetting.getValue()).intValue()
+            (MixinModuleRegistry.renderXray.alphaSetting.getValue()).intValue()
                / 100.0F
          );
       }
