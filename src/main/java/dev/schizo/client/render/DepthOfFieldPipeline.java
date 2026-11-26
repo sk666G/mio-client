@@ -32,12 +32,12 @@ public class DepthOfFieldPipeline extends ShaderPipeline {
          "base.vert", "multi/dof.frag"
       );
       ShaderStage verticalStage = new DepthOfFieldPipeline.DirectionalStage(
-         program, false, MaskShaderRenderer.VERTICAL_TARGET
+         program, false, MaskShaderRenderer.verticalTarget()
       );
 
       this.addStage(verticalStage);
       ShaderStage horizontalStage = new DepthOfFieldPipeline.DirectionalStage(
-         program, true, MaskShaderRenderer.HORIZONTAL_TARGET
+         program, true, MaskShaderRenderer.horizontalTarget()
       );
 
       this.addStage(horizontalStage);

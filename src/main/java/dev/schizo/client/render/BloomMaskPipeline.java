@@ -14,16 +14,16 @@ import com.mojang.blaze3d.pipeline.RenderTarget;
 public class BloomMaskPipeline extends ShaderPipeline {
 
    public BloomMaskPipeline() {
-      super(MaskShaderRenderer.MASK_TARGET);
+      super(MaskShaderRenderer.maskTarget());
 
       CompiledShaderProgram program = CompiledShaderProgram.fromResources("base.vert", "multi/bloom_mask.frag");
       ShaderStage horizontalStage = new BloomMaskPipeline.DirectionalStage(
-         program, true, MaskShaderRenderer.HORIZONTAL_TARGET
+         program, true, MaskShaderRenderer.horizontalTarget()
       );
 
       this.addStage(horizontalStage);
       ShaderStage verticalStage = new BloomMaskPipeline.DirectionalStage(
-         program, false, MaskShaderRenderer.VERTICAL_TARGET
+         program, false, MaskShaderRenderer.verticalTarget()
       );
 
       this.addStage(verticalStage);

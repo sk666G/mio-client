@@ -12,17 +12,26 @@ package dev.schizo.client.render;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.managers.RenderTargetRegistry;
 import com.mojang.blaze3d.pipeline.RenderTarget;
+import java.util.function.Supplier;
 
 public final class GlowyShaderPipeline extends ShaderPipeline {
-   private static final RenderTarget HORIZONTAL_TARGET = RenderTargetRegistry.createRenderTarget("zio_glow_horizontal", 2);
-   private static final RenderTarget VERTICAL_TARGET = RenderTargetRegistry.createRenderTarget("zio_glow_vertical", 2);
+   private static final Supplier<RenderTarget> HORIZONTAL_TARGET = RenderTargetRegistry.createLazyRenderTarget("zio_glow_horizontal", 2);
+   private static final Supplier<RenderTarget> VERTICAL_TARGET = RenderTargetRegistry.createLazyRenderTarget("zio_glow_vertical", 2);
+
+   private static RenderTarget horizontalTarget() {
+      return horizontalTarget().get();
+   }
+
+   private static RenderTarget verticalTarget() {
+      return verticalTarget().get();
+   }
 
    public GlowyShaderPipeline() {
-      super(MaskShaderRenderer.MASK_TARGET);
+      super(MaskShaderRenderer.maskTarget());
       CompiledShaderProgram program = CompiledShaderProgram.fromResources("base.vert", "multi/glowy.frag");
-      this.addStage(new GlowStage(program, VERTICAL_TARGET, 0, true));
-      this.addStage(new GlowStage(program, HORIZONTAL_TARGET, 0, false));
-      this.addStage(new GlowStage(program, VERTICAL_TARGET, 1, false));
+      this.addStage(new GlowStage(program, verticalTarget(), 0, true));
+      this.addStage(new GlowStage(program, horizontalTarget(), 0, false));
+      this.addStage(new GlowStage(program, verticalTarget(), 1, false));
       this.enableOutputBlending();
       this.enableLinearOutputFiltering();
    }

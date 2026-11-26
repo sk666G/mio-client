@@ -118,7 +118,7 @@ public class BloomShaderPass extends PreprocessedShaderPass {
    }
 
    public BloomShaderPass() {
-      super("base.vert", "bloom.frag", COVERAGE_PASS);
+      super("base.vert", "bloom.frag", coveragePass());
 
       this.initializeProgram();
    }

@@ -32,10 +32,11 @@ import net.minecraft.resources.Identifier;
 import org.joml.Matrix4f;
 import org.joml.Matrix4fStack;
 import org.lwjgl.glfw.GLFW;
+import java.util.function.Supplier;
 
 public class PostProcessShaderPass extends BaseShaderPass {
    private static final Identifier OVERLAY_TEXTURE;
-   public static final RenderTarget POST_TARGET;
+   private static final Supplier<RenderTarget> POST_TARGET = RenderTargetRegistry.createLazyRenderTarget("post");
    protected static int overlayTextureId;
 
    @Override
@@ -62,9 +63,12 @@ public class PostProcessShaderPass extends BaseShaderPass {
       String overlayPath = "textures/overlay.png";
       String overlayNamespace = "schizo-mount";
       OVERLAY_TEXTURE = Identifier.fromNamespaceAndPath(overlayNamespace, overlayPath);
-      POST_TARGET = RenderTargetRegistry.createRenderTarget("post");
       overlayTextureId = -1;
 
+   }
+
+   protected static RenderTarget postTarget() {
+      return postTarget().get();
    }
 
    @Override
@@ -76,17 +80,17 @@ public class PostProcessShaderPass extends BaseShaderPass {
       overlayTextureId = overlayGlTexture.glId();
       ColorOutlineBufferSource buffers = ShaderRegistry.getBufferSource();
       RenderUtils.clearColor(
-         POST_TARGET
+         postTarget()
       );
       RenderUtils.clearDepth(
-         POST_TARGET
+         postTarget()
       );
 
       this.renderToTarget(draw);
       if (buffers.hasColor()) {
          buffers.reset();
          this.prepareOutput();
-         GlTexture postGlTexture = (GlTexture)POST_TARGET.getColorTexture();
+         GlTexture postGlTexture = (GlTexture)postTarget().getColorTexture();
          int postTextureId = postGlTexture.glId();
          ShaderPassRenderState renderState = ShaderPassRenderState.INSTANCE;
          renderState.configure(this, postTextureId);
@@ -109,7 +113,7 @@ public class PostProcessShaderPass extends BaseShaderPass {
    protected void renderToTarget(Runnable draw) {
       ColorOutlineBufferSource buffers = ShaderRegistry.getBufferSource();
       RenderTargetUtils.overrideRenderTargets(
-         POST_TARGET
+         postTarget()
       );
       ClientContext.shaderRegistry.renderingIntoTarget = true;
       try {

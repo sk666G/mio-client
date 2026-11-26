@@ -100,7 +100,7 @@ public class SolidShaderPass extends PreprocessedShaderPass {
    }
 
    public SolidShaderPass() {
-      super("base.vert", "solid.frag", DISTANCE_PASS);
+      super("base.vert", "solid.frag", distancePass());
 
       this.initializeProgram();
    }

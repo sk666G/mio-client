@@ -139,7 +139,7 @@ public class RainbowShaderPass extends PreprocessedShaderPass {
    }
 
    public RainbowShaderPass() {
-      super("base.vert", "rainbow.frag", COVERAGE_PASS);
+      super("base.vert", "rainbow.frag", coveragePass());
 
       this.initializeProgram();
    }

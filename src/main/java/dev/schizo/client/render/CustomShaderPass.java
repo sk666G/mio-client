@@ -153,7 +153,7 @@ public class CustomShaderPass extends PreprocessedShaderPass implements Reloadab
    }
 
    public CustomShaderPass() {
-      super("base.vert", "custom.frag", COVERAGE_PASS);
+      super("base.vert", "custom.frag", coveragePass());
       this.reload(this);
    }
 }

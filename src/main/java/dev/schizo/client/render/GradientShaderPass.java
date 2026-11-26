@@ -194,7 +194,7 @@ public class GradientShaderPass extends PreprocessedShaderPass {
    }
 
    public GradientShaderPass() {
-      super("base.vert", "gradient.frag", COVERAGE_PASS);
+      super("base.vert", "gradient.frag", coveragePass());
 
       this.initializeProgram();
    }
