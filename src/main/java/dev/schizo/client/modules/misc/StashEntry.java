@@ -24,14 +24,26 @@ public class StashEntry implements NamedEntry {
    private final String dimension;
    @SerializedName("server")
    private final String server;
+   private long firstSeenMillis;
+   private long lastSeenMillis;
 
    public StashEntry(String id, int x, int z, String dimension, String server) {
+      this.firstSeenMillis = this.lastSeenMillis = System.currentTimeMillis();
       this.id = id;
       this.x = x;
       this.z = z;
       this.dimension = dimension;
       this.server = server;
    }
+
+   public void observeAgain() {
+      long now = System.currentTimeMillis();
+      if (this.firstSeenMillis == 0) this.firstSeenMillis = now;
+      this.lastSeenMillis = now;
+   }
+
+   public long firstSeenMillis() { return this.firstSeenMillis; }
+   public long lastSeenMillis() { return this.lastSeenMillis; }
 
    public String formatCoordinates() {
       int xCoordinate = this.x;
