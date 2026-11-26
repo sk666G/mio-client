@@ -62,7 +62,7 @@ import org.lwjgl.glfw.GLFW;
 
 public class HudEditorScreen extends ClientScreen implements ClientAccess {
 
-   private static HUDModule hud = (HUDModule)ClientContext.getModule(HUDModule.class);
+   private final HUDModule hud;
    private static final List<HudAnchorGroup> anchorGroups = Collections.synchronizedList(
       new ArrayList<>()
    );
@@ -371,6 +371,10 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
    }
 
    public HudEditorScreen() {
+      this.hud = java.util.Objects.requireNonNull(
+         ClientContext.getModule(HUDModule.class),
+         "HUD module must be registered before creating the HUD editor"
+      );
       this.panels
          .add(this.modulePanel);
 

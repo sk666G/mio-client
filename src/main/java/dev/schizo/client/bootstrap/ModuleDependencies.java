@@ -41,6 +41,7 @@ import dev.schizo.client.modules.combat.AutoMineModule;
 import dev.schizo.client.modules.combat.AutoTrapModule;
 import dev.schizo.client.modules.combat.BlockerModule;
 import dev.schizo.client.modules.combat.CriticalsModule;
+import dev.schizo.client.modules.combat.CrystalDamagePolicy;
 import dev.schizo.client.modules.combat.FeetPlaceModule;
 import dev.schizo.client.modules.combat.KeyPearlModule;
 import dev.schizo.client.modules.combat.MainhandModule;
@@ -116,6 +117,7 @@ public final class ModuleDependencies {
       SprintModule.bindReferencedModules(registry);
       ColorSetting.bindModuleRegistry(registry);
       CriticalsModule.bindModules(registry);
+      CrystalDamagePolicy.bindModuleRegistry(registry);
       HighlightModule.bindModuleDependencies(registry);
       AuraModule.bindModuleRegistry(registry);
       ScaffoldModule.bindReferencedModules(registry);
