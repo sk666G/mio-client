@@ -278,7 +278,7 @@ public final class PresetCommand extends Command {
       PresetData preset = PresetArgumentType.getPreset(context, "category", "preset");
 
       PresetRegistry presetManager = PresetCategoryArgument.getManager(context, "category");
-      PresetUndoAction undoAction = PresetUndoAction.beforeLoad(preset.getName());
+      PresetUndoAction undoAction = PresetUndoAction.beforeLoad(category, preset.getName());
 
       presetManager.loadPresets();
 
@@ -302,6 +302,7 @@ public final class PresetCommand extends Command {
    }
 
    private static int loadCategoryPreset(PresetCommand owner, CommandContext context, ConfigurationManager configurationManager) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
+      PresetCategory category = (PresetCategory)(context.getArgument("category", PresetCategory.class));
       PresetData preset = PresetArgumentType.getPreset(context, "category", "preset");
 
       PresetRegistry presetManager = PresetCategoryArgument.getManager(context, "category");
@@ -329,6 +330,7 @@ public final class PresetCommand extends Command {
    }
 
    private static int loadSelectedModulePresets(PresetCommand owner, CommandContext context, ConfigurationManager configurationManager) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
+      PresetCategory category = (PresetCategory)(context.getArgument("category", PresetCategory.class));
       PresetData preset = PresetArgumentType.getPreset(context, "category", "preset");
 
       PresetRegistry presetManager = PresetCategoryArgument.getManager(context, "category");
