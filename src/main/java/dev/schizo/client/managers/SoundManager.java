@@ -35,6 +35,9 @@ import org.apache.logging.log4j.Logger;
 public final class SoundManager implements ClientAccess {
    private static final Logger LOGGER = LogManager.getLogger("Schizo Sound System");
    private static final long MAX_CUSTOM_SOUND_BYTES = 16L * 1024L * 1024L;
+   private static final long MAX_CUSTOM_SOUND_TOTAL_BYTES = 128L * 1024L * 1024L;
+   private static final int MAX_CUSTOM_SOUND_FILES = 512;
+   private static final int MAX_CUSTOM_SOUND_CATEGORIES = 128;
    private static final List<String> KILLSTREAK_DIRECTORIES = List.of(
       "doublekill_2", "triplekill_3", "dominating_4", "megakill_5",
       "unstoppable_6", "wickedsick_7", "monsterkill_8up"
@@ -49,19 +52,26 @@ public final class SoundManager implements ClientAccess {
       return this.soundsById.keySet();
    }
 
-   private List<SoundClip> loadDirectory(Path directory) {
+   private List<SoundClip> loadDirectory(Path directory, CustomSoundLoadBudget budget) {
       List<SoundClip> clips = new ArrayList<>();
       try {
          if (!this.ensureSafeSoundDirectory(directory)) {
             return List.of();
          }
          try (var paths = Files.list(directory)) {
-            for (Path file : paths
+            var files = paths
                .filter(this::isSafeSoundFile)
                .filter(path -> path.toString().endsWith(".ogg"))
-               .toList()) {
+               .iterator();
+            while (files.hasNext() && !budget.exhausted()) {
+               Path file = files.next();
                try {
-                  clips.add(new SoundClip(this.readCustomSound(file)));
+                  byte[] bytes = this.readCustomSound(file);
+                  if (!budget.reserve(bytes.length)) {
+                     LOGGER.warn("Custom sound load budget exhausted in {}", directory.getFileName());
+                     break;
+                  }
+                  clips.add(new SoundClip(bytes));
                } catch (IOException failure) {
                   LOGGER.warn("Could not load sound {}", file.getFileName(), failure);
                }
@@ -73,22 +83,29 @@ public final class SoundManager implements ClientAccess {
       return List.copyOf(clips);
    }
 
-   private void loadSoundCategory(Path directory, Map<NamedIdentifier, SoundClip> sounds) {
+   private void loadSoundCategory(Path directory, Map<NamedIdentifier, SoundClip> sounds, CustomSoundLoadBudget budget) {
       try {
          if (!this.ensureSafeSoundDirectory(directory)) {
             return;
          }
          try (var files = Files.list(directory)) {
-            for (Path file : files
+            var soundFiles = files
                .filter(this::isSafeSoundFile)
                .filter(path -> path.toString().endsWith(".ogg"))
-               .toList()) {
+               .iterator();
+            while (soundFiles.hasNext() && !budget.exhausted()) {
+               Path file = soundFiles.next();
                String filename = file.getFileName().toString();
                String name = filename.substring(0, filename.length() - 4);
                try {
+                  byte[] bytes = this.readCustomSound(file);
+                  if (!budget.reserve(bytes.length)) {
+                     LOGGER.warn("Custom sound load budget exhausted in {}", directory.getFileName());
+                     break;
+                  }
                   sounds.put(
                      new NamedIdentifier(directory.getFileName().toString(), name),
-                     new SoundClip(this.readCustomSound(file))
+                     new SoundClip(bytes)
                   );
                } catch (IOException | RuntimeException failure) {
                   LOGGER.warn("Could not load custom sound {}", filename, failure);
@@ -135,10 +152,14 @@ public final class SoundManager implements ClientAccess {
          LOGGER.warn("Could not prepare offline killstreak sounds", failure);
       }
 
+      CustomSoundLoadBudget customBudget = new CustomSoundLoadBudget(
+         MAX_CUSTOM_SOUND_TOTAL_BYTES,
+         MAX_CUSTOM_SOUND_FILES
+      );
       Map<Integer, List<SoundClip>> streaks = new HashMap<>();
       for (int index = 0; index < KILLSTREAK_DIRECTORIES.size(); index++) {
          Path directory = killstreakDirectory.resolve(KILLSTREAK_DIRECTORIES.get(index));
-         streaks.put(index + 2, loadDirectory(directory));
+         streaks.put(index + 2, loadDirectory(directory, customBudget));
       }
       this.killstreakSounds = Map.copyOf(streaks);
       Map<NamedIdentifier, SoundClip> sounds = new HashMap<>();
@@ -159,13 +180,20 @@ public final class SoundManager implements ClientAccess {
       try {
          if (this.ensureSafeSoundDirectory(ConfigurationManager.SOUNDS_DIRECTORY)) {
             try (var directories = Files.list(ConfigurationManager.SOUNDS_DIRECTORY)) {
-               for (Path directory : directories
+               var customDirectories = directories
                   .filter(path -> !Files.isSymbolicLink(path))
                   .filter(path -> Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS))
-                  .toList()) {
-                  if (!directory.getFileName().toString().equalsIgnoreCase("killstreaks")) {
-                     loadSoundCategory(directory, sounds);
-                  }
+                  .filter(path -> !path.getFileName().toString().equalsIgnoreCase("killstreaks"))
+                  .iterator();
+               int categoryCount = 0;
+               while (customDirectories.hasNext()
+                  && categoryCount < MAX_CUSTOM_SOUND_CATEGORIES
+                  && !customBudget.exhausted()) {
+                  loadSoundCategory(customDirectories.next(), sounds, customBudget);
+                  categoryCount++;
+               }
+               if (customDirectories.hasNext() && categoryCount >= MAX_CUSTOM_SOUND_CATEGORIES) {
+                  LOGGER.warn("Skipping custom sound categories beyond the limit of {}", MAX_CUSTOM_SOUND_CATEGORIES);
                }
             }
          }
@@ -174,6 +202,43 @@ public final class SoundManager implements ClientAccess {
       }
 
       this.soundsById = Map.copyOf(sounds);
+   }
+
+   static final class CustomSoundLoadBudget {
+      private long remainingBytes;
+      private int remainingFiles;
+
+      CustomSoundLoadBudget(long maximumBytes, int maximumFiles) {
+         if (maximumBytes < 1L || maximumFiles < 1) {
+            throw new IllegalArgumentException("Custom sound load budget must be positive");
+         }
+         this.remainingBytes = maximumBytes;
+         this.remainingFiles = maximumFiles;
+      }
+
+      boolean reserve(int bytes) {
+         if (bytes < 0) {
+            throw new IllegalArgumentException("Custom sound size cannot be negative");
+         }
+         if (this.remainingFiles < 1 || bytes > this.remainingBytes) {
+            return false;
+         }
+         this.remainingBytes -= bytes;
+         this.remainingFiles--;
+         return true;
+      }
+
+      boolean exhausted() {
+         return this.remainingFiles < 1 || this.remainingBytes < 1L;
+      }
+
+      long remainingBytes() {
+         return this.remainingBytes;
+      }
+
+      int remainingFiles() {
+         return this.remainingFiles;
+      }
    }
 
    public SoundClip getSound(NamedIdentifier identifier) {
