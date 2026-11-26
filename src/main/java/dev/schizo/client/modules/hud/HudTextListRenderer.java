@@ -58,7 +58,7 @@ public class HudTextListRenderer extends HudWidgetRenderer {
          width = 50.0F;
          height = this.getHeight();
       }
-      HUDModule hudSettings = MixinModuleRegistry.getModule(HUDModule.class);
+      HUDModule hudSettings = MixinModuleRegistry.gameHud;
       width *= hudSettings.getTextScale();
       height *= hudSettings.getTextScale();
       this.dimensionBuffer[0] = width;
@@ -69,7 +69,7 @@ public class HudTextListRenderer extends HudWidgetRenderer {
    @Override
    public void render(PoseStack poses, double mouseX, double mouseY) {
       super.render(poses, mouseX, mouseY);
-      HUDModule hudSettings = MixinModuleRegistry.getModule(HUDModule.class);
+      HUDModule hudSettings = MixinModuleRegistry.gameHud;
       float scale = hudSettings.getTextScale();
       float rowY = this.getContentY(
          this.getHeight() * scale

@@ -29,7 +29,7 @@ public class BlockEntityRenderDispatcherMixin {
       return MixinModuleRegistry.getModule(ESPModule.class);
    }
    private static NoRenderModule noRenderModule() {
-      return MixinModuleRegistry.getModule(NoRenderModule.class);
+      return MixinModuleRegistry.levelNoRender;
    }
 
    @Inject(method = "submit", at = @At("HEAD"), cancellable = true)

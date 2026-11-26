@@ -23,10 +23,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(BossHealthOverlay.class)
 public class BossHealthOverlayMixin {
    private static NoRenderModule noRenderModule() {
-      return MixinModuleRegistry.getModule(NoRenderModule.class);
+      return MixinModuleRegistry.gameNoRender;
    }
    private static SkyboxModule skyboxModule() {
-      return MixinModuleRegistry.getModule(SkyboxModule.class);
+      return MixinModuleRegistry.levelSkybox;
    }
 
    @Inject(method = "render", at = @At("HEAD"), cancellable = true)

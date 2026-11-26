@@ -69,7 +69,7 @@ public class HudTextRow {
       } else {
          FontRenderer font = FontRenderer.INSTANCE;
          float textWidth = this.measuredTextWidth;
-         HUDModule hudSettings = MixinModuleRegistry.getModule(HUDModule.class);
+         HUDModule hudSettings = MixinModuleRegistry.gameHud;
          Setting<Boolean> smoothWidthOption = hudSettings.smoothWidthSetting;
          Boolean smoothWidth = smoothWidthOption.getValue();
          if (smoothWidth) {

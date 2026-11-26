@@ -28,7 +28,7 @@ public final class HudMarginController implements ClientAccess {
    private final FloatAnimation verticalOverlayOpacity = new FloatAnimation();
 
    private boolean isOverHorizontalMargin(double mouseX) {
-      HUDModule hud = MixinModuleRegistry.getModule(HUDModule.class);
+      HUDModule hud = MixinModuleRegistry.gameHud;
       return mouseX
             < hud.getSafeX()
                + 1
@@ -41,7 +41,7 @@ public final class HudMarginController implements ClientAccess {
    public void render(
       PoseStack poseStack, int mouseX, int mouseY
    ) {
-      HUDModule hud = MixinModuleRegistry.getModule(HUDModule.class);
+      HUDModule hud = MixinModuleRegistry.gameHud;
       int screenWidth = ClientAccess.schizoMinecraft.getWindow().getGuiScaledWidth();
       int screenHeight = ClientAccess.schizoMinecraft.getWindow().getGuiScaledHeight();
       boolean showHorizontalMargin = this.isOverHorizontalMargin(mouseX)
@@ -154,7 +154,7 @@ public final class HudMarginController implements ClientAccess {
    }
 
    private boolean isOverVerticalMargin(double mouseY) {
-      HUDModule hud = MixinModuleRegistry.getModule(HUDModule.class);
+      HUDModule hud = MixinModuleRegistry.gameHud;
       return mouseY
             < hud.getSafeY()
                + 1
