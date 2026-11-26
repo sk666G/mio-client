@@ -23,6 +23,14 @@ public class HoldMacro extends Macro {
    public void run() {
    }
 
+   @Override
+   public void setToggled(boolean toggled) {
+      super.setToggled(toggled);
+      if (!toggled) {
+         this.updatePressed(false);
+      }
+   }
+
    public void updatePressed(boolean pressed) {
       if (this.pressed == pressed) {
          return;
