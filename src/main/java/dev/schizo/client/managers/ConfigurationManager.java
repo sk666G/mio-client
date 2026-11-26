@@ -137,27 +137,7 @@ public final class ConfigurationManager implements ClientAccess {
    }
 
    private static void createDirectoryTreeNoFollow(Path root, Path destination) throws IOException {
-      Path normalizedRoot = root.toAbsolutePath().normalize();
-      Path normalizedDestination = destination.toAbsolutePath().normalize();
-      if (!normalizedDestination.startsWith(normalizedRoot)) {
-         throw new IOException("Configuration directory escapes the data root: " + destination);
-      }
-      if (Files.isSymbolicLink(normalizedRoot)
-         || !Files.isDirectory(normalizedRoot, LinkOption.NOFOLLOW_LINKS)) {
-         throw new IOException("Configuration data root is not a real directory: " + normalizedRoot);
-      }
-
-      Path current = normalizedRoot;
-      for (Path component : normalizedRoot.relativize(normalizedDestination)) {
-         current = current.resolve(component);
-         if (!Files.exists(current, LinkOption.NOFOLLOW_LINKS)) {
-            Files.createDirectory(current);
-         }
-         if (Files.isSymbolicLink(current)
-            || !Files.isDirectory(current, LinkOption.NOFOLLOW_LINKS)) {
-            throw new IOException("Configuration directory component is not a real directory: " + current);
-         }
-      }
+      ConfigPathGuard.ensureDirectory(root, destination);
    }
 
    public void prepareDirectories() {

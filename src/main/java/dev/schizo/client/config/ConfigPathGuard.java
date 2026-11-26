@@ -21,6 +21,36 @@ public final class ConfigPathGuard {
       return resolve(root, configName, true);
    }
 
+   public static Path ensureDirectory(Path root, Path directory) throws IOException {
+      if (root == null || directory == null) {
+         throw new IOException("Directory path is missing");
+      }
+
+      Path normalizedRoot = root.toAbsolutePath().normalize();
+      Path normalizedDirectory = directory.toAbsolutePath().normalize();
+      if (!normalizedDirectory.startsWith(normalizedRoot)) {
+         throw new IOException("Directory escaped the data root: " + directory);
+      }
+      if (Files.isSymbolicLink(normalizedRoot)
+         || !Files.isDirectory(normalizedRoot, LinkOption.NOFOLLOW_LINKS)) {
+         throw new IOException("Configuration root is not a real directory");
+      }
+
+      Path current = normalizedRoot;
+      for (Path component : normalizedRoot.relativize(normalizedDirectory)) {
+         current = current.resolve(component);
+         if (!Files.exists(current, LinkOption.NOFOLLOW_LINKS)) {
+            Files.createDirectory(current);
+         }
+         if (Files.isSymbolicLink(current)
+            || !Files.isDirectory(current, LinkOption.NOFOLLOW_LINKS)) {
+            throw new IOException("Directory component is not a real directory: " + current);
+         }
+      }
+
+      return normalizedDirectory;
+   }
+
    private static Path resolve(Path root, String configName, boolean createParents) throws IOException {
       if (root == null || configName == null || configName.isBlank()) {
          throw new IOException("Configuration path is missing");

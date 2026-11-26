@@ -30,6 +30,32 @@ class ConfigPathGuardTest {
    }
 
    @Test
+   void ensureDirectoryCreatesNestedRealDirectories() throws IOException {
+      Path target = this.root.resolve("sounds").resolve("killstreaks").resolve("doublekill_2");
+
+      Path resolved = ConfigPathGuard.ensureDirectory(this.root, target);
+
+      assertEquals(target, resolved);
+      assertTrue(Files.isDirectory(target));
+   }
+
+   @Test
+   void ensureDirectoryRejectsSymlinkedParent() throws IOException {
+      Path realDirectory = Files.createDirectory(this.root.resolve("real-sounds"));
+      Path linkedDirectory = this.root.resolve("sounds");
+      try {
+         Files.createSymbolicLink(linkedDirectory, realDirectory);
+      } catch (UnsupportedOperationException | SecurityException | IOException unsupported) {
+         Assumptions.assumeTrue(false, "Symbolic links are unavailable on this platform");
+      }
+
+      assertThrows(
+         IOException.class,
+         () -> ConfigPathGuard.ensureDirectory(this.root, linkedDirectory.resolve("killstreaks"))
+      );
+   }
+
+   @Test
    void rejectsTraversalAndAbsolutePaths() {
       assertThrows(IOException.class, () -> ConfigPathGuard.resolveForWrite(this.root, "../outside.json"));
       assertThrows(IOException.class, () -> ConfigPathGuard.resolveForWrite(this.root, this.root.resolve("absolute.json").toString()));
