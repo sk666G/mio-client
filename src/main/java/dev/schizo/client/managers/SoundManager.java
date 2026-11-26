@@ -111,11 +111,18 @@ public final class SoundManager implements ClientAccess {
    }
 
    private byte[] readCustomSound(Path file) throws IOException {
-      long size = Files.size(file);
-      if (size < 0L || size > MAX_CUSTOM_SOUND_BYTES) {
-         throw new IOException("Custom sound exceeds " + MAX_CUSTOM_SOUND_BYTES + " bytes");
+      if (Files.isSymbolicLink(file)
+         || !Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)) {
+         throw new IOException("Custom sound is not a regular file");
       }
-      return Files.readAllBytes(file);
+
+      try (InputStream input = Files.newInputStream(file, LinkOption.NOFOLLOW_LINKS)) {
+         byte[] bytes = input.readNBytes((int)MAX_CUSTOM_SOUND_BYTES + 1);
+         if (bytes.length > MAX_CUSTOM_SOUND_BYTES) {
+            throw new IOException("Custom sound exceeds " + MAX_CUSTOM_SOUND_BYTES + " bytes");
+         }
+         return bytes;
+      }
    }
 
    public void reload() {
