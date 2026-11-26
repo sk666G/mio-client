@@ -92,8 +92,12 @@ public final class BlockInteractionUtils implements ClientAccess {
    private static final Direction[] placementDirections;
    private static final ElapsedTimer interactionTimer;
    public static boolean isPlacingBlock;
-   private static AntiCheatModule antiCheat;
-   private static KillEffectsModule killEffects;
+   private static AntiCheatModule antiCheat() {
+      return ClientContext.getModule(AntiCheatModule.class);
+   }
+   private static KillEffectsModule killEffects() {
+      return ClientContext.getModule(KillEffectsModule.class);
+   }
 
    public static boolean isInteractionCooldownActive() {
       ElapsedTimer timerSnapshot = interactionTimer;
@@ -136,8 +140,6 @@ public final class BlockInteractionUtils implements ClientAccess {
       placementDirections = new Direction[]{Direction.DOWN, Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST, Direction.UP};
       interactionTimer = new ElapsedTimer();
       isPlacingBlock = false;
-      antiCheat = (AntiCheatModule)ClientContext.getModule(AntiCheatModule.class);
-      killEffects = (KillEffectsModule)ClientContext.getModule(KillEffectsModule.class);
    }
 
    public static boolean canPlaceAt(
@@ -448,8 +450,8 @@ public final class BlockInteractionUtils implements ClientAccess {
       int entityId = entity.getId();
 
       if (attackManagerSnapshot.attackEntity(entityId)) {
-         if (killEffects.isToggled() && entity instanceof Player) {
-            KillEffectsModule effectsSnapshot = killEffects;
+         if (killEffects().isToggled() && entity instanceof Player) {
+            KillEffectsModule effectsSnapshot = killEffects();
             Player targetPlayer = (Player)entity;
             effectsSnapshot.trackTarget(targetPlayer);
          }
@@ -647,7 +649,7 @@ public final class BlockInteractionUtils implements ClientAccess {
    }
 
    public static boolean isStrictDirectionEnabled() {
-      Setting<AntiCheatStrictDirectionChoice> strictDirectionSetting = antiCheat.strictDirectionSetting;
+      Setting<AntiCheatStrictDirectionChoice> strictDirectionSetting = antiCheat().strictDirectionSetting;
       return strictDirectionSetting.getValue() != AntiCheatStrictDirectionChoice.OFF;
    }
 
@@ -701,7 +703,7 @@ public final class BlockInteractionUtils implements ClientAccess {
    public static List getStrictDirections(BlockPos position) {
       Direction[] directionOrder = placementDirections;
       ArrayList<Direction> directions = new ArrayList<>(List.of(directionOrder));
-      if (antiCheat.strictDirectionSetting.getValue() == AntiCheatStrictDirectionChoice.NCP) {
+      if (antiCheat().strictDirectionSetting.getValue() == AntiCheatStrictDirectionChoice.NCP) {
          for (Direction direction : placementDirections) {
             BlockPos neighbor = position.relative(direction);
             ClientLevel level = ClientAccess.schizoMinecraft.level;
@@ -738,7 +740,7 @@ public final class BlockInteractionUtils implements ClientAccess {
          directions.remove(Direction.SOUTH);
       }
 
-      if (antiCheat.strictDirectionSetting.getValue() == AntiCheatStrictDirectionChoice.GRIM) {
+      if (antiCheat().strictDirectionSetting.getValue() == AntiCheatStrictDirectionChoice.GRIM) {
          boolean sampleAbove = PlayerStateUtils.streamBodySamplePositions().noneMatch(bodySample -> {
             double sampleY = bodySample.y;
             return sampleY > position.getY() + 1;

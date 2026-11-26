@@ -70,8 +70,12 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
 public class TextRadarModule extends HudWidgetModule {
-   private static final FontsModule fonts;
-   private static final NameProtectModule nameProtect;
+   private static FontsModule fonts() {
+      return ClientContext.getModule(FontsModule.class);
+   }
+   private static NameProtectModule nameProtect() {
+      return ClientContext.getModule(NameProtectModule.class);
+   }
    private static final Color SNEAKING_COLOR;
    private final Setting<SortMode> sortSetting;
    private final Setting<Boolean> healthSetting;
@@ -95,8 +99,6 @@ public class TextRadarModule extends HudWidgetModule {
 
    static {
 
-      fonts = ClientContext.getModule(FontsModule.class);
-      nameProtect = ClientContext.getModule(NameProtectModule.class);
 
       SNEAKING_COLOR = new Color(
          10945959,
@@ -124,12 +126,12 @@ public class TextRadarModule extends HudWidgetModule {
       }
       GameProfile profile = player.getGameProfile();
       String playerName = profile.name();
-      NameProtectModule nameProtectForToggle = nameProtect;
+      NameProtectModule nameProtectForToggle = nameProtect();
       if (nameProtectForToggle.isToggled()) {
          boolean previousNameProtectState = NameProtectModule.replacementBypassed;
          try {
             NameProtectModule.replacementBypassed = !previousNameProtectState;
-            playerName = nameProtect.protectNames(playerName);
+            playerName = nameProtect().protectNames(playerName);
          } finally {
             NameProtectModule.replacementBypassed = previousNameProtectState;
          }
@@ -334,7 +336,7 @@ public class TextRadarModule extends HudWidgetModule {
 
    @Override
    public void renderContent(PoseStack poses) {
-      FontsModule fontsForToggle = fonts;
+      FontsModule fontsForToggle = fonts();
       float headSpacing;
       if (fontsForToggle.isToggled()) {
          headSpacing = 0.0F;

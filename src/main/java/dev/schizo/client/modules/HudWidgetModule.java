@@ -35,7 +35,9 @@ public abstract class HudWidgetModule extends Module {
    private static final EnumJsonConverter<HudAnchor> anchorCodec = new EnumJsonConverter<>(
       HudAnchor.class
    );
-   protected static HUDModule hud = ClientContext.getModule(HUDModule.class);
+   protected static HUDModule hud() {
+      return ClientContext.getModule(HUDModule.class);
+   }
    protected HudWidgetRenderer renderer;
    private final float[] dimensionBuffer = new float[2];
 
@@ -72,11 +74,11 @@ public abstract class HudWidgetModule extends Module {
    @Override
    public void fromJson(JsonElement json) {
       JsonObject config = json.getAsJsonObject();
-      if (!config.has("hud")) {
+      if (!config.has("hud()")) {
          super.fromJson(json);
          return;
       }
-      JsonObject layout = config.getAsJsonObject("hud");
+      JsonObject layout = config.getAsJsonObject("hud()");
       HudAnchor anchor = anchorCodec.fromJson(layout.get("anchor"));
       FreeHudLayout position = anchor == HudAnchor.NONE ? FreeHudLayout.read(layout) : null;
 
@@ -117,7 +119,7 @@ public abstract class HudWidgetModule extends Module {
          hudJson.addProperty("x", this.renderer.getRelativeX());
          hudJson.addProperty("y", this.renderer.getRelativeY());
       }
-      root.add("hud", hudJson);
+      root.add("hud()", hudJson);
       return root;
    }
 
@@ -147,9 +149,9 @@ public abstract class HudWidgetModule extends Module {
    }
 
    public Color getHudColor(float position) {
-      Setting<HudColorMode> fadeSetting = hud.fadeSetting;
+      Setting<HudColorMode> fadeSetting = hud().fadeSetting;
       HudColorMode fadeMode = fadeSetting.getValue();
-      HUDModule capturedHud = hud;
+      HUDModule capturedHud = hud();
       return fadeMode.getColor(capturedHud, position);
    }
 

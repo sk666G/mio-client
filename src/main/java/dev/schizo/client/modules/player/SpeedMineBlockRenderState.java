@@ -30,7 +30,9 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
 public class SpeedMineBlockRenderState implements ClientAccess {
-   private static final SpeedMineModule speedMineModule;
+   private static SpeedMineModule speedMineModule() {
+      return ClientContext.getModule(SpeedMineModule.class);
+   }
    private final FloatAnimation fadeAnimation = new FloatAnimation();
    private final BlockPos blockPos;
    private AABB renderBounds;
@@ -48,9 +50,9 @@ public class SpeedMineBlockRenderState implements ClientAccess {
 
    public void render(WorldRenderEvent event) {
       this.updateFade();
-      boolean instantRebreak = speedMineModule.rebreakSetting.getValue() == SpeedMineRebreakChoice.INSTANT;
-      if (this.isEmpty() && !(instantRebreak && speedMineModule.airSetting.getValue())
-            && !speedMineModule.fadeSetting.getValue()) return;
+      boolean instantRebreak = speedMineModule().rebreakSetting.getValue() == SpeedMineRebreakChoice.INSTANT;
+      if (this.isEmpty() && !(instantRebreak && speedMineModule().airSetting.getValue())
+            && !speedMineModule().fadeSetting.getValue()) return;
       BlockState state = ClientAccess.schizoMinecraft.level.getBlockState(this.blockPos);
       VoxelShape shape = state.getShape(ClientAccess.schizoMinecraft.level, this.blockPos);
       if (!shape.isEmpty()) this.renderBounds = shape.bounds();
@@ -65,7 +67,7 @@ public class SpeedMineBlockRenderState implements ClientAccess {
       WorldBoxRenderer.fillBox(event.getPoseStack(), bounds, this.withOpacity(colors[0], opacity));
       PoseStack outlinePoses = event.getPoseStack();
       Color outline = this.withOpacity(colors[1], opacity);
-      float lineWidth = speedMineModule.lineWidthSetting.getValue();
+      float lineWidth = speedMineModule().lineWidthSetting.getValue();
       WorldBoxRenderer.outlineBox(outlinePoses, bounds, outline, lineWidth);
    }
 
@@ -91,7 +93,7 @@ public class SpeedMineBlockRenderState implements ClientAccess {
    private void updateFade() {
       if (System.currentTimeMillis() - this.lastUpdateMillis <= 100L) {
          this.fadeAnimation.setValue(1.0F);
-      } else if (!speedMineModule.fadeSetting.getValue()) {
+      } else if (!speedMineModule().fadeSetting.getValue()) {
          this.fadeAnimation.setValue(0.0F);
       } else {
          this.fadeAnimation.setTarget(0.0F, 500L);
@@ -105,8 +107,8 @@ public class SpeedMineBlockRenderState implements ClientAccess {
    }
 
    private Color[] getColors(float renderProgress) {
-      SpeedMineColorModeChoice colorMode = speedMineModule.colorModeSetting.getValue();
-      SpeedMineModule moduleForColors = speedMineModule;
+      SpeedMineColorModeChoice colorMode = speedMineModule().colorModeSetting.getValue();
+      SpeedMineModule moduleForColors = speedMineModule();
       return colorMode.getColors(moduleForColors, renderProgress);
    }
 
@@ -118,7 +120,7 @@ public class SpeedMineBlockRenderState implements ClientAccess {
       }
       if (!shape.isEmpty()) bounds = shape.bounds();
       bounds = bounds.move(this.blockPos);
-      SpeedMineRenderModeChoice mode = speedMineModule.renderModeSetting.getValue();
+      SpeedMineRenderModeChoice mode = speedMineModule().renderModeSetting.getValue();
       return mode.getRenderBounds(bounds, renderProgress);
    }
 
@@ -128,8 +130,6 @@ public class SpeedMineBlockRenderState implements ClientAccess {
       return shape.isEmpty() || !WorldUtils.canMineBlock(this.blockPos);
    }
 
-   static {
-      speedMineModule = (SpeedMineModule)ClientContext.getModule(SpeedMineModule.class);
-   }
+   
 
 }
