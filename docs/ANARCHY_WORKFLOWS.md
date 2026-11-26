@@ -62,6 +62,8 @@ commits one undo transaction. **Cancel**, Escape or screen replacement restores 
 exact starting layout if this preview still owns the current layout. It preserves a
 newer external layout instead of restoring over it. Invalid saved layouts leave the
 previous layout intact and disable Keep. Preview rendering leaves the HUD unblurred.
+Ownership compares editable grouping/alignment/scale and free coordinates; rendering's
+recalculation of anchored/aligned coordinates cannot revoke the preview's ownership.
 Existing layout loading, snapping, grouping, undo/redo and bounded history remain
 provided by the underlying HUD editor.
 

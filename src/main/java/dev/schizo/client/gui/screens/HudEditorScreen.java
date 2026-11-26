@@ -256,7 +256,23 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
       this.cancelPendingLayoutGesture();
       LayoutSnapshot before = this.captureLayout();
       this.applyLayoutPreset(layout, false);
-      return new LayoutPreview(new HudLayoutPreview<>(before, this.captureLayout()));
+      return new LayoutPreview(new HudLayoutPreview<>(before, this.captureLayout(), HudEditorScreen::sameEditableLayout));
+   }
+
+   private static boolean sameEditableLayout(LayoutSnapshot first, LayoutSnapshot second) {
+      if (first.widgets().size() != second.widgets().size()) return false;
+      for (int index = 0; index < first.widgets().size(); index++) {
+         WidgetLayoutState a = first.widgets().get(index), b = second.widgets().get(index);
+         if (a.widget() != b.widget() || a.groupAnchor() != b.groupAnchor()
+            || a.horizontalAlignment() != b.horizontalAlignment() || a.verticalAlignment() != b.verticalAlignment()
+            || Float.compare(a.scale(), b.scale()) != 0) return false;
+         // Anchors/alignment recompute these coordinates during rendering as widget sizes change.
+         if (a.groupAnchor() == HudAnchor.NONE) {
+            if (a.horizontalAlignment() == HudHorizontalAlignment.FREE && Float.compare(a.relativeX(), b.relativeX()) != 0) return false;
+            if (a.verticalAlignment() == HudVerticalAlignment.FREE && Float.compare(a.relativeY(), b.relativeY()) != 0) return false;
+         }
+      }
+      return true;
    }
 
    public final class LayoutPreview {
