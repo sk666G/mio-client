@@ -595,9 +595,12 @@ public class NameTagsModule extends Module {
    private void onWorldRender(WorldRenderEvent.Overlay event) {
       RenderTarget renderTarget = (RenderTarget)NAME_TAG_RENDER_TARGET.get();
       (RenderUtils.getEntityBuffers()).endBatch();
-      Vec3 cameraPosition = (ClientAccess.schizoMinecraft.gameRenderer.getMainCamera()).position();
+      GameRenderer gameRenderer = ClientAccess.schizoMinecraft.gameRenderer;
+      Vec3 cameraPosition = gameRenderer.getMainCamera().position();
+      float partialTick = RenderUtils.getPartialTick();
+      EntityRenderDispatcher entityDispatcher = ClientAccess.schizoMinecraft.getEntityRenderDispatcher();
+      PoseStack entityPoses = event.getPoseStack();
       for (Entity entity : this.visibleEntities) {
-         float partialTick = RenderUtils.getPartialTick();
          double interpolationPartialTick = partialTick;
          double previousXSnapshot = entity.xo;
          double currentX = entity.getX();
@@ -610,11 +613,9 @@ public class NameTagsModule extends Module {
          double previousZSnapshot = entity.zo;
          double currentZ = entity.getZ();
          double relativeZ = Mth.lerp(interpolationPartialTick, previousZSnapshot, currentZ) - cameraPosition.z;
-         EntityRenderDispatcher entityDispatcherSnapshot = ClientAccess.schizoMinecraft.getEntityRenderDispatcher();
-         EntityRenderer entityRenderer = entityDispatcherSnapshot.getRenderer(entity);
+         EntityRenderer entityRenderer = entityDispatcher.getRenderer(entity);
          EntityRenderState renderState = entityRenderer.createRenderState(entity, partialTick);
          Vec3 renderOffset = entityRenderer.getRenderOffset(renderState);
-         PoseStack entityPoses = event.getPoseStack();
          entityPoses.pushPose();
          try {
             double translatedXSnapshot = relativeX + renderOffset.x();
@@ -669,16 +670,16 @@ public class NameTagsModule extends Module {
       }
       this.visibleEntities.clear();
       ClientLevel level = ClientAccess.schizoMinecraft.level;
+      GameRenderer gameRenderer = ClientAccess.schizoMinecraft.gameRenderer;
+      Vec3 cameraPosition = gameRenderer.getMainCamera().position();
+      int maximumRange = this.rangeSetting.getValue();
       for (Entity entity : level.entitiesForRendering()) {
          if (!this.shouldRenderEntity(entity)) {
             continue;
          }
-         GameRenderer gameRenderer = ClientAccess.schizoMinecraft.gameRenderer;
-         Vec3 cameraPositionSnapshot = (gameRenderer.getMainCamera()).position();
-         Vec3 entityPositionSnapshot = entity.position();
-         float distance = Vec3Utils.horizontalDistance(cameraPositionSnapshot, entityPositionSnapshot);
-         Integer maximumRange = this.rangeSetting.getValue();
-         if (distance > maximumRange.intValue()) {
+         Vec3 entityPosition = entity.position();
+         float distance = Vec3Utils.horizontalDistance(cameraPosition, entityPosition);
+         if (distance > maximumRange) {
             continue;
          }
          AABB boundsSnapshot = entity.getBoundingBox();
@@ -686,11 +687,9 @@ public class NameTagsModule extends Module {
             this.visibleEntities.add(entity);
          }
       }
-      this.visibleEntities.sort(Comparator.comparingDouble(sortedEntity -> {
-         Vec3 sortCameraPositionSnapshot = (ClientAccess.schizoMinecraft.gameRenderer.getMainCamera()).position();
-         Vec3 sortEntityPosition = sortedEntity.position();
-         return -sortCameraPositionSnapshot.distanceToSqr(sortEntityPosition);
-      }));
+      this.visibleEntities.sort(Comparator.comparingDouble(
+         sortedEntity -> -cameraPosition.distanceToSqr(sortedEntity.position())
+      ));
    }
    private static boolean isEntityRefreshDue(ElapsedTimer timer) {
       return timer.hasElapsedAndReset(50L);
