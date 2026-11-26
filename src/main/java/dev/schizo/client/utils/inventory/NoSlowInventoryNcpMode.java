@@ -42,11 +42,6 @@ public class NoSlowInventoryNcpMode extends NoSlowInventoryMode {
    public NoSlowInventoryNcpMode(NoSlowModule noSlow) {
       super(noSlow);
    }
-
-   static {
-      multiTask = (MultiTaskModule)ClientContext.getModule(MultiTaskModule.class);
-   }
-
    @Override
    public void onInventoryAction(InventoryActionEvent event) {
       Boolean guiMoveEnabled = this.noSlow.guiMoveSetting.getValue();

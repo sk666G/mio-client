@@ -39,11 +39,6 @@ public class GrimSpeedHandler extends SpeedModeHandler {
    public GrimSpeedHandler(SpeedModule speedModule) {
       super(speedModule);
    }
-
-   static {
-      antiCheatModule = ClientContext.getModule(AntiCheatModule.class);
-   }
-
    private boolean intersectsNearbyEntity(Entity entity) {
       boolean strictBounds = antiCheatModule.is2b2tEnabled();
       AABB entityBounds = entity.getBoundingBox();

@@ -105,7 +105,7 @@ public enum NukerShapeChoice implements NamedEntry {
       }
    };
 
-   private static SpeedMineModule speedMineModule = (SpeedMineModule)ClientContext.getModule(SpeedMineModule.class);
+   private static SpeedMineModule speedMineModule;
    private final String displayName;
 
    @Override

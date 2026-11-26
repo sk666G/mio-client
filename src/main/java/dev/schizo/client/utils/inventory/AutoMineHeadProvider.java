@@ -44,12 +44,6 @@ public final class AutoMineHeadProvider extends AutoMineProviderBase {
    public AutoMineHeadProvider(AutoMineModule module) {
       super(module);
    }
-
-   static {
-      autoTrap = (AutoTrapModule)ClientContext.getModule(AutoTrapModule.class);
-      antiCheat = (AntiCheatModule)ClientContext.getModule(AntiCheatModule.class);
-   }
-
    @Override
    public void collectCandidates(AutoMineCandidates candidates) {
       AutoMineTargetSelector targetSelector = this.autoMine.targetSelector;

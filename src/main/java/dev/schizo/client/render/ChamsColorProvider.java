@@ -109,7 +109,7 @@ public interface ChamsColorProvider extends ClientAccess {
    }
 
    final class ColorsBinding {
-      private static ColorsModule module = (ColorsModule)ClientContext.getModule(ColorsModule.class);
+      private static ColorsModule module;
 
       private ColorsBinding() {
       }
