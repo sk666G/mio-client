@@ -546,7 +546,7 @@ public class ModuleComponent extends AbstractComponent implements CloseState {
          && this.isMouseOver(mouseX, mouseY)) {
          ClientContext.getClickGui()
             .setTooltipText(
-               this.module.getDescription()
+               this.module.getDescription() + "\n" + this.module.getRuntimeStatus()
             );
       }
    }

@@ -299,46 +299,54 @@ public class TunnelsModule extends Module {
       }
 
       int processed = 0;
-      int scanBudget = AdaptiveScanBudget.limit(CHUNK_SCAN_BUDGET_PER_TICK, ClientContext.frameTiming);
-      while (processed < scanBudget) {
-         if (this.activeChunkScan == null) {
-            ChunkPos nextChunk = this.pendingChunkScans.poll();
-            if (nextChunk == null) {
-               return;
-            }
-            this.activeChunkPosition = nextChunk;
-            this.activeChunkScan = new TunnelsChunkScanCursor(
-               nextChunk.getMinBlockX(),
-               nextChunk.getMinBlockZ(),
-               level.getMinY() + 1,
-               (int)WorldUtils.getTopY() - 2
-            );
-         }
-
-         TunnelsChunkScanCursor.Cell cell = this.activeChunkScan.next();
-         if (cell == null) {
-            this.queuedChunkScans.remove(this.activeChunkPosition.toLong());
-            this.activeChunkScan = null;
-            this.activeChunkPosition = null;
-            continue;
-         }
-
-         int x = cell.x();
-         int y = cell.y();
-         int z = cell.z();
-         this.scanPosition.set(x, y, z);
-         if (this.isNonSolid(this.scanPosition)) {
-            if (this.isVerticalTunnelCell(this.scanPosition)) {
-               this.pendingTunnels.add(
-                  new Tunnel(x, y, z, x + 1, y + 1, z + 1, true)
-               );
-            } else if (this.isHorizontalTunnelCell(this.scanPosition)) {
-               this.pendingTunnels.add(
-                  new Tunnel(x, y, z, x + 1, y + 1, z + 1, false)
+      boolean measuring = dev.schizo.client.profiling.EventProfiler.GLOBAL.isEnabled();
+      long scanStart = measuring ? System.nanoTime() : 0L;
+      try {
+         int scanBudget = AdaptiveScanBudget.limit(CHUNK_SCAN_BUDGET_PER_TICK, ClientContext.frameTiming);
+         while (processed < scanBudget) {
+            if (this.activeChunkScan == null) {
+               ChunkPos nextChunk = this.pendingChunkScans.poll();
+               if (nextChunk == null) {
+                  return;
+               }
+               this.activeChunkPosition = nextChunk;
+               this.activeChunkScan = new TunnelsChunkScanCursor(
+                  nextChunk.getMinBlockX(),
+                  nextChunk.getMinBlockZ(),
+                  level.getMinY() + 1,
+                  (int)WorldUtils.getTopY() - 2
                );
             }
+
+            TunnelsChunkScanCursor.Cell cell = this.activeChunkScan.next();
+            if (cell == null) {
+               this.queuedChunkScans.remove(this.activeChunkPosition.toLong());
+               this.activeChunkScan = null;
+               this.activeChunkPosition = null;
+               continue;
+            }
+
+            int x = cell.x();
+            int y = cell.y();
+            int z = cell.z();
+            this.scanPosition.set(x, y, z);
+            if (this.isNonSolid(this.scanPosition)) {
+               if (this.isVerticalTunnelCell(this.scanPosition)) {
+                  this.pendingTunnels.add(
+                     new Tunnel(x, y, z, x + 1, y + 1, z + 1, true)
+                  );
+               } else if (this.isHorizontalTunnelCell(this.scanPosition)) {
+                  this.pendingTunnels.add(
+                     new Tunnel(x, y, z, x + 1, y + 1, z + 1, false)
+                  );
+               }
+            }
+            processed++;
          }
-         processed++;
+
+      } finally {
+         if (measuring) dev.schizo.client.profiling.ScanWorkTracker.GLOBAL.record(
+            dev.schizo.client.profiling.ScanWorkTracker.Source.TUNNELS, System.nanoTime() - scanStart, processed);
       }
    }
 

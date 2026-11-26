@@ -140,6 +140,7 @@
     "ScreenEffectRendererMixin",
     "WorldOpenFlowsMixin",
     "InventoryScreenMixin",
+    "InventorySelectionMixin",
     "KeyboardHandlerMixin",
     "KeyboardInputMixin",
     "LevelLoadingScreenMixin",
