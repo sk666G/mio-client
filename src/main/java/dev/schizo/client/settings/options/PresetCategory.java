@@ -364,13 +364,7 @@ public enum PresetCategory implements JsonConfigurable, NamedEntry {
 
       @Override
       public void fromJson(JsonElement json) {
-         MacroRegistry registryForLock = ClientContext.macroRegistry;
-         synchronized ((List)registryForLock.getRegistry()) {
-            MacroRegistry registryForClear = ClientContext.macroRegistry;
-            ((List<?>)registryForClear.getRegistry()).clear();
-            MacroRegistry registryForLoad = ClientContext.macroRegistry;
-            registryForLoad.fromJson(json);
-         }
+         ClientContext.macroRegistry.fromJson(json);
       }
 
       @Override
