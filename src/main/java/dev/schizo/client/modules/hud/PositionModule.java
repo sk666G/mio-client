@@ -81,6 +81,11 @@ public class PositionModule extends HudWidgetModule {
       return "XYZ ";
    }
 
+   @Override
+   public void onDisable() {
+      this.fakeOffset = null;
+   }
+
    private void refreshFakeOffset() {
       LocalPlayer player = ClientAccess.schizoMinecraft.player;
       if (player == null) {
