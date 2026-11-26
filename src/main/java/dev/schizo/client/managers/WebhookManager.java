@@ -246,10 +246,10 @@ public final class WebhookManager implements JsonConfigurable {
             try {
                JsonObject result = JsonParser.parseString(response.body()).getAsJsonObject();
                if (!result.has("ok") || !result.get("ok").getAsBoolean()) {
-                  return CompletableFuture.failedFuture(new IOException("Telegram rejected the notification"));
+                  return CompletableFuture.failedFuture(new PermanentWebhookException("Telegram rejected the notification"));
                }
             } catch (RuntimeException invalidResponse) {
-               return CompletableFuture.failedFuture(new IOException("Invalid Telegram response", invalidResponse));
+               return CompletableFuture.failedFuture(new PermanentWebhookException("Invalid Telegram response", invalidResponse));
             }
          }
          return CompletableFuture.completedFuture(null);
@@ -277,11 +277,24 @@ public final class WebhookManager implements JsonConfigurable {
    }
 
    private static boolean isRetryableFailure(Throwable failure) {
+      if (failure instanceof PermanentWebhookException) {
+         return false;
+      }
       if (failure instanceof HttpStatusException statusFailure) {
          int status = statusFailure.statusCode();
          return status == 408 || status == 425 || status == 429 || status >= 500 && status <= 599;
       }
       return failure instanceof IOException;
+   }
+
+   private static final class PermanentWebhookException extends IOException {
+      private PermanentWebhookException(String message) {
+         super(message);
+      }
+
+      private PermanentWebhookException(String message, Throwable cause) {
+         super(message, cause);
+      }
    }
 
    private static final class HttpStatusException extends IOException {
