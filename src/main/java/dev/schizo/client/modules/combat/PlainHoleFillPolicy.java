@@ -28,11 +28,6 @@ public class PlainHoleFillPolicy implements ClientAccess {
    public PlainHoleFillPolicy(HoleFillModule holeFillModule) {
       this.holeFillModule = holeFillModule;
    }
-
-   static {
-      speedMineModule = (SpeedMineModule)ClientContext.getModule(SpeedMineModule.class);
-   }
-
    public boolean shouldFill(HoleInfo hole) {
       if (speedMineModule.isToggled()) {
          Setting<SpeedMineRebreakChoice> rebreakSettingRef = speedMineModule.rebreakSetting;
