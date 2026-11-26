@@ -25,6 +25,7 @@ import dev.schizo.client.utils.WorkerExecutorShutdown;
 import dev.schizo.client.events.ScreenChangeEvent;
 import dev.schizo.client.events.MinecraftTickEvent;
 import dev.schizo.client.modules.client.DiscordModule;
+import dev.schizo.client.modules.hud.MediaSessionBridge;
 import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.events.MinecraftRunTickEvent;
 import dev.schizo.client.managers.ModuleRegistry;
@@ -210,8 +211,9 @@ public class MinecraftMixin {
    }
 
    @Inject(method = "close", at = @At("HEAD"))
-   public void closeDiscordClient(CallbackInfo callback) {
+   public void closeClientIntegrations(CallbackInfo callback) {
       MixinModuleRegistry.minecraftDiscordModule.closeClient();
+      MediaSessionBridge.stopMediaUpdates();
    }
 
 }
