@@ -93,6 +93,7 @@ public final class ClientInitializer {
       ClientContext.holeManager = new HoleManager();
       ClientContext.totemPopTracker = new TotemPopTracker();
       ClientContext.movementSpeedTracker = new MovementSpeedTracker();
+      new dev.schizo.client.managers.TravelMonitor();
       ClientContext.rotationManager = new RotationManager();
       ClientContext.waypointRegistry = new WaypointRegistry();
       ClientContext.featureBoxRenderer = new FeatureBoxRenderer();

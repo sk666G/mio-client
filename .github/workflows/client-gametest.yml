@@ -2,7 +2,7 @@ name: Schizo client gametests
 
 on:
   push:
-    branches: [zio-rebuild-v7, lunyx/runtime-validation-v1]
+    branches: [zio-rebuild-v7, lunyx/runtime-validation-v1, codex/anarchy-workflows-v2]
   workflow_dispatch:
 
 permissions:
@@ -56,6 +56,11 @@ jobs:
           test -s "$run_dir/screenshots/0001_schizo-command-palette.png"
           test -s "$run_dir/screenshots/0002_schizo-performance-center.png"
           test -s "$run_dir/screenshots/0003_schizo-hud-editor.png"
+          test -s "$run_dir/screenshots/0004_schizo-expedition-discoveries.png"
+          test -s "$run_dir/screenshots/0005_schizo-expedition-travel.png"
+          test -s "$run_dir/screenshots/0006_schizo-expedition-profiles.png"
+          test -s "$run_dir/screenshots/0007_schizo-expedition-compatibility.png"
+          test -s "$run_dir/screenshots/0008_schizo-hud-layout-preview.png"
 
           if grep -E '\[.*(WARN|ERROR).*\] \(Schizo\)|\(Schizo\).*\[(WARN|ERROR)\]' "$log"; then
             echo "Schizo emitted WARN/ERROR diagnostics during the successful client gametest" >&2

@@ -2,6 +2,11 @@
 
 Status is intentionally conservative. A checked item requires recorded evidence; live-only gates remain unchecked even when source/CI work is green.
 
+The post-runtime-validation workflow pass records its commands, ownership ledger,
+headless client evidence and targeted remaining scenarios in
+[ANARCHY_WORKFLOWS.md](ANARCHY_WORKFLOWS.md). Automated local-world GUI coverage is
+distinct from manual QA and launching the remapped distribution artifact.
+
 ## Source and integration
 
 - [x] Consolidate the reviewed GUI/HUD, profiler, module/reliability and runtime ownership stacks through verified candidate v7.

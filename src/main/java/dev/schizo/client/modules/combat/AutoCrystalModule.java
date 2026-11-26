@@ -226,6 +226,7 @@ public class AutoCrystalModule extends Module {
    private final Set ignoredBlocks;
    private AutoCrystalScanState scanState;
    private ClientLevel calculationWorld;
+   private LocalPlayer calculationPlayer;
    protected volatile BlockPos lastPlacedBase;
    protected volatile BlockPos lastAttackedBase;
    protected volatile BlockPos lastForcedBase;
@@ -250,6 +251,17 @@ public class AutoCrystalModule extends Module {
       anchorAura = (AnchorAuraModule)ClientContext.getModule(AnchorAuraModule.class);
       aura = (AuraModule)ClientContext.getModule(AuraModule.class);
       autoExp = (AutoExpModule)ClientContext.getModule(AutoExpModule.class);
+   }
+
+   @Override
+   public String getRuntimeStatus() {
+      if (!this.isToggled() || this.hasPauseReason()) return super.getRuntimeStatus();
+      if (this.isWorldUnavailable()) return "Waiting for world";
+      if (this.scanState != null) {
+         long age = java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - this.scanState.startedNanos);
+         return "Scanning placements - " + age + " ms";
+      }
+      return this.placementData.get() == null ? "No valid placement" : "Placement ready";
    }
 
    @Override
@@ -284,6 +296,7 @@ public class AutoCrystalModule extends Module {
       this.placementData.set(null);
       this.completeCalculation();
       this.calculationWorld = null;
+      this.calculationPlayer = null;
 
       this.swapDelayTimer.reset();
 
@@ -295,6 +308,7 @@ public class AutoCrystalModule extends Module {
    public void onDisable() {
       this.completeCalculation();
       this.calculationWorld = null;
+      this.calculationPlayer = null;
       this.restoreSelectedSlot();
    }
 
@@ -501,27 +515,35 @@ public class AutoCrystalModule extends Module {
    private void advancePlacementScan(AutoCrystalScanState state) {
       long startedNanos = System.nanoTime();
       int processed = 0;
-      int candidateBudget = AdaptiveScanBudget.limit(MAX_SCAN_CANDIDATES_PER_TICK, ClientContext.frameTiming);
-      long timeBudgetNanos = AdaptiveScanBudget.nanos(SCAN_BUDGET_NANOS, ClientContext.frameTiming);
-      while (!state.cursor.isComplete() && processed < candidateBudget) {
-         if (processed > 0 && System.nanoTime() - startedNanos >= timeBudgetNanos) {
-            break;
+      boolean measuring = dev.schizo.client.profiling.EventProfiler.GLOBAL.isEnabled();
+      long scanStart = measuring ? System.nanoTime() : 0L;
+      try {
+         int candidateBudget = AdaptiveScanBudget.limit(MAX_SCAN_CANDIDATES_PER_TICK, ClientContext.frameTiming);
+         long timeBudgetNanos = AdaptiveScanBudget.nanos(SCAN_BUDGET_NANOS, ClientContext.frameTiming);
+         while (!state.cursor.isComplete() && processed < candidateBudget) {
+            if (processed > 0 && System.nanoTime() - startedNanos >= timeBudgetNanos) {
+               break;
+            }
+
+            IncrementalCubeScanCursor.Offset offset = state.cursor.next();
+            if (offset == null) {
+               break;
+            }
+            processed++;
+
+            CrystalPlacementResult candidate = this.evaluatePlacementCandidate(state, offset);
+            if (candidate != null) {
+               state.bestPlacement = candidate.selectBetterPlacement(state.bestPlacement);
+            }
          }
 
-         IncrementalCubeScanCursor.Offset offset = state.cursor.next();
-         if (offset == null) {
-            break;
+         if (state.cursor.isComplete()) {
+            state.finished = true;
          }
-         processed++;
 
-         CrystalPlacementResult candidate = this.evaluatePlacementCandidate(state, offset);
-         if (candidate != null) {
-            state.bestPlacement = candidate.selectBetterPlacement(state.bestPlacement);
-         }
-      }
-
-      if (state.cursor.isComplete()) {
-         state.finished = true;
+      } finally {
+         if (measuring) dev.schizo.client.profiling.ScanWorkTracker.GLOBAL.record(
+            dev.schizo.client.profiling.ScanWorkTracker.Source.AUTO_CRYSTAL, System.nanoTime() - scanStart, processed);
       }
    }
 
@@ -529,7 +551,7 @@ public class AutoCrystalModule extends Module {
       LivingEntity calculatedTarget = calculatedPlacement == null
          ? null
          : calculatedPlacement.target();
-      if (this.calculationWorld != activeLevel
+      if (this.calculationWorld != activeLevel || this.calculationPlayer != ClientAccess.schizoMinecraft.player
          || calculatedPlacement != null
             && (calculatedTarget == null
                || calculatedTarget.level() != activeLevel
@@ -551,6 +573,7 @@ public class AutoCrystalModule extends Module {
 
    private static final class AutoCrystalScanState {
       final ClientLevel world;
+      final long startedNanos = System.nanoTime();
       final Vec3 eyePosition;
       final float placeRange;
       final float selectedCrystalRange;
@@ -881,38 +904,39 @@ public class AutoCrystalModule extends Module {
    }
 
    private boolean shouldPause() {
+      this.clearPauseReason();
       if (this.isWorldUnavailable()) {
-         return true;
+         return this.pauseWithReason("Waiting for world");
       }
 
       if (BlockInteractionUtils.isInteractionCooldownActive()) {
-         return true;
+         return this.pauseWithReason("Interaction cooldown");
       }
 
       if (OffhandModule.isRecentSwapWindowActive()) {
-         return true;
+         return this.pauseWithReason("Offhand swap");
       }
       if (SpeedMineModule.isSwapPending()) {
-         return true;
+         return this.pauseWithReason("Mining swap");
       }
       LivingEntity targetSnapshot = this.target;
       if (this.isInvalidTarget(targetSnapshot)) {
-         return true;
+         return this.pauseWithReason("No valid target");
       }
 
       if (ClientAccess.schizoMinecraft.player.isSleeping()) {
-         return true;
+         return this.pauseWithReason("Sleeping");
       }
 
       if (ClientAccess.schizoMinecraft.player.isUsingItem()) {
          if (this.pauseEatingSetting.getValue()) {
-            return true;
+            return this.pauseWithReason("Using item");
          }
       }
 
       if (this.pauseMendingSetting.getValue()) {
          if (autoExp.isActive()) {
-            return true;
+            return this.pauseWithReason("Mending");
          }
       }
 
@@ -926,7 +950,7 @@ public class AutoCrystalModule extends Module {
 
       if (miningFlag) {
          if (this.pauseMiningSetting.getValue()) {
-            return true;
+            return this.pauseWithReason("Mining");
          }
       }
 
@@ -943,7 +967,7 @@ public class AutoCrystalModule extends Module {
 
                CrystalPlacementResult crystalPlacementSnapshot = (CrystalPlacementResult)this.placementData.get();
                if (anchorDamage > crystalPlacementSnapshot.damage()) {
-                  return true;
+                  return this.pauseWithReason("AnchorAura selected");
                }
             }
          }
@@ -952,12 +976,12 @@ public class AutoCrystalModule extends Module {
       if (RotationManager.isMovementSyncEnabled()) {
          if (!RotationManager.isSilentRotationMode()) {
             if (ClientAccess.schizoMinecraft.player.isFallFlying()) {
-               return true;
+               return this.pauseWithReason("Flight rotation");
             }
          }
       }
 
-      return ClientAccess.schizoMinecraft.player.isDeadOrDying();
+      return ClientAccess.schizoMinecraft.player.isDeadOrDying() && this.pauseWithReason("Player dead");
    }
 
    public boolean shouldIgnoreMiningBlock() {
@@ -1881,6 +1905,7 @@ public class AutoCrystalModule extends Module {
    private void onMinecraftDisconnectEvent(MinecraftDisconnectEvent event) {
       this.completeCalculation();
       this.calculationWorld = null;
+      this.calculationPlayer = null;
       this.placementData.set(null);
       this.rotationTarget.set(null);
       this.target = null;
@@ -2035,9 +2060,10 @@ public class AutoCrystalModule extends Module {
    private void onMinecraftRunTickEvent(MinecraftRunTickEvent event) {
       if (!this.isWorldUnavailable()) {
          ClientLevel activeLevel = ClientAccess.schizoMinecraft.level;
-         if (this.calculationWorld != null && this.calculationWorld != activeLevel) {
+         if (this.calculationWorld != activeLevel || this.calculationPlayer != ClientAccess.schizoMinecraft.player) {
             this.completeCalculation();
-            this.calculationWorld = null;
+            this.calculationWorld = activeLevel;
+            this.calculationPlayer = ClientAccess.schizoMinecraft.player;
             this.placementData.set(null);
             this.selectedDamage = 0.0F;
             this.target = null;
@@ -2049,6 +2075,7 @@ public class AutoCrystalModule extends Module {
                List<LivingEntity> targets = this.targeting.snapshot();
                this.scanState = this.createPlacementScan(targets, activeLevel);
                this.calculationWorld = activeLevel;
+               this.calculationPlayer = ClientAccess.schizoMinecraft.player;
             }
 
             AutoCrystalScanState activeScan = this.scanState;

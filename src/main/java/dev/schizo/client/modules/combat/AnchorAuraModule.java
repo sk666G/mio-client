@@ -103,6 +103,7 @@ public class AnchorAuraModule extends Module {
    private final Setting<Float> healthSetting;
    private AnchorScanState scanState;
    private ClientLevel calculationWorld;
+   private LocalPlayer calculationPlayer;
    private final ElapsedTimer actionTimer;
    public final AtomicReference placementData;
    public AnchorTargetDamage targetDamage;
@@ -121,6 +122,17 @@ public class AnchorAuraModule extends Module {
          return null;
       }
       return offhandFlag ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND;
+   }
+
+   @Override
+   public String getRuntimeStatus() {
+      if (!this.isToggled() || this.hasPauseReason()) return super.getRuntimeStatus();
+      if (this.isWorldUnavailable()) return "Waiting for world";
+      if (this.scanState != null) {
+         long age = java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - this.scanState.startedNanos);
+         return "Scanning placements - " + age + " ms";
+      }
+      return this.placementData.get() == null ? "No valid placement" : "Placement ready";
    }
 
    @Override
@@ -155,6 +167,7 @@ public class AnchorAuraModule extends Module {
    private void resetCalculationState() {
       this.completeCalculation();
       this.calculationWorld = null;
+      this.calculationPlayer = null;
       this.placementData.set(null);
       this.targetDamage = null;
    }
@@ -165,23 +178,24 @@ public class AnchorAuraModule extends Module {
    }
 
    private boolean shouldPause() {
+      this.clearPauseReason();
       if (this.isWorldUnavailable()) {
-         return true;
+         return this.pauseWithReason("Waiting for world");
       }
 
       if (ClientAccess.schizoMinecraft.player.isSleeping()) {
-         return true;
+         return this.pauseWithReason("Sleeping");
       }
 
       if (ClientAccess.schizoMinecraft.player.isUsingItem()) {
          if (this.eatingSetting.getValue()) {
-            return true;
+            return this.pauseWithReason("Using item");
          }
       }
 
       if (ClientAccess.schizoMinecraft.gameMode.isDestroying()) {
          if (this.miningSetting.getValue()) {
-            return true;
+            return this.pauseWithReason("Mining");
          }
       }
 
@@ -191,7 +205,7 @@ public class AnchorAuraModule extends Module {
             AnchorTargetDamage anchorDamageSnapshot = this.targetDamage;
 
             if (crystalDamage > anchorDamageSnapshot.damage()) {
-               return true;
+               return this.pauseWithReason("AutoCrystal selected");
             }
          }
       }
@@ -199,7 +213,7 @@ public class AnchorAuraModule extends Module {
       float selfHealth = EntityUtils.getPlayerHealthWithAbsorption();
 
       Float minimumHealth = this.healthSetting.getValue();
-      return selfHealth < minimumHealth;
+      return selfHealth < minimumHealth && this.pauseWithReason("Below minimum health");
    }
 
    boolean shouldIgnoreMiningBlock() {
@@ -580,33 +594,43 @@ public class AnchorAuraModule extends Module {
    private void advanceScan(AnchorScanState state) {
       long startedNanos = System.nanoTime();
       int processed = 0;
+      boolean measuring = dev.schizo.client.profiling.EventProfiler.GLOBAL.isEnabled();
+      long scanStart = measuring ? System.nanoTime() : 0L;
+      try {
 
-      while (!state.cursor.isComplete() && processed < MAX_SCAN_CANDIDATES_PER_TICK) {
-         if (processed > 0 && System.nanoTime() - startedNanos >= SCAN_BUDGET_NANOS) {
-            break;
+         while (!state.cursor.isComplete() && processed < MAX_SCAN_CANDIDATES_PER_TICK) {
+            if (processed > 0 && System.nanoTime() - startedNanos >= SCAN_BUDGET_NANOS) {
+               break;
+            }
+
+            IncrementalCubeScanCursor.Offset offset = state.cursor.next();
+            if (offset == null) {
+               break;
+            }
+            processed++;
+
+            AnchorPlacementResult candidate = this.evaluatePlacementCandidate(state, offset);
+            if (candidate == null) {
+               continue;
+            }
+
+            if (this.isAnchorBlock(candidate.base())) {
+               state.bestPlacement = candidate;
+               state.finished = true;
+               return;
+            }
+            state.bestPlacement = candidate.selectHigherDamage(state.bestPlacement);
          }
 
-         IncrementalCubeScanCursor.Offset offset = state.cursor.next();
-         if (offset == null) {
-            break;
-         }
-         processed++;
-
-         AnchorPlacementResult candidate = this.evaluatePlacementCandidate(state, offset);
-         if (candidate == null) {
-            continue;
-         }
-
-         if (this.isAnchorBlock(candidate.base())) {
-            state.bestPlacement = candidate;
+         if (state.cursor.isComplete()) {
             state.finished = true;
-            return;
          }
-         state.bestPlacement = candidate.selectHigherDamage(state.bestPlacement);
-      }
 
-      if (state.cursor.isComplete()) {
-         state.finished = true;
+      } finally {
+         if (measuring) {
+            dev.schizo.client.profiling.ScanWorkTracker.GLOBAL.record(
+               dev.schizo.client.profiling.ScanWorkTracker.Source.ANCHOR_AURA, System.nanoTime() - scanStart, processed);
+         }
       }
    }
 
@@ -617,7 +641,8 @@ public class AnchorAuraModule extends Module {
       Player completedTarget = completedDamage == null ? null : completedDamage.target();
       double validationRange = this.targetRangeSetting.getValue().doubleValue();
 
-      if (completedPlacement == null
+      if (this.calculationPlayer != ClientAccess.schizoMinecraft.player
+         || completedPlacement == null
          || completedTarget == null
          || completedTarget.level() != activeLevel
          || completedTarget.isRemoved()
@@ -634,9 +659,10 @@ public class AnchorAuraModule extends Module {
 
    private void updateCalculation() {
       ClientLevel activeLevel = ClientAccess.schizoMinecraft.level;
-      if (this.calculationWorld != activeLevel) {
+      if (this.calculationWorld != activeLevel || this.calculationPlayer != ClientAccess.schizoMinecraft.player) {
          this.completeCalculation();
          this.calculationWorld = activeLevel;
+         this.calculationPlayer = ClientAccess.schizoMinecraft.player;
          this.placementData.set(null);
          this.targetDamage = null;
       }
@@ -689,6 +715,7 @@ public class AnchorAuraModule extends Module {
 
    private static final class AnchorScanState {
       final ClientLevel world;
+      final long startedNanos = System.nanoTime();
       final double originX;
       final double originY;
       final double originZ;

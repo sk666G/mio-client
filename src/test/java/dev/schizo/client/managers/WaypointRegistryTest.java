@@ -7,6 +7,38 @@ import org.junit.jupiter.api.Test;
 
 class WaypointRegistryTest {
    @Test
+   void discoveriesWithTheSameDescriptionKeepDistinctLocationsAndReuseAnExistingLocation() {
+      WaypointRegistry registry = new WaypointRegistry();
+      Waypoint first = registry.registerDiscoveryWaypoint(new Waypoint("Storage", 10, 64, 20, "overworld", "example.org"));
+      Waypoint second = registry.registerDiscoveryWaypoint(new Waypoint("storage", 30, 64, 40, "overworld", "EXAMPLE.ORG"));
+      assertEquals("Storage", first.getName());
+      assertEquals("storage (2)", second.getName());
+      assertEquals(30, second.getX());
+      assertSame(second, registry.registerDiscoveryWaypoint(new Waypoint("Storage", 30, 64, 40, "minecraft:overworld", "example.org")));
+      assertEquals(2, registry.getRegistry().size());
+      Waypoint otherServer = registry.registerDiscoveryWaypoint(new Waypoint("Storage", 30, 64, 40, "overworld", "other.example"));
+      assertEquals("Storage", otherServer.getName());
+   }
+
+   @Test
+   void discoveryNamesSkipExistingSuffixesAndDoNotMergeDimensions() {
+      WaypointRegistry registry = new WaypointRegistry();
+      registry.registerWaypoint(new Waypoint("Storage", 10, 64, 20, "overworld", "example.org"));
+      registry.registerWaypoint(new Waypoint("Storage (2)", 30, 64, 40, "overworld", "example.org"));
+      Waypoint nether = registry.registerDiscoveryWaypoint(new Waypoint("Storage", 10, 64, 20, "nether", "example.org"));
+      assertEquals("Storage (3)", nether.getName());
+      assertEquals(3, registry.getRegistry().size());
+   }
+
+   @Test
+   void malformedStoredDimensionsDoNotPreventCreatingDiscoveries() {
+      WaypointRegistry registry = new WaypointRegistry();
+      registry.registerWaypoint(new Waypoint("Storage", 10, 64, 20, null, "example.org"));
+      assertNotNull(registry.registerDiscoveryWaypoint(new Waypoint("Storage", 10, 64, 20, "overworld", "example.org")));
+      assertNull(registry.registerDiscoveryWaypoint(null));
+   }
+
+   @Test
    void identityMatchesNameAndServerCaseInsensitively() {
       Waypoint first = new Waypoint("Home", 1.0, 64.0, 2.0, "minecraft:overworld", "example.org");
       Waypoint sameIdentity = new Waypoint("home", 50.0, 70.0, 50.0, "minecraft:the_nether", "EXAMPLE.ORG");

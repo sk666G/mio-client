@@ -77,6 +77,39 @@ class WebhookManagerTest {
       assertTrue(restored.getDestinationDescription().contains("re-enter"));
    }
 
+   @Test
+   void replacingDestinationStopsUnsentChunks() {
+      AtomicInteger calls = new AtomicInteger();
+      CompletableFuture<HttpResponse<String>> first = new CompletableFuture<>();
+      WebhookManager manager = new WebhookManager(request -> {
+         calls.incrementAndGet();
+         return first;
+      });
+      manager.setUrl("https://example.test/original");
+      var batch = manager.sendContent("x".repeat(2500));
+      manager.setUrl("https://example.test/replacement");
+      first.complete(response(204, ""));
+      assertThrows(CompletionException.class, batch::join);
+      assertEquals(1, calls.get());
+   }
+
+   @Test
+   void privacyChangeStopsRemainingChunks() {
+      var allowed = new java.util.concurrent.atomic.AtomicBoolean(true);
+      var pending = new CompletableFuture<HttpResponse<String>>();
+      AtomicInteger calls = new AtomicInteger();
+      WebhookManager manager = new WebhookManager(request -> {
+         calls.incrementAndGet();
+         return pending;
+      }, allowed::get);
+      manager.setUrl("https://example.test/webhook");
+      var batch = manager.sendContent("x".repeat(2500));
+      allowed.set(false);
+      pending.complete(response(204, ""));
+      assertThrows(CompletionException.class, batch::join);
+      assertEquals(1, calls.get());
+   }
+
    private static HttpResponse<String> response(int status, String body) {
       HttpRequest request = HttpRequest.newBuilder(URI.create("https://example.test")).GET().build();
       return new HttpResponse<>() {

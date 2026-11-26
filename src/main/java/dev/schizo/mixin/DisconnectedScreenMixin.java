@@ -43,6 +43,14 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public class DisconnectedScreenMixin extends Screen {
    @Unique
    private long reconnectTimerStartNanos;
+   @Unique
+   private boolean reconnectTimerStarted;
+   @Unique
+   private boolean reconnectStarted;
+   @Unique
+   private boolean reconnectServerCaptured;
+   @Unique
+   private ServerData reconnectServer;
    @Shadow
    @Final
    private DisconnectionDetails details;
@@ -60,15 +68,24 @@ public class DisconnectedScreenMixin extends Screen {
 
    @Inject(method = "init()V", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/screens/DisconnectedScreen;repositionElements()V", shift = Shift.BEFORE))
    private void addReconnectButtons(CallbackInfo callback) {
-      this.reconnectTimerStartNanos = System.nanoTime();
+      if (!this.reconnectTimerStarted) {
+         this.reconnectTimerStartNanos = System.nanoTime();
+         this.reconnectTimerStarted = true;
+      }
       AutoReconnectModule autoReconnectModule = ClientContext.getModule(AutoReconnectModule.class);
       if (autoReconnectModule == null || ClientContext.serverStateManager == null) {
          return;
       }
+      // Reinitialization on resize must not retarget an existing disconnect screen.
+      if (!this.reconnectServerCaptured) {
+         this.reconnectServer = ClientContext.serverStateManager.getServerData();
+         this.reconnectServerCaptured = true;
+         autoReconnectModule.attempts.select(this.reconnectServer == null ? null : this.reconnectServer.ip);
+      }
       Builder reconnectBuilder = Button.builder(
             Component.literal("Reconnect"),
             button -> {
-               ServerData serverData = ClientContext.serverStateManager.getServerData();
+               ServerData serverData = this.reconnectServer;
                if (serverData != null) {
                   ConnectScreen.startConnecting(new JoinMultiplayerScreen(new TitleScreen()), this.minecraft, ServerAddress.parseString(serverData.ip), serverData, true, null);
                }
@@ -83,6 +100,7 @@ public class DisconnectedScreenMixin extends Screen {
                }
 
                autoReconnectModule.toggle();
+               autoReconnectModule.attempts.select(this.reconnectServer == null ? null : this.reconnectServer.ip);
                this.reconnectTimerStartNanos = System.nanoTime();
                button.setFocused(false);
             }
@@ -90,8 +108,7 @@ public class DisconnectedScreenMixin extends Screen {
          .width(200);
       this.reconnectButton = reconnectBuilder.build();
       this.autoReconnectButton = autoReconnectBuilder.build();
-      if (ClientContext.serverStateManager.getServerData()
-         != null) {
+      if (this.reconnectServer != null) {
          this.addRenderableWidget(this.reconnectButton);
          this.addRenderableWidget(this.autoReconnectButton);
       }
@@ -154,33 +171,26 @@ public class DisconnectedScreenMixin extends Screen {
          super.render(graphics, mouseX, mouseY, partialTick);
          return;
       }
-      String reasonText = this.details.reason().getString();
-      if (reasonText.contains("Schizo") && reasonText.contains("[AutoLog]")) {
-         this.autoReconnectButton
-            .setX(-1000);
-         this.autoReconnectButton
-            .setY(-1000);
-      } else {
-         this.tryAutoReconnect();
-         this.autoReconnectButton
-            .setMessage(this.getAutoReconnectButtonMessage());
-         this.autoReconnectButton.setFocused(false);
-         super.render(graphics, mouseX, mouseY, partialTick);
-      }
+      this.tryAutoReconnect();
+      if (this.minecraft.screen != this) return;
+      this.autoReconnectButton.setMessage(this.getAutoReconnectButtonMessage());
+      this.autoReconnectButton.setFocused(false);
+      super.render(graphics, mouseX, mouseY, partialTick);
    }
 
    private void tryAutoReconnect() {
-      AutoReconnectModule autoReconnectModule = ClientContext.getModule(AutoReconnectModule.class);
-      if (autoReconnectModule != null && ClientContext.serverStateManager != null && autoReconnectModule.isToggled()) {
-         float remainingSeconds = this.getReconnectSecondsRemaining(
-            autoReconnectModule
-         );
-         if (!(remainingSeconds > 0.0F)) {
-            ServerData serverData = ClientContext.serverStateManager.getServerData();
-            if (serverData != null) {
-               ConnectScreen.startConnecting(new JoinMultiplayerScreen(new TitleScreen()), this.minecraft, ServerAddress.parseString(serverData.ip), serverData, true, null);
-            }
-         }
+      AutoReconnectModule module = ClientContext.getModule(AutoReconnectModule.class);
+      if (module == null || !module.isToggled() || this.reconnectStarted
+         || this.minecraft.screen != this || this.reconnectServer == null
+         || ClientContext.serverStateManager.autoLogged
+         || ClientContext.serverStateManager.getServerData() != this.reconnectServer) {
+         return;
+      }
+      if (this.getReconnectSecondsRemaining(module) <= 0.0F
+         && module.attempts.claim(module.attemptsSetting.getValue())) {
+         this.reconnectStarted = true;
+         ConnectScreen.startConnecting(new JoinMultiplayerScreen(new TitleScreen()), this.minecraft,
+            ServerAddress.parseString(this.reconnectServer.ip), this.reconnectServer, true, null);
       }
    }
 
@@ -190,9 +200,10 @@ public class DisconnectedScreenMixin extends Screen {
       if (autoReconnectModule == null || ClientContext.serverStateManager == null) {
          return message.append(ChatFormatting.RED + "OFF");
       }
-      String reasonText = this.details.reason().getString();
-      boolean showCountdown = autoReconnectModule.isToggled()
-         && (!reasonText.contains("Schizo") || !reasonText.contains("[AutoLog]"));
+      boolean showCountdown = autoReconnectModule.isToggled();
+      if (autoReconnectModule.attempts.exhausted(autoReconnectModule.attemptsSetting.getValue())) {
+         return message.append(ChatFormatting.RED + "Retry limit");
+      }
       float remainingSeconds = this.getReconnectSecondsRemaining(
          autoReconnectModule
       );
@@ -213,10 +224,7 @@ public class DisconnectedScreenMixin extends Screen {
       float delaySeconds = module.secondsSetting.getValue()
          + module.minutesSetting.getValue()
             * 60;
-      return MonotonicCountdown.remainingSeconds(
-         this.reconnectTimerStartNanos,
-         System.nanoTime(),
-         delaySeconds
-      );
+      double delay = module.attempts.delaySeconds(delaySeconds, module.backoffSetting.getValue());
+      return MonotonicCountdown.remainingSeconds(this.reconnectTimerStartNanos, System.nanoTime(), (float)delay);
    }
 }

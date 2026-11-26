@@ -2,7 +2,7 @@ name: Rebuild Schizo from Open Zio
 
 on:
   push:
-    branches: [zio-rebuild, zio-rebuild-v7]
+    branches: [zio-rebuild, zio-rebuild-v7, codex/anarchy-workflows-v2]
   workflow_dispatch:
 
 permissions:
@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   import-and-build:
-    if: github.ref_name == 'zio-rebuild' || github.ref_name == 'zio-rebuild-v7'
+    if: github.ref_name == 'zio-rebuild' || github.ref_name == 'zio-rebuild-v7' || github.ref_name == 'codex/anarchy-workflows-v2'
     runs-on: ubuntu-latest
     steps:
       - name: Check out Schizo staging branch

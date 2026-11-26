@@ -157,6 +157,7 @@ public class PositionModule extends HudWidgetModule {
       fakeCallbackOption.setChangeCallback(fakeCallback);
       HudTextRow coordinateRow = new HudTextRow(
          () -> {
+            if (dev.schizo.client.utils.CoordinatePrivacy.isEnabled()) return Component.literal("XYZ REDACTED");
             coordinateVisibility:
             if (!this.isWorldUnavailable()) {
                Setting<Float> safeRangeOptionForEnabled = this.safeRangeSetting;

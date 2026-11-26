@@ -221,32 +221,42 @@ public final class HoleManager implements ClientAccess {
       }
 
       int processed = 0;
-      while (processed < SCAN_BUDGET_PER_TICK && this.scanIndex < TOTAL_SCAN_POSITIONS) {
-         int index = this.scanIndex++;
-         int xOffset = index / (SCAN_SIZE * SCAN_SIZE) + SCAN_MIN_OFFSET;
-         int remainder = index % (SCAN_SIZE * SCAN_SIZE);
-         int yOffset = remainder / SCAN_SIZE + SCAN_MIN_OFFSET;
-         int zOffset = remainder % SCAN_SIZE + SCAN_MIN_OFFSET;
+      boolean measuring = dev.schizo.client.profiling.EventProfiler.GLOBAL.isEnabled();
+      long scanStart = measuring ? System.nanoTime() : 0L;
+      try {
+         while (processed < SCAN_BUDGET_PER_TICK && this.scanIndex < TOTAL_SCAN_POSITIONS) {
+            int index = this.scanIndex++;
+            int xOffset = index / (SCAN_SIZE * SCAN_SIZE) + SCAN_MIN_OFFSET;
+            int remainder = index % (SCAN_SIZE * SCAN_SIZE);
+            int yOffset = remainder / SCAN_SIZE + SCAN_MIN_OFFSET;
+            int zOffset = remainder % SCAN_SIZE + SCAN_MIN_OFFSET;
 
-         this.scanCursor.set(
-            this.scanOrigin.getX() + xOffset,
-            this.scanOrigin.getY() + yOffset,
-            this.scanOrigin.getZ() + zOffset
-         );
-         long positionKey = this.scanCursor.asLong();
-         if (!this.coveredPositions.contains(positionKey)) {
-            HoleInfo hole = classifyHole(this.scanCursor, null);
-            if (hole != null) {
-               this.pendingHoles.add(hole);
-               this.addCoveredPositions(hole.bounds());
+            this.scanCursor.set(
+               this.scanOrigin.getX() + xOffset,
+               this.scanOrigin.getY() + yOffset,
+               this.scanOrigin.getZ() + zOffset
+            );
+            long positionKey = this.scanCursor.asLong();
+            if (!this.coveredPositions.contains(positionKey)) {
+               HoleInfo hole = classifyHole(this.scanCursor, null);
+               if (hole != null) {
+                  this.pendingHoles.add(hole);
+                  this.addCoveredPositions(hole.bounds());
+               }
             }
+            processed++;
          }
-         processed++;
-      }
 
-      if (this.scanIndex >= TOTAL_SCAN_POSITIONS) {
-         this.holes = List.copyOf(this.pendingHoles);
-         this.startScan(this.scanLevel, this.scanPlayer, this.scanPlayer.blockPosition());
+         if (this.scanIndex >= TOTAL_SCAN_POSITIONS) {
+            this.holes = List.copyOf(this.pendingHoles);
+            this.startScan(this.scanLevel, this.scanPlayer, this.scanPlayer.blockPosition());
+         }
+
+      } finally {
+         if (measuring) {
+            dev.schizo.client.profiling.ScanWorkTracker.GLOBAL.record(
+               dev.schizo.client.profiling.ScanWorkTracker.Source.HOLES, System.nanoTime() - scanStart, processed);
+         }
       }
    }
 
