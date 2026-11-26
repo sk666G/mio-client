@@ -11,16 +11,20 @@ package dev.schizo.client.managers;
 
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.settings.JsonConfigurable;
+import dev.schizo.client.integrations.MultiplayerCompatibilityPolicy;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.nio.file.Path;
 
 public final class ConfigurableRegistry implements Iterable<JsonConfigurable> {
    private final List<JsonConfigurable> configurables = new ArrayList<>();
 
    ConfigurableRegistry() {
+      this.register(MultiplayerCompatibilityPolicy.GLOBAL);
       this.register(ClientContext.webhookManager);
       this.register(ClientContext.moduleRegistry);
+      this.register(ClientContext.modulePreferencesRegistry);
       this.register(ClientContext.socialRegistry);
       this.register(ClientContext.waypointRegistry);
       this.register(ClientContext.macroRegistry);
@@ -28,6 +32,7 @@ public final class ConfigurableRegistry implements Iterable<JsonConfigurable> {
       this.register(ClientContext.hudModuleRegistry);
       this.register(ClientContext.kitRegistry);
       this.register(ClientContext.autoPresetRegistry);
+      this.register(ClientContext.contextProfileRegistry);
       this.register(ClientContext.aliasRegistry);
       this.register(ClientContext.chatFilterRegistry);
       this.register(ClientContext.glintRegistry);
@@ -42,6 +47,25 @@ public final class ConfigurableRegistry implements Iterable<JsonConfigurable> {
    }
 
    private void register(JsonConfigurable configurable) {
+      if (configurable == null) {
+         throw new IllegalArgumentException("Configurable must not be null");
+      }
+      String configName = configurable.getConfigName();
+      if (configName == null || configName.isBlank()) {
+         throw new IllegalStateException(
+            "Configurable " + configurable.getClass().getName() + " has no configuration file name"
+         );
+      }
+      Path relative = Path.of(configName);
+      if (relative.isAbsolute()
+         || !relative.equals(relative.normalize())
+         || relative.getNameCount() < 1
+         || !relative.getFileName().toString().endsWith(".json")) {
+         throw new IllegalStateException(
+            "Configurable " + configurable.getClass().getName()
+               + " has an unsafe configuration file name: " + configName
+         );
+      }
       this.configurables.add(configurable);
    }
 }

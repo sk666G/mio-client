@@ -33,12 +33,15 @@ public final class MovementPredictionManager implements ClientAccess {
    private final Map<Integer, PlayerMotionPredictor> playerPredictions = Collections.synchronizedMap(new HashMap<>());
    private final ElapsedTimer predictionTimer = new ElapsedTimer();
    private Vec3 previousPlayerPosition;
+   private LocalPlayer trackedLocalPlayer;
 
    public Vec3 getAdjustedLocalMotion() {
-      if (this.previousPlayerPosition == null) {
+      LocalPlayer player = ClientAccess.schizoMinecraft.player;
+      if (player == null
+         || player != this.trackedLocalPlayer
+         || this.previousPlayerPosition == null) {
          return Vec3.ZERO;
       }
-      LocalPlayer player = ClientAccess.schizoMinecraft.player;
       Vec3 motion = player.position().subtract(this.previousPlayerPosition);
       if (player.isSprinting() && !player.isFallFlying()) {
          motion = motion.multiply((double)0.9F, 1.0D, (double)0.9F);
@@ -47,7 +50,10 @@ public final class MovementPredictionManager implements ClientAccess {
    }
 
    public Vec3 getPredictedEyePosition() {
-      return ClientAccess.schizoMinecraft.player.getEyePosition().add(this.getAdjustedLocalMotion());
+      LocalPlayer player = ClientAccess.schizoMinecraft.player;
+      return player == null
+         ? Vec3.ZERO
+         : player.getEyePosition().add(this.getAdjustedLocalMotion());
    }
 
    public MovementPredictionManager() {
@@ -56,10 +62,15 @@ public final class MovementPredictionManager implements ClientAccess {
 
    @EventHandler
    private void onLocalPlayerTickEvent(LocalPlayerTickEvent event) {
+      LocalPlayer player = ClientAccess.schizoMinecraft.player;
+      if (player != this.trackedLocalPlayer) {
+         this.trackedLocalPlayer = player;
+         this.playerPredictions.clear();
+      }
       this.previousPlayerPosition = new Vec3(
-         ClientAccess.schizoMinecraft.player.xo,
-         ClientAccess.schizoMinecraft.player.yo,
-         ClientAccess.schizoMinecraft.player.zo
+         player.xo,
+         player.yo,
+         player.zo
       );
    }
 
@@ -78,6 +89,9 @@ public final class MovementPredictionManager implements ClientAccess {
    @EventHandler
    private void onMinecraftDisconnectEvent(MinecraftDisconnectEvent event) {
       this.playerPredictions.clear();
+      this.previousPlayerPosition = null;
+      this.trackedLocalPlayer = null;
+      this.predictionTimer.clear();
    }
 
    public synchronized AABB getPredictedBoundingBox(Player player, int tickIndex) {

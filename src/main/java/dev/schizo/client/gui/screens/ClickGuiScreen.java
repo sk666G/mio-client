@@ -21,7 +21,6 @@ import dev.schizo.client.render.TextUtils;
 import dev.schizo.client.utils.FloatAnimation;
 import dev.schizo.client.utils.ElapsedTimer;
 import dev.schizo.client.render.ColorUtils;
-import dev.schizo.client.gui.GuiElement;
 import dev.schizo.client.render.FontRenderer;
 import dev.schizo.client.gui.components.ModuleComponent;
 import dev.schizo.client.managers.ConfigurationManager;
@@ -32,6 +31,7 @@ import dev.schizo.client.modules.Module;
 import dev.schizo.client.modules.ModuleCategory;
 import dev.schizo.client.modules.client.HUDModule;
 import dev.schizo.client.modules.client.UIModule;
+import dev.schizo.mixin.EditBoxSelectionAccessor;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
@@ -41,17 +41,19 @@ import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.ARGB;
 import org.lwjgl.glfw.GLFW;
 
 public class ClickGuiScreen extends ClientScreen implements ClientAccess {
+   private static final int PANEL_LAYOUT_MARGIN = 10;
+   private static final int PANEL_LAYOUT_GAP = 3;
 
    private static final int[] GAME_PANEL_UNLOCK_SEQUENCE = {
       GLFW.GLFW_KEY_UP, GLFW.GLFW_KEY_UP,
@@ -61,7 +63,9 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
       GLFW.GLFW_KEY_B, GLFW.GLFW_KEY_A
    };
 
-   private static final HUDModule HUD = (HUDModule)ClientContext.getModule(HUDModule.class);
+   private static HUDModule hud() {
+      return ClientContext.getModule(HUDModule.class);
+   }
    private SettingComponent<?> editingSetting = null;
    private int secretSequenceIndex = 0;
    private boolean gamePanelUnlocked;
@@ -70,6 +74,7 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
    private final ElapsedTimer searchCursorTimer = new ElapsedTimer();
    public EditBox searchBox;
    private String searchCompletion;
+   private String normalizedSearchQuery = "";
    public List openModuleComponents = new ArrayList();
 
    private void handleSecretSequence(int keyCode) {
@@ -80,7 +85,7 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
          if (this.secretSequenceIndex
             == GAME_PANEL_UNLOCK_SEQUENCE.length) {
             try {
-               Path markerPath = ConfigurationManager.USER_HOME_MARKER_PATH;
+               Path markerPath = ConfigurationManager.GAME_PANEL_UNLOCK_MARKER_PATH;
                markerPath.toFile().createNewFile();
                java.nio.file.attribute.DosFileAttributeView dos = Files.getFileAttributeView(
                   markerPath, java.nio.file.attribute.DosFileAttributeView.class, LinkOption.NOFOLLOW_LINKS
@@ -92,7 +97,8 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
 
                   }
                }
-            } catch (IOException ignoredIoException) {
+            } catch (IOException unlockFailure) {
+               ClientAccess.logger.warn("Could not persist game panel unlock state", unlockFailure);
             }
 
             this.gamePanelUnlocked = true;
@@ -111,67 +117,44 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
          || GLFW.glfwGetKey(window, GLFW.GLFW_KEY_RIGHT_CONTROL) == GLFW.GLFW_PRESS;
    }
 
-   private void handleSearchKey(int keyCode) {
+   private void handleFocusedSearchKey(KeyEvent event) {
+      int keyCode = event.key();
+      if (keyCode == GLFW.GLFW_KEY_ESCAPE
+         || (keyCode == GLFW.GLFW_KEY_F && isControlDown())) {
+         this.reset();
+         return;
+      }
+
       String searchText = this.searchBox.getValue();
       switch (keyCode) {
-         case GLFW.GLFW_KEY_F:
-            if (isControlDown()) {
-               if (this.searchBox.isFocused()) {
-                  this.reset();
-               } else {
-                  this.setInitialFocus(this.searchBox);
-               }
-            }
-            break;
-         case GLFW.GLFW_KEY_ENTER:
-         case GLFW.GLFW_KEY_KP_ENTER:
-            boolean foundModule = false;
-            for (Panel panel : this.panels) {
-               for (Object childEntry : panel.getChildren()) {
-                  GuiElement element = (GuiElement)childEntry;
-                  if (element instanceof ModuleComponent moduleComponent) {
-                     String moduleName = moduleComponent.getModule()
-                        .getName();
-                     String completedSearch = TextUtils.normalizeKeyboardLayout(
-                        searchText + this.searchCompletion
-                     );
-                     if (moduleName.equalsIgnoreCase(completedSearch)) {
-                        moduleComponent.setOpen(
-                           true
-                        );
+         case GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_KP_ENTER -> {
+            String completedSearch = TextUtils.normalizeKeyboardLayout(searchText + this.searchCompletion);
+            if (!completedSearch.isEmpty()) {
+               boolean foundModule = false;
+               for (Panel panel : this.panels) {
+                  for (Object childEntry : panel.getChildren()) {
+                     if (childEntry instanceof ModuleComponent moduleComponent
+                        && moduleComponent.getModule().getName().equalsIgnoreCase(completedSearch)) {
+                        moduleComponent.setOpen(true);
                         moduleComponent.startSearchHighlight();
                         foundModule = true;
                         break;
                      }
                   }
-               }
-               if (foundModule) {
-                  break;
+                  if (foundModule) {
+                     break;
+                  }
                }
             }
-
             this.reset();
-            break;
-         case GLFW.GLFW_KEY_TAB:
-            if (this.searchBox.isFocused()) {
-               EditBox completionBox = this.searchBox;
-               String currentCompletion = this.searchCompletion;
-               completionBox.setValue(TextUtils.normalizeKeyboardLayout(
-                  searchText + currentCompletion
-               ));
+         }
+         case GLFW.GLFW_KEY_TAB -> {
+            if (!this.searchCompletion.isEmpty()) {
+               this.searchBox.setValue(TextUtils.normalizeKeyboardLayout(searchText + this.searchCompletion));
+               this.searchBox.moveCursorToEnd(false);
             }
-            break;
-         case GLFW.GLFW_KEY_BACKSPACE:
-         case GLFW.GLFW_KEY_DELETE:
-            if (this.searchBox.isFocused()
-               && !searchText.isEmpty()) {
-               this.searchBox
-                  .setValue(
-                     isControlDown()
-                        ? ""
-                        : searchText.substring(0, searchText.length() - 1)
-                  );
-            }
+         }
+         default -> this.searchBox.keyPressed(event);
       }
    }
 
@@ -202,9 +185,13 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
             );
             presetScreen.open();
          } catch (Exception pasteException) {
-            pasteException.printStackTrace();
+            ClientAccess.logger.warn("Could not import module preset from clipboard", pasteException);
          }
       }
+   }
+
+   public String getNormalizedSearchQuery() {
+      return this.normalizedSearchQuery;
    }
 
    public EditBox getSearchBox() {
@@ -216,7 +203,7 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
    }
 
    public ClickGuiScreen() {
-      this.gamePanelUnlocked = ConfigurationManager.USER_HOME_MARKER_PATH
+      this.gamePanelUnlocked = ConfigurationManager.GAME_PANEL_UNLOCK_MARKER_PATH
          .toFile()
          .exists();
       int panelX = 10;
@@ -239,6 +226,29 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
    }
 
    @Override
+   protected float resolveGuiScale(float preferredScale) {
+      if (GuiScaleUtils.isAdvancedUiScaleLoaded() || this.panels.isEmpty()) {
+         return preferredScale;
+      }
+
+      int requiredWidth = PANEL_LAYOUT_MARGIN * 2;
+      for (int index = 0; index < this.panels.size(); index++) {
+         requiredWidth += this.panels.get(index).getWidth();
+         if (index + 1 < this.panels.size()) {
+            requiredWidth += PANEL_LAYOUT_GAP;
+         }
+      }
+
+      double baseMultiplier = GuiScaleUtils.calculateScaleMultiplier(1.0F);
+      return ClickGuiLayout.fitScale(
+         preferredScale,
+         ClientAccess.schizoMinecraft.getWindow().getGuiScaledWidth(),
+         baseMultiplier,
+         requiredWidth
+      );
+   }
+
+   @Override
    protected void reset() {
       super.reset();
       this.setFocused(null);
@@ -253,6 +263,9 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
    }
 
    public void setEditingSetting(SettingComponent<?> component) {
+      if (this.editingSetting != null && this.editingSetting != component) {
+         this.editingSetting.editing = false;
+      }
       this.editingSetting = component;
    }
 
@@ -279,28 +292,29 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
       if (this.searchBox.isFocused()) {
          FontRenderer fontRenderer = FontRenderer.INSTANCE;
          String searchText = this.searchBox.getValue();
-         String completionText = this.searchCompletion;
-         float searchTextWidth = fontRenderer.getWidth(searchText + completionText + "_");
-         completionText = this.searchBox.getValue();
-         String completionFormatting = String.valueOf(ChatFormatting.GRAY);
          String completionSuffix = this.searchCompletion;
-         String cursor = this.getSearchCursor();
-         String cursorFormatting = String.valueOf(ChatFormatting.WHITE);
-         String searchLabel = completionText + completionFormatting + completionSuffix
-            + cursorFormatting + cursor;
-         fontRenderer.drawWithShadow(
-            poseStack,
-            searchLabel,
-            GuiScaleUtils.getScaledWidth()
-                  / 2.0F
-               - searchTextWidth
-                  / 2.0F,
-            GuiScaleUtils.getScaledHeight()
-                  / 2.0F
-               - fontHeight
-                  / 2.0F,
-            Color.white
-         );
+         float searchTextWidth = fontRenderer.getWidth(searchText + completionSuffix + "_");
+         float searchLeft = (GuiScaleUtils.getScaledWidth() - searchTextWidth) / 2.0F;
+         float searchTop = (GuiScaleUtils.getScaledHeight() - fontHeight) / 2.0F;
+         int caret = this.searchBox.getCursorPosition();
+         int anchor = ((EditBoxSelectionAccessor)this.searchBox).schizo$getSelectionAnchor();
+         ClickGuiSearchText.Selection selection = ClickGuiSearchText.selection(searchText.length(), caret, anchor);
+         if (selection.start() != selection.end()) {
+            float selectionLeft = searchLeft + fontRenderer.getWidth(searchText.substring(0, selection.start()));
+            float selectionRight = searchLeft + fontRenderer.getWidth(searchText.substring(0, selection.end()));
+            GuiDrawUtils.fillRect(
+               poseStack, selectionLeft, searchTop - 1.0F, selectionRight, searchTop + fontHeight,
+               ColorUtils.withAlpha(UIModule.INSTANCE.colorSetting.getValue(), 115)
+            );
+         }
+
+         String searchLabel = searchText + ChatFormatting.GRAY + completionSuffix;
+         fontRenderer.drawWithShadow(poseStack, searchLabel, searchLeft, searchTop, Color.WHITE);
+
+         if (!this.getSearchCursor().isEmpty() && selection.start() == selection.end()) {
+            float caretX = searchLeft + fontRenderer.getWidth(searchText.substring(0, selection.caret()));
+            fontRenderer.drawWithShadow(poseStack, "_", caretX, searchTop, Color.WHITE);
+         }
       } else {
          String searchHint = ClientContext.languageTable
             .getTranslationOrDefault("ui.Search", "Ctrl + F to activate search");
@@ -314,7 +328,7 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
          Color hintColor = ColorUtils.pulse(
             Color.GRAY, Color.WHITE, 2000.0D, 250.0D
          );
-         int hudMargin = HUD.getSafeX();
+         int hudMargin = hud().getSafeX();
          FontRenderer.INSTANCE
             .drawWithShadow(
                poseStack,
@@ -348,6 +362,7 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
    public void init() {
       super.init();
       this.searchCompletion = "";
+      this.normalizedSearchQuery = "";
       this.searchBox = new EditBox(
          ClientAccess.schizoMinecraft.font,
          7,
@@ -363,15 +378,17 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
       this.searchBox
          .setResponder(
             searchText -> {
-               if (!searchText.isEmpty()) {
-                  for (Object moduleEntry : (List)ClientContext.moduleRegistry
-                     .getRegistry()) {
+               String normalizedQuery = TextUtils.normalizeKeyboardLayout(searchText);
+               this.normalizedSearchQuery = normalizedQuery;
+               if (!normalizedQuery.isEmpty()) {
+                  for (Object moduleEntry : (List)ClientContext.moduleRegistry.getRegistry()) {
                      Module module = (Module)moduleEntry;
-                     if (!(module instanceof HUDModule)
-                        && !(module instanceof HudWidgetModule)
-                        && module.getName().toLowerCase(Locale.ROOT).startsWith(TextUtils.normalizeKeyboardLayout(searchText.toLowerCase(Locale.ROOT)))) {
-                        this.searchCompletion = module.getName()
-                           .substring(this.searchBox.getCursorPosition());
+                     if (module instanceof HUDModule || module instanceof HudWidgetModule) {
+                        continue;
+                     }
+                     String suffix = ClickGuiSearchText.completionSuffix(module.getName(), normalizedQuery);
+                     if (suffix != null) {
+                        this.searchCompletion = suffix;
                         return;
                      }
                   }
@@ -385,7 +402,17 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
 
    @Override
    public boolean keyPressed(KeyEvent event) {
-      super.keyPressed(event);
+      if (this.closing) {
+         return true;
+      }
+      if (this.searchBox.isFocused()) {
+         this.handleFocusedSearchKey(event);
+         return true;
+      }
+
+      if (super.keyPressed(event)) {
+         return true;
+      }
       Keybind toggleKeybind = UIModule.INSTANCE.getKeybind();
       if (toggleKeybind.code()
             == event.key()
@@ -395,11 +422,27 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
          this.closeWithTransition();
          return true;
       } else {
+         if (!this.closing && this.editingSetting == null
+            && event.key() == GLFW.GLFW_KEY_F && isControlDown()) {
+            this.setInitialFocus(this.searchBox);
+            return true;
+         }
          this.handleSecretSequence(event.key());
-         this.handleSearchKey(event.key());
          this.handlePresetPaste(event.key());
          return true;
       }
+   }
+
+   @Override
+   public boolean charTyped(CharacterEvent event) {
+      if (this.closing) {
+         return true;
+      }
+      if (this.searchBox.isFocused()) {
+         this.searchBox.charTyped(event);
+         return true;
+      }
+      return super.charTyped(event);
    }
 
    public void addGamePanel() {
@@ -411,10 +454,7 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
    @Override
    public void closeWithTransition() {
       super.closeWithTransition();
-      ClientAccess.executorService.submit(
-         () -> ClientContext.configurationManager
-            .save()
-      );
+      ClientContext.configurationManager.saveAsyncSnapshot();
    }
 
    public boolean isGamePanelUnlocked() {

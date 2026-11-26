@@ -10,6 +10,7 @@
 package dev.schizo.mixin;
 
 import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.modules.exploit.FakeVanillaModule;
 import dev.schizo.client.commands.PanicCommand;
 import dev.schizo.client.modules.client.UIModule;
@@ -28,8 +29,12 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(JoinMultiplayerScreen.class)
 public class JoinMultiplayerScreenMixin extends Screen {
-   private static final FakeVanillaModule fakeVanillaModule = ClientContext.getModule(FakeVanillaModule.class);
-   private static final UIModule uiModule = ClientContext.getModule(UIModule.class);
+   private static FakeVanillaModule fakeVanillaModule() {
+      return MixinModuleRegistry.getModule(FakeVanillaModule.class);
+   }
+   private static UIModule uiModule() {
+      return MixinModuleRegistry.minecraftUiModule;
+   }
 
    protected JoinMultiplayerScreenMixin(Component title) {
       super(title);
@@ -43,9 +48,9 @@ public class JoinMultiplayerScreenMixin extends Screen {
                2,
                6
             )
-            .selected(fakeVanillaModule.isToggled())
+            .selected(fakeVanillaModule().isToggled())
             .onValueChange(
-               (checkbox, isSelected) -> fakeVanillaModule.setToggled(
+               (checkbox, isSelected) -> fakeVanillaModule().setToggled(
                   isSelected
                )
             );
@@ -59,11 +64,11 @@ public class JoinMultiplayerScreenMixin extends Screen {
    ) {
       if (!(this.getFocused() instanceof EditBox)) {
          if (keyEvent.key()
-            == uiModule.getKeybind()
+            == uiModule().getKeybind()
                .code()) {
             callback.setReturnValue(false);
             callback.cancel();
-            uiModule.enable();
+            uiModule().enable();
             ClientContext.getClickGui()
                .open();
          }

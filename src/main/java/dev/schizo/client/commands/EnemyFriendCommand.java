@@ -295,7 +295,7 @@ public final class EnemyFriendCommand extends Command {
                         missingFileMessage, ChatUtils.createSignature(-1), ChatUtils.MessagePriority.LOW
                      );
                   } else {
-                     failure.printStackTrace();
+                     dev.schizo.client.ClientAccess.logger.error("Could not import social entries from {}", importer.getDisplayName(), failure);
 
                      Object[] failureFormatArguments = new Object[1];
                      failureFormatArguments[0] = importer.getDisplayName();

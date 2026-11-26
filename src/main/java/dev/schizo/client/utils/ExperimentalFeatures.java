@@ -79,7 +79,7 @@ public class ExperimentalFeatures {
             Setting<?> setting = (Setting<?>)field.get(module);
             module.unregister(setting);
          } catch (IllegalAccessException accessFailure) {
-            accessFailure.printStackTrace();
+            dev.schizo.client.ClientAccess.logger.warn("Could not remove hidden experimental setting {} from {}", field.getName(), module.getName(), accessFailure);
          }
       }
    }

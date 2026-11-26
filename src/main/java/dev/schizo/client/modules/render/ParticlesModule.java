@@ -61,12 +61,6 @@ public class ParticlesModule extends Module {
    public final Setting<Boolean> dustSetting;
    public final Setting<Color> fromSetting;
    public final Setting<Color> toSetting;
-
-   static {
-
-      colors = (ColorsModule)ClientContext.getModule(ColorsModule.class);
-   }
-
    private void setParticleColor(SingleQuadParticle particle, int argb) {
       float alpha = ((argb >>> 24) & 0xFF) / 255.0F;
       float red = ((argb >>> 16) & 0xFF) / 255.0F;
@@ -82,7 +76,7 @@ public class ParticlesModule extends Module {
       if (event.getParticle() instanceof TotemParticle totem) {
          if (this.ignoreSelfSetting.getValue()) {
             LocalPlayer player = ClientAccess.schizoMinecraft.player;
-            if (player.getBoundingBox().intersects(totem.getBoundingBox())) {
+            if (player != null && player.getBoundingBox().intersects(totem.getBoundingBox())) {
                event.cancel();
             }
          }
@@ -140,12 +134,13 @@ public class ParticlesModule extends Module {
    private int getParticleColor(Setting<Color> setting) {
       Color color = setting.getValue();
       ColorSetting colorSetting = (ColorSetting)setting;
-      if (!colorSetting.isRainbow()) {
+      ColorsModule colorsSnapshot = colors;
+      if (!colorSetting.isRainbow() || colorsSnapshot == null) {
          return color.getRGB();
       }
 
       float[] hsb = Color.RGBtoHSB(color.getRed(), color.getGreen(), color.getBlue(), null);
-      int period = (int)(MathConstants.FULL_TURN_DEGREES * colors.getRainbowPeriod());
+      int period = (int)(MathConstants.FULL_TURN_DEGREES * colorsSnapshot.getRainbowPeriod());
       period = Math.max(period, 1);
       int offset = this.random.nextInt(period);
       Color rainbow = ColorUtils.rainbow(period, offset, hsb[1], hsb[2], color.getAlpha());

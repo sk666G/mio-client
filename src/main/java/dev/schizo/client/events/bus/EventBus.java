@@ -11,6 +11,8 @@ package dev.schizo.client.events.bus;
 
 import dev.schizo.client.events.Cancellable;
 import dev.schizo.client.events.EventHandler;
+import dev.schizo.client.modules.Module;
+import dev.schizo.client.profiling.EventProfiler;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -20,10 +22,25 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class EventBus implements EventDispatcher {
+   private final EventProfiler profiler;
+   private final EventFailureTracker failureTracker;
    private final Map<Object, List<EventListener>> instanceListenerCache =
       Collections.synchronizedMap(new IdentityHashMap<>());
    private final Map<Class<?>, List<EventListener>> staticListenerCache = new ConcurrentHashMap<>();
    private final Map<Class<?>, EventListener[]> listenersByEventClass = new ConcurrentHashMap<>();
+
+   public EventBus() {
+      this(EventProfiler.GLOBAL, EventFailureTracker.GLOBAL);
+   }
+
+   public EventBus(EventProfiler profiler) {
+      this(profiler, EventFailureTracker.GLOBAL);
+   }
+
+   EventBus(EventProfiler profiler, EventFailureTracker failureTracker) {
+      this.profiler = java.util.Objects.requireNonNull(profiler);
+      this.failureTracker = java.util.Objects.requireNonNull(failureTracker);
+   }
 
    @Override
    public void subscribe(Object subscriber) {
@@ -32,7 +49,19 @@ public class EventBus implements EventDispatcher {
 
    @Override
    public void unsubscribe(Object subscriber) {
-      this.unsubscribeListeners(this.getOrCreateListeners(subscriber.getClass(), subscriber), false);
+      List<EventListener> listeners;
+      synchronized (this.instanceListenerCache) {
+         listeners = this.instanceListenerCache.remove(subscriber);
+      }
+      if (listeners != null) {
+         this.unsubscribeListeners(listeners, false);
+      }
+   }
+
+   int cachedSubscriberCount() {
+      synchronized (this.instanceListenerCache) {
+         return this.instanceListenerCache.size();
+      }
    }
 
    @Override
@@ -42,7 +71,10 @@ public class EventBus implements EventDispatcher {
 
    @Override
    public void unsubscribeStatic(Class<?> listenerClass) {
-      this.unsubscribeListeners(this.getOrCreateListeners(listenerClass, null), true);
+      List<EventListener> listeners = this.staticListenerCache.get(listenerClass);
+      if (listeners != null) {
+         this.unsubscribeListeners(listeners, true);
+      }
    }
 
    private List<EventListener> getOrCreateListeners(Class<?> listenerClass, Object subscriber) {
@@ -56,13 +88,15 @@ public class EventBus implements EventDispatcher {
 
    private List<EventListener> collectListeners(Class<?> listenerClass, Object subscriber) {
       List<EventListener> listeners = new ArrayList<>();
+      String moduleName = subscriber instanceof Module module ? module.getName() : null;
+      String ownerName = moduleName == null ? listenerClass.getSimpleName() : moduleName;
       for (Class<?> type = listenerClass; type != null; type = type.getSuperclass()) {
          for (Method method : type.getDeclaredMethods()) {
             if (method.isAnnotationPresent(EventHandler.class)
                && method.getReturnType() == void.class
                && method.getParameterCount() == 1
                && !method.getParameterTypes()[0].isPrimitive()) {
-               listeners.add(new MethodEventListener(type, subscriber, method));
+               listeners.add(new MethodEventListener(type, subscriber, method, this.profiler, ownerName, moduleName));
             }
          }
       }
@@ -90,6 +124,12 @@ public class EventBus implements EventDispatcher {
       Class<?> eventType = listener.getEventType();
       this.listenersByEventClass.compute(eventType, (ignored, current) -> {
          EventListener[] previous = current == null ? new EventListener[0] : current;
+         for (EventListener existing : previous) {
+            if (existing == listener || existing.equals(listener)) {
+               return previous;
+            }
+         }
+
          int insertionIndex = 0;
          while (insertionIndex < previous.length
             && listener.getPriority() <= previous[insertionIndex].getPriority()) {
@@ -108,24 +148,26 @@ public class EventBus implements EventDispatcher {
    @Override
    public void unsubscribeListener(EventListener listener) {
       this.listenersByEventClass.computeIfPresent(listener.getEventType(), (ignored, current) -> {
-         int removalIndex = -1;
-         for (int index = 0; index < current.length; index++) {
-            if (current[index].equals(listener)) {
-               removalIndex = index;
-               break;
+         int kept = 0;
+         for (EventListener existing : current) {
+            if (existing != listener && !existing.equals(listener)) {
+               kept++;
             }
          }
-         if (removalIndex < 0) {
+         if (kept == current.length) {
             return current;
          }
-         if (current.length == 1) {
+         if (kept == 0) {
             return null;
          }
 
-         EventListener[] updated = new EventListener[current.length - 1];
-         System.arraycopy(current, 0, updated, 0, removalIndex);
-         System.arraycopy(current, removalIndex + 1, updated, removalIndex,
-            current.length - removalIndex - 1);
+         EventListener[] updated = new EventListener[kept];
+         int target = 0;
+         for (EventListener existing : current) {
+            if (existing != listener && !existing.equals(listener)) {
+               updated[target++] = existing;
+            }
+         }
          return updated;
       });
    }
@@ -143,7 +185,7 @@ public class EventBus implements EventDispatcher {
       EventListener[] listeners = this.listenersByEventClass.get(event.getClass());
       if (listeners != null) {
          for (int index = 0; index < listeners.length; index++) {
-            listeners[index].call(event);
+            this.invokeListener(listeners[index], event);
          }
       }
       return event;
@@ -156,7 +198,7 @@ public class EventBus implements EventDispatcher {
          event.setCancelled(false);
          for (int index = 0; index < listeners.length; index++) {
             EventListener listener = listeners[index];
-            listener.call(event);
+            this.invokeListener(listener, event);
             if (event.isCancelled()) {
                break;
             }
@@ -164,4 +206,40 @@ public class EventBus implements EventDispatcher {
       }
       return event;
    }
+   private void invokeListener(EventListener listener, Object event) {
+      try {
+         if (this.profiler.isEnabled()) {
+            this.callProfiled(listener, event);
+         } else {
+            listener.call(event);
+         }
+      } catch (RuntimeException | Error failure) {
+         this.failureTracker.record(listener, event, failure);
+         throw failure;
+      }
+   }
+
+   private void callProfiled(EventListener listener, Object event) {
+      EventProfiler.CallbackHandle handle = listener.profileHandle();
+      if (handle == null) {
+         listener.call(event);
+         return;
+      }
+      long startedAt = this.profiler.nanoTime();
+      Throwable callbackFailure = null;
+      try {
+         listener.call(event);
+      } catch (RuntimeException | Error failure) {
+         callbackFailure = failure;
+         throw failure;
+      } finally {
+         try {
+            this.profiler.recordCallback(handle, this.profiler.nanoTime() - startedAt);
+         } catch (RuntimeException | Error profilingFailure) {
+            if (callbackFailure == null) throw profilingFailure;
+            if (callbackFailure != profilingFailure) callbackFailure.addSuppressed(profilingFailure);
+         }
+      }
+   }
 }
+

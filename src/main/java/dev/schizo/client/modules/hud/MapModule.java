@@ -45,7 +45,9 @@ import org.joml.Quaternionf;
 import org.joml.Quaternionfc;
 
 public class MapModule extends HudWidgetModule {
-   private static final NewChunksModule newChunks;
+   private static NewChunksModule newChunks() {
+      return ClientContext.getModule(NewChunksModule.class);
+   }
    private static final Identifier NAVIGATION_TEXTURE;
    private final Setting<PointerMode> pointerModeSetting;
    private final Setting<Float> widthSetting;
@@ -55,7 +57,6 @@ public class MapModule extends HudWidgetModule {
    private final Setting<Color> outlineSetting;
 
    static {
-      newChunks = ClientContext.getModule(NewChunksModule.class);
 
       String texturePath = "textures/nav.png";
       String textureNamespace = "schizo";
@@ -65,35 +66,26 @@ public class MapModule extends HudWidgetModule {
    @Override
    public float[] calculateDimensions() {
 
-      float[] dimensions = new float[2];
       Setting<Float> widthOption = this.widthSetting;
       Float width = widthOption.getValue();
-      dimensions[0] = width;
       Setting<Float> heightOption = this.heightSetting;
       Float height = heightOption.getValue();
-      dimensions[1] = height;
-      return dimensions;
+      return this.dimensions(width, height);
    }
 
-   private boolean isChunkWithinRange(ChunkPos chunk) {
-      Setting<Float> widthOption = this.widthSetting;
-      Float width = widthOption.getValue();
-      double radiusOperand = width.floatValue();
-      Setting<Float> heightOption = this.heightSetting;
-      Float height = heightOption.getValue();
-      double mapHeight = height.floatValue();
-      double mapWidth = radiusOperand;
-      radiusOperand = Math.hypot(mapWidth, mapHeight);
+   private int getChunkRadius() {
+      double mapWidth = this.widthSetting.getValue();
+      double mapHeight = this.heightSetting.getValue();
+      return (int)Math.ceil(Math.hypot(mapWidth, mapHeight) / 16.0D);
+   }
 
-      double radius = radiusOperand / 16.0D;
-      int chunkRadius = (int)Math.ceil(radius);
-      LocalPlayer player = ClientAccess.schizoMinecraft.player;
-      ChunkPos playerChunk = player.chunkPosition();
+   private static boolean isChunkWithinRange(ChunkPos chunk, ChunkPos playerChunk, int chunkRadius) {
       return chunk.distanceSquared(playerChunk) <= chunkRadius * chunkRadius;
    }
 
    @Override
    public void renderContent(PoseStack poses) {
+      if (dev.schizo.client.utils.CoordinatePrivacy.isEnabled()) return;
       float[] widgetSize = this.renderer
          .getDimensions();
       if (widgetSize != null) {
@@ -102,8 +94,11 @@ public class MapModule extends HudWidgetModule {
          int previousRenderState = renderColorValues[3];
 
          RenderUtils.setColorAlpha(255);
-         GuiDrawUtils.flush();
-         RenderUtils.setColorAlpha(previousRenderState);
+         try {
+            GuiDrawUtils.flush();
+         } finally {
+            RenderUtils.setColorAlpha(previousRenderState);
+         }
          RenderUtils backgroundRenderer = RenderUtils.INSTANCE;
          Setting<Float> backgroundWidthOption = this.widthSetting;
          Float backgroundWidth = backgroundWidthOption.getValue();
@@ -141,55 +136,46 @@ public class MapModule extends HudWidgetModule {
 
          float centerY = mapHeight / 2.0F;
          poses.pushPose();
-         float mapDepth = 0.0F;
-         poses.translate(centerX, centerY, mapDepth);
-         NewChunksModule dungeonSource = newChunks;
+         try {
+            float mapDepth = 0.0F;
+            poses.translate(centerX, centerY, mapDepth);
 
-         Iterator chunks = dungeonSource.getDetectedDungeons().iterator();
+            LocalPlayer player = ClientAccess.schizoMinecraft.player;
+            if (player != null) {
+               NewChunksModule newChunksModule = newChunks();
+               ChunkPos playerChunk = player.chunkPosition();
+               int chunkRadius = this.getChunkRadius();
+               Vec3 cameraPosition = ClientAccess.schizoMinecraft.gameRenderer.getMainCamera().position();
 
-         while (chunks.hasNext()) {
-            BlockPos dungeonPosition = (BlockPos)chunks.next();
-            ChunkPos dungeonChunk = new ChunkPos(dungeonPosition);
-            if (this.isChunkWithinRange(dungeonChunk)) {
-               Setting<Color> dungeonColorOption = newChunks.dungeonFillSetting;
-               Color dungeonFill = dungeonColorOption.getValue();
+               Iterator<BlockPos> dungeons = newChunksModule.getDetectedDungeons().iterator();
+               while (dungeons.hasNext()) {
+                  ChunkPos dungeonChunk = new ChunkPos(dungeons.next());
+                  if (isChunkWithinRange(dungeonChunk, playerChunk, chunkRadius)) {
+                     Color dungeonColor = ColorUtils.withAlpha(
+                        newChunksModule.dungeonFillSetting.getValue(), 0.4F
+                     );
+                     this.renderChunk(poses, cameraPosition, dungeonChunk, dungeonColor);
+                  }
+               }
 
-               Color dungeonColor = ColorUtils.withAlpha(
-                  dungeonFill, 0.4F
-               );
-               this.renderChunk(poses, dungeonChunk, dungeonColor);
-            }
-         }
+               Iterator<DetectedChunk> chunks = newChunksModule.getVisibleChunks().iterator();
+               while (chunks.hasNext()) {
+                  DetectedChunk visibleChunk = chunks.next();
+                  ChunkPos chunkPosition = visibleChunk.chunkPosition();
+                  if (!isChunkWithinRange(chunkPosition, playerChunk, chunkRadius)) {
+                     continue;
+                  }
 
-         NewChunksModule visibleChunkSource = newChunks;
-
-         chunks = visibleChunkSource.getVisibleChunks().iterator();
-
-         while (chunks.hasNext()) {
-            DetectedChunk visibleChunk = (DetectedChunk)chunks.next();
-
-            ChunkPos chunkPosition = visibleChunk.chunkPosition();
-            if (this.isChunkWithinRange(chunkPosition)) {
-
-               ChunkKind visibleKind = visibleChunk.kind();
-               NewChunksModule moduleForKindColors = newChunks;
-               if (visibleKind.getColors(moduleForKindColors) != null) {
-
-                  ChunkKind visibleColoredKind = visibleChunk.kind();
-                  NewChunksModule moduleForFillColor = newChunks;
-                  Color chunkColor = visibleColoredKind.getColors(moduleForFillColor)[0];
-
-                  chunkColor = ColorUtils.withAlpha(
-                     chunkColor, 0.25F
-                  );
-
-                  ChunkPos drawnChunkPosition = visibleChunk.chunkPosition();
-                  Color drawnChunkColor = chunkColor;
-                  this.renderChunk(poses, drawnChunkPosition, drawnChunkColor);
+                  Color fillColor = visibleChunk.kind().getFillColor(newChunksModule);
+                  if (fillColor != null) {
+                     Color chunkColor = ColorUtils.withAlpha(fillColor, 0.25F);
+                     this.renderChunk(poses, cameraPosition, chunkPosition, chunkColor);
+                  }
                }
             }
+         } finally {
+            poses.popPose();
          }
-         poses.popPose();
          ScissorStack.push(
             (int)this.renderer
                .getX(),
@@ -198,18 +184,18 @@ public class MapModule extends HudWidgetModule {
             (int)widgetSize[0],
             (int)widgetSize[1]
          );
-         GuiDrawUtils.flush();
-         ScissorStack.pop();
+         try {
+            GuiDrawUtils.flush();
+         } finally {
+            ScissorStack.pop();
+         }
          this.renderPointer(poses, centerX, centerY);
       }
    }
 
    private void renderChunk(
-      PoseStack poses, ChunkPos chunk, Color color
+      PoseStack poses, Vec3 cameraPosition, ChunkPos chunk, Color color
    ) {
-      GameRenderer gameRenderer = ClientAccess.schizoMinecraft.gameRenderer;
-      Camera camera = gameRenderer.getMainCamera();
-      Vec3 cameraPosition = camera.position();
       double cameraCoordinate = cameraPosition.x;
       float cameraOffsetX = (float)(cameraCoordinate - chunk.getMinBlockX());
 
@@ -223,21 +209,25 @@ public class MapModule extends HudWidgetModule {
 
       float offsetZ = scaledOffsetZ - 8.0F;
       poses.pushPose();
-      float markerDepth = 0.0F;
-      poses.translate(offsetX, offsetZ, markerDepth);
+      try {
+         float markerDepth = 0.0F;
+         poses.translate(offsetX, offsetZ, markerDepth);
 
-      float markerWidth = 8.0F;
+         float markerWidth = 8.0F;
 
-      GuiDrawUtils.fillRect(
-         poses, 0.0F, 0.0F, markerWidth, 8.0F, color
-      );
-      poses.popPose();
+         GuiDrawUtils.fillRect(
+            poses, 0.0F, 0.0F, markerWidth, 8.0F, color
+         );
+      } finally {
+         poses.popPose();
+      }
    }
 
    private void renderPointer(PoseStack poses, float centerX, float centerY) {
       poses.pushPose();
-      float pointerDepth = 0.0F;
-      poses.translate(centerX, centerY, pointerDepth);
+      try {
+         float pointerDepth = 0.0F;
+         poses.translate(centerX, centerY, pointerDepth);
       Setting<PointerMode> dotModeOption = this.pointerModeSetting;
       if (dotModeOption.getValue() == MapModule.PointerMode.DOT) {
          RenderUtils dotRenderer = RenderUtils.INSTANCE;
@@ -298,7 +288,9 @@ public class MapModule extends HudWidgetModule {
             bufferSource.endBatch();
          }
       }
-      poses.popPose();
+      } finally {
+         poses.popPose();
+      }
    }
 
    public MapModule() {

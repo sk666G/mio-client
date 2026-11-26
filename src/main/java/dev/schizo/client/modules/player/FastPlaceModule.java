@@ -64,8 +64,8 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 
 public class FastPlaceModule extends Module {
-   private static SpeedMineModule speedMine = (SpeedMineModule)ClientContext.getModule(SpeedMineModule.class);
-   private static MultiTaskModule multiTask = (MultiTaskModule)ClientContext.getModule(MultiTaskModule.class);
+   private static SpeedMineModule speedMine;
+   private static MultiTaskModule multiTask;
    public final Setting<Integer> delaySetting;
    private final Setting<Boolean> autoPlaceSetting;
    private final Setting<Boolean> randomBlockSetting;
@@ -336,17 +336,18 @@ public class FastPlaceModule extends Module {
             Direction supportDirection = BlockInteractionUtils.findSupportDirection(positionForSupport, strictDirection);
             if (supportDirection != null && enderChestSlot != -1) {
                int slotToSelect = enderChestSlot;
-               InventoryUtils.selectHotbarSlotForPlacement(slotToSelect);
-               InteractionHand mainHand = InteractionHand.MAIN_HAND;
+               try {
+                  InventoryUtils.selectHotbarSlotForPlacement(slotToSelect);
+                  InteractionHand mainHand = InteractionHand.MAIN_HAND;
 
-               BlockInteractionUtils.sendPlacement(miningPosition, null, supportDirection, false, mainHand);
-               SwingAction swingAction = SwingAction.INTERACT;
-               InteractionHand swingHand = InteractionHand.MAIN_HAND;
-               SwingInteractionManager swingManager = ClientContext.swingManager;
-               swingManager.swingPacket(swingHand, swingAction);
-
-               int slotToRestore = previousSlot;
-               InventoryUtils.selectHotbarSlotForPlacement(slotToRestore);
+                  BlockInteractionUtils.sendPlacement(miningPosition, null, supportDirection, false, mainHand);
+                  SwingAction swingAction = SwingAction.INTERACT;
+                  InteractionHand swingHand = InteractionHand.MAIN_HAND;
+                  SwingInteractionManager swingManager = ClientContext.swingManager;
+                  swingManager.swingPacket(swingHand, swingAction);
+               } finally {
+                  InventoryUtils.selectHotbarSlotForPlacement(previousSlot);
+               }
                RotationManager managerForRequest = ClientContext.rotationManager;
                Vec3 miningCenter = miningPosition.getCenter();
 

@@ -10,7 +10,7 @@
 package dev.schizo.mixin;
 
 import com.mojang.blaze3d.vertex.PoseStack;
-import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.modules.player.FreecamModule;
 import dev.schizo.client.modules.render.NoRenderModule;
 import net.minecraft.client.Minecraft;
@@ -24,15 +24,13 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(ScreenEffectRenderer.class)
 public class ScreenEffectRendererMixin {
-   private static final NoRenderModule noRenderModule = ClientContext.getModule(NoRenderModule.class);
-   private static final FreecamModule freecamModule = ClientContext.getModule(FreecamModule.class);
 
    @Inject(method = "renderFire", at = @At("HEAD"), cancellable = true)
    private static void suppressFireOverlay(
       PoseStack poses, MultiBufferSource buffers, TextureAtlasSprite sprite, CallbackInfo callback
    ) {
-      if (noRenderModule.isToggled()
-         && noRenderModule.fireSetting.getValue()) {
+      if (MixinModuleRegistry.gameNoRender.isToggled()
+         && MixinModuleRegistry.gameNoRender.fireSetting.getValue()) {
          callback.cancel();
       }
    }
@@ -41,8 +39,8 @@ public class ScreenEffectRendererMixin {
    private static void suppressWaterOverlay(
       Minecraft client, PoseStack poses, MultiBufferSource buffers, CallbackInfo callback
    ) {
-      if (noRenderModule.isToggled()
-         && noRenderModule.blindnessSetting.getValue()) {
+      if (MixinModuleRegistry.gameNoRender.isToggled()
+         && MixinModuleRegistry.gameNoRender.blindnessSetting.getValue()) {
          callback.cancel();
       }
    }
@@ -51,9 +49,9 @@ public class ScreenEffectRendererMixin {
    private static void suppressTextureOverlay(
       TextureAtlasSprite sprite, PoseStack poses, MultiBufferSource buffers, CallbackInfo callback
    ) {
-      if (noRenderModule.isToggled()
-            && noRenderModule.blindnessSetting.getValue()
-         || freecamModule.isToggled()) {
+      if (MixinModuleRegistry.gameNoRender.isToggled()
+            && MixinModuleRegistry.gameNoRender.blindnessSetting.getValue()
+         || MixinModuleRegistry.levelFreecam.isToggled()) {
          callback.cancel();
       }
    }

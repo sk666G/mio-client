@@ -284,13 +284,6 @@ public abstract class PlacementModule extends Module {
    public PlacementModule(String name, ModuleCategory category, String... aliases) {
       this(name, "", category, aliases);
    }
-
-   static {
-      antiCheatModule = (AntiCheatModule)ClientContext.getModule(AntiCheatModule.class);
-      chorusControlModule = (ChorusControlModule)ClientContext.getModule(ChorusControlModule.class);
-      multiTaskModule = (MultiTaskModule)ClientContext.getModule(MultiTaskModule.class);
-   }
-
    @Override
    public <S extends Setting<?>> S add(S setting) {
       if (!this.getSettings().contains(this.placementFadeTimeSetting)) {

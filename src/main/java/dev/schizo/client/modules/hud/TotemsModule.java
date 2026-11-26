@@ -12,6 +12,7 @@ package dev.schizo.client.modules.hud;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.LocalPlayerTickEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.render.GuiDrawUtils;
 import dev.schizo.client.render.FontRenderer;
 import dev.schizo.client.utils.inventory.InventoryUtils;
@@ -34,10 +35,17 @@ public class TotemsModule extends HudWidgetModule {
 
    @Override
    public float[] calculateDimensions() {
-      float[] dimensions = new float[2];
-      dimensions[0] = 16.0F;
-      dimensions[1] = 16.0F;
-      return dimensions;
+      return this.dimensions(16.0F, 16.0F);
+   }
+
+   @Override
+   public void onDisable() {
+      this.totemStack = null;
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.totemStack = null;
    }
 
    @EventHandler
@@ -69,28 +77,30 @@ public class TotemsModule extends HudWidgetModule {
                int totemCount = this.totemStack.getCount();
                String countText = String.valueOf(totemCount);
                poses.pushPose();
+               try {
+                  double textDepth = 0.1D;
+                  double textTranslateY = 0.0;
+                  double textTranslateX = 0.0;
+                  poses.translate(textTranslateX, textTranslateY, textDepth);
+                  FontRenderer font = FontRenderer.INSTANCE;
 
-               double textDepth = 0.1D;
-               double textTranslateY = 0.0;
-               double textTranslateX = 0.0;
-               poses.translate(textTranslateX, textTranslateY, textDepth);
-               FontRenderer font = FontRenderer.INSTANCE;
+                  float textX = 17.0F
+                     - FontRenderer.INSTANCE.getWidth(countText);
+                  float textY = 9.0F;
+                  Setting<Boolean> whiteOption = this.whiteSetting;
+                  Boolean useWhite = whiteOption.getValue();
+                  Color textColor;
+                  if (useWhite) {
+                     textColor = Color.white;
+                  } else {
 
-               float textX = 17.0F
-                  - FontRenderer.INSTANCE.getWidth(countText);
-               float textY = 9.0F;
-               Setting<Boolean> whiteOption = this.whiteSetting;
-               Boolean useWhite = whiteOption.getValue();
-               Color textColor;
-               if (useWhite) {
-                  textColor = Color.white;
-               } else {
+                     textColor = this.getHudColor(9.0F);
+                  }
 
-                  textColor = this.getHudColor(9.0F);
+                  font.drawWithShadow(poses, countText, textX, textY, textColor);
+               } finally {
+                  poses.popPose();
                }
-
-               font.drawWithShadow(poses, countText, textX, textY, textColor);
-               poses.popPose();
             }
 
             return;

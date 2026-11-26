@@ -9,6 +9,7 @@
 
 package dev.schizo.mixin;
 
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.modules.movement.EntityControlModule;
 import dev.schizo.client.managers.ModuleRegistry;
@@ -21,19 +22,12 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(Mob.class)
 public class MobMixin {
-   private static EntityControlModule entityControlModule = ClientContext.getModule(EntityControlModule.class);
 
    @Inject(method = "isSaddled", at = @At("HEAD"), cancellable = true)
    private void forceSaddledForEntityControl(CallbackInfoReturnable<Boolean> callback) {
-      if (entityControlModule.isToggled()) {
+      if (MixinModuleRegistry.mobEntityControlModule.isToggled()) {
          callback.setReturnValue(true);
       }
    }
 
-   @Unique
-   private static void schizo$bindMobModules(ModuleRegistry moduleRegistry) {
-      entityControlModule = (EntityControlModule)moduleRegistry.getModule(
-         EntityControlModule.class
-      );
-   }
 }

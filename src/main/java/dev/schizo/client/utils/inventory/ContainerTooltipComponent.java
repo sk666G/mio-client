@@ -37,7 +37,9 @@ import org.joml.Matrix3x2fStack;
 public record ContainerTooltipComponent(List<ItemStack> items)
    implements ClientAccess,
    ClientTooltipComponent {
-   private static final TooltipsModule tooltips;
+   private static TooltipsModule tooltips() {
+      return ClientContext.getModule(TooltipsModule.class);
+   }
    private static final MapRenderState sharedMapRenderState;
 
    @Override
@@ -74,7 +76,7 @@ public record ContainerTooltipComponent(List<ItemStack> items)
          MapId missingMapId = new MapId(-1);
          int mapId = (((DataComponentHolder)item).getOrDefault(mapIdType, missingMapId)).id();
          MapItemSavedData mapData = ClientContext.mapDataCache.getMapData(item, mapId);
-         if ((tooltips.mapOverlaySetting.getValue()) && mapId != -1 && mapData != null) {
+         if ((tooltips().mapOverlaySetting.getValue()) && mapId != -1 && mapData != null) {
             float mapX = itemX + 1;
             float mapY = itemY + 1;
             renderMapOverlay(graphics, mapData, mapId, mapX, mapY);
@@ -144,7 +146,6 @@ public record ContainerTooltipComponent(List<ItemStack> items)
    }
 
    static {
-      tooltips = (TooltipsModule)ClientContext.getModule(TooltipsModule.class);
       sharedMapRenderState = new MapRenderState();
    }
 

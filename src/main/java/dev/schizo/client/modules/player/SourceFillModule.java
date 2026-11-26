@@ -207,33 +207,31 @@ public final class SourceFillModule extends Module {
       if (targets.isEmpty()) {
          return;
       }
-      int placedCount = 0;
-      InventoryUtils.swapTo(placementSlot);
-      Iterator<BlockPos> targetIterator = targets.iterator();
+      InventoryUtils.runWithSwap(previousSlot, placementSlot, () -> {
+         int placedCount = 0;
+         Iterator<BlockPos> targetIterator = targets.iterator();
 
-      while (targetIterator.hasNext()) {
-         BlockPos targetPosition = targetIterator.next();
-         Integer placementLimit = this.blocksPerTickSetting.getValue();
-         if (placedCount >= placementLimit) {
-            break;
-         }
+         while (targetIterator.hasNext()) {
+            BlockPos targetPosition = targetIterator.next();
+            Integer placementLimit = this.blocksPerTickSetting.getValue();
+            if (placedCount >= placementLimit) {
+               break;
+            }
 
-         if (!this.isOutsideSpongeRadius(targetPosition)) {
-            ItemStack placementStack = placementSlot.getStack();
-            Item sponge = Items.SPONGE;
-            if (placementStack.is(sponge)) {
-               continue;
+            if (!this.isOutsideSpongeRadius(targetPosition)) {
+               ItemStack placementStack = placementSlot.getStack();
+               Item sponge = Items.SPONGE;
+               if (placementStack.is(sponge)) {
+                  continue;
+               }
+            }
+
+            if (this.placeAt(targetPosition, placementSlot)) {
+               this.placementTimer.reset();
+               placedCount++;
             }
          }
-
-         if (this.placeAt(targetPosition, placementSlot)) {
-            timer = this.placementTimer;
-            timer.reset();
-            placedCount++;
-         }
-      }
-
-      InventoryUtils.swapBack(previousSlot, placementSlot);
+      });
    }
 
    public static void bindModuleReferences(ModuleRegistry registry) {

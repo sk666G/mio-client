@@ -10,7 +10,6 @@
 package dev.schizo.client.managers;
 
 import dev.schizo.client.ClientAccess;
-import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.bus.EventBus;
 import dev.schizo.client.managers.Registry;
 import dev.schizo.client.modules.misc.StashFinderModule;
@@ -23,7 +22,8 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import java.util.Iterator;
-import java.util.Collection;
+import java.util.ArrayList;
+import java.util.List;
 
 public final class StashRegistry extends Registry<StashEntry> implements ClientAccess, JsonConfigurable {
    private static StashFinderModule stashFinderModule;
@@ -33,8 +33,24 @@ public final class StashRegistry extends Registry<StashEntry> implements ClientA
       eventBus.subscribe(this);
    }
 
-   static {
-      stashFinderModule = ClientContext.getModule(StashFinderModule.class);
+   public static void bindModules(ModuleRegistry registry) {
+      stashFinderModule = (StashFinderModule)java.util.Objects.requireNonNull(
+         registry.getModule(StashFinderModule.class),
+         "Required module is not registered: StashFinderModule"
+      );
+   }
+
+   @Override
+   public boolean registerEntry(dev.schizo.client.settings.NamedEntry entry) {
+      if (!(entry instanceof StashEntry stash) || !stash.isPersistable()) return false;
+      for (StashEntry known : this.entries) {
+         if (known.hasSameLocation(stash)) {
+            known.observeAgain();
+            return false;
+         }
+      }
+      // Descriptions such as "5 chests" legitimately repeat at different locations.
+      return this.entries.add(stash);
    }
 
    @Override
@@ -43,21 +59,29 @@ public final class StashRegistry extends Registry<StashEntry> implements ClientA
          return;
       }
       JsonObject object = element.getAsJsonObject();
-      if (!object.has("stashes")) {
+      if (!object.has("stashes") || !object.get("stashes").isJsonArray()) {
          return;
       }
-      object = element.getAsJsonObject();
+
+      List<StashEntry> loaded = new ArrayList<>();
       JsonArray stashes = object.getAsJsonArray("stashes");
-      Iterator<JsonElement> iterator = stashes.iterator();
-      while (iterator.hasNext()) {
-         JsonElement stashElement = iterator.next();
+      for (JsonElement stashElement : stashes) {
          try {
-            Collection<StashEntry> stashEntries = this.entries;
-            Gson gson = ClientAccess.gson;
-            stashEntries.add((StashEntry)gson.fromJson(stashElement, StashEntry.class));
-         } catch (Exception ignored) {
+            StashEntry stash = ClientAccess.gson.fromJson(stashElement, StashEntry.class);
+            if (stash == null || !stash.isPersistable()) {
+               continue;
+            }
+            boolean duplicate = loaded.stream().anyMatch(existing -> existing.hasSameLocation(stash));
+            if (!duplicate) {
+               loaded.add(stash);
+            }
+         } catch (Exception invalidEntry) {
+            ClientAccess.logger.warn("Skipping invalid stash entry in stashfinder.json", invalidEntry);
          }
       }
+
+      this.entries.clear();
+      this.entries.addAll(loaded);
    }
 
    @Override
@@ -70,7 +94,7 @@ public final class StashRegistry extends Registry<StashEntry> implements ClientA
 
       JsonArray stashes = new JsonArray();
       JsonObject object = new JsonObject();
-      Iterator<StashEntry> iterator = ClientContext.stashRegistry.getRegistry().iterator();
+      Iterator<StashEntry> iterator = this.entries.iterator();
 
       while (iterator.hasNext()) {
          StashEntry stash = iterator.next();

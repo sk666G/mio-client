@@ -24,6 +24,7 @@ import dev.schizo.client.modules.hud.DirectionModule;
 import dev.schizo.client.modules.hud.EffectsModule;
 import dev.schizo.client.modules.hud.EntityListModule;
 import dev.schizo.client.modules.hud.GraphModule;
+import dev.schizo.client.modules.hud.FrameTimeGraphModule;
 import dev.schizo.client.modules.hud.IndicatorModule;
 import dev.schizo.client.modules.hud.InventoryModule;
 import dev.schizo.client.modules.hud.LagOMeterModule;
@@ -59,6 +60,7 @@ public final class HudModuleRegistry implements ClientAccess, JsonConfigurable {
       ClientContext.moduleRegistry.registerModule(new ModuleListModule());
       ClientContext.moduleRegistry.registerModule(new ArmorModule());
       ClientContext.moduleRegistry.registerModule(new GraphModule());
+      ClientContext.moduleRegistry.registerModule(new FrameTimeGraphModule());
       ClientContext.moduleRegistry.registerModule(new EffectsModule());
       ClientContext.moduleRegistry.registerModule(new WelcomerModule());
       ClientContext.moduleRegistry.registerModule(new PositionModule());
@@ -79,33 +81,37 @@ public final class HudModuleRegistry implements ClientAccess, JsonConfigurable {
 
    @Override
    public void fromJson(JsonElement json) {
-      JsonObject configuration = json.getAsJsonObject();
+      if (!(json instanceof JsonObject configuration)) {
+         throw new IllegalArgumentException("HUD configuration must be a JSON object");
+      }
+
       configuration.entrySet().stream()
-         .sorted(Comparator.comparing(entry -> {
-            try {
-               JsonElement moduleJson = entry.getValue();
-               JsonObject moduleConfiguration = moduleJson.getAsJsonObject();
-               String hudKey = "hud";
-               JsonObject hudConfiguration = moduleConfiguration.getAsJsonObject(hudKey);
-               String indexKey = "index";
-               JsonElement indexJson = hudConfiguration.get(indexKey);
-               int index = indexJson.getAsInt();
-               return index;
-            } catch (Throwable failure) {
-               return Integer.valueOf(0);
-            }
-         }))
+         .sorted(Comparator.comparing(entry -> readHudIndex(entry.getValue())))
          .map(entry -> new SimpleEntry<>(findConfiguredModule(entry), entry.getValue()))
          .filter(entry -> entry.getKey() instanceof HudWidgetModule)
          .forEach(entry -> {
-            try {
-               Module module = (Module)entry.getKey();
-               JsonElement moduleJson = (JsonElement)entry.getValue();
-               module.fromJson(moduleJson);
-            } catch (Exception failure) {
-               failure.printStackTrace();
-            }
+            Module module = (Module)entry.getKey();
+            JsonElement moduleJson = (JsonElement)entry.getValue();
+            module.fromJson(moduleJson);
          });
+   }
+
+   static int readHudIndex(JsonElement moduleJson) {
+      if (!(moduleJson instanceof JsonObject moduleConfiguration)
+         || !(moduleConfiguration.get("hud") instanceof JsonObject hudConfiguration)) {
+         return 0;
+      }
+
+      JsonElement indexJson = hudConfiguration.get("index");
+      if (indexJson == null || !indexJson.isJsonPrimitive() || !indexJson.getAsJsonPrimitive().isNumber()) {
+         return 0;
+      }
+
+      try {
+         return indexJson.getAsInt();
+      } catch (RuntimeException invalidIndex) {
+         return 0;
+      }
    }
 
    private static Module findConfiguredModule(Entry configurationEntry) {
@@ -128,13 +134,9 @@ public final class HudModuleRegistry implements ClientAccess, JsonConfigurable {
       while (modules.hasNext()) {
          Module module = (Module)modules.next();
          if (module instanceof HudWidgetModule) {
-            try {
-               String configName = module.getConfigName();
-               JsonElement moduleJson = module.toJson();
-               configuration.add(configName, moduleJson);
-            } catch (Exception failure) {
-               failure.printStackTrace();
-            }
+            String configName = module.getConfigName();
+            JsonElement moduleJson = module.toJson();
+            configuration.add(configName, moduleJson);
          }
       }
 

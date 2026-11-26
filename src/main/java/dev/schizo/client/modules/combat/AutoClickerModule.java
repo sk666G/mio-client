@@ -44,11 +44,6 @@ public class AutoClickerModule extends Module {
    private final ElapsedTimer clickTimer;
    private float delayMultiplier;
    private final List<Long> recentClickTimes;
-
-   static {
-      multiTaskModule = (MultiTaskModule)ClientContext.getModule(MultiTaskModule.class);
-   }
-
    @Override
    public String getInfo() {
       int recentClickCount = this.recentClickTimes.size();

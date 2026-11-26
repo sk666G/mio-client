@@ -1,0 +1,121 @@
+name: Schizo client launch smoke
+
+on:
+  push:
+    branches: [zio-rebuild-v7, 'lunyx/runtime-*', 'lunyx/final-*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  client-launch-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out staging source
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Install Java 21 toolchain
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install Java 25 Gradle runtime
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Set up Gradle cache
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Ensure Gradle wrapper is executable
+        run: chmod +x ./gradlew
+
+      - name: Ensure X virtual framebuffer is available
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v xvfb-run >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y xvfb
+          fi
+
+      - name: Launch Fabric client and verify Schizo initialization
+        env:
+          ORG_GRADLE_JAVA_INSTALLATIONS_PATHS: ${{ env.JAVA_HOME_21_X64 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf run/logs run/crash-reports
+          rm -f client-smoke.out
+
+          launch_status=1
+          for attempt in 1 2 3; do
+            rm -rf run/logs run/crash-reports
+            rm -f client-smoke.out
+
+            set +e
+            timeout --signal=TERM --kill-after=15s 150s \
+              xvfb-run -a -s "-screen 0 1280x720x24" \
+              ./gradlew --no-daemon runClient > client-smoke.out 2>&1
+            launch_status=$?
+            set -e
+
+            if [ "$launch_status" -eq 0 ] || [ "$launch_status" -eq 124 ] || [ "$launch_status" -eq 143 ]; then
+              break
+            fi
+
+            if ! grep -Eiq '429|Too Many Requests|HTTP (500|502|503|504)|Received status code (500|502|503|504)|Connection reset|Connection timed out|Read timed out|Temporary failure|Could not GET .*maven|Could not GET .*gradle' client-smoke.out; then
+              break
+            fi
+
+            if [ "$attempt" -eq 3 ]; then
+              break
+            fi
+
+            printf 'Transient dependency/network failure detected; retrying client launch smoke (%s/3).\n' "$attempt" >&2
+            sleep $((attempt * 15))
+          done
+
+          printf '%s\n' '--- client smoke output tail ---'
+          tail -n 250 client-smoke.out || true
+
+          log_file="run/logs/latest.log"
+          if [ ! -f "$log_file" ]; then
+            printf '%s\n' 'Minecraft did not create run/logs/latest.log' >&2
+            exit 1
+          fi
+
+          grep -Fq "Schizo main initialization completed." "$log_file"
+          grep -Fq "Schizo client initialization completed." "$log_file"
+
+          if grep -E '\[.*(WARN|ERROR).*\] \(Schizo\)|\(Schizo\).*\[(WARN|ERROR)\]' "$log_file"; then
+            printf '%s\n' 'Schizo emitted WARN/ERROR diagnostics during launch smoke.' >&2
+            exit 1
+          fi
+
+          if [ -d run/crash-reports ] && find run/crash-reports -type f -print -quit | grep -q .; then
+            printf '%s\n' 'Minecraft generated a crash report during launch smoke.' >&2
+            find run/crash-reports -type f -maxdepth 1 -print >&2
+            exit 1
+          fi
+
+          if grep -Eiq             'MixinApplyError|InvalidMixinException|InjectionError|MixinTransformerError|Exception in thread "Render thread"|Crash report saved to'             "$log_file" client-smoke.out; then
+            printf '%s\n' 'Fatal client or mixin failure signature detected.' >&2
+            exit 1
+          fi
+
+          case "$launch_status" in
+            0|124|143) ;;
+            *)
+              printf 'Client launch exited unexpectedly with status %s\n' "$launch_status" >&2
+              exit "$launch_status"
+              ;;
+          esac
+
+          printf '%s\n' 'Schizo client initialization smoke passed.'

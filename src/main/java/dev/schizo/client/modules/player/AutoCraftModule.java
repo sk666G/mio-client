@@ -107,6 +107,7 @@ public class AutoCraftModule extends Module {
    private final List<CachedRecipe> cachedRecipes;
    private boolean recipesCached;
    private Boolean recipeBookWasOpen;
+   private long lifecycleGeneration;
 
    private boolean hasPotentialRecipe() {
       if ((this.itemsSetting.getValue()).isEmpty()) {
@@ -217,12 +218,14 @@ public class AutoCraftModule extends Module {
 
    @Override
    public void onEnable() {
+      this.lifecycleGeneration++;
       this.cachedRecipes.clear();
       this.recipesCached = false;
    }
 
    @Override
    public void onDisable() {
+      this.lifecycleGeneration++;
       if (!this.isWorldUnavailable()) {
          this.restoreRecipeBook();
       }
@@ -337,7 +340,16 @@ public class AutoCraftModule extends Module {
 
          capturedRecipeBook.setOpen(recipeBookType, open);
          TaskScheduler scheduler = ClientContext.taskScheduler;
+         ClientLevel expectedLevel = ClientAccess.schizoMinecraft.level;
+         LocalPlayer expectedPlayer = ClientAccess.schizoMinecraft.player;
+         long expectedGeneration = this.lifecycleGeneration;
          Runnable cacheCallback = () -> {
+            if (!this.isToggled()
+               || this.lifecycleGeneration != expectedGeneration
+               || ClientAccess.schizoMinecraft.level != expectedLevel
+               || ClientAccess.schizoMinecraft.player != expectedPlayer) {
+               return;
+            }
             if (!this.recipesCached) {
                this.cacheRecipeDisplays();
                this.recipesCached = true;
@@ -346,7 +358,8 @@ public class AutoCraftModule extends Module {
 
          scheduler.scheduleRotationTask(cacheCallback, 2);
          if ((this.fastCloseSetting.getValue()) && event.getNewScreen() instanceof CraftingScreen) {
-            Screen capturedScreen = event.getNewScreen();
+            CraftingScreen capturedScreen = (CraftingScreen)event.getNewScreen();
+            AbstractContainerMenu expectedMenu = capturedScreen.getMenu();
             byte height = 0;
             byte width = 0;
 
@@ -355,11 +368,18 @@ public class AutoCraftModule extends Module {
             event.cancel();
             TaskScheduler closeScheduler = ClientContext.taskScheduler;
             Runnable closeCallback = () -> {
-               int containerId = ClientAccess.schizoMinecraft.player.containerMenu.containerId;
-               ServerboundContainerClosePacket closePacket = new ServerboundContainerClosePacket(containerId);
+               if (!this.isToggled()
+                  || this.lifecycleGeneration != expectedGeneration
+                  || ClientAccess.schizoMinecraft.level != expectedLevel
+                  || ClientAccess.schizoMinecraft.player != expectedPlayer
+                  || expectedPlayer.containerMenu != expectedMenu) {
+                  return;
+               }
+
+               ServerboundContainerClosePacket closePacket =
+                  new ServerboundContainerClosePacket(expectedMenu.containerId);
                PacketSender.send(closePacket);
-               ClientAccess.schizoMinecraft.player.containerMenu = ClientAccess.schizoMinecraft.player
-                  .inventoryMenu;
+               expectedPlayer.containerMenu = expectedPlayer.inventoryMenu;
             };
             closeScheduler.scheduleRotationTask(closeCallback, 0);
          }
@@ -411,6 +431,9 @@ public class AutoCraftModule extends Module {
          }
       }
 
+      if (!ClientAccess.schizoMinecraft.player.containerMenu.getCarried().isEmpty()) {
+         return;
+      }
       if (recipe == null) {
          return;
       }
@@ -523,25 +546,30 @@ public class AutoCraftModule extends Module {
          }
 
          if (gunpowderSlot != -1 && !gridHasGunpowder) {
-            InventoryUtils.clickSlot(craftingMenu.containerId, gunpowderSlot, 0, ClickType.PICKUP);
+            int sourceGunpowderSlot = gunpowderSlot;
+            int capturedGunpowderUnits = gunpowderUnits;
+            InventoryUtils.runWithCursorCleanup(craftingMenu, sourceGunpowderSlot, () -> {
+               InventoryUtils.clickSlot(craftingMenu.containerId, sourceGunpowderSlot, 0, ClickType.PICKUP);
 
-            for (int targetGridSlot : gunpowderGridSlots) {
-               ItemStack capturedPlacementStack = craftingMenu.getSlot(targetGridSlot).getItem();
-               Item placementGunpowder = Items.GUNPOWDER;
+               for (int targetGridSlot : gunpowderGridSlots) {
+                  ItemStack capturedPlacementStack = craftingMenu.getSlot(targetGridSlot).getItem();
+                  Item placementGunpowder = Items.GUNPOWDER;
 
-               if (!capturedPlacementStack.is(placementGunpowder)) {
-                  ItemStack carriedStack = craftingMenu.getCarried();
-                  if (!carriedStack.isEmpty()) {
-                     int targetGridButton = gunpowderUnits >= (3) ? 0 : 1;
-                     InventoryUtils.clickSlot(craftingMenu.containerId, targetGridSlot, targetGridButton, ClickType.PICKUP);
+                  if (!capturedPlacementStack.is(placementGunpowder)) {
+                     ItemStack carriedStack = craftingMenu.getCarried();
+                     if (!carriedStack.isEmpty()) {
+                        int targetGridButton = capturedGunpowderUnits >= (3) ? 0 : 1;
+                        InventoryUtils.clickSlot(
+                           craftingMenu.containerId, targetGridSlot, targetGridButton, ClickType.PICKUP
+                        );
+                     }
+                     break;
                   }
-                  break;
                }
-            }
 
-            InventoryUtils.clickSlot(craftingMenu.containerId, gunpowderSlot, 0, ClickType.PICKUP);
+               InventoryUtils.clickSlot(craftingMenu.containerId, sourceGunpowderSlot, 0, ClickType.PICKUP);
+            });
             capturedCraftTimer = this.craftTimer;
-
             capturedCraftTimer.reset();
             return;
          }

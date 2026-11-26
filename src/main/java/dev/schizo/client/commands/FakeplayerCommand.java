@@ -77,10 +77,18 @@ import net.minecraft.world.phys.Vec3;
 
 public final class FakeplayerCommand extends Command {
    private static final Identifier protectedSkinTexture;
-   private static final FreecamModule freecam;
-   private static final SpeedMineModule speedmine;
-   private static final LogoutSpotsModule logoutSpots;
-   private static final KillEffectsModule killEffects;
+   private static FreecamModule freecam() {
+      return ClientContext.getModule(FreecamModule.class);
+   }
+   private static SpeedMineModule speedmine() {
+      return ClientContext.getModule(SpeedMineModule.class);
+   }
+   private static LogoutSpotsModule logoutSpots() {
+      return ClientContext.getModule(LogoutSpotsModule.class);
+   }
+   private static KillEffectsModule killEffects() {
+      return ClientContext.getModule(KillEffectsModule.class);
+   }
    private final List recordedFrames = new ArrayList();
    private final ElapsedTimer logoutSpotTimer = new ElapsedTimer();
    private FakeplayerCommand.SimulatedPlayer fakePlayer;
@@ -93,14 +101,14 @@ public final class FakeplayerCommand extends Command {
    private void toggleLogoutSpot() {
       if (this.logoutSpotActive) {
          this.logoutSpotActive = false;
-         logoutSpots.removeSpot("Herobrine");
+         logoutSpots().removeSpot("Herobrine");
          ChatUtils.printChat(Component.literal("Herobrine logout spot has been removed."), -1);
       } else {
          SimulatedPlayer player = this.fakePlayer != null ? this.fakePlayer : new SimulatedPlayer(
             ClientAccess.schizoMinecraft.player, ClientAccess.schizoMinecraft.level, new GameProfile(UUID.randomUUID(), this.name));
          String address = ServerAddressUtils.getCurrentServerAddress();
          this.logoutSpotActive = true;
-         logoutSpots.putSpot("Herobrine", LogoutSpotsModule.LogoutSpot.capturePlayer(player, address));
+         logoutSpots().putSpot("Herobrine", LogoutSpotsModule.LogoutSpot.capturePlayer(player, address));
          this.logoutSpotTimer.reset();
          ChatUtils.printChat(Component.literal("Herobrine logout spot has been added. It will automatically disappear in 5 minutes."), -1);
       }
@@ -112,7 +120,7 @@ public final class FakeplayerCommand extends Command {
 
    private void killFakePlayer() {
       if (this.fakePlayer != null) {
-         KillEffectsModule capturedEffects = killEffects;
+         KillEffectsModule capturedEffects = killEffects();
          FakeplayerCommand.SimulatedPlayer playerToKill = this.fakePlayer;
          capturedEffects.trackTarget(playerToKill);
          this.fakePlayer.killed = true;
@@ -120,16 +128,16 @@ public final class FakeplayerCommand extends Command {
    }
 
    private BlockPos getMiningIgnorePosition() {
-      SpeedMineModule capturedMiningModule = speedmine;
+      SpeedMineModule capturedMiningModule = speedmine();
 
       float miningDamage = capturedMiningModule.getMiningProgress();
-      Setting<Float> damageSetting = speedmine.damageSetting;
+      Setting<Float> damageSetting = speedmine().damageSetting;
       Float damageThreshold = damageSetting.getValue();
       float normalizedMiningDamage = miningDamage / damageThreshold;
-      if (speedmine.isToggled()) {
+      if (speedmine().isToggled()) {
 
          if (!(normalizedMiningDamage < 1.0F)) {
-            capturedMiningModule = speedmine;
+            capturedMiningModule = speedmine();
 
             return capturedMiningModule.getMiningPos();
          }
@@ -148,10 +156,6 @@ public final class FakeplayerCommand extends Command {
    static {
 
       protectedSkinTexture = Identifier.fromNamespaceAndPath(("schizo"), ("textures/skin_protect.png"));
-      freecam = ClientContext.getModule(FreecamModule.class);
-      speedmine = ClientContext.getModule(SpeedMineModule.class);
-      logoutSpots = ClientContext.getModule(LogoutSpotsModule.class);
-      killEffects = ClientContext.getModule(KillEffectsModule.class);
    }
 
    @Override
@@ -422,11 +426,11 @@ public final class FakeplayerCommand extends Command {
             ClientAccess.schizoMinecraft.level,
             new GameProfile(UUID.randomUUID(), requestedName)
          );
-         if (freecam.isToggled()) {
+         if (freecam().isToggled()) {
             FakeplayerCommand.SimulatedPlayer capturedPositionTarget = this.fakePlayer;
-            double cameraX = freecam.cameraPosition.x;
-            double cameraY = freecam.cameraPosition.y;
-            double cameraZ = freecam.cameraPosition.z;
+            double cameraX = freecam().cameraPosition.x;
+            double cameraY = freecam().cameraPosition.y;
+            double cameraZ = freecam().cameraPosition.z;
             LocalPlayer yawPlayer = ClientAccess.schizoMinecraft.player;
             float playerYaw = yawPlayer.getYRot();
             LocalPlayer pitchPlayer = ClientAccess.schizoMinecraft.player;

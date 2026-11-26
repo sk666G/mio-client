@@ -12,6 +12,7 @@ package dev.schizo.client.modules.combat;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.EventHandler;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.events.MinecraftRunTickEvent;
 import dev.schizo.client.events.MultiPlayerGameModeUseItemOnEvent;
 import dev.schizo.client.utils.inventory.ItemUtils;
@@ -47,15 +48,16 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 
 public class MainhandModule extends Module implements LethalDamageTracker.LethalCheckPolicy {
-   private static NoInteractModule noInteractModule = (NoInteractModule)ClientContext.getModule(NoInteractModule.class);
-   private static AutoCrystalModule autoCrystalModule = (AutoCrystalModule)ClientContext.getModule(AutoCrystalModule.class);
-   private static AutoEatModule autoEatModule = (AutoEatModule)ClientContext.getModule(AutoEatModule.class);
-   private static AutoExpModule autoExpModule = (AutoExpModule)ClientContext.getModule(AutoExpModule.class);
-   private static OffhandModule offhandModule = (OffhandModule)ClientContext.getModule(OffhandModule.class);
+   private static NoInteractModule noInteractModule;
+   private static AutoCrystalModule autoCrystalModule;
+   private static AutoEatModule autoEatModule;
+   private static AutoExpModule autoExpModule;
+   private static OffhandModule offhandModule;
    final Setting<Integer> slotSetting;
    final Setting<Integer> delaySetting;
    private final Setting<Float> safeSetting;
    private final Setting<Boolean> autoSelectSetting;
+   private final Setting<Boolean> emergencyPrioritySetting;
    private final Setting<Integer> autoSelectDelaySetting;
    private final Setting<Boolean> lethalSetting;
    private final Setting<Float> healthSetting;
@@ -70,8 +72,8 @@ public class MainhandModule extends Module implements LethalDamageTracker.Lethal
    private final ElapsedTimer interactionCooldownTimer;
    private boolean tickReady;
    private int previousReplacementSlot;
+   private final dev.schizo.client.utils.inventory.TemporaryHotbarSelection selectionOwner = new dev.schizo.client.utils.inventory.TemporaryHotbarSelection();
    private boolean temporaryHotbarSelection;
-   private int previousSelectedHotbarSlot;
    private final LethalDamageTracker lethalDamageTracker;
 
    @Override
@@ -85,7 +87,34 @@ public class MainhandModule extends Module implements LethalDamageTracker.Lethal
 
    @Override
    public void onEnable() {
-      this.previousSelectedHotbarSlot = this.previousReplacementSlot = -1;
+      this.clearTemporaryHotbarSelection();
+      this.previousReplacementSlot = -1;
+      this.tickReady = false;
+   }
+
+   @Override
+   public void onDisable() {
+      this.restoreTemporaryHotbarSelection(true);
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.clearTemporaryHotbarSelection();
+      this.previousReplacementSlot = -1;
+      this.tickReady = false;
+   }
+
+   private void restoreTemporaryHotbarSelection(boolean restoreSlot) {
+      try {
+         this.selectionOwner.restore(restoreSlot);
+      } finally {
+         this.clearTemporaryHotbarSelection();
+      }
+   }
+
+   private void clearTemporaryHotbarSelection() {
+      this.selectionOwner.clear();
+      this.temporaryHotbarSelection = false;
    }
 
    private boolean shouldTemporarilySelectGapple() {
@@ -140,6 +169,14 @@ public class MainhandModule extends Module implements LethalDamageTracker.Lethal
       float health = EntityUtils.getPlayerHealthWithAbsorption();
       Float safeHealth = this.safeSetting.getValue();
       return health >= safeHealth;
+   }
+
+   public boolean requiresEmergencyProtection() {
+      if (this.isWorldUnavailable() || !this.emergencyPrioritySetting.getValue()) return false;
+      return dev.schizo.client.utils.inventory.InventoryActionPriority.protectMainhand(
+         this.isToggled(), this.autoSelectSetting.getValue(),
+         ClientAccess.schizoMinecraft.player.getInventory().getItem(this.getConfiguredHotbarSlot()).is(Items.TOTEM_OF_UNDYING),
+         this.lethalDamageTracker.shouldHoldTotem(), EntityUtils.getPlayerHealthWithAbsorption(), this.healthSetting.getValue());
    }
 
    private void autoSelectTotem() {
@@ -213,9 +250,15 @@ public class MainhandModule extends Module implements LethalDamageTracker.Lethal
       if (!ClientAccess.schizoMinecraft.player.isUsingItem()) {
          if (!ClientAccess.schizoMinecraft.player.getMainHandItem().is(getGappleItem())) {
             int gappleSlot = InventoryUtils.findHotbarSlot(getGappleItem());
-            this.previousSelectedHotbarSlot = InventoryUtils.getSelectedSlot();
-            InventoryUtils.selectHotbarSlotForPlacement(gappleSlot);
+            if (gappleSlot < 0) {
+               return;
+            }
+            int previousSlot = InventoryUtils.getSelectedSlot();
+            if (previousSlot == gappleSlot) {
+               return;
+            }
             this.temporaryHotbarSelection = true;
+            this.selectionOwner.select(gappleSlot);
             return;
          }
       }
@@ -255,7 +298,8 @@ public class MainhandModule extends Module implements LethalDamageTracker.Lethal
       }
 
       if (autoEatModule.isToggled()) {
-         if (autoEatModule.isEating()) {
+         if (autoEatModule.isEating() && !this.requiresEmergencyProtection()) {
+            this.pauseWithReason("AutoEat owns item use");
             return;
          }
       }
@@ -266,14 +310,16 @@ public class MainhandModule extends Module implements LethalDamageTracker.Lethal
          }
       }
 
+      if (this.temporaryHotbarSelection && !this.hotbarSetting.getValue()) {
+         this.restoreTemporaryHotbarSelection(true);
+      }
       if (this.hotbarSetting.getValue() && this.tickReady) {
          if (shouldTemporarilySelectGapple()) {
             selectGappleTemporarily();
             return;
          }
          if (this.temporaryHotbarSelection) {
-            InventoryUtils.selectHotbarSlotForPlacement(this.previousSelectedHotbarSlot);
-            this.temporaryHotbarSelection = false;
+            this.restoreTemporaryHotbarSelection(true);
             return;
          }
       }
@@ -387,6 +433,7 @@ public class MainhandModule extends Module implements LethalDamageTracker.Lethal
       this.delaySetting = this.add(new NumberSetting<>("Delay", 25, 0, 500).withUnit("ms"));
       this.safeSetting = this.add(new NumberSetting<>("Safe", 8.0F, 0.0F, 36.0F).withUnit("hp"));
       Setting<Boolean> autoSelectOption = this.add(new BooleanSetting("AutoSelect", false).markVisibilityDependency());
+      this.emergencyPrioritySetting = this.add(new BooleanSetting("EmergencyPriority", true));
       this.autoSelectSetting = autoSelectOption;
       this.autoSelectDelaySetting = this.add(new NumberSetting<>("Delay", 25, 0, 500).withUnit("ms").dependsOn(autoSelectOption));
       this.lethalSetting = this.add(new BooleanSetting("Lethal", true).dependsOn(autoSelectOption));

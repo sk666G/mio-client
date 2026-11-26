@@ -12,7 +12,7 @@ package dev.schizo.mixin;
 import com.llamalad7.mixinextras.sugar.Local;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.modules.render.NoRenderModule;
 import dev.schizo.client.modules.render.XrayModule;
 import java.util.List;
@@ -29,25 +29,26 @@ import org.spongepowered.asm.mixin.injection.invoke.arg.Args;
 
 @Mixin(ModelBlockRenderer.class)
 public class ModelBlockRendererMixin {
-   private static final XrayModule xrayModule = ClientContext.getModule(XrayModule.class);
-   private static final NoRenderModule noRenderModule = ClientContext.getModule(NoRenderModule.class);
+   private static NoRenderModule noRenderModule() {
+      return MixinModuleRegistry.gameNoRender;
+   }
 
    @Inject(method = {"tesselateWithAO", "tesselateWithoutAO"}, at = @At("HEAD"), cancellable = true)
    private void suppressHiddenBlockEntityMesh(
       BlockAndTintGetter level, List parts, BlockState blockState, BlockPos blockPos, PoseStack poses, VertexConsumer vertices, boolean checkSides, int packedOverlay, CallbackInfo callback
    ) {
-      if (XrayModule.getInstance()
+      if (MixinModuleRegistry.renderXray
             .isToggled()
-         && !XrayModule.getInstance()
+         && !MixinModuleRegistry.renderXray
             .shouldRenderBlock(
                blockPos,
                blockState.getBlock()
             )
-         && XrayModule.getInstance()
+         && MixinModuleRegistry.renderXray
             .shouldHideUnselectedBlocks()) {
          callback.cancel();
       } else {
-         if (noRenderModule.shouldHideBlockEntity(blockState)) {
+         if (noRenderModule().shouldHideBlockEntity(blockState)) {
             callback.cancel();
          }
       }
@@ -60,18 +61,18 @@ public class ModelBlockRendererMixin {
    private void applyXrayQuadAlpha(
       Args arguments, @Local(argsOnly = true) BlockPos blockPos, @Local(argsOnly = true) BlockState blockState
    ) {
-      if (xrayModule.isToggled()
-         && !xrayModule.alphaSetting
+      if (MixinModuleRegistry.renderXray.isToggled()
+         && !MixinModuleRegistry.renderXray.alphaSetting
             .isAtMinimum()
-         && !xrayModule.alphaSetting
+         && !MixinModuleRegistry.renderXray.alphaSetting
             .isAtMaximum()
-         && !xrayModule.shouldRenderBlock(
+         && !MixinModuleRegistry.renderXray.shouldRenderBlock(
             blockPos,
             blockState.getBlock()
          )) {
          arguments.set(
             6,
-            (xrayModule.alphaSetting.getValue()).intValue()
+            (MixinModuleRegistry.renderXray.alphaSetting.getValue()).intValue()
                / 100.0F
          );
       }

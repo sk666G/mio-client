@@ -12,6 +12,7 @@ package dev.schizo.client.modules.render;
 
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
+import dev.schizo.client.utils.AdaptiveScanBudget;
 import dev.schizo.client.events.ClientLevelAddEntityEvent;
 import dev.schizo.client.events.PacketEvent;
 import dev.schizo.client.events.WorldRenderEvent;
@@ -53,7 +54,10 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Queue;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
@@ -90,6 +94,7 @@ public class SearchModule extends Module {
    private static ColorsModule colorsModule;
    private static final MutableBlockPos scanPosition;
    private static final int MAX_CACHED_BLOCKS = 100_000;
+   private static final int CHUNK_SCAN_BUDGET_PER_TICK = 2048;
    private final Setting<Float> rangeSetting;
    private final Setting<Boolean> blocksSetting;
    private final Setting<Set<Block>> selectedBlocksSetting;
@@ -116,6 +121,12 @@ public class SearchModule extends Module {
    private final Set<BlockPos> knownBlockPositions;
    private final ElapsedTimer soundTimer;
    private final ChunkScanner chunkScanner;
+   private final Queue<QueuedSearchChunk> pendingChunkScans;
+   private final Set<Long> queuedChunkScans;
+   private SearchChunkScanCursor activeChunkScan;
+   private ChunkPos activeChunkPosition;
+   private LevelChunk activeChunk;
+   private ClientLevel scanLevel;
    private boolean alertPending;
    private int minimumBuildHeight;
    private int maximumBuildHeight;
@@ -219,21 +230,21 @@ public class SearchModule extends Module {
    }
 
    public void restartSearch() {
-      this.blocksByPosition.clear();
-      this.chunkScanner.stop();
       this.alertPending = false;
-      this.chunkScanner.start();
       this.rescanBlocks();
    }
 
    private void resetChunkScanner() {
-      this.chunkScanner.restartExecutor();
-      this.blocksByPosition.clear();
+      this.clearBlockScanState(true);
+      this.scanLevel = null;
    }
 
    private void rescanBlocks() {
-      this.blocksByPosition.clear();
-      this.scanBlocksIfWorldAvailable();
+      this.clearBlockScanState(true);
+      if (!this.isWorldUnavailable()) {
+         this.scanLevel = ClientAccess.schizoMinecraft.level;
+         this.scanBlocksIfWorldAvailable();
+      }
    }
 
    private void scanBlocksIfWorldAvailable() {
@@ -242,6 +253,163 @@ public class SearchModule extends Module {
 
          scanner.scanLoadedChunks();
       }
+   }
+
+   private void enqueueChunkScan(ChunkPos chunkPosition, LevelChunk chunk) {
+      if (!this.blocksSetting.getValue()) {
+         return;
+      }
+      ChunkPos copiedPosition = new ChunkPos(chunkPosition.x, chunkPosition.z);
+      long key = copiedPosition.toLong();
+      if (this.queuedChunkScans.add(key)) {
+         this.pendingChunkScans.add(new QueuedSearchChunk(copiedPosition, chunk));
+      }
+   }
+
+   private void syncSearchLevel() {
+      ClientLevel currentLevel = ClientAccess.schizoMinecraft.level;
+      if (this.scanLevel != currentLevel) {
+         this.clearBlockScanState(true);
+         this.scanLevel = currentLevel;
+         if (currentLevel != null && this.blocksSetting.getValue()) {
+            this.chunkScanner.scanLoadedChunks();
+         }
+      }
+   }
+
+   private void scanSearchSlice() {
+      if (!this.blocksSetting.getValue()) {
+         return;
+      }
+
+      int processed = 0;
+      boolean measuring = dev.schizo.client.profiling.EventProfiler.GLOBAL.isEnabled();
+      long scanStart = measuring ? System.nanoTime() : 0L;
+      try {
+         int scanBudget = AdaptiveScanBudget.limit(CHUNK_SCAN_BUDGET_PER_TICK, ClientContext.frameTiming);
+         while (processed < scanBudget) {
+            if (this.blocksByPosition.size() >= MAX_CACHED_BLOCKS) {
+               this.clearPendingChunkScans();
+               return;
+            }
+
+            if (this.activeChunkScan == null) {
+               QueuedSearchChunk next = this.pendingChunkScans.poll();
+               if (next == null) {
+                  return;
+               }
+               int firstY = this.heightSetting.getValue() == HeightChoice.OLD
+                  ? 0
+                  : this.minimumBuildHeight;
+               this.activeChunkPosition = next.position();
+               this.activeChunk = next.chunk();
+               this.activeChunkScan = new SearchChunkScanCursor(
+                  next.position().getMinBlockX(),
+                  next.position().getMinBlockZ(),
+                  firstY,
+                  this.maximumBuildHeight
+               );
+            }
+
+            SearchChunkScanCursor.Cell cell = this.activeChunkScan.next();
+            if (cell == null) {
+               this.queuedChunkScans.remove(this.activeChunkPosition.toLong());
+               this.activeChunkScan = null;
+               this.activeChunkPosition = null;
+               this.activeChunk = null;
+               continue;
+            }
+
+            scanPosition.set(cell.x(), cell.y(), cell.z());
+            BlockState state = this.activeChunk.getBlockState(scanPosition);
+            if (this.ignoreNaturalSetting.getValue()
+               && WorldUtils.isStructureChest(
+                  this.activeChunk,
+                  scanPosition,
+                  this.fortressSetting.getValue(),
+                  this.bastionSetting.getValue(),
+                  this.ancientCitySetting.getValue(),
+                  this.dungeonSetting.getValue(),
+                  this.trialChambersSetting.getValue()
+               )) {
+               processed++;
+               continue;
+            }
+
+            if (this.shouldSearchBlock(state)) {
+               BlockPos position = scanPosition.immutable();
+               this.knownBlockPositions.add(position);
+               this.blocksByPosition.put(position, SearchResult.create(position, state));
+
+               if (this.rangeSetting.isAtMaximum()) {
+                  this.alertPending = true;
+               } else {
+                  float range = this.rangeSetting.getValue();
+                  if (!this.isOutsideRange(position, range * range)) {
+                     this.alertPending = true;
+                  }
+               }
+            }
+            processed++;
+         }
+
+      } finally {
+         if (measuring) dev.schizo.client.profiling.ScanWorkTracker.GLOBAL.record(
+            dev.schizo.client.profiling.ScanWorkTracker.Source.SEARCH, System.nanoTime() - scanStart, processed);
+      }
+   }
+
+   private void processBlockUpdate(BlockPos updatedPosition, BlockState updatedState) {
+      if (updatedState.isAir()) {
+         this.knownBlockPositions.remove(updatedPosition);
+      }
+
+      Set<?> updatedSelectedBlocks = (Set<?>)this.selectedBlocksSetting.getValue();
+      if (updatedSelectedBlocks.contains(updatedState.getBlock()) && !updatedState.isAir()) {
+         this.blocksByPosition.put(updatedPosition, SearchResult.create(updatedPosition, updatedState));
+         boolean updatedNewlyKnown = this.knownBlockPositions.add(updatedPosition);
+         if (!this.rangeSetting.isAtMaximum()) {
+            float updatedRangeValue = this.rangeSetting.getValue();
+            if (this.isOutsideRange(updatedPosition, updatedRangeValue * updatedRangeValue)) {
+               return;
+            }
+         }
+         this.alertPending = updatedNewlyKnown;
+      } else {
+         this.blocksByPosition.remove(updatedPosition);
+      }
+   }
+
+   private void removeChunkState(ChunkPos chunkPosition) {
+      long key = chunkPosition.toLong();
+      this.queuedChunkScans.remove(key);
+      this.pendingChunkScans.removeIf(queued -> queued.position().toLong() == key);
+      if (this.activeChunkPosition != null && this.activeChunkPosition.toLong() == key) {
+         this.activeChunkScan = null;
+         this.activeChunkPosition = null;
+         this.activeChunk = null;
+      }
+      this.blocksByPosition.keySet().removeIf(position -> isPositionInChunk(position, chunkPosition));
+      this.knownBlockPositions.removeIf(position -> isPositionInChunk(position, chunkPosition));
+   }
+
+   private void clearPendingChunkScans() {
+      this.pendingChunkScans.clear();
+      this.queuedChunkScans.clear();
+      this.activeChunkScan = null;
+      this.activeChunkPosition = null;
+      this.activeChunk = null;
+   }
+
+   private void clearBlockScanState(boolean clearResults) {
+      this.clearPendingChunkScans();
+      if (clearResults) {
+         this.blocksByPosition.clear();
+         this.knownBlockPositions.clear();
+      }
+   }
+
+   private record QueuedSearchChunk(ChunkPos position, LevelChunk chunk) {
    }
 
    private void detectExistingEntities() {
@@ -256,7 +424,6 @@ public class SearchModule extends Module {
 
    static {
 
-      colorsModule = (ColorsModule)ClientContext.getModule(ColorsModule.class);
       scanPosition = new MutableBlockPos();
    }
 
@@ -269,9 +436,8 @@ public class SearchModule extends Module {
 
    @Override
    public void onDisable() {
-      this.blocksByPosition.clear();
       this.chunkScanner.stop();
-      this.knownBlockPositions.clear();
+      this.resetChunkScanner();
    }
 
    private void renderBlocks(WorldRenderEvent event) {
@@ -318,9 +484,11 @@ public class SearchModule extends Module {
 
    @EventHandler
    private void onLocalPlayerTickEvent(LocalPlayerTickEvent event) {
+      this.syncSearchLevel();
       this.minimumBuildHeight = ClientAccess.schizoMinecraft.level.getMinY();
-
       this.maximumBuildHeight = getMaximumBuildHeight();
+      this.scanSearchSlice();
+
       Boolean soundEnabled = this.soundSetting.getValue();
       if (soundEnabled && this.alertPending) {
          this.alertPending = false;
@@ -444,8 +612,7 @@ public class SearchModule extends Module {
       PacketEvent.Receive event
    ) {
       if (event.getPacket() instanceof ClientboundRespawnPacket) {
-
-         this.resetChunkScanner();
+         ClientAccess.schizoMinecraft.executeIfPossible(this::resetChunkScanner);
       }
    }
 
@@ -495,93 +662,21 @@ public class SearchModule extends Module {
       this.onlyOminousSetting.addVisibilityPredicate(ominousIgnoredValue -> {
          return ((Set<?>)this.selectedBlocksSetting.getValue()).contains(Blocks.VAULT);
       });
+      this.pendingChunkScans = new ConcurrentLinkedQueue<>();
+      this.queuedChunkScans = ConcurrentHashMap.newKeySet();
       this.chunkScanner = new ChunkScanner(
-         1,
-         (java.util.function.BiConsumer<ChunkPos, LevelChunk>)((chunkPosition, chunk) -> {
-            if (this.blocksByPosition.size() > MAX_CACHED_BLOCKS) {
-               return;
-            }
-
-            int firstY = this.heightSetting.getValue() == HeightChoice.OLD
-               ? 0
-               : this.minimumBuildHeight;
-            for (int localX = 0; localX < 16; localX++) {
-               int x = chunkPosition.getMinBlockX() + localX;
-               for (int y = firstY; y < this.maximumBuildHeight; y++) {
-                  for (int localZ = 0; localZ < 16; localZ++) {
-                     scanPosition.set(x, y, chunkPosition.getMinBlockZ() + localZ);
-                     BlockState state = chunk.getBlockState(scanPosition);
-
-                     if (this.ignoreNaturalSetting.getValue()
-                        && WorldUtils.isStructureChest(
-                           chunk,
-                           scanPosition,
-                           this.fortressSetting.getValue(),
-                           this.bastionSetting.getValue(),
-                           this.ancientCitySetting.getValue(),
-                           this.dungeonSetting.getValue(),
-                           this.trialChambersSetting.getValue()
-                        )) {
-                        continue;
-                     }
-                     if (!this.shouldSearchBlock(state) || !this.blocksSetting.getValue()) {
-                        continue;
-                     }
-
-                     BlockPos position = scanPosition.immutable();
-                     this.knownBlockPositions.add(position);
-                     this.blocksByPosition.put(position, SearchResult.create(position, state));
-
-                     if (!this.rangeSetting.isAtMaximum()) {
-                        float range = this.rangeSetting.getValue();
-                        if (this.isOutsideRange(position, range * range)) {
-                           continue;
-                        }
-                     }
-                     this.alertPending = true;
-                  }
-               }
-            }
-         }),
-         (java.util.function.BiConsumer<ChunkPos, LevelChunk>)((unloadedChunkPosition, unloadedChunk) -> {
-            this.blocksByPosition.keySet().removeIf(position -> isPositionInChunk(position, unloadedChunkPosition));
-            this.knownBlockPositions.removeIf(position -> isPositionInChunk(position, unloadedChunkPosition));
-         }),
-         (java.util.function.BiConsumer<net.minecraft.core.BlockPos, net.minecraft.world.level.block.state.BlockState>)((updatedPosition, updatedState) -> {
-            if (updatedState.isAir()) {
-               this.knownBlockPositions.remove(updatedPosition);
-            }
-
-            Set<?> updatedSelectedBlocks = (Set<?>)this.selectedBlocksSetting.getValue();
-            if (updatedSelectedBlocks.contains(updatedState.getBlock())) {
-               if (updatedState.isAir()) {
-                  return;
-               }
-
-               Map<BlockPos, SearchResult> updatedBlocks = this.blocksByPosition;
-               updatedBlocks.put(updatedPosition, SearchModule.SearchResult.create(updatedPosition, updatedState));
-               boolean updatedNewlyKnown = this.knownBlockPositions.add(updatedPosition);
-               Setting<Float> updatedCapturedRangeBoundaryOption = this.rangeSetting;
-
-               if (!updatedCapturedRangeBoundaryOption.isAtMaximum()) {
-                  float updatedRangeValue = (this.rangeSetting.getValue());
-                  Float updatedSecondRange = this.rangeSetting.getValue();
-                  float updatedSquaredRange = updatedRangeValue * updatedSecondRange;
-
-                  if (this.isOutsideRange(updatedPosition, updatedSquaredRange)) {
-                     return;
-                  }
-               }
-
-               this.alertPending = updatedNewlyKnown;
-            } else {
-               this.blocksByPosition.remove(updatedPosition);
-            }
-         })
+         0,
+         (java.util.function.BiConsumer<ChunkPos, LevelChunk>)this::enqueueChunkScan,
+         (java.util.function.BiConsumer<ChunkPos, LevelChunk>)((unloadedChunkPosition, unloadedChunk) ->
+            this.removeChunkState(unloadedChunkPosition)
+         ),
+         (java.util.function.BiConsumer<net.minecraft.core.BlockPos, net.minecraft.world.level.block.state.BlockState>)this::processBlockUpdate
       );
       this.blocksSetting.setChangeCallback(() -> {
          if (this.blocksSetting.getValue()) {
             this.rescanBlocks();
+         } else {
+            this.clearBlockScanState(true);
          }
       });
       this.entitiesSetting.setChangeCallback(() -> {

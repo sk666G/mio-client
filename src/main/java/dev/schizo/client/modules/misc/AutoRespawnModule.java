@@ -32,6 +32,7 @@ public class AutoRespawnModule extends Module {
    private final ElapsedTimer respawnTimer = new ElapsedTimer();
    private final Setting<Boolean> saySetting;
    private final Setting<String> messageSetting;
+   private long lifecycleGeneration;
 
    @EventHandler
    private void onLocalPlayerTickEvent(LocalPlayerTickEvent event) {
@@ -48,22 +49,41 @@ public class AutoRespawnModule extends Module {
    @EventHandler
    private void onPacketReceive(PacketEvent.Receive event) {
       if (event.getPacket() instanceof ClientboundRespawnPacket) {
-         Setting<Boolean> saySnapshot = this.saySetting;
-         Boolean say = saySnapshot.getValue();
-         if (say) {
+         ClientAccess.schizoMinecraft.executeIfPossible(() -> {
+            if (!this.isToggled() || !this.saySetting.getValue()) {
+               return;
+            }
+
+            long expectedGeneration = this.lifecycleGeneration;
+            String message = this.messageSetting.getValue();
             TaskScheduler scheduler = ClientContext.taskScheduler;
-            Runnable sendMessage = () -> {
-               Setting<String> messageSnapshot = this.messageSetting;
-               String message = messageSnapshot.getValue();
-               ChatUtils.sendChatOrCommand(message);
-            };
-            scheduler.scheduleRotationTask(sendMessage, 2);
-         }
+            scheduler.scheduleRotationTask(() -> {
+               if (this.isToggled()
+                  && this.lifecycleGeneration == expectedGeneration
+                  && this.saySetting.getValue()) {
+                  ChatUtils.sendChatOrCommand(message);
+               }
+            }, 2);
+         });
       }
 
       if (event.getPacket() instanceof ClientboundPlayerCombatKillPacket) {
-         this.respawnTimer.reset();
+         ClientAccess.schizoMinecraft.executeIfPossible(() -> {
+            if (this.isToggled()) {
+               this.respawnTimer.reset();
+            }
+         });
       }
+   }
+
+   @Override
+   public void onEnable() {
+      this.lifecycleGeneration++;
+   }
+
+   @Override
+   public void onDisable() {
+      this.lifecycleGeneration++;
    }
 
    public AutoRespawnModule() {

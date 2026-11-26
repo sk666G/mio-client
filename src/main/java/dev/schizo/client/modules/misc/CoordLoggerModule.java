@@ -16,6 +16,7 @@ import dev.schizo.client.events.LocalPlayerTickEvent;
 import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.managers.ConfigurationManager;
 import dev.schizo.client.utils.world.WorldUtils;
+import dev.schizo.client.utils.FileUtils;
 import dev.schizo.client.modules.Module;
 import dev.schizo.client.modules.ModuleCategory;
 import dev.schizo.client.settings.BooleanSetting;
@@ -25,14 +26,12 @@ import dev.schizo.client.settings.options.DimensionType;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
-import java.nio.file.OpenOption;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import net.minecraft.client.KeyboardHandler;
 import net.minecraft.client.player.LocalPlayer;
@@ -44,28 +43,40 @@ public class CoordLoggerModule extends Module {
    private final Setting<Boolean> deathSetting;
    private final Setting<Boolean> fileSetting;
    private volatile String coordinateText;
+   private final Object fileWriteLock = new Object();
 
    private void appendRetainedEntry(String entry) {
       Path directory = ConfigurationManager.ROOT_DIRECTORY;
-
       Path logFile = directory.resolve("coordlogger.txt");
 
-      try {
-         Stream<String> existingLines;
-         LinkOption[] existenceOptions = new LinkOption[0];
-         if (Files.exists(logFile, existenceOptions)) {
-            existingLines = Files.lines(logFile);
-         } else {
-            existingLines = Stream.empty();
-         }
+      synchronized (this.fileWriteLock) {
+         try {
+            Stream<String> existingLines;
+            if (Files.exists(logFile, LinkOption.NOFOLLOW_LINKS)) {
+               if (Files.isSymbolicLink(logFile)
+                  || !Files.isRegularFile(logFile, LinkOption.NOFOLLOW_LINKS)) {
+                  ClientAccess.logger.warn("Skipping coordinate log write because coordlogger.txt is not a regular file");
+                  return;
+               }
+               existingLines = Files.lines(logFile);
+            } else {
+               existingLines = Stream.empty();
+            }
 
-         try (existingLines) {
-            Stream<String> filteredLines = Stream.concat(existingLines, Stream.of(entry)).filter(this::isRetainedEntry);
-            List<String> retainedLines = filteredLines.collect(Collectors.toList());
-            OpenOption[] writeOptions = new OpenOption[0];
-            Files.write(logFile, retainedLines, writeOptions);
+            List<String> retainedLines;
+            try (existingLines) {
+               retainedLines = Stream.concat(existingLines, Stream.of(entry))
+                  .filter(this::isRetainedEntry)
+                  .toList();
+            }
+            String retainedText = String.join(System.lineSeparator(), retainedLines);
+            if (!retainedText.isEmpty()) {
+               retainedText += System.lineSeparator();
+            }
+            FileUtils.writeUtf8Atomically(logFile, retainedText);
+         } catch (IOException writeFailure) {
+            ClientAccess.logger.warn("Could not update coordinate log", writeFailure);
          }
-      } catch (IOException ignoredIOException) {
       }
    }
 
@@ -97,18 +108,31 @@ public class CoordLoggerModule extends Module {
    }
 
    private void saveCoordinates(String reason) {
-      if (this.coordinateText != null) {
-         StringBuilder entry = new StringBuilder().append(this.coordinateText).append(" | ").append(reason);
-         KeyboardHandler keyboard = ClientAccess.schizoMinecraft.keyboardHandler;
-         String clipboardText = entry.toString();
-         keyboard.setClipboard(clipboardText);
-         Boolean writeFile = this.fileSetting.getValue();
-         if (writeFile) {
-            LocalDateTime now = LocalDateTime.now();
-            DateTimeFormatter formatter = timestampFormatter;
-            String timestamp = now.format(formatter);
-            entry.append(" | ").append(timestamp);
-            this.appendRetainedEntry(entry.toString());
+      if (!ClientAccess.schizoMinecraft.isSameThread()) {
+         ClientAccess.schizoMinecraft.executeIfPossible(() -> {
+            if (this.isToggled()) {
+               this.saveCoordinates(reason);
+            }
+         });
+         return;
+      }
+
+      String coordinates = this.coordinateText;
+      if (coordinates == null) {
+         return;
+      }
+
+      StringBuilder entry = new StringBuilder().append(coordinates).append(" | ").append(reason);
+      KeyboardHandler keyboard = ClientAccess.schizoMinecraft.keyboardHandler;
+      if (!dev.schizo.client.utils.CoordinatePrivacy.isEnabled()) keyboard.setClipboard(entry.toString());
+
+      if (this.fileSetting.getValue()) {
+         String timestamp = LocalDateTime.now().format(timestampFormatter);
+         String retainedEntry = entry.append(" | ").append(timestamp).toString();
+         try {
+            ClientAccess.executorService.submit(() -> this.appendRetainedEntry(retainedEntry));
+         } catch (java.util.concurrent.RejectedExecutionException rejected) {
+            ClientAccess.logger.warn("Could not schedule coordinate log write", rejected);
          }
       }
    }

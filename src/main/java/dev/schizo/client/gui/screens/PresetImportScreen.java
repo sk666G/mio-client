@@ -15,6 +15,9 @@ import dev.schizo.client.gui.panels.Panel;
 import dev.schizo.client.gui.components.ActionButtonComponent;
 import dev.schizo.client.gui.components.ButtonComponent;
 import dev.schizo.client.config.EnumJsonConverter;
+import dev.schizo.client.config.ConfigFileReader;
+import dev.schizo.client.config.PresetData;
+import dev.schizo.client.config.PresetNameValidator;
 import dev.schizo.client.settings.options.PresetCategory;
 
 import com.google.gson.JsonElement;
@@ -22,6 +25,8 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -115,12 +120,17 @@ public final class PresetImportScreen extends ClientScreen {
    }
 
    private void importPreset(Path sourcePath, PresetCategory targetCategory) {
-      String fileName = sourcePath.toFile().getName();
-
       try {
-         Files.copy(sourcePath, targetCategory.getDirectory().resolve(fileName));
-      } catch (IOException copyFailure) {
-         copyFailure.printStackTrace();
+         JsonObject presetObject = this.readPresetObject(sourcePath);
+         PresetData preset = new PresetData(this.getPresetName(sourcePath), presetObject);
+         Path target = PresetNameValidator.resolve(targetCategory.getDirectory(), preset.getName());
+         if (Files.exists(target, LinkOption.NOFOLLOW_LINKS)) {
+            throw new FileAlreadyExistsException(target.toString());
+         }
+         preset.saveToDirectory(targetCategory.getDirectory());
+      } catch (IOException | RuntimeException copyFailure) {
+         ClientAccess.logger.warn("Could not import dropped preset {}", sourcePath, copyFailure);
+         return;
       }
 
       ClientContext.configurationManager
@@ -131,22 +141,35 @@ public final class PresetImportScreen extends ClientScreen {
       );
    }
 
+   private JsonObject readPresetObject(Path sourcePath) throws IOException {
+      if (Files.isSymbolicLink(sourcePath)
+         || !Files.isRegularFile(sourcePath, LinkOption.NOFOLLOW_LINKS)) {
+         throw new IOException("Dropped preset is not a regular file");
+      }
+      String jsonText = ConfigFileReader.readUtf8(sourcePath, PresetData.MAX_PRESET_BYTES);
+      JsonElement parsedJson;
+      try {
+         parsedJson = JsonParser.parseString(jsonText);
+      } catch (RuntimeException malformed) {
+         throw new IOException("Dropped preset is not valid JSON", malformed);
+      }
+      if (!parsedJson.isJsonObject()) {
+         throw new IOException("Dropped preset must contain a JSON object");
+      }
+      return parsedJson.getAsJsonObject();
+   }
+
    private PresetCategory readPresetCategory(Path sourcePath) {
       try {
-         String jsonText = Files.readString(sourcePath);
-         JsonElement parsedJson = JsonParser.parseString(jsonText);
-         if (!parsedJson.isJsonObject()) {
-            return null;
-         }
-
-         JsonObject jsonObject = parsedJson.getAsJsonObject();
+         JsonObject jsonObject = this.readPresetObject(sourcePath);
          if (!jsonObject.has("category")) {
             return null;
          }
 
          String categoryName = jsonObject.get("category").getAsString();
          return PresetCategory.findByName(categoryName);
-      } catch (IOException readFailure) {
+      } catch (IOException | RuntimeException readFailure) {
+         ClientAccess.logger.debug("Could not infer dropped preset category from {}", sourcePath, readFailure);
          return null;
       }
    }
