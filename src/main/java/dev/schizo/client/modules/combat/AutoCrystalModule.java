@@ -244,14 +244,6 @@ public class AutoCrystalModule extends Module {
    public LivingEntity target;
    public LivingEntity previousTarget;
    private Vec3 eyePosition;
-   static {
-      speedMine = (SpeedMineModule)ClientContext.getModule(SpeedMineModule.class);
-      antiCheat = (AntiCheatModule)ClientContext.getModule(AntiCheatModule.class);
-      anchorAura = (AnchorAuraModule)ClientContext.getModule(AnchorAuraModule.class);
-      aura = (AuraModule)ClientContext.getModule(AuraModule.class);
-      autoExp = (AutoExpModule)ClientContext.getModule(AutoExpModule.class);
-   }
-
    @Override
    public String getInfo() {
       if (this.target != null) {

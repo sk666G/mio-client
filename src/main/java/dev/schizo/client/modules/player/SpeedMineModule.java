@@ -107,14 +107,14 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 public class SpeedMineModule extends Module {
-   private static AutoExpModule autoExpModule = (AutoExpModule)ClientContext.getModule(AutoExpModule.class);
-   private static AutoCrystalModule autoCrystalModule = (AutoCrystalModule)ClientContext.getModule(AutoCrystalModule.class);
-   private static AutoMineModule autoMineModule = (AutoMineModule)ClientContext.getModule(AutoMineModule.class);
-   private static NoGlitchBlocksModule noGlitchBlocksModule = (NoGlitchBlocksModule)ClientContext.getModule(NoGlitchBlocksModule.class);
-   private static ItemSaverModule itemSaverModule = (ItemSaverModule)ClientContext.getModule(ItemSaverModule.class);
-   private static LogoutSpotsModule logoutSpotsModule = (LogoutSpotsModule)ClientContext.getModule(LogoutSpotsModule.class);
-   private static MultiTaskModule multiTaskModule = (MultiTaskModule)ClientContext.getModule(MultiTaskModule.class);
-   private static AnchorAuraModule anchorAuraModule = (AnchorAuraModule)ClientContext.getModule(AnchorAuraModule.class);
+   private static AutoExpModule autoExpModule;
+   private static AutoCrystalModule autoCrystalModule;
+   private static AutoMineModule autoMineModule;
+   private static NoGlitchBlocksModule noGlitchBlocksModule;
+   private static ItemSaverModule itemSaverModule;
+   private static LogoutSpotsModule logoutSpotsModule;
+   private static MultiTaskModule multiTaskModule;
+   private static AnchorAuraModule anchorAuraModule;
    public static boolean automatedMiningStart;
    protected final Setting<Set<Block>> blocksSetting;
    public final Setting<ListFilterMode> modeSetting;

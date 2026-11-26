@@ -57,7 +57,7 @@ public class ChestSearchController {
    private static final int NO_MATCH_TEXT_COLOR = 0xFFFF5555;
    private static final boolean replaymodLoaded;
    public static final ChestSearchController INSTANCE = new ChestSearchController();
-   private static ChestSearchBarModule chestSearchBarModule = ClientContext.getModule(ChestSearchBarModule.class);
+   private static ChestSearchBarModule chestSearchBarModule;
    public static EditBox searchBox;
    public static String text = "";
    public static int matchedSlotCount = 0;

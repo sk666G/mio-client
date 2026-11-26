@@ -49,11 +49,6 @@ public class KeyPearlModule extends Module {
    private final Setting<Boolean> disableOnElytraSetting;
    private final Setting<Boolean> disableOnRidingSetting;
    private final Setting<Boolean> awaitSetting;
-
-   static {
-      elytrafly = (ElytraFlyModule)ClientContext.getModule(ElytraFlyModule.class);
-   }
-
    @Override
    public void onEnable() {
       if (this.isWorldUnavailable()) {

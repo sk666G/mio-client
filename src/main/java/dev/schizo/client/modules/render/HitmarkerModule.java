@@ -106,12 +106,6 @@ public class HitmarkerModule extends Module {
       }
       return TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - this.lastHitNanos);
    }
-
-   static {
-
-      crosshair = (CrosshairModule)ClientContext.getModule(CrosshairModule.class);
-   }
-
    @Override
    public void onToggle() {
 

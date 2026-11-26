@@ -146,11 +146,6 @@ public class ChamsModule extends Module {
 
       SHINE_TEXTURE = Identifier.fromNamespaceAndPath("schizo-mount", "textures/shine.png");
       GLINT_COLOR_VECTOR = new Vector3f(1.0F, 1.0F, 1.0F);
-      autoCrystalModule = (AutoCrystalModule)ClientContext.getModule(AutoCrystalModule.class);
-      noRenderModule = (NoRenderModule)ClientContext.getModule(NoRenderModule.class);
-      animationsModule = (AnimationsModule)ClientContext.getModule(AnimationsModule.class);
-      freecamModule = (FreecamModule)ClientContext.getModule(FreecamModule.class);
-      colorsModule = (ColorsModule)ClientContext.getModule(ColorsModule.class);
       renderingShineModels = false;
       renderingGlintBatch = false;
    }
