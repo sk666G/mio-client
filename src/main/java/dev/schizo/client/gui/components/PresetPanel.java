@@ -154,7 +154,9 @@ public class PresetPanel extends Panel {
                   this,
                   "Load",
                   () -> {
-                     PresetUndoAction action = PresetUndoAction.beforeLoad(this.selectedPreset.getName());
+                     PresetUndoAction action = PresetUndoAction.beforeLoad(
+                        this.categorySetting.getValue(), this.selectedPreset.getName()
+                     );
                      if (this.getSelectedCategoryPresets().applyPreset(this.selectedPreset.getName())) {
                         ClientContext.configurationManager.getPresetUndoState().push(action);
                      }
