@@ -366,19 +366,15 @@ public final class UIModule extends Module {
       Setting<Boolean> gamesCallbackSetting = this.gamesSetting;
       Runnable gamesChangeCallback = () -> {
          ClickGuiScreen screen = ClientContext.clickGui;
+         if (screen == null || screen.isGamePanelUnlocked()) {
+            return;
+         }
 
-         if (!screen.isGamePanelUnlocked()) {
-            screen = ClientContext.clickGui;
-
-            ArrayList gamePanels = screen.getPanels();
-            Predicate<Panel> gamePanelPredicate = panel -> panel.getName().equals("Game");
-            gamePanels.removeIf(gamePanelPredicate);
-            Setting<Boolean> games = this.gamesSetting;
-            if (games.getValue()) {
-               screen = ClientContext.clickGui;
-
-               screen.addGamePanel();
-            }
+         ArrayList gamePanels = screen.getPanels();
+         Predicate<Panel> gamePanelPredicate = panel -> panel.getName().equals("Game");
+         gamePanels.removeIf(gamePanelPredicate);
+         if (this.gamesSetting.getValue()) {
+            screen.addGamePanel();
          }
       };
       gamesCallbackSetting.setChangeCallback(gamesChangeCallback);
