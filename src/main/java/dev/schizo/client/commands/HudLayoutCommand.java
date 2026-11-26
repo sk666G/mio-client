@@ -30,6 +30,18 @@ public final class HudLayoutCommand extends Command {
 
    @Override
    public void exec(LiteralArgumentBuilder root) {
+      root.then(literal("preview").then(argument("name", StringArgumentType.string()).executes(context -> {
+         try {
+            JsonObject candidate = store().load(StringArgumentType.getString(context, "name"));
+            ClientAccess.schizoMinecraft.execute(() -> ClientAccess.schizoMinecraft.setScreen(
+               new dev.schizo.client.gui.screens.HudLayoutPreviewScreen(candidate)));
+            return 1;
+         } catch (IOException | IllegalArgumentException failure) {
+            ClientAccess.logger.warn("Could not preview HUD layout", failure);
+            ChatUtils.printChat(Component.literal("Could not preview HUD layout."), ChatUtils.DEFAULT_SIGNATURE);
+            return 0;
+         }
+      })));
       root.then(literal("list").executes(context -> listLayouts()));
       root.then(literal("save").then(argument("name", StringArgumentType.string())
          .executes(context -> saveLayout(context))));

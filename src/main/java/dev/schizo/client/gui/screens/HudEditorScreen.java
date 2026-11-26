@@ -173,6 +173,10 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
 
    /** Validates a saved layout completely before changing the live widget groups. */
    public void applyLayoutPreset(JsonObject layout) {
+      this.applyLayoutPreset(layout, true);
+   }
+
+   private void applyLayoutPreset(JsonObject layout, boolean recordHistory) {
       if (layout == null || !layout.has("version") || !layout.get("version").isJsonPrimitive()
          || !layout.get("version").getAsJsonPrimitive().isNumber()
          || layout.get("version").getAsDouble() != HudLayoutStore.CURRENT_SCHEMA_VERSION
@@ -236,9 +240,33 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
          }
       }
 
-      this.beginLayoutEdit();
-      this.restoreLayout(new LayoutSnapshot(List.copyOf(restoredStates)));
-      this.finishLayoutEdit();
+      if (recordHistory) this.beginLayoutEdit();
+      try {
+         this.restoreLayout(new LayoutSnapshot(List.copyOf(restoredStates)));
+      } catch (RuntimeException failure) {
+         try { this.restoreLayout(current); }
+         catch (RuntimeException rollback) { failure.addSuppressed(rollback); }
+         if (recordHistory) this.layoutHistory.cancelEdit();
+         throw failure;
+      }
+      if (recordHistory) this.finishLayoutEdit();
+   }
+
+   public LayoutPreview beginLayoutPreview(JsonObject layout) {
+      this.cancelPendingLayoutGesture();
+      LayoutSnapshot before = this.captureLayout();
+      this.applyLayoutPreset(layout, false);
+      return new LayoutPreview(new HudLayoutPreview<>(before, this.captureLayout()));
+   }
+
+   public final class LayoutPreview {
+      private final HudLayoutPreview<LayoutSnapshot> preview;
+      private LayoutPreview(HudLayoutPreview<LayoutSnapshot> preview) { this.preview = preview; }
+      public boolean commit() { return this.preview.commit(captureLayout(), layoutHistory); }
+      public void cancel() {
+         LayoutSnapshot previous = this.preview.cancel(captureLayout());
+         if (previous != null) restoreLayout(previous);
+      }
    }
 
    private static String readRequiredString(JsonObject object, String key) {
