@@ -150,11 +150,11 @@ public final class ClientInitializer {
          }
       }
       ClientAccess.eventBus.post(new ClientInitializationEvent());
-      ClientContext.soundManager.reload();
       ClientContext.configurationManager = new ConfigurationManager();
       ConfigurationManager configuration = ClientContext.configurationManager;
       CustomItemRegistries.initialize();
       configuration.load();
+      ClientContext.soundManager.reload();
       this.clientInitialized = true;
       SchizoClient.LOGGER.info("Schizo client initialization completed.");
    }

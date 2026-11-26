@@ -15,6 +15,7 @@ import dev.schizo.client.utils.collections.NamedIdentifier;
 
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.audio.OfflineSoundAssets;
+import dev.schizo.client.config.ConfigPathGuard;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -42,7 +43,6 @@ public final class SoundManager implements ClientAccess {
    private volatile Map<Integer, List<SoundClip>> killstreakSounds = Map.of();
 
    public SoundManager() {
-      OfflineSoundAssets.installKillstreaks(ConfigurationManager.SOUNDS_DIRECTORY.resolve("killstreaks"));
    }
 
    public Set<NamedIdentifier> getSoundIds() {
@@ -101,17 +101,8 @@ public final class SoundManager implements ClientAccess {
    }
 
    private boolean ensureSafeSoundDirectory(Path directory) throws IOException {
-      if (Files.exists(directory, LinkOption.NOFOLLOW_LINKS)) {
-         if (Files.isSymbolicLink(directory)
-            || !Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS)) {
-            LOGGER.warn("Skipping unsafe sound directory {}", directory.getFileName());
-            return false;
-         }
-         return true;
-      }
-      Files.createDirectories(directory);
-      return !Files.isSymbolicLink(directory)
-         && Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS);
+      ConfigPathGuard.ensureDirectory(ConfigurationManager.ROOT_DIRECTORY, directory);
+      return true;
    }
 
    private boolean isSafeSoundFile(Path file) {
@@ -128,9 +119,18 @@ public final class SoundManager implements ClientAccess {
    }
 
    public void reload() {
+      Path killstreakDirectory = ConfigurationManager.SOUNDS_DIRECTORY.resolve("killstreaks");
+      try {
+         if (this.ensureSafeSoundDirectory(ConfigurationManager.SOUNDS_DIRECTORY)) {
+            OfflineSoundAssets.installKillstreaks(ConfigurationManager.SOUNDS_DIRECTORY, killstreakDirectory);
+         }
+      } catch (IOException failure) {
+         LOGGER.warn("Could not prepare offline killstreak sounds", failure);
+      }
+
       Map<Integer, List<SoundClip>> streaks = new HashMap<>();
       for (int index = 0; index < KILLSTREAK_DIRECTORIES.size(); index++) {
-         Path directory = ConfigurationManager.SOUNDS_DIRECTORY.resolve("killstreaks").resolve(KILLSTREAK_DIRECTORIES.get(index));
+         Path directory = killstreakDirectory.resolve(KILLSTREAK_DIRECTORIES.get(index));
          streaks.put(index + 2, loadDirectory(directory));
       }
       this.killstreakSounds = Map.copyOf(streaks);
