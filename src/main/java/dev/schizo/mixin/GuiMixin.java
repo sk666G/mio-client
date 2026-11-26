@@ -41,17 +41,8 @@ public class GuiMixin {
    private static ExtraTabModule extraTabModule() {
       return MixinModuleRegistry.getModule(ExtraTabModule.class);
    }
-   private static HUDModule hudModule() {
-      return MixinModuleRegistry.getModule(HUDModule.class);
-   }
-   private static NoRenderModule noRenderModule() {
-      return MixinModuleRegistry.getModule(NoRenderModule.class);
-   }
    private static CrosshairModule crosshair() {
       return MixinModuleRegistry.getModule(CrosshairModule.class);
-   }
-   private static NoHitDelayModule noHitDelayModule() {
-      return MixinModuleRegistry.getModule(NoHitDelayModule.class);
    }
    @Shadow
    @Final
@@ -69,8 +60,8 @@ public class GuiMixin {
 
    @Inject(method = "renderSelectedItemName", at = @At("HEAD"), cancellable = true)
    private void suppressHeldItemTooltip(GuiGraphics graphics, CallbackInfo callback) {
-      if (noRenderModule().isToggled()
-         && noRenderModule().heldTooltipsSetting.getValue()) {
+      if (MixinModuleRegistry.gameNoRender.isToggled()
+         && MixinModuleRegistry.gameNoRender.heldTooltipsSetting.getValue()) {
          callback.cancel();
       }
    }
@@ -79,8 +70,8 @@ public class GuiMixin {
    private void suppressEffectIcons(
       GuiGraphics graphics, DeltaTracker deltaTracker, CallbackInfo callback
    ) {
-      if (hudModule().isToggled()
-         && hudModule().iconsSetting
+      if (MixinModuleRegistry.gameHud.isToggled()
+         && MixinModuleRegistry.gameHud.iconsSetting
                .getValue()
             == HUDModule.EffectIconMode.HIDE) {
          callback.cancel();
@@ -124,14 +115,14 @@ public class GuiMixin {
 
    @ModifyExpressionValue(method = "renderCrosshair", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/OptionInstance;get()Ljava/lang/Object;"))
    public Object suppressCrosshairAttackIndicator(Object originalStatus) {
-      return noHitDelayModule().isToggled() ? AttackIndicatorStatus.OFF : originalStatus;
+      return MixinModuleRegistry.minecraftNoHitDelayModule.isToggled() ? AttackIndicatorStatus.OFF : originalStatus;
    }
 
    @Inject(method = "displayScoreboardSidebar", at = @At("HEAD"), cancellable = true)
    private void suppressScoreboardSidebar(
       GuiGraphics graphics, Objective objective, CallbackInfo callback
    ) {
-      if (noRenderModule().isToggled() && noRenderModule().scoreBoardSetting.getValue()) {
+      if (MixinModuleRegistry.gameNoRender.isToggled() && MixinModuleRegistry.gameNoRender.scoreBoardSetting.getValue()) {
          callback.cancel();
          return;
       }
@@ -139,7 +130,7 @@ public class GuiMixin {
       graphics.pose()
          .translate(
             -Math.max(
-               hudModule().getSafeX()
+               MixinModuleRegistry.gameHud.getSafeX()
                   - 1,
                0
             ),
@@ -158,8 +149,8 @@ public class GuiMixin {
    private void suppressActionBar(
       GuiGraphics graphics, DeltaTracker deltaTracker, CallbackInfo callback
    ) {
-      if (noRenderModule().isToggled()
-         && noRenderModule().actionBarSetting.getValue()) {
+      if (MixinModuleRegistry.gameNoRender.isToggled()
+         && MixinModuleRegistry.gameNoRender.actionBarSetting.getValue()) {
          callback.cancel();
       }
    }
@@ -189,8 +180,8 @@ public class GuiMixin {
       at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/Gui;renderTextureOverlay(Lnet/minecraft/client/gui/GuiGraphics;Lnet/minecraft/resources/Identifier;F)V", ordinal = 0)
    )
    private void applyBlindnessOverlayVisibility(Args arguments) {
-      if (noRenderModule().isToggled()
-         && noRenderModule().blindnessSetting.getValue()) {
+      if (MixinModuleRegistry.gameNoRender.isToggled()
+         && MixinModuleRegistry.gameNoRender.blindnessSetting.getValue()) {
          arguments.set(
             2,
             0.0F
