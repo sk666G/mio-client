@@ -95,9 +95,9 @@ public final class WorldStateManager implements ClientAccess {
 
    private DimensionType dimension = DimensionType.OVERWORLD;
 
-   private ItemStack mainHandSnapshot;
+   private ItemStack mainHandSnapshot = ItemStack.EMPTY;
 
-   private ItemStack offHandSnapshot;
+   private ItemStack offHandSnapshot = ItemStack.EMPTY;
 
    private int chunkRadius;
 
@@ -347,6 +347,10 @@ public final class WorldStateManager implements ClientAccess {
       this.glassUpdateWindows.clear();
       this.unconfirmedBreak = null;
       this.extraBreak = null;
+      this.mainHandSnapshot = ItemStack.EMPTY;
+      this.offHandSnapshot = ItemStack.EMPTY;
+      this.dimension = DimensionType.OVERWORLD;
+      this.chunkRadius = 0;
    }
 
    @EventHandler(priority = 200)
