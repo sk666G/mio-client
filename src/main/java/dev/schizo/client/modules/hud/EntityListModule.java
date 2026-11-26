@@ -162,7 +162,7 @@ public class EntityListModule extends HudWidgetModule {
 
    @Override
    public void renderContent(PoseStack poses) {
-      float hudScale = hud.getTextScale();
+      float hudScale = hud().getTextScale();
       float y = this.renderer
             .getContentY(
                FontRenderer.INSTANCE

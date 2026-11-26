@@ -167,7 +167,7 @@ public class IndicatorModule extends HudWidgetModule {
          if (horizontal) width += (count - 1) * 4.0F;
          else height += (count - 1) * 4.0F;
       }
-      float scale = hud.getTextScale();
+      float scale = hud().getTextScale();
       return this.dimensions(width * scale, height * scale);
    }
 
@@ -177,7 +177,7 @@ public class IndicatorModule extends HudWidgetModule {
       this.warpChargeAnimation.setTarget(warp().getCharge(), 100L);
       poses.pushPose();
       try {
-         float scale = hud.getTextScale();
+         float scale = hud().getTextScale();
          poses.scale(scale, scale, 1.0F);
          float x = 0.0F;
          float y = 0.0F;

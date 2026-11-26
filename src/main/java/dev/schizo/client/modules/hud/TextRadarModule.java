@@ -345,7 +345,7 @@ public class TextRadarModule extends HudWidgetModule {
          headSpacing = 1.0F;
       }
 
-      float hudScale = hud.getTextScale();
+      float hudScale = hud().getTextScale();
       float rowY = this.renderer
             .getContentY(
                FontRenderer.INSTANCE

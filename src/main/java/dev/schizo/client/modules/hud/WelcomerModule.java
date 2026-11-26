@@ -141,7 +141,7 @@ public class WelcomerModule extends HudWidgetModule {
    public float[] calculateDimensions() {
       float maximumWidth = 0.0F;
       float accumulatedProgress = 0.0F;
-      float hudScale = hud.getTextScale();
+      float hudScale = hud().getTextScale();
 
       for (int index = this.notifications.size() - 1;
          index >= 0;
@@ -256,7 +256,7 @@ public class WelcomerModule extends HudWidgetModule {
          }
       );
       float[] dimensions = this.calculateDimensions();
-      float hudScale = hud.getTextScale();
+      float hudScale = hud().getTextScale();
       float accumulatedProgress = 0.0F;
 
       for (int index = this.notifications.size() - 1;
