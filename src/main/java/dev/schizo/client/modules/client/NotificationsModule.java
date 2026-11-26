@@ -19,6 +19,7 @@ import dev.schizo.client.events.ModuleToggleEvent;
 import dev.schizo.client.utils.chat.ChatUtils;
 import dev.schizo.client.managers.ConfigurationManager;
 import dev.schizo.client.config.ConfigFileReader;
+import dev.schizo.client.config.ConfigPathGuard;
 import dev.schizo.client.modules.Module;
 import dev.schizo.client.modules.ModuleCategory;
 import dev.schizo.client.settings.BooleanSetting;
@@ -309,6 +310,18 @@ public class NotificationsModule extends Module {
       return notifications.commandsSetting.getValue();
    }
 
+   static Path resolveTotemMessagePath(Path root, String selectedPath) throws IOException {
+      Path messagePath = ConfigPathGuard.resolveForRead(root, selectedPath);
+      if (!Files.exists(messagePath, LinkOption.NOFOLLOW_LINKS)
+         && !selectedPath.endsWith(".txt")) {
+         messagePath = ConfigPathGuard.resolveForRead(root, selectedPath + ".txt");
+      }
+      if (!Files.isRegularFile(messagePath, LinkOption.NOFOLLOW_LINKS)) {
+         throw new IOException("Totem message path is not a regular file");
+      }
+      return messagePath;
+   }
+
    private void reloadTotemMessages() {
       String selectedPath = this.pathSetting.getValue();
       long expectedGeneration = ++this.totemGeneration;
@@ -318,21 +331,7 @@ public class NotificationsModule extends Module {
             Exception failure = null;
             try {
                Path root = ConfigurationManager.ROOT_DIRECTORY.toAbsolutePath().normalize();
-               Path requested = root.resolve(selectedPath).normalize();
-               if (!requested.startsWith(root)) {
-                  throw new IOException("Totem message path escapes the client data directory");
-               }
-
-               Path messagePath = requested;
-               if (!Files.exists(messagePath, LinkOption.NOFOLLOW_LINKS)
-                  && !selectedPath.endsWith(".txt")) {
-                  messagePath = Path.of(requested.toString() + ".txt").normalize();
-               }
-               if (!messagePath.startsWith(root)
-                  || Files.isSymbolicLink(messagePath)
-                  || !Files.isRegularFile(messagePath, LinkOption.NOFOLLOW_LINKS)) {
-                  throw new IOException("Totem message path is not a regular file");
-               }
+               Path messagePath = resolveTotemMessagePath(root, selectedPath);
 
                String text = ConfigFileReader.readUtf8(
                   messagePath, MAX_TOTEM_MESSAGE_FILE_BYTES
