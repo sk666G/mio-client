@@ -8,9 +8,18 @@ import dev.schizo.client.events.MinecraftDisconnectEvent;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.SharedConstants;
+import net.minecraft.server.Bootstrap;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 class WorldStateManagerSessionTest {
+   @BeforeAll
+   static void bootstrapMinecraftRegistries() {
+      SharedConstants.tryDetectVersion();
+      Bootstrap.bootStrap();
+   }
+
    @Test
    void disconnectClearsHandSnapshotsAndChunkRadius() throws Exception {
       WorldStateManager manager = new WorldStateManager();
