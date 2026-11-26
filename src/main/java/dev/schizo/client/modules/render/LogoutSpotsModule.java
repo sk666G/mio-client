@@ -385,168 +385,111 @@ public class LogoutSpotsModule extends Module {
    @EventHandler
    private void onRenderWorld(WorldRenderEvent.Main event) {
       GuiDrawUtils.flush();
-      LineMeshRenderer.begin(event, this.tracerWidthSetting.getValue());
+
+      float tracerWidth = this.tracerWidthSetting.getValue();
+      LineMeshRenderer.begin(event, tracerWidth);
+
+      String currentServerAddress = getCurrentServerAddress();
+      DimensionType currentDimension = WorldUtils.getDimension();
+      Vec3 cameraPosition = ClientAccess.schizoMinecraft.gameRenderer.getMainCamera().position();
+      float maximumDistance = this.distanceSetting.getValue();
+      boolean unlimitedDistance = maximumDistance == 301.0F;
+      ModelChoice modelChoice = this.modelSetting.getValue();
+      boolean renderSimpleModel = modelChoice == ModelChoice.SIMPLE || modelChoice == ModelChoice.BOTH;
+      boolean renderComplexModel = modelChoice == ModelChoice.COMPLEX || modelChoice == ModelChoice.BOTH;
+      boolean renderTexturedModel = renderComplexModel && this.texturedSetting.getValue();
+      boolean drawTracer = this.tracerSetting.getValue();
+      boolean drawNameTag = this.nameTagSetting.getValue();
+      float modelWidth = this.modelWidthSetting.getValue();
+      Color modelLineColor = this.modelLineSetting.getValue();
+      Color modelFillColor = this.modelFillSetting.getValue();
+      Color boxFillColor = this.boxFillSetting.getValue();
+      Color boxLineColor = this.boxLineSetting.getValue();
+      Color nameTagColor = this.nameTagColorSetting.getValue();
+      Color nameTagFillColor = this.fillColorSetting.getValue();
+      float textScaleValue = this.textScaleSetting.getValue();
+      float texturedAlpha = this.alphaSetting.getValue();
+      float fontOffset = fontsModule.isToggled() ? 1.0F : 0.0F;
+      PoseStack poses = event.getPoseStack();
+
       synchronized (this.spotsByName) {
          ObjectIterator<Entry<String, LogoutSpot>> spotIterator = this.spotsByName.entrySet().iterator();
 
          while (spotIterator.hasNext()) {
             Entry<String, LogoutSpot> entry = spotIterator.next();
-            LogoutSpotsModule.LogoutSpot serverSpot = entry.getValue();
-            String savedServerAddress = serverSpot.serverAddress();
+            LogoutSpot spot = entry.getValue();
+            if (spot == null
+               || !spot.serverAddress().equals(currentServerAddress)
+               || spot.dimension() != currentDimension) {
+               continue;
+            }
 
-            if (savedServerAddress.equals(getCurrentServerAddress())) {
-               LogoutSpotsModule.LogoutSpot dimensionSpot = entry.getValue();
-               DimensionType dimension = dimensionSpot.dimension();
+            AABB bounds = spot.boundingBox();
+            Vec3 center = bounds.getCenter();
+            double distance = center.distanceTo(cameraPosition);
+            if (!unlimitedDistance && distance > maximumDistance) {
+               continue;
+            }
 
-               if (dimension == WorldUtils.getDimension()) {
-                  AABB distanceBox = entry.getValue().boundingBox;
-                  Vec3 capturedBoxCenter = distanceBox.getCenter();
-                  Vec3 cameraPosition = (ClientAccess.schizoMinecraft.gameRenderer.getMainCamera()).position();
-                  double distance = capturedBoxCenter.distanceTo(cameraPosition);
-                  Float maximumDistance = this.distanceSetting.getValue();
-                  if (distance > maximumDistance.floatValue()) {
-                     float distanceSentinel = (this.distanceSetting.getValue());
+            if (renderSimpleModel) {
+               WorldBoxRenderer.fillBox(poses, bounds, boxFillColor);
+               WorldBoxRenderer.outlineBox(poses, bounds, boxLineColor, modelWidth);
+            }
 
-                     if (distanceSentinel != 301.0F) {
-                        continue;
-                     }
-                  }
-
-                  PoseStack poses = event.getPoseStack();
-                  Setting<ModelChoice> simpleModelOption = this.modelSetting;
-                  if (simpleModelOption.getValue() == LogoutSpotsModule.ModelChoice.SIMPLE
-                     || this.modelSetting.getValue() == LogoutSpotsModule.ModelChoice.BOTH) {
-                     LogoutSpotsModule.LogoutSpot boxFillSpot = entry.getValue();
-                     AABB fillBox = boxFillSpot.boundingBox();
-                     Setting<Color> boxFillOption = this.boxFillSetting;
-                     WorldBoxRenderer.fillBox(
-                        poses, fillBox, boxFillOption.getValue()
+            if (renderComplexModel) {
+               SidePlayer playerModel = spot.playerModel();
+               if (renderTexturedModel) {
+                  renderingTexturedModel = true;
+                  try {
+                     RenderUtils.setRenderColor(1.0F, 1.0F, 1.0F, texturedAlpha);
+                     RenderBuffers renderBuffers = ClientAccess.schizoMinecraft.renderBuffers();
+                     RenderUtils.INSTANCE.renderEntity(
+                        playerModel, 1.0F, poses, renderBuffers.bufferSource()
                      );
-                     LogoutSpotsModule.LogoutSpot boxLineSpot = entry.getValue();
-                     AABB lineBox = boxLineSpot.boundingBox();
-                     Color boxLineColor = this.boxLineSetting.getValue();
-                     Float boxWidth = this.modelWidthSetting.getValue();
-                     WorldBoxRenderer.outlineBox(
-                        poses, lineBox, boxLineColor, boxWidth
-                     );
-                  }
-
-                  Setting<ModelChoice> complexModelOption = this.modelSetting;
-                  if (complexModelOption.getValue() == LogoutSpotsModule.ModelChoice.COMPLEX
-                     || this.modelSetting.getValue() == LogoutSpotsModule.ModelChoice.BOTH) {
-                     LogoutSpotsModule.LogoutSpot modelSpot = entry.getValue();
-                     SidePlayer playerModel = modelSpot.playerModel();
-                     Boolean textured = this.texturedSetting.getValue();
-                     if (textured) {
-                        renderingTexturedModel = true;
-                        try {
-                           Float alpha = this.alphaSetting.getValue();
-                           RenderUtils.setRenderColor(1.0F, 1.0F, 1.0F, alpha);
-                           RenderUtils modelRenderer = RenderUtils.INSTANCE;
-                           RenderBuffers renderBuffers = ClientAccess.schizoMinecraft.renderBuffers();
-                           modelRenderer.renderEntity(
-                              playerModel, 1.0F, poses, renderBuffers.bufferSource()
-                           );
-                           RenderUtils.INSTANCE.flushEntities();
-                        } finally {
-                           RenderUtils.setRenderColor(1.0F, 1.0F, 1.0F, 1.0F);
-                           renderingTexturedModel = false;
-                        }
-                     }
-
-                     Float modelWidth = this.modelWidthSetting.getValue();
-                     EntityChamsRenderer.setLineWidth(modelWidth.floatValue());
-                     Color modelLineColor = this.modelLineSetting.getValue();
-                     Setting<Color> modelFillOption = this.modelFillSetting;
-                     EntityChamsRenderer.setColors(
-                        modelLineColor, modelFillOption.getValue()
-                     );
-                     EntityChamsRenderer.renderEntity(poses, playerModel);
-                  }
-
-                  Setting<Boolean> tracerOption = this.tracerSetting;
-                  Boolean drawTracer = tracerOption.getValue();
-                  if (drawTracer) {
-                     LogoutSpotsModule.LogoutSpot tracerSpot = entry.getValue();
-                     AABB tracerBox = tracerSpot.boundingBox();
-                     Vec3 tracerPosition = tracerBox.getCenter();
-                     Setting<Color> tracerColorOption = this.modelLineSetting;
-                     LineMeshRenderer.addTracer(
-                        tracerPosition, tracerColorOption.getValue()
-                     );
-                  }
-
-                  Setting<Boolean> nameTagOption = this.nameTagSetting;
-                  Boolean drawNameTag = nameTagOption.getValue();
-                  if (drawNameTag) {
-                     LogoutSpotsModule.LogoutSpot tagCenterSpot = entry.getValue();
-                     AABB tagCenterBox = tagCenterSpot.boundingBox();
-                     Vec3 capturedTagCenter = tagCenterBox.getCenter();
-                     Axis heightAxis = Axis.Y;
-                     LogoutSpotsModule.LogoutSpot tagHeightSpot = entry.getValue();
-                     double tagBoxTop = tagHeightSpot.boundingBox().maxY;
-
-                     double tagHeight = tagBoxTop + 0.5D;
-                     Vec3 tagPosition = capturedTagCenter.with(heightAxis, tagHeight);
-                     AliasRegistry capturedNameResolver = ClientContext.aliasRegistry;
-                     String capturedTagName = entry.getKey();
-                     String label = String.valueOf(capturedNameResolver.getPlayerAlias(capturedTagName)) + " logout spot";
-                     LogoutSpotsModule.LogoutSpot detailsSpot = entry.getValue();
-                     String details = this.formatSpotDetails(detailsSpot);
-                     FontsModule fontModule = fontsModule;
-                     float computedFontOffset;
-                     if (fontModule.isToggled()) {
-
-                        computedFontOffset = 1.0F;
-                     } else {
-                        computedFontOffset = 0.0F;
-                     }
-
-                     float fontOffset = computedFontOffset;
-                     if (!details.isEmpty()) {
-                        String detailsText = String.valueOf(details);
-                        label = "\u0001\u0001"
-                           .replaceFirst("\u0001", Matcher.quoteReplacement(String.valueOf(label)))
-                           .replaceFirst("\u0001", Matcher.quoteReplacement(detailsText));
-                     }
-
-                     GameRenderer tagGameRenderer = ClientAccess.schizoMinecraft.gameRenderer;
-                     Camera tagCamera = tagGameRenderer.getMainCamera();
-                     Vec3 capturedTagCameraPosition = tagCamera.position();
-                     Setting<Float> textScaleOption = this.textScaleSetting;
-                     Float configuredTextScale = textScaleOption.getValue();
-                     double textScaleValue = configuredTextScale.floatValue();
-                     double textScale = MathUtils.getDistanceScale(
-                        capturedTagCameraPosition, tagPosition, textScaleValue
-                     );
-                     RenderUtils backgroundRenderer = RenderUtils.INSTANCE;
-
-                     float backgroundTextWidth = FontRenderer.INSTANCE
-                        .getWidth(label);
-
-                     float backgroundHalfWidth = -(backgroundTextWidth / 2.0F);
-
-                     float backgroundLeft = backgroundHalfWidth - 2.0F;
-
-                     float backgroundVerticalOffset = 5.0F + fontOffset;
-
-                     double backgroundScale = textScale * 2.0D;
-                     Setting<Color> fillColorOption = this.fillColorSetting;
-                     backgroundRenderer.drawWorldRect(
-                        poses, tagPosition, -0.03F, 0.0F, backgroundLeft, backgroundVerticalOffset, backgroundScale, fillColorOption.getValue()
-                     );
-                     RenderUtils textRenderer = RenderUtils.INSTANCE;
-                     float textWidth = FontRenderer.INSTANCE
-                        .getWidth(label);
-
-                     float textLeft = -(textWidth / 2.0F);
-
-                     Setting<Color> nameTagColorOption = this.nameTagColorSetting;
-                     textRenderer.drawWorldText(
-                        poses, label, tagPosition, 0.0F, 0.0F, textLeft, 2.0F, textScale, nameTagColorOption.getValue(), true
-                     );
+                     RenderUtils.INSTANCE.flushEntities();
+                  } finally {
+                     RenderUtils.setRenderColor(1.0F, 1.0F, 1.0F, 1.0F);
+                     renderingTexturedModel = false;
                   }
                }
+
+               EntityChamsRenderer.setLineWidth(modelWidth);
+               EntityChamsRenderer.setColors(modelLineColor, modelFillColor);
+               EntityChamsRenderer.renderEntity(poses, playerModel);
+            }
+
+            if (drawTracer) {
+               LineMeshRenderer.addTracer(center, modelLineColor);
+            }
+
+            if (drawNameTag) {
+               double tagHeight = bounds.maxY + 0.5D;
+               Vec3 tagPosition = center.with(Axis.Y, tagHeight);
+               String label = String.valueOf(ClientContext.aliasRegistry.getPlayerAlias(entry.getKey())) + " logout spot";
+               String details = this.formatSpotDetails(spot);
+               if (!details.isEmpty()) {
+                  label = "\u0001\u0001"
+                     .replaceFirst("\u0001", Matcher.quoteReplacement(label))
+                     .replaceFirst("\u0001", Matcher.quoteReplacement(details));
+               }
+
+               double textScale = MathUtils.getDistanceScale(
+                  cameraPosition, tagPosition, textScaleValue
+               );
+               float textWidth = FontRenderer.INSTANCE.getWidth(label);
+               float textLeft = -(textWidth / 2.0F);
+               float backgroundLeft = textLeft - 2.0F;
+               float backgroundVerticalOffset = 5.0F + fontOffset;
+               double backgroundScale = textScale * 2.0D;
+
+               RenderUtils.INSTANCE.drawWorldRect(
+                  poses, tagPosition, -0.03F, 0.0F, backgroundLeft,
+                  backgroundVerticalOffset, backgroundScale, nameTagFillColor
+               );
+               RenderUtils.INSTANCE.drawWorldText(
+                  poses, label, tagPosition, 0.0F, 0.0F, textLeft,
+                  2.0F, textScale, nameTagColor, true
+               );
             }
          }
       }
