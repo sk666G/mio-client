@@ -37,6 +37,7 @@ import com.mojang.blaze3d.vertex.PoseStack.Pose;
 import com.mojang.blaze3d.vertex.VertexFormat.Mode;
 import java.awt.Color;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
@@ -148,7 +149,7 @@ public class HighlightModule extends Module {
       OUTLINE_BUFFER = MeshBuffer.create(
          8192
       );
-      reach = (ReachModule)ClientContext.getModule(ReachModule.class);
+
    }
 
    private boolean isAirPlaceBlockItem(Item item) {
@@ -318,7 +319,10 @@ public class HighlightModule extends Module {
    }
 
    public static void bindModuleDependencies(ModuleRegistry registry) {
-      reach = (ReachModule)registry.getModule(ReachModule.class);
+      reach = (ReachModule)Objects.requireNonNull(
+         registry.getModule(ReachModule.class),
+         "Required module is not registered: ReachModule"
+      );
    }
 
    public HighlightModule() {

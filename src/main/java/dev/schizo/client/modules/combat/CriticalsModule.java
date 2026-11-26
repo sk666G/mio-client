@@ -33,6 +33,7 @@ import dev.schizo.client.settings.NamedEntry;
 import dev.schizo.client.settings.Setting;
 
 import java.util.function.Predicate;
+import java.util.Objects;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.protocol.game.ServerboundInteractPacket;
 import net.minecraft.tags.ItemTags;
@@ -65,11 +66,6 @@ public class CriticalsModule extends Module {
       float upperBound = MathConstants.NINETY_DEGREES;
       return Math.clamp(pitch, lowerBound, upperBound);
    }
-
-   static {
-      auraModule = (AuraModule)ClientContext.getModule(AuraModule.class);
-   }
-
    @Override
    public String getInfo() {
       return (this.modeSetting.getValue()).getName();
@@ -301,8 +297,9 @@ public class CriticalsModule extends Module {
    }
 
    public static void bindModules(ModuleRegistry registry) {
-      auraModule = (AuraModule)registry.getModule(
-         AuraModule.class
+      auraModule = (AuraModule)Objects.requireNonNull(
+         registry.getModule(AuraModule.class),
+         "Required module is not registered: AuraModule"
       );
    }
 

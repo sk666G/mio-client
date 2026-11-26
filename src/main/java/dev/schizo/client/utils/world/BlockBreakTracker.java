@@ -28,6 +28,7 @@ import dev.schizo.client.settings.Setting;
 import dev.schizo.client.settings.options.SpeedMineRebreakChoice;
 
 import java.util.ArrayList;
+import java.util.Objects;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -103,12 +104,6 @@ public final class BlockBreakTracker implements ClientAccess {
       EventBus eventBus = ClientAccess.eventBus;
       eventBus.subscribe(this);
    }
-
-   static {
-
-      speedMine = ClientContext.getModule(SpeedMineModule.class);
-   }
-
    @EventHandler
    private void onLocalPlayerTickEvent(LocalPlayerTickEvent event) {
       this.entries.removeIf(BlockBreakEntry::isExpired);
@@ -284,8 +279,9 @@ public final class BlockBreakTracker implements ClientAccess {
    }
 
    public static void bindModules(ModuleRegistry modules) {
-      speedMine = (SpeedMineModule)modules.getModule(
-         SpeedMineModule.class
+      speedMine = (SpeedMineModule)Objects.requireNonNull(
+         modules.getModule(SpeedMineModule.class),
+         "Required module is not registered: SpeedMineModule"
       );
    }
 }
