@@ -14,6 +14,7 @@ import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.ScreenChangeEvent;
 import dev.schizo.client.events.ConnectScreenConnectEvent;
 import dev.schizo.client.events.EventHandler;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.managers.ServerStateManager;
 import dev.schizo.client.media.MediaSnapshot;
 import dev.schizo.client.utils.ElapsedTimer;
@@ -73,7 +74,7 @@ public class WelcomerModule extends HudWidgetModule {
    private void updateSmartNotifications() {
       Setting<Boolean> smartOption = this.smartSetting;
       Boolean smartEnabled = smartOption.getValue();
-      if (!smartEnabled || this.isInHudEditor()) {
+      if (!smartEnabled || this.isInHudEditor() || this.isWorldUnavailable()) {
          this.finishLagNotification();
          return;
       }
@@ -345,6 +346,14 @@ public class WelcomerModule extends HudWidgetModule {
       Setting<Boolean> smartOption = this.smartSetting;
       Boolean smartEnabled = smartOption.getValue();
       return smartEnabled && this.overlapsWidget(widget) && !this.isInHudEditor();
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnectEvent(MinecraftDisconnectEvent event) {
+      this.connectionScreenPending = false;
+      this.connectionScreenTimer.reset();
+      this.lastMusicNotificationText = null;
+      this.notifications.removeIf(notification -> !(notification instanceof GreetingNotification));
    }
 
    @EventHandler
