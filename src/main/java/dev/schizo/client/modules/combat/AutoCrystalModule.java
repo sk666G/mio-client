@@ -226,6 +226,7 @@ public class AutoCrystalModule extends Module {
    private final Set ignoredBlocks;
    private AutoCrystalScanState scanState;
    private ClientLevel calculationWorld;
+   private LocalPlayer calculationPlayer;
    protected volatile BlockPos lastPlacedBase;
    protected volatile BlockPos lastAttackedBase;
    protected volatile BlockPos lastForcedBase;
@@ -250,6 +251,17 @@ public class AutoCrystalModule extends Module {
       anchorAura = (AnchorAuraModule)ClientContext.getModule(AnchorAuraModule.class);
       aura = (AuraModule)ClientContext.getModule(AuraModule.class);
       autoExp = (AutoExpModule)ClientContext.getModule(AutoExpModule.class);
+   }
+
+   @Override
+   public String getRuntimeStatus() {
+      if (!this.isToggled() || this.hasPauseReason()) return super.getRuntimeStatus();
+      if (this.isWorldUnavailable()) return "Waiting for world";
+      if (this.scanState != null) {
+         long age = java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - this.scanState.startedNanos);
+         return "Scanning placements - " + age + " ms";
+      }
+      return this.placementData.get() == null ? "No valid placement" : "Placement ready";
    }
 
    @Override
@@ -284,6 +296,7 @@ public class AutoCrystalModule extends Module {
       this.placementData.set(null);
       this.completeCalculation();
       this.calculationWorld = null;
+      this.calculationPlayer = null;
 
       this.swapDelayTimer.reset();
 
@@ -295,6 +308,7 @@ public class AutoCrystalModule extends Module {
    public void onDisable() {
       this.completeCalculation();
       this.calculationWorld = null;
+      this.calculationPlayer = null;
       this.restoreSelectedSlot();
    }
 
@@ -537,7 +551,7 @@ public class AutoCrystalModule extends Module {
       LivingEntity calculatedTarget = calculatedPlacement == null
          ? null
          : calculatedPlacement.target();
-      if (this.calculationWorld != activeLevel
+      if (this.calculationWorld != activeLevel || this.calculationPlayer != ClientAccess.schizoMinecraft.player
          || calculatedPlacement != null
             && (calculatedTarget == null
                || calculatedTarget.level() != activeLevel
@@ -559,6 +573,7 @@ public class AutoCrystalModule extends Module {
 
    private static final class AutoCrystalScanState {
       final ClientLevel world;
+      final long startedNanos = System.nanoTime();
       final Vec3 eyePosition;
       final float placeRange;
       final float selectedCrystalRange;
@@ -1890,6 +1905,7 @@ public class AutoCrystalModule extends Module {
    private void onMinecraftDisconnectEvent(MinecraftDisconnectEvent event) {
       this.completeCalculation();
       this.calculationWorld = null;
+      this.calculationPlayer = null;
       this.placementData.set(null);
       this.rotationTarget.set(null);
       this.target = null;
@@ -2044,9 +2060,10 @@ public class AutoCrystalModule extends Module {
    private void onMinecraftRunTickEvent(MinecraftRunTickEvent event) {
       if (!this.isWorldUnavailable()) {
          ClientLevel activeLevel = ClientAccess.schizoMinecraft.level;
-         if (this.calculationWorld != null && this.calculationWorld != activeLevel) {
+         if (this.calculationWorld != activeLevel || this.calculationPlayer != ClientAccess.schizoMinecraft.player) {
             this.completeCalculation();
             this.calculationWorld = null;
+      this.calculationPlayer = null;
             this.placementData.set(null);
             this.selectedDamage = 0.0F;
             this.target = null;
@@ -2058,6 +2075,7 @@ public class AutoCrystalModule extends Module {
                List<LivingEntity> targets = this.targeting.snapshot();
                this.scanState = this.createPlacementScan(targets, activeLevel);
                this.calculationWorld = activeLevel;
+               this.calculationPlayer = ClientAccess.schizoMinecraft.player;
             }
 
             AutoCrystalScanState activeScan = this.scanState;

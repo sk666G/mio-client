@@ -188,6 +188,8 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
       return true;
    }
 
+   protected final boolean hasPauseReason() { return this.pauseReason != null; }
+
    protected final void clearPauseReason() {
       this.pauseReason = null;
    }

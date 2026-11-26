@@ -103,6 +103,7 @@ public class AnchorAuraModule extends Module {
    private final Setting<Float> healthSetting;
    private AnchorScanState scanState;
    private ClientLevel calculationWorld;
+   private LocalPlayer calculationPlayer;
    private final ElapsedTimer actionTimer;
    public final AtomicReference placementData;
    public AnchorTargetDamage targetDamage;
@@ -121,6 +122,17 @@ public class AnchorAuraModule extends Module {
          return null;
       }
       return offhandFlag ? InteractionHand.OFF_HAND : InteractionHand.MAIN_HAND;
+   }
+
+   @Override
+   public String getRuntimeStatus() {
+      if (!this.isToggled() || this.hasPauseReason()) return super.getRuntimeStatus();
+      if (this.isWorldUnavailable()) return "Waiting for world";
+      if (this.scanState != null) {
+         long age = java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - this.scanState.startedNanos);
+         return "Scanning placements - " + age + " ms";
+      }
+      return this.placementData.get() == null ? "No valid placement" : "Placement ready";
    }
 
    @Override
@@ -155,6 +167,7 @@ public class AnchorAuraModule extends Module {
    private void resetCalculationState() {
       this.completeCalculation();
       this.calculationWorld = null;
+      this.calculationPlayer = null;
       this.placementData.set(null);
       this.targetDamage = null;
    }
@@ -628,7 +641,8 @@ public class AnchorAuraModule extends Module {
       Player completedTarget = completedDamage == null ? null : completedDamage.target();
       double validationRange = this.targetRangeSetting.getValue().doubleValue();
 
-      if (completedPlacement == null
+      if (this.calculationPlayer != ClientAccess.schizoMinecraft.player
+         || completedPlacement == null
          || completedTarget == null
          || completedTarget.level() != activeLevel
          || completedTarget.isRemoved()
@@ -645,9 +659,10 @@ public class AnchorAuraModule extends Module {
 
    private void updateCalculation() {
       ClientLevel activeLevel = ClientAccess.schizoMinecraft.level;
-      if (this.calculationWorld != activeLevel) {
+      if (this.calculationWorld != activeLevel || this.calculationPlayer != ClientAccess.schizoMinecraft.player) {
          this.completeCalculation();
          this.calculationWorld = activeLevel;
+         this.calculationPlayer = ClientAccess.schizoMinecraft.player;
          this.placementData.set(null);
          this.targetDamage = null;
       }
@@ -700,6 +715,7 @@ public class AnchorAuraModule extends Module {
 
    private static final class AnchorScanState {
       final ClientLevel world;
+      final long startedNanos = System.nanoTime();
       final double originX;
       final double originY;
       final double originZ;
