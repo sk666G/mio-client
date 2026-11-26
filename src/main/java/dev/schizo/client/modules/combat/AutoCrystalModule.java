@@ -2062,8 +2062,8 @@ public class AutoCrystalModule extends Module {
          ClientLevel activeLevel = ClientAccess.schizoMinecraft.level;
          if (this.calculationWorld != activeLevel || this.calculationPlayer != ClientAccess.schizoMinecraft.player) {
             this.completeCalculation();
-            this.calculationWorld = null;
-      this.calculationPlayer = null;
+            this.calculationWorld = activeLevel;
+            this.calculationPlayer = ClientAccess.schizoMinecraft.player;
             this.placementData.set(null);
             this.selectedDamage = 0.0F;
             this.target = null;
