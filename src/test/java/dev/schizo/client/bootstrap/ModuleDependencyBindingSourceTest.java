@@ -20,7 +20,7 @@ class ModuleDependencyBindingSourceTest {
       "registerModule\\(\\s*new\\s+(?:dev\\.schizo\\.client\\.modules(?:\\.[\\w$]+)*\\.)?([A-Za-z_$][\\w$]*)\\s*\\("
    );
    private static final Pattern STATIC_FIELD_MODULE_LOOKUP = Pattern.compile(
-      "(?s)\\bstatic\\s+(?:(?:final|volatile|transient)\\s+)*[^;{}=]+\\s+[A-Za-z_$][\\w$]*\\s*=\\s*ClientContext\\.getModule\\("
+      "(?m)^\\s*(?:(?:public|protected|private)\\s+)?static\\s+[^;{}=]+=[^;\\n]*ClientContext\\.getModule\\("
    );
    private static final Pattern STATIC_BLOCK_START = Pattern.compile("\\bstatic\\s*\\{");
 

@@ -63,7 +63,9 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
       GLFW.GLFW_KEY_B, GLFW.GLFW_KEY_A
    };
 
-   private static final HUDModule HUD = (HUDModule)ClientContext.getModule(HUDModule.class);
+   private static HUDModule hud() {
+      return ClientContext.getModule(HUDModule.class);
+   }
    private SettingComponent<?> editingSetting = null;
    private int secretSequenceIndex = 0;
    private boolean gamePanelUnlocked;
@@ -326,7 +328,7 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
          Color hintColor = ColorUtils.pulse(
             Color.GRAY, Color.WHITE, 2000.0D, 250.0D
          );
-         int hudMargin = HUD.getSafeX();
+         int hudMargin = hud().getSafeX();
          FontRenderer.INSTANCE
             .drawWithShadow(
                poseStack,
