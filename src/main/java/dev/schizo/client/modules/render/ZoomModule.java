@@ -33,6 +33,8 @@ public class ZoomModule extends Module {
    private final Setting<Integer> amountSetting;
    private final ZoomOptionsUpdater optionsUpdater;
    protected int baselineFov;
+   protected int lastAppliedFov;
+   protected boolean fovOverrideApplied;
    protected boolean savedSmoothCamera;
    protected boolean smoothCameraCaptured;
    protected boolean smoothCameraOverrideApplied;
@@ -76,6 +78,7 @@ public class ZoomModule extends Module {
          Options options = ClientAccess.schizoMinecraft.options;
          OptionInstance fov = options.fov();
          this.baselineFov = ((Integer)fov.get());
+         this.fovOverrideApplied = false;
       }
       FloatAnimation animation = this.zoomAnimation;
       long duration = this.getSmoothingDuration(200);
