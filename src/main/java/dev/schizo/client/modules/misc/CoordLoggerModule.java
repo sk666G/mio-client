@@ -47,6 +47,30 @@ public class CoordLoggerModule extends Module {
    private DimensionType lastDimension;
    private final Object fileWriteLock = new Object();
 
+   record CoordinateSnapshot(int x, int y, int z, DimensionType dimension) {
+   }
+
+   void cacheCoordinates(int x, int y, int z, DimensionType dimension) {
+      this.lastX = x;
+      this.lastY = y;
+      this.lastZ = z;
+      this.lastDimension = dimension;
+   }
+
+   CoordinateSnapshot snapshotCoordinates() {
+      DimensionType dimension = this.lastDimension;
+      return dimension == null
+         ? null
+         : new CoordinateSnapshot(this.lastX, this.lastY, this.lastZ, dimension);
+   }
+
+   void clearCachedCoordinates() {
+      this.lastX = 0;
+      this.lastY = 0;
+      this.lastZ = 0;
+      this.lastDimension = null;
+   }
+
    private void appendRetainedEntry(String entry) {
       Path directory = ConfigurationManager.ROOT_DIRECTORY;
       Path logFile = directory.resolve("coordlogger.txt");
@@ -110,20 +134,27 @@ public class CoordLoggerModule extends Module {
    }
 
    private void saveCoordinates(String reason) {
+      CoordinateSnapshot snapshot = this.snapshotCoordinates();
+      if (snapshot == null) {
+         return;
+      }
+
       if (!ClientAccess.schizoMinecraft.isSameThread()) {
          ClientAccess.schizoMinecraft.executeIfPossible(() -> {
             if (this.isToggled()) {
-               this.saveCoordinates(reason);
+               this.saveCoordinates(snapshot, reason);
             }
          });
          return;
       }
 
-      if (this.lastDimension == null) {
-         return;
-      }
+      this.saveCoordinates(snapshot, reason);
+   }
 
-      String coordinates = "X: %d, Y: %d, Z: %d in The %s".formatted(this.lastX, this.lastY, this.lastZ, this.lastDimension.getDisplayName());
+   private void saveCoordinates(CoordinateSnapshot snapshot, String reason) {
+      String coordinates = "X: %d, Y: %d, Z: %d in The %s".formatted(
+         snapshot.x(), snapshot.y(), snapshot.z(), snapshot.dimension().getDisplayName()
+      );
       StringBuilder entry = new StringBuilder().append(coordinates).append(" | ").append(reason);
       KeyboardHandler keyboard = ClientAccess.schizoMinecraft.keyboardHandler;
       if (!dev.schizo.client.utils.CoordinatePrivacy.isEnabled()) keyboard.setClipboard(entry.toString());
@@ -146,25 +177,24 @@ public class CoordLoggerModule extends Module {
 
    @EventHandler
    private void onDisconnect(MinecraftDisconnectEvent event) {
-      if (ClientAccess.schizoMinecraft.player != null) {
-         Setting<Boolean> disconnectSettingSnapshot = this.disconnectSetting;
-         Boolean saveOnDisconnect = disconnectSettingSnapshot.getValue();
-         if (saveOnDisconnect) {
-
+      try {
+         if (ClientAccess.schizoMinecraft.player != null && this.disconnectSetting.getValue()) {
             this.saveCoordinates("Disconnect");
-            return;
          }
+      } finally {
+         this.clearCachedCoordinates();
       }
    }
 
    @EventHandler
    private void onPlayerTick(LocalPlayerTickEvent event) {
-
       LocalPlayer player = ClientAccess.schizoMinecraft.player;
-      this.lastX = player.getBlockX();
-      this.lastY = player.getBlockY();
-      this.lastZ = player.getBlockZ();
-      this.lastDimension = WorldUtils.getDimension();
+      this.cacheCoordinates(
+         player.getBlockX(),
+         player.getBlockY(),
+         player.getBlockZ(),
+         WorldUtils.getDimension()
+      );
    }
 
    @EventHandler
@@ -179,6 +209,16 @@ public class CoordLoggerModule extends Module {
             this.saveCoordinates("Death");
          }
       }
+   }
+
+   @Override
+   public void onEnable() {
+      this.clearCachedCoordinates();
+   }
+
+   @Override
+   public void onDisable() {
+      this.clearCachedCoordinates();
    }
 
    public CoordLoggerModule() {
