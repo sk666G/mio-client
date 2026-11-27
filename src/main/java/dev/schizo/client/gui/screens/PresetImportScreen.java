@@ -114,7 +114,26 @@ public final class PresetImportScreen extends ClientScreen {
    }
 
    private String getPresetName(Path sourcePath) {
-      return sourcePath.toFile().getName().replace(".json", "");
+      return presetNameFromPath(sourcePath);
+   }
+
+   static boolean isJsonPresetPath(Path path) {
+      if (path == null || path.getFileName() == null) {
+         return false;
+      }
+      String filename = path.getFileName().toString();
+      return filename.length() > 5
+         && filename.regionMatches(true, filename.length() - 5, ".json", 0, 5);
+   }
+
+   static String presetNameFromPath(Path path) {
+      if (path == null || path.getFileName() == null) {
+         throw new IllegalArgumentException("Preset path is required");
+      }
+      String filename = path.getFileName().toString();
+      return isJsonPresetPath(path)
+         ? filename.substring(0, filename.length() - 5)
+         : filename;
    }
 
    private void importPreset(Path sourcePath, PresetCategory targetCategory) {
@@ -169,8 +188,12 @@ public final class PresetImportScreen extends ClientScreen {
    }
 
    public static boolean openForDroppedFiles(Screen previousScreen, List droppedPaths) {
-      ArrayList jsonPaths = new ArrayList();
-      droppedPaths.stream().filter(path -> path.toString().endsWith(".json")).forEach(jsonPaths::add);
+      ArrayList<Path> jsonPaths = new ArrayList<>();
+      droppedPaths.stream()
+         .filter(Path.class::isInstance)
+         .map(Path.class::cast)
+         .filter(PresetImportScreen::isJsonPresetPath)
+         .forEach(jsonPaths::add);
       if (jsonPaths.size() != 1) {
          return false;
       }
