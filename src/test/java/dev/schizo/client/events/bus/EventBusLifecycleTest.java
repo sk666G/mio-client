@@ -107,6 +107,38 @@ class EventBusLifecycleTest {
       assertEquals("IllegalStateException", snapshot.failureType());
    }
 
+   @Test
+   void failingListenerStopsLaterCallbacksInBothDispatchModesWithOrWithoutProfiling() {
+      for (boolean profiling : new boolean[]{false, true}) {
+         for (boolean cancellable : new boolean[]{false, true}) {
+            EventProfiler profiler = new EventProfiler(() -> 0L);
+            if (profiling) profiler.start();
+            EventFailureTracker tracker = new EventFailureTracker(4);
+            EventBus bus = new EventBus(profiler, tracker);
+            var failure = new IllegalStateException("listener failed");
+            var calls = new AtomicInteger();
+            bus.subscribe(new Object() {
+               @EventHandler(priority = 10)
+               private void first(dev.schizo.client.events.CancellableEvent event) {
+                  calls.incrementAndGet();
+                  throw failure;
+               }
+               @EventHandler(priority = -10)
+               private void later(dev.schizo.client.events.CancellableEvent event) {
+                  calls.addAndGet(100);
+               }
+            });
+            var event = new dev.schizo.client.events.CancellableEvent();
+            assertSame(failure, assertThrows(IllegalStateException.class, () -> {
+               if (cancellable) bus.postCancellable(event);
+               else bus.post(event);
+            }));
+            assertEquals(1, calls.get());
+            assertEquals(1, tracker.totalFailures());
+         }
+      }
+   }
+
    private static final class TickEvent {
    }
 
