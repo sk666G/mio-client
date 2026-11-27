@@ -230,10 +230,10 @@ public final class ConfigBackupCommand extends Command {
          return 0;
       }
       try {
-         this.configuration().getBackupManager().restoreBackup(configName, backupName);
+         this.configuration().restoreBackup(configName, backupName);
          this.print(
             "Restored " + backupName + " to " + configName
-               + ". Restart Minecraft to load the restored configuration. The previous live file was backed up first."
+               + ". Restart Minecraft to load it. Saves to this config are suspended until restart; the previous live file was backed up first."
          );
          return 1;
       } catch (IOException | IllegalArgumentException failure) {
