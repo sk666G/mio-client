@@ -48,6 +48,13 @@ public class ModuleCategoryPanel extends Panel implements ClientAccess {
       super.init();
    }
 
+   public boolean hasSearchMatches() {
+      for (GuiElement child : this.children) {
+         if (this.isChildVisible(child)) return true;
+      }
+      return false;
+   }
+
    @Override
    protected boolean isChildVisible(GuiElement child) {
       String query = ClientContext.getClickGui().getNormalizedSearchQuery();
