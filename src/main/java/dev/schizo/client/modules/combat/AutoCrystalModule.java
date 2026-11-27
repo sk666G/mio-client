@@ -54,6 +54,7 @@ import dev.schizo.client.events.EventStage;
 import dev.schizo.client.managers.ModuleRegistry;
 import dev.schizo.client.modules.Module;
 import dev.schizo.client.modules.ModuleCategory;
+import dev.schizo.client.modules.DeferredModuleActionGuard;
 import dev.schizo.client.modules.client.AntiCheatModule;
 import dev.schizo.client.modules.misc.KillEffectsModule;
 import dev.schizo.client.modules.player.SpeedMineModule;
@@ -222,6 +223,7 @@ public class AutoCrystalModule extends Module {
    private final ElapsedTimer attackRetryTimer;
    private final ElapsedTimer basePlaceTimer;
    private final LinkedList<Long> placementTimes;
+   private volatile long placementHistoryGeneration;
    private final List<Integer> predictedAttackIds;
    private final Set ignoredBlocks;
    private AutoCrystalScanState scanState;
@@ -285,6 +287,7 @@ public class AutoCrystalModule extends Module {
 
    @Override
    public void onEnable() {
+      this.placementHistoryGeneration++;
       this.updateEyePosition();
       this.lastAttackedCrystalId = -1;
       this.previousTarget = this.target;
@@ -304,6 +307,7 @@ public class AutoCrystalModule extends Module {
 
    @Override
    public void onDisable() {
+      this.placementHistoryGeneration++;
       this.completeCalculation();
       this.calculationWorld = null;
       this.calculationPlayer = null;
@@ -1581,10 +1585,22 @@ public class AutoCrystalModule extends Module {
          if (placementDistanceSquared <= 9.0D) {
             long spawnTime = System.currentTimeMillis();
             var placementClient = ClientAccess.schizoMinecraft;
+            ClientLevel expectedLevel = placementClient.level;
+            LocalPlayer expectedPlayer = placementClient.player;
+            long expectedGeneration = this.placementHistoryGeneration;
             Runnable recordPlacement = (Runnable)() -> {
-               LinkedList<Long> placementTimesSnapshot = this.placementTimes;
-               Long boxedSpawnTime = spawnTime;
-               placementTimesSnapshot.add(boxedSpawnTime);
+               if (!DeferredModuleActionGuard.isCurrent(
+                  this.isToggled(),
+                  expectedGeneration,
+                  this.placementHistoryGeneration,
+                  expectedLevel,
+                  placementClient.level,
+                  expectedPlayer,
+                  placementClient.player
+               )) {
+                  return;
+               }
+               this.placementTimes.add(spawnTime);
             };
             placementClient.execute(recordPlacement);
          }
@@ -1895,6 +1911,7 @@ public class AutoCrystalModule extends Module {
    }
    @EventHandler
    private void onMinecraftDisconnectEvent(MinecraftDisconnectEvent event) {
+      this.placementHistoryGeneration++;
       this.completeCalculation();
       this.calculationWorld = null;
       this.calculationPlayer = null;
