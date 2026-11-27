@@ -158,6 +158,32 @@ public final class SchizoClientGameTest implements FabricClientGameTest {
          });
          context.waitForScreen(dev.schizo.client.gui.screens.ModuleInspectorScreen.class);
          context.waitTicks(2);
+         context.runOnClient(minecraft -> {
+            net.minecraft.client.gui.components.EditBox filter = null;
+            for (var child : minecraft.screen.children()) {
+               if (child instanceof net.minecraft.client.gui.components.EditBox box
+                  && box.getMessage().getString().equals("Filter settings")) {
+                  filter = box;
+                  break;
+               }
+            }
+            if (filter == null) throw new IllegalStateException("Inspector filter missing");
+            var event = new MouseButtonEvent(filter.getX() + 4, filter.getY() + 4, new MouseButtonInfo(0, 0));
+            minecraft.screen.mouseClicked(event, false);
+            minecraft.screen.mouseReleased(event);
+            if (!filter.isFocused()) throw new IllegalStateException("Inspector filter did not receive focus");
+            filter.setValue("no-such-setting-schizo-qa");
+            boolean foundDisabledApply = false;
+            for (var child : minecraft.screen.children()) {
+               if (child instanceof Button button && button.getMessage().getString().equals("Apply value")) {
+                  foundDisabledApply = !button.active;
+               }
+            }
+            if (!foundDisabledApply) throw new IllegalStateException("Empty setting filter must disable apply");
+            filter.setValue("");
+         });
+         context.waitTicks(8);
+         context.takeScreenshot("schizo-studio-inspector");
          context.runOnClient(minecraft -> clickButton(minecraft.screen, "Back"));
          context.waitForScreen(ClickGuiScreen.class);
          context.waitTicks(3);

@@ -55,7 +55,7 @@ public final class ContextProfileEditorScreen extends Screen {
 
    private EditBox field(String label, String value, int x, int y, int w, int maximum,
                          java.util.function.Consumer<String> responder) {
-      EditBox box = new EditBox(font, x, y, w, 18, Component.literal(label));
+      EditBox box = new StudioEditBox(font, x, y, w, 18, Component.literal(label));
       box.setMaxLength(maximum);
       box.setValue(value);
       box.setResponder(responder);

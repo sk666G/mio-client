@@ -72,7 +72,7 @@ public final class ExpeditionScreen extends Screen {
       this.statusY = layout.statusY();
       this.titleY = layout.titleY();
 
-      this.search = new EditBox(this.font, this.left, layout.searchY(), this.panelWidth, 18, Component.literal("Filter"));
+      this.search = new StudioEditBox(this.font, this.left, layout.searchY(), this.panelWidth, 18, Component.literal("Filter"));
       this.search.setMaxLength(128);
       this.search.setValue(this.query);
       this.search.setResponder(value -> {
