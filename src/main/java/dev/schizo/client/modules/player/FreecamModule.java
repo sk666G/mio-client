@@ -20,6 +20,7 @@ import dev.schizo.client.events.LocalPlayerSendPositionEvent;
 import dev.schizo.client.events.LocalPlayerTickEvent;
 import dev.schizo.client.events.MinecraftRunTickEvent;
 import dev.schizo.client.events.MouseHandlerOnScrollEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.events.MouseHandlerTurnPlayerEvent;
 import dev.schizo.client.events.GameModeUseItemPacketEvent;
 import dev.schizo.client.events.MultiPlayerGameModeUseItemOnEvent;
@@ -367,6 +368,11 @@ public class FreecamModule extends Module {
    private void onMinecraftRunTickEvent(MinecraftRunTickEvent event) {
       this.horizontalSpeedAnimation.updateAndGet();
       this.verticalSpeedAnimation.updateAndGet();
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnectEvent(MinecraftDisconnectEvent event) {
+      this.disable();
    }
 
    @EventHandler
