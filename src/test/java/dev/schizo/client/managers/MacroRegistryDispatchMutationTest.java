@@ -123,6 +123,46 @@ class MacroRegistryDispatchMutationTest {
       }
    }
 
+   @Test
+   void staleMacroReferenceCannotRemoveEqualNamedReplacement() {
+      MacroRegistry registry = new MacroRegistry();
+      try {
+         AtomicInteger staleReleases = new AtomicInteger();
+         AtomicInteger liveReleases = new AtomicInteger();
+         TestHoldMacro previous = new TestHoldMacro("same", staleReleases::incrementAndGet);
+         TestHoldMacro current = new TestHoldMacro("same", liveReleases::incrementAndGet);
+         assertTrue(registry.registerEntry(previous));
+         assertTrue(registry.replaceMacro(previous, current));
+
+         assertFalse(registry.unregisterEntry(previous));
+
+         assertEquals(1, staleReleases.get());
+         assertEquals(0, liveReleases.get());
+         assertSame(current, registry.getRegistry().iterator().next());
+      } finally {
+         ClientAccess.eventBus.unsubscribe(registry);
+      }
+   }
+
+   @Test
+   void staleMacroReferenceCannotReplaceEqualNamedLiveEntry() {
+      MacroRegistry registry = new MacroRegistry();
+      try {
+         TestMacro previous = new TestMacro("same", () -> {});
+         TestMacro current = new TestMacro("same", () -> {});
+         TestMacro newer = new TestMacro("same", () -> {});
+         assertTrue(registry.registerEntry(previous));
+         assertTrue(registry.replaceMacro(previous, current));
+
+         assertFalse(registry.replaceMacro(previous, newer));
+
+         assertSame(current, registry.getRegistry().iterator().next());
+         assertEquals(1, registry.getRegistry().size());
+      } finally {
+         ClientAccess.eventBus.unsubscribe(registry);
+      }
+   }
+
    private static final class TestMacro extends Macro {
       private final Runnable action;
 
