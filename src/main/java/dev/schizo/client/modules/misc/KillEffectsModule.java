@@ -100,13 +100,20 @@ public class KillEffectsModule extends Module {
 
    @Override
    public void onEnable() {
-      this.killStreak = 0;
+      this.clearTransientSessionState();
       this.killSayMessages.reloadMessages(true);
    }
 
    @Override
    public void onDisable() {
+      this.clearTransientSessionState();
       this.killSayMessages.invalidate();
+   }
+
+   private void clearTransientSessionState() {
+      this.killStreak = 0;
+      this.trackedTargets.clear();
+      this.expiredTargets.clear();
    }
 
    private void spawnKillLightning(Vec3 position) {
@@ -305,7 +312,8 @@ public class KillEffectsModule extends Module {
 
    @EventHandler
    private void onMinecraftDisconnectEvent(MinecraftDisconnectEvent event) {
-      this.killStreak = 0;
+      this.clearTransientSessionState();
+      this.killSayMessages.invalidate();
    }
 
    public void trackTarget(Player player) {
