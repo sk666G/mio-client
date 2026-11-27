@@ -32,6 +32,7 @@ class ModuleLifecycleTest {
          assertFalse(module.isToggled());
          assertEquals(1, module.toggleCalls.get());
          assertEquals(0, module.enableCalls.get());
+         assertEquals(1, module.disableCalls.get());
       } finally {
          ClientAccess.eventBus.unsubscribe(observer);
       }
