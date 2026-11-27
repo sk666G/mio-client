@@ -669,12 +669,25 @@ public final class FireworksModule extends Module {
       this.fakeRocketEntityId = -1;
       this.delaySetting.setBoundaryLabel("Auto", SettingLabelCondition.MIN);
       this.fastLaunchSetting.setChangeCallback(() -> {
-         if (!this.isWorldUnavailable() && this.fastLaunchSetting.getValue()
-            && this.modeSetting.getValue() == FireworksModule.ModeChoice.TOGGLE) {
+         if (shouldRequestFastLaunchJump(
+            this.isToggled(),
+            !this.isWorldUnavailable(),
+            this.fastLaunchSetting.getValue(),
+            this.modeSetting.getValue()
+         )) {
             this.rocketUseTimer.clear();
             ClientContext.inputOverrides.requestJump(true);
          }
       });
+   }
+
+   static boolean shouldRequestFastLaunchJump(
+      boolean toggled,
+      boolean worldAvailable,
+      boolean fastLaunchEnabled,
+      ModeChoice mode
+   ) {
+      return toggled && worldAvailable && fastLaunchEnabled && mode == ModeChoice.TOGGLE;
    }
 
    public enum ModeChoice implements NamedEntry {
