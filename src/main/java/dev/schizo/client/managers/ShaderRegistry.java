@@ -136,10 +136,23 @@ public final class ShaderRegistry implements ClientAccess {
    }
 
    static void finishFeatureFrame(Runnable renderFeatures, Runnable endFrame) {
+      Throwable renderFailure = null;
       try {
          renderFeatures.run();
+      } catch (RuntimeException | Error failure) {
+         renderFailure = failure;
+         throw failure;
       } finally {
-         endFrame.run();
+         try {
+            endFrame.run();
+         } catch (RuntimeException | Error cleanupFailure) {
+            if (renderFailure == null) {
+               throw cleanupFailure;
+            }
+            if (renderFailure != cleanupFailure) {
+               renderFailure.addSuppressed(cleanupFailure);
+            }
+         }
       }
    }
 

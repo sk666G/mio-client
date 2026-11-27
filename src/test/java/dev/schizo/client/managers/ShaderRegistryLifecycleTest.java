@@ -23,6 +23,24 @@ class ShaderRegistryLifecycleTest {
       assertTrue(cleaned.get());
    }
 
+
+   @Test
+   void cleanupFailureDoesNotMaskRenderFailure() {
+      IllegalStateException renderFailure = new IllegalStateException("render failed");
+      IllegalArgumentException cleanupFailure = new IllegalArgumentException("cleanup failed");
+
+      IllegalStateException thrown = assertThrows(
+         IllegalStateException.class,
+         () -> ShaderRegistry.finishFeatureFrame(
+            () -> { throw renderFailure; },
+            () -> { throw cleanupFailure; }
+         )
+      );
+
+      assertSame(renderFailure, thrown);
+      assertArrayEquals(new Throwable[]{cleanupFailure}, thrown.getSuppressed());
+   }
+
    @Test
    void featureFrameCleanupRunsAfterSuccessfulRender() {
       AtomicBoolean rendered = new AtomicBoolean();
