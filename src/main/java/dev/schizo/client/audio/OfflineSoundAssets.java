@@ -69,6 +69,8 @@ public final class OfflineSoundAssets {
         } catch (IOException | SecurityException exception) {
             System.getLogger("Schizo Offline Sounds").log(System.Logger.Level.WARNING, "Optional killstreak sounds are unavailable: " + exception.getMessage());
         }
+    }
+
     static boolean installMissingFile(Path destination, byte[] bytes) throws IOException {
         try {
             FileUtils.writeBytesCreateNew(destination, bytes);
@@ -76,8 +78,6 @@ public final class OfflineSoundAssets {
         } catch (FileAlreadyExistsException createdConcurrently) {
             return false;
         }
-    }
-
     }
 }
 
