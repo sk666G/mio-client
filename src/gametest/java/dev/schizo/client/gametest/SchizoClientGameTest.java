@@ -220,6 +220,27 @@ public final class SchizoClientGameTest implements FabricClientGameTest {
                   if (!before.equals(ui.snapshotPalette()) || choice != ui.paletteSetting.getValue()) {
                      throw new IllegalStateException("Discarding preview mutated live settings");
                   }
+                  clickButton(minecraft.screen, "Edit colors");
+                  net.minecraft.client.gui.components.EditBox accent = null;
+                  for (var child : minecraft.screen.children()) {
+                     if (child instanceof net.minecraft.client.gui.components.EditBox box
+                        && box.getMessage().getString().equals("Accent")) accent = box;
+                  }
+                  if (accent == null) throw new IllegalStateException("Custom accent input missing");
+                  accent.setValue("#123");
+                  boolean invalidDisabled = false;
+                  for (var child : minecraft.screen.children()) {
+                     if (child instanceof Button button && button.getMessage().getString().equals("Preview colors"))
+                        invalidDisabled = !button.active;
+                  }
+                  if (!invalidDisabled) throw new IllegalStateException("Invalid hex must disable preview");
+                  accent.setValue("#FF9900FF");
+                  clickButton(minecraft.screen, "Preview colors");
+                  if (!before.equals(ui.snapshotPalette()) || choice != ui.paletteSetting.getValue())
+                     throw new IllegalStateException("Custom preview mutated live settings");
+                  clickButton(minecraft.screen, "Discard preview");
+                  if (!before.equals(ui.snapshotPalette()) || choice != ui.paletteSetting.getValue())
+                     throw new IllegalStateException("Custom discard mutated live settings");
                });
                context.waitTicks(2);
             }

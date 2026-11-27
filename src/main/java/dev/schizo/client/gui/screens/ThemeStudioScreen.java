@@ -39,19 +39,26 @@ public final class ThemeStudioScreen extends StudioScreen {
       left = (width - panelWidth) / 2;
       top = Math.max(4, (height - 250) / 2);
       int w = Math.max(1, (panelWidth - 8) / 3);
+      int presetWidth = Math.max(1, (panelWidth - 12) / 4);
       PaletteChoice[] choices = {PaletteChoice.SCHIZO, PaletteChoice.MIDNIGHT, PaletteChoice.FROST, PaletteChoice.AMETHYST};
       for (int i = 0; i < choices.length; i++) {
          PaletteChoice choice = choices[i];
-         button(choice.getName(), left + (i % 3) * (w + 4), top + 29 + (i / 3) * 23, w, () -> choose(choice));
+         button(choice.getName(), left + i * (presetWidth + 4), top + 29, presetWidth, () -> choose(choice));
       }
-      button("Current", left + w + 4, top + 52, w, () -> {
+      button("Current", left, top + 52, w, () -> {
          reload();
          notice = "Current colors loaded.";
          refreshApply();
       });
-      button("Test switch", left + 2 * (w + 4), top + 52, w, () -> {
+      button("Test switch", left + w + 4, top + 52, w, () -> {
          sampleEnabled = !sampleEnabled;
          switchMotion.setTarget(sampleEnabled, 160L);
+      });
+      button("Edit colors", left + 2 * (w + 4), top + 52, w, () -> {
+         minecraft.setScreen(new CustomPaletteScreen(this, draft.preview(), colors -> {
+            draft.selectCustom(colors);
+            notice = "Custom preview. Apply to save six fixed colors.";
+         }));
       });
       previewTop = top + 80;
       int bottom = Math.min(height - 25, top + 226);
@@ -79,7 +86,8 @@ public final class ThemeStudioScreen extends StudioScreen {
    private void refreshApply() {
       if (apply == null) return;
       UIModule ui = UIModule.INSTANCE;
-      apply.active = draft.canApply(ui.paletteSetting.getValue(), ui.snapshotPalette());
+      apply.active = draft.canApply(ui.paletteSetting.getValue(), ui.snapshotPalette())
+         && (draft.selected() != PaletteChoice.CUSTOM || ui.supportsFixedPaletteEditing());
    }
 
    private void commit() {
@@ -89,9 +97,18 @@ public final class ThemeStudioScreen extends StudioScreen {
          refreshApply();
          return;
       }
-      ui.paletteSetting.setValue(draft.selected());
+      if (draft.selected() == PaletteChoice.CUSTOM) {
+         if (!draft.applyCustom(ui)) {
+            notice = "Custom apply blocked: live colors or dynamic modes changed.";
+            refreshApply();
+            return;
+         }
+         notice = "Custom palette applied. Notification colors unchanged.";
+      } else {
+         ui.paletteSetting.setValue(draft.selected());
+         notice = "Palette applied, including notification accents. Normal save lifecycle follows.";
+      }
       reload();
-      notice = "Palette applied, including notification accents. Normal save lifecycle follows.";
       refreshApply();
    }
 
@@ -99,8 +116,8 @@ public final class ThemeStudioScreen extends StudioScreen {
       UIModule ui = UIModule.INSTANCE;
       if (draft.isStale(ui.paletteSetting.getValue(), ui.snapshotPalette())) {
          notice = "Live colors changed. Reload Current before applying.";
-         refreshApply();
       }
+      refreshApply();
    }
 
    private static int opaque(Color color) { return color.getRGB() | 0xff000000; }
