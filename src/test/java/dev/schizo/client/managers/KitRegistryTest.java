@@ -100,6 +100,39 @@ class KitRegistryTest {
    }
 
    @Test
+   void staleEqualNamedKitCannotRemoveLiveInstance() {
+      KitRegistry registry = new KitRegistry();
+      Kit live = new Kit("same");
+      Kit stale = new Kit("same");
+      assertTrue(registry.registerEntry(live));
+      registry.setCurrentKitName("same");
+
+      assertFalse(registry.unregisterKit(stale));
+      assertFalse(registry.unregisterEntry(stale));
+
+      assertSame(live, registry.findByName("same").orElseThrow());
+      assertSame(live, KitRegistry.getCurrentKit(registry));
+      assertEquals(1, registry.getRegistry().size());
+   }
+
+   @Test
+   void staleEqualNamedKitCannotReplaceOrRenameLiveInstance() {
+      KitRegistry registry = new KitRegistry();
+      Kit live = new Kit("same");
+      Kit stale = new Kit("same");
+      Kit replacement = new Kit("replacement");
+      assertTrue(registry.registerEntry(live));
+
+      assertFalse(registry.replaceKit(stale, replacement));
+      assertFalse(registry.renameKit(stale, "renamed"));
+
+      assertSame(live, registry.findByName("same").orElseThrow());
+      assertTrue(registry.findByName("replacement").isEmpty());
+      assertTrue(registry.findByName("renamed").isEmpty());
+      assertEquals(1, registry.getRegistry().size());
+   }
+
+   @Test
    void malformedRootDoesNotDiscardExistingState() {
       KitRegistry registry = new KitRegistry();
       Kit keep = new Kit("keep");
