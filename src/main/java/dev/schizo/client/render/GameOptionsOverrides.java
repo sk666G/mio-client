@@ -25,6 +25,7 @@ import net.minecraft.client.Options;
 public final class GameOptionsOverrides implements ClientAccess {
    private static final Set<NamedEntry> CAMERA_OVERRIDE_OWNERS = newCameraOwnerSet();
    private static CameraType savedCameraType;
+   private static CameraType lastAppliedCameraType;
 
    private GameOptionsOverrides() {
    }
@@ -50,17 +51,42 @@ public final class GameOptionsOverrides implements ClientAccess {
       return Collections.newSetFromMap(new IdentityHashMap<>());
    }
 
+   public static void applyCameraOverride(NamedEntry owner, CameraType cameraType) {
+      Minecraft minecraft = ClientAccess.schizoMinecraft;
+      if (minecraft == null || minecraft.options == null || cameraType == null) {
+         return;
+      }
+      registerCameraOverride(owner);
+      if (!CAMERA_OVERRIDE_OWNERS.contains(owner)) {
+         return;
+      }
+      minecraft.options.setCameraType(cameraType);
+      lastAppliedCameraType = cameraType;
+   }
+
+   static boolean shouldRestoreCameraType(
+      CameraType lastAppliedType,
+      CameraType currentType
+   ) {
+      return lastAppliedType != null && lastAppliedType == currentType;
+   }
+
    public static void unregisterCameraOverride(NamedEntry owner) {
       CAMERA_OVERRIDE_OWNERS.remove(owner);
-      if (CAMERA_OVERRIDE_OWNERS.isEmpty()
-         && savedCameraType != null) {
+      if (CAMERA_OVERRIDE_OWNERS.isEmpty()) {
          Minecraft minecraft = ClientAccess.schizoMinecraft;
-         if (minecraft != null && minecraft.options != null) {
+         if (savedCameraType != null
+            && minecraft != null
+            && minecraft.options != null
+            && shouldRestoreCameraType(
+               lastAppliedCameraType, minecraft.options.getCameraType()
+            )) {
             Options gameOptions = minecraft.options;
             CameraType cameraTypeToRestore = savedCameraType;
             gameOptions.setCameraType(cameraTypeToRestore);
          }
          savedCameraType = null;
+         lastAppliedCameraType = null;
       }
    }
 }
