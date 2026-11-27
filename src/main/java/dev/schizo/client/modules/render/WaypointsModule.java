@@ -133,7 +133,7 @@ public class WaypointsModule extends Module {
    public static Vec3 getPositionInCurrentDimension(Waypoint waypoint) {
       Vec3 position = waypoint.getPosition();
       double scale = dev.schizo.client.utils.world.DimensionCoordinates.scale(
-         waypoint.getDimension(), WorldUtils.getDimension().getName());
+         waypoint.getDimension(), WorldUtils.getDimensionId());
       return Double.isNaN(scale) ? null : position.multiply(scale, 1.0D, scale);
    }
 
