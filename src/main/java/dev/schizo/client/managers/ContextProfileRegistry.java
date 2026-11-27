@@ -140,6 +140,19 @@ public final class ContextProfileRegistry implements ClientAccess, JsonConfigura
       return List.copyOf(this.rules);
    }
 
+   /** Commit only a preview made against the current rule list; do not apply a preset here. */
+   public synchronized boolean savePreviewedRule(List<Rule> expected, Rule proposed) {
+      if (!this.rules.equals(expected)) return false;
+      this.addRule(proposed.server(), proposed.dimension(), proposed.gameMode(), proposed.category(), proposed.presetName());
+      return true;
+   }
+
+   /** Avoid deleting a rule that was changed after the editor selected it. */
+   public synchronized boolean removePreviewedRule(List<Rule> expected, Rule selected) {
+      if (!this.rules.equals(expected) || !this.rules.contains(selected)) return false;
+      return this.removeRule(selected.server(), selected.dimension(), selected.gameMode(), selected.category());
+   }
+
    public synchronized void addRule(
       String server, String dimension, String gameMode, PresetCategory category, String presetName
    ) {
