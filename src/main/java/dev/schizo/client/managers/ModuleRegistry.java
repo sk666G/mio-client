@@ -300,25 +300,27 @@ public final class ModuleRegistry extends Registry<Module> implements ClientAcce
 
    @Override
    public JsonElement toJson() {
-      JsonObject config = new JsonObject();
+      return serializeModules((List<Module>)this.getRegistry());
+   }
 
+   static JsonObject serializeModules(Iterable<Module> modules) {
+      JsonObject config = new JsonObject();
       config.addProperty("version", ModuleConfigSchema.CURRENT_VERSION);
       config.addProperty("client", "schizo");
-
       config.addProperty("category", "all");
-      List<Module> registeredModules = (List<Module>)this.getRegistry();
-      Iterator<Module> modulesIterator = registeredModules.iterator();
 
-      while (modulesIterator.hasNext()) {
-         Module module = modulesIterator.next();
-         if (!(module instanceof HudWidgetModule)) {
-            try {
-               String moduleConfigName = module.getConfigName();
-               JsonElement moduleConfig = module.toJson();
-               config.add(moduleConfigName, moduleConfig);
-            } catch (Exception serializationFailure) {
-               ClientAccess.logger.error("Could not serialize module configuration for {}", module.getName(), serializationFailure);
-            }
+      for (Module module : modules) {
+         if (module instanceof HudWidgetModule) {
+            continue;
+         }
+
+         try {
+            config.add(module.getConfigName(), module.toJson());
+         } catch (RuntimeException serializationFailure) {
+            throw new IllegalStateException(
+               "Could not serialize module configuration for " + module.getName(),
+               serializationFailure
+            );
          }
       }
 
