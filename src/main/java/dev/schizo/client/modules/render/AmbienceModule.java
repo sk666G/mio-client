@@ -234,9 +234,15 @@ public class AmbienceModule extends Module {
       this.strengthSetting = this.add(new NumberSetting<>("Strength", 10.0F, 1.0F, 20.0F).dependsOn(this.fieldDepthSetting));
       Setting<BrightnessChoice> brightnessForCallback = this.brightnessSetting;
       Runnable brightnessChangeCallback = () -> {
-         AmbienceModule.BrightnessChoice previousBrightnessCapture = this.previousBrightness;
          Setting<BrightnessChoice> changedBrightnessOption = this.brightnessSetting;
-         if (previousBrightnessCapture != changedBrightnessOption.getValue()
+         AmbienceModule.BrightnessChoice changedBrightness = changedBrightnessOption.getValue();
+         if (!this.isToggled()) {
+            this.previousBrightness = changedBrightness;
+            return;
+         }
+
+         AmbienceModule.BrightnessChoice previousBrightnessCapture = this.previousBrightness;
+         if (previousBrightnessCapture != changedBrightness
             && this.previousBrightness
                == AmbienceModule.BrightnessChoice.GAMMA) {
             OptionInstance<Double> restoreGammaOption = ClientAccess.schizoMinecraft.options.gamma();
