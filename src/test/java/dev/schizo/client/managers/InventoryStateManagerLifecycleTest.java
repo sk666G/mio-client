@@ -6,13 +6,14 @@ import org.junit.jupiter.api.Test;
 
 class InventoryStateManagerLifecycleTest {
    @Test
-   void deferredInventoryUpdateRequiresSamePlayerIdentity() {
+   void deferredInventoryUpdateRequiresSamePlayerAndContainerIdentity() {
       Object capturedPlayer = new Object();
       Object replacementPlayer = new Object();
 
-      assertTrue(InventoryStateManager.matchesDeferredOwner(capturedPlayer, capturedPlayer));
-      assertFalse(InventoryStateManager.matchesDeferredOwner(capturedPlayer, replacementPlayer));
-      assertFalse(InventoryStateManager.matchesDeferredOwner(null, replacementPlayer));
-      assertFalse(InventoryStateManager.matchesDeferredOwner(capturedPlayer, null));
+      assertTrue(InventoryStateManager.matchesDeferredContext(capturedPlayer, capturedPlayer, 4, 4));
+      assertFalse(InventoryStateManager.matchesDeferredContext(capturedPlayer, replacementPlayer, 4, 4));
+      assertFalse(InventoryStateManager.matchesDeferredContext(capturedPlayer, capturedPlayer, 4, 7));
+      assertFalse(InventoryStateManager.matchesDeferredContext(null, replacementPlayer, 4, 4));
+      assertFalse(InventoryStateManager.matchesDeferredContext(capturedPlayer, null, 4, 4));
    }
 }
