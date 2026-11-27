@@ -246,22 +246,27 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
       if (!(json instanceof JsonObject moduleJson)) {
          return;
       }
-      if (moduleJson.has("settings") && moduleJson.get("settings") instanceof JsonObject settingsJson) {
-         Iterator<Setting<?>> settingsIterator = this.getSettings().iterator();
-         while (settingsIterator.hasNext()) {
-            Setting<?> setting = settingsIterator.next();
-            if (setting.isExcludedFromConfig() || !settingsJson.has(setting.getConfigName())) {
-               continue;
+      if (moduleJson.has("settings")) {
+         JsonElement settingsElement = moduleJson.get("settings");
+         if (settingsElement instanceof JsonObject settingsJson) {
+            Iterator<Setting<?>> settingsIterator = this.getSettings().iterator();
+            while (settingsIterator.hasNext()) {
+               Setting<?> setting = settingsIterator.next();
+               if (setting.isExcludedFromConfig() || !settingsJson.has(setting.getConfigName())) {
+                  continue;
+               }
+               try {
+                  setting.fromJson(settingsJson.get(setting.getConfigName()));
+               } catch (Exception invalidSetting) {
+                  this.lastConfigLoadIssues.add(new ModuleConfigLoadReport.Issue(
+                     this.getName(),
+                     setting.getConfigName(),
+                     invalidSetting.getClass().getSimpleName()
+                  ));
+               }
             }
-            try {
-               setting.fromJson(settingsJson.get(setting.getConfigName()));
-            } catch (Exception invalidSetting) {
-               this.lastConfigLoadIssues.add(new ModuleConfigLoadReport.Issue(
-                  this.getName(),
-                  setting.getConfigName(),
-                  invalidSetting.getClass().getSimpleName()
-               ));
-            }
+         } else {
+            this.recordConfigIssue("settings", new IllegalArgumentException("Module settings must be a JSON object"));
          }
       }
       if (moduleJson.has("drawn")) {
