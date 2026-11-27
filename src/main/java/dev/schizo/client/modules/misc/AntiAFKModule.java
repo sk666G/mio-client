@@ -54,6 +54,14 @@ public class AntiAFKModule extends Module {
    private boolean sneakActionPending;
    private long lifecycleGeneration;
 
+   private void clearOwnedInputOverrides() {
+      InputOverrideManager overrides = ClientContext.inputOverrides;
+      if (overrides != null) {
+         overrides.clearJumpRequest(this);
+         overrides.clearSneakRequest(this);
+      }
+   }
+
    private List<Runnable> createActions() {
       List<Runnable> actions = new ArrayList<>();
       Setting<Boolean> jumpSnapshot = this.jumpSetting;
@@ -120,6 +128,7 @@ public class AntiAFKModule extends Module {
    @Override
    public void onEnable() {
       this.lifecycleGeneration++;
+      this.clearOwnedInputOverrides();
       this.idleTimer.reset();
       this.actionTimer.reset();
       this.jumpActionPending = false;
@@ -129,6 +138,7 @@ public class AntiAFKModule extends Module {
    @Override
    public void onDisable() {
       this.lifecycleGeneration++;
+      this.clearOwnedInputOverrides();
       this.jumpActionPending = false;
       this.sneakActionPending = false;
    }
@@ -136,6 +146,7 @@ public class AntiAFKModule extends Module {
    @EventHandler
    private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
       this.lifecycleGeneration++;
+      this.clearOwnedInputOverrides();
       this.jumpActionPending = false;
       this.sneakActionPending = false;
    }
@@ -175,12 +186,12 @@ public class AntiAFKModule extends Module {
 
       if (this.jumpActionPending) {
          InputOverrideManager jumpOverridesSnapshot = ClientContext.inputOverrides;
-         jumpOverridesSnapshot.requestJump((true));
+         jumpOverridesSnapshot.requestJump(this, true);
       }
 
       if (this.sneakActionPending) {
          InputOverrideManager sneakOverridesSnapshot = ClientContext.inputOverrides;
-         sneakOverridesSnapshot.requestSneak((false));
+         sneakOverridesSnapshot.requestSneak(this, false);
       }
 
       this.jumpActionPending = this.sneakActionPending = false;
