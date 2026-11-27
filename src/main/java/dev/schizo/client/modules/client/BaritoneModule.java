@@ -29,6 +29,7 @@ import baritone.api.BaritoneAPI;
 import baritone.api.Settings;
 import java.awt.Color;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -45,13 +46,6 @@ public class BaritoneModule extends PermanentModule {
    private final Setting<Color> colorSetting;
    private final Setting<Color> goalSetting;
    private List<AssumedSetting> assumedSettings;
-
-   static {
-
-      step = ClientContext.getModule(StepModule.class);
-      autoTool = ClientContext.getModule(AutoToolModule.class);
-      safeWalk = ClientContext.getModule(SafeWalkModule.class);
-   }
 
    private List<AssumedSetting> getAssumedSettings() {
       if (this.assumedSettings == null) {
@@ -120,14 +114,18 @@ public class BaritoneModule extends PermanentModule {
    }
 
    public static void bindModuleDependencies(ModuleRegistry registry) {
-      step = (StepModule)registry.getModule(
-         StepModule.class
+      Objects.requireNonNull(registry, "Module registry is required");
+      step = (StepModule)Objects.requireNonNull(
+         registry.getModule(StepModule.class),
+         "Required module is not registered: StepModule"
       );
-      autoTool = (AutoToolModule)registry.getModule(
-         AutoToolModule.class
+      autoTool = (AutoToolModule)Objects.requireNonNull(
+         registry.getModule(AutoToolModule.class),
+         "Required module is not registered: AutoToolModule"
       );
-      safeWalk = (SafeWalkModule)registry.getModule(
-         SafeWalkModule.class
+      safeWalk = (SafeWalkModule)Objects.requireNonNull(
+         registry.getModule(SafeWalkModule.class),
+         "Required module is not registered: SafeWalkModule"
       );
    }
 

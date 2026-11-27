@@ -16,6 +16,7 @@ import dev.schizo.client.events.LivingEntityRotationEvent;
 import dev.schizo.client.events.PacketEvent;
 import dev.schizo.client.events.RotationRequestEvent;
 import dev.schizo.client.events.EventHandler;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.events.FireworkRocketEntityTickEvent;
 import dev.schizo.client.events.KeyboardInputTickEvent;
 import dev.schizo.client.events.LocalPlayerAiStepEvent;
@@ -156,9 +157,37 @@ public class ElytraFlyModule extends Module {
             this.getActiveMode().onDisable();
          }
       } finally {
-         ClientContext.tickRateController.releaseMultiplier(this);
+         this.resetSessionTakeoffState();
          this.fireworkUseTimer.reset();
       }
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.resetSessionState();
+   }
+
+   private void resetTakeoffState() {
+      ClientContext.tickRateController.releaseMultiplier(this);
+      this.takeoffRequested = false;
+      this.takeoffJumpPhase = null;
+   }
+
+   private void resetSessionTakeoffState() {
+      this.resetTakeoffState();
+      this.jumpPressed = false;
+      this.sneakPressed = false;
+      this.fireworkUsePending = false;
+      this.replayingFireworkUse = false;
+   }
+
+   private void resetSessionState() {
+      this.resetSessionTakeoffState();
+      this.fireworkUseTimer.reset();
+      this.takeoffTimer.reset();
+      this.durabilitySwapTimer.reset();
+      this.enableTimer.clear();
+      this.elytraSearchTimer.reset();
    }
 
    public ElytraFlyModeHandler getActiveMode() {
@@ -187,8 +216,19 @@ public class ElytraFlyModule extends Module {
       if (!this.canStartFlightFromJump()) {
          return false;
       }
-      ClientAccess.schizoMinecraft.execute(() -> {
-         ClientAccess.schizoMinecraft.player.startFallFlying();
+      var minecraft = ClientAccess.schizoMinecraft;
+      var playerSnapshot = minecraft.player;
+      var levelSnapshot = minecraft.level;
+      minecraft.execute(() -> {
+         if (!this.isToggled()
+            || minecraft.player != playerSnapshot
+            || minecraft.level != levelSnapshot
+            || !playerSnapshot.isAlive()
+            || !this.canStartFlightFromJump()) {
+            return;
+         }
+
+         playerSnapshot.startFallFlying();
          PacketSender.sendStartFallFlying();
       });
       return true;
@@ -473,15 +513,15 @@ public class ElytraFlyModule extends Module {
       if (this.takeoffJumpPhase != null) {
          switch (this.takeoffJumpPhase) {
             case RELEASE -> {
-               ClientContext.inputOverrides.requestJump(false);
+               ClientContext.inputOverrides.requestJump(this, false);
                this.takeoffJumpPhase = TakeoffJumpPhase.PRESS;
             }
             case PRESS -> {
-               ClientContext.inputOverrides.requestJump(true);
+               ClientContext.inputOverrides.requestJump(this, true);
                this.takeoffJumpPhase = TakeoffJumpPhase.FINISH;
             }
             case FINISH -> {
-               ClientContext.inputOverrides.requestJump(false);
+               ClientContext.inputOverrides.requestJump(this, false);
                this.takeoffJumpPhase = null;
             }
          }
@@ -637,6 +677,8 @@ public class ElytraFlyModule extends Module {
       this.modeHandlers.register(ElytraFlyModule.ModeChoice.BOUNCE, new BounceElytraFlyHandler(this));
       this.modeHandlers.register(ElytraFlyModule.ModeChoice.NEWGRIM, new NewGrimElytraFlyHandler(this));
       this.modeHandlers.register(ElytraFlyModule.ModeChoice.VANILLA, new VanillaElytraFlyHandler(this));
+      this.modeSetting.setChangeCallback(this::resetTakeoffState);
+      this.takeoffSetting.setChangeCallback(this::resetTakeoffState);
    }
 
    public enum InfDurabilityChoice implements NamedEntry {

@@ -17,22 +17,29 @@ import dev.schizo.client.ClientContext;
 import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.systems.RenderSystem;
 import java.awt.Color;
+import java.util.function.Supplier;
 import net.minecraft.client.Minecraft;
 
 public final class MaskShaderRenderer implements ClientAccess {
-   public static final RenderTarget MASK_TARGET = RenderTargetRegistry.createRenderTarget(
-      "zio_blur"
-   );
-   public static final RenderTarget HORIZONTAL_TARGET = RenderTargetRegistry.createRenderTarget(
-      "zio_blur_horizontal"
-   );
-   public static final RenderTarget VERTICAL_TARGET = RenderTargetRegistry.createRenderTarget(
-      "zio_blur_vertical"
-   );
+   private static final Supplier<RenderTarget> MASK_TARGET = RenderTargetRegistry.createLazyRenderTarget("zio_blur");
+   private static final Supplier<RenderTarget> HORIZONTAL_TARGET = RenderTargetRegistry.createLazyRenderTarget("zio_blur_horizontal");
+   private static final Supplier<RenderTarget> VERTICAL_TARGET = RenderTargetRegistry.createLazyRenderTarget("zio_blur_vertical");
    private static float blurWidth;
    private static float bloom;
    private static float opacity;
    private static float modulate;
+
+   public static RenderTarget maskTarget() {
+      return MASK_TARGET.get();
+   }
+
+   public static RenderTarget horizontalTarget() {
+      return HORIZONTAL_TARGET.get();
+   }
+
+   public static RenderTarget verticalTarget() {
+      return VERTICAL_TARGET.get();
+   }
 
    public static float getBlurWidth() {
       return blurWidth;
@@ -74,16 +81,20 @@ public final class MaskShaderRenderer implements ClientAccess {
       RenderTarget mainTarget = Minecraft.getInstance().getMainRenderTarget();
       if (drawMask != null) {
          RenderUtils.clearColor(
-            MASK_TARGET, clearColor
+            maskTarget(), clearColor
          );
          RenderUtils.clearDepth(
-            MASK_TARGET
+            maskTarget()
          );
          RenderTargetUtils.setMainRenderTarget(
-            MASK_TARGET
+            maskTarget()
          );
-         drawMask.run();
-         RenderTargetUtils.setMainRenderTarget(mainTarget);
+         try {
+            drawMask.run();
+         } finally {
+            // A failed mask draw must not leave Minecraft rendering into maskTarget().
+            RenderTargetUtils.setMainRenderTarget(mainTarget);
+         }
       }
    }
 

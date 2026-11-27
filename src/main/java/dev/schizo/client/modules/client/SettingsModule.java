@@ -23,6 +23,7 @@ import dev.schizo.client.settings.StringSetting;
 
 public class SettingsModule extends PermanentModule {
    public final Setting<String> prefixSetting;
+   public final Setting<Boolean> coordinatePrivacySetting;
    private final Setting<NamedIdentifier> startupSetting;
    private final Setting<Boolean> presetsSetting;
 
@@ -39,6 +40,9 @@ public class SettingsModule extends PermanentModule {
 
    public SettingsModule() {
       super("Settings", "Client's global settings.", ModuleCategory.CLIENT, new String[0]);
+      this.coordinatePrivacySetting = this.add(new BooleanSetting("CoordinatePrivacy", false));
+      this.coordinatePrivacySetting.setChangeCallback(() ->
+         dev.schizo.client.utils.CoordinatePrivacy.setEnabled(this.coordinatePrivacySetting.getValue()));
       this.prefixSetting = this.add(new StringSetting(("Prefix"), ";"));
       this.startupSetting = this.add(new IdentifierSetting(("Startup"), BuiltinSound.BLIP.getIdentifier()));
       this.presetsSetting = this.add(new BooleanSetting(("Presets"), true));

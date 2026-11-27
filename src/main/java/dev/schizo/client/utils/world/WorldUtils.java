@@ -17,7 +17,6 @@ import dev.schizo.client.utils.inventory.EnchantmentUtils;
 
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
-import dev.schizo.client.modules.combat.AutoCrystalModule;
 import dev.schizo.client.settings.options.DimensionType;
 import dev.schizo.client.settings.options.BlockSampleMode;
 
@@ -72,7 +71,6 @@ import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
 public final class WorldUtils implements ClientAccess {
-   private static final AutoCrystalModule autoCrystal;
    public static final List BASTION_FLOOR_BLOCKS;
    public static final List ANCIENT_CITY_FLOOR_BLOCKS;
    public static final List TRIAL_CHAMBER_FLOOR_BLOCKS;
@@ -86,11 +84,12 @@ public final class WorldUtils implements ClientAccess {
    public static List<LevelChunk> getLoadedChunks() {
       List<LevelChunk> chunks = new ArrayList<>();
       int distance = ClientAccess.schizoMinecraft.options.renderDistance().get();
+      var center = ClientAccess.schizoMinecraft.player.chunkPosition();
       for (int x = -distance; x <= distance; x++) {
          for (int z = -distance; z <= distance; z++) {
             LevelChunk chunk = ClientAccess.schizoMinecraft.level.getChunkSource().getChunkNow(
-               (int)ClientAccess.schizoMinecraft.player.getX() / 16 + x,
-               (int)ClientAccess.schizoMinecraft.player.getZ() / 16 + z
+               center.x + x,
+               center.z + z
             );
             if (chunk != null) chunks.add(chunk);
          }
@@ -98,12 +97,16 @@ public final class WorldUtils implements ClientAccess {
       return chunks;
    }
 
-   public static DimensionType getDimension() {
+   public static String getDimensionId() {
       if (ClientAccess.schizoMinecraft.level == null) {
-         return DimensionType.OVERWORLD;
+         return DimensionType.OVERWORLD.getName();
       }
       net.minecraft.resources.Identifier dimensionId = ClientAccess.schizoMinecraft.level.dimension().identifier();
-      return switch (dimensionId.getPath()) {
+      return DimensionCoordinates.canonical(dimensionId.toString());
+   }
+
+   public static DimensionType getDimension() {
+      return switch (getDimensionId()) {
          case "the_nether" -> DimensionType.THE_NETHER;
          case "the_end" -> DimensionType.THE_END;
          default -> DimensionType.OVERWORLD;
@@ -112,16 +115,10 @@ public final class WorldUtils implements ClientAccess {
 
    public static List<BlockEntity> getLoadedBlockEntities() {
       ArrayList<BlockEntity> blockEntities = new ArrayList<>();
-      Iterator<LevelChunk> chunks = getLoadedChunks().iterator();
-      while (chunks.hasNext()) {
-         LevelChunk chunk = chunks.next();
-         if (!chunk.getBlockEntities().isEmpty()) {
-            try {
-               blockEntities.addAll(new ArrayList<>(chunk.getBlockEntities().values()));
-            } catch (Throwable failure) {
-               autoCrystal.completeCalculation();
-               break;
-            }
+      for (LevelChunk chunk : getLoadedChunks()) {
+         var entries = chunk.getBlockEntities().values();
+         if (!entries.isEmpty()) {
+            blockEntities.addAll(entries);
          }
       }
       return blockEntities;
@@ -150,7 +147,6 @@ public final class WorldUtils implements ClientAccess {
    }
 
    static {
-      autoCrystal = (AutoCrystalModule)ClientContext.getModule(AutoCrystalModule.class);
       BASTION_FLOOR_BLOCKS = List.of(Blocks.BLACKSTONE, Blocks.POLISHED_BLACKSTONE_BRICKS, Blocks.GILDED_BLACKSTONE);
       ANCIENT_CITY_FLOOR_BLOCKS = List.of(
          Blocks.DEEPSLATE_BRICKS, Blocks.CRACKED_DEEPSLATE_BRICKS, Blocks.DEEPSLATE_TILES,

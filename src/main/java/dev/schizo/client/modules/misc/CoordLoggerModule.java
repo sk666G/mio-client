@@ -16,6 +16,7 @@ import dev.schizo.client.events.LocalPlayerTickEvent;
 import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.managers.ConfigurationManager;
 import dev.schizo.client.utils.world.WorldUtils;
+import dev.schizo.client.utils.FileUtils;
 import dev.schizo.client.modules.Module;
 import dev.schizo.client.modules.ModuleCategory;
 import dev.schizo.client.settings.BooleanSetting;
@@ -23,49 +24,95 @@ import dev.schizo.client.settings.Setting;
 import dev.schizo.client.settings.options.DimensionType;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
-import java.nio.file.OpenOption;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import net.minecraft.client.KeyboardHandler;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.protocol.game.ClientboundPlayerCombatKillPacket;
 
 public class CoordLoggerModule extends Module {
+   static final long MAX_COORDINATE_LOG_BYTES = 8L * 1024L * 1024L;
    private static final DateTimeFormatter timestampFormatter;
    private final Setting<Boolean> disconnectSetting;
    private final Setting<Boolean> deathSetting;
    private final Setting<Boolean> fileSetting;
-   private volatile String coordinateText;
+   private int lastX, lastY, lastZ;
+   private DimensionType lastDimension;
+   private final Object fileWriteLock = new Object();
+
+   record CoordinateSnapshot(int x, int y, int z, DimensionType dimension) {
+   }
+
+   void cacheCoordinates(int x, int y, int z, DimensionType dimension) {
+      this.lastX = x;
+      this.lastY = y;
+      this.lastZ = z;
+      this.lastDimension = dimension;
+   }
+
+   CoordinateSnapshot snapshotCoordinates() {
+      DimensionType dimension = this.lastDimension;
+      return dimension == null
+         ? null
+         : new CoordinateSnapshot(this.lastX, this.lastY, this.lastZ, dimension);
+   }
+
+   void clearCachedCoordinates() {
+      this.lastX = 0;
+      this.lastY = 0;
+      this.lastZ = 0;
+      this.lastDimension = null;
+   }
 
    private void appendRetainedEntry(String entry) {
       Path directory = ConfigurationManager.ROOT_DIRECTORY;
+      this.appendRetainedEntry(directory.resolve("coordlogger.txt"), entry);
+   }
 
-      Path logFile = directory.resolve("coordlogger.txt");
+   void appendRetainedEntry(Path logFile, String entry) {
+      synchronized (this.fileWriteLock) {
+         try {
+            Stream<String> existingLines;
+            if (Files.exists(logFile, LinkOption.NOFOLLOW_LINKS)) {
+               if (Files.isSymbolicLink(logFile)
+                  || !Files.isRegularFile(logFile, LinkOption.NOFOLLOW_LINKS)) {
+                  ClientAccess.logger.warn("Skipping coordinate log write because coordlogger.txt is not a regular file");
+                  return;
+               }
+               if (Files.size(logFile) > MAX_COORDINATE_LOG_BYTES) {
+                  ClientAccess.logger.warn(
+                     "Skipping coordinate log write because coordlogger.txt exceeds {} bytes",
+                     MAX_COORDINATE_LOG_BYTES
+                  );
+                  return;
+               }
+               existingLines = Files.lines(logFile);
+            } else {
+               existingLines = Stream.empty();
+            }
 
-      try {
-         Stream<String> existingLines;
-         LinkOption[] existenceOptions = new LinkOption[0];
-         if (Files.exists(logFile, existenceOptions)) {
-            existingLines = Files.lines(logFile);
-         } else {
-            existingLines = Stream.empty();
+            List<String> retainedLines;
+            try (existingLines) {
+               retainedLines = Stream.concat(existingLines, Stream.of(entry))
+                  .filter(this::isRetainedEntry)
+                  .toList();
+            }
+            String retainedText = String.join(System.lineSeparator(), retainedLines);
+            if (!retainedText.isEmpty()) {
+               retainedText += System.lineSeparator();
+            }
+            FileUtils.writeUtf8Atomically(logFile, retainedText);
+         } catch (IOException | UncheckedIOException writeFailure) {
+            ClientAccess.logger.warn("Could not update coordinate log", writeFailure);
          }
-
-         try (existingLines) {
-            Stream<String> filteredLines = Stream.concat(existingLines, Stream.of(entry)).filter(this::isRetainedEntry);
-            List<String> retainedLines = filteredLines.collect(Collectors.toList());
-            OpenOption[] writeOptions = new OpenOption[0];
-            Files.write(logFile, retainedLines, writeOptions);
-         }
-      } catch (IOException ignoredIOException) {
       }
    }
 
@@ -77,7 +124,8 @@ public class CoordLoggerModule extends Module {
       int fieldCount = fields.length;
 
       if (fieldCount != (3)) {
-         return false;
+         // Preserve nonblank legacy or manually edited lines rather than silently destroying them.
+         return true;
       }
 
       try {
@@ -92,23 +140,43 @@ public class CoordLoggerModule extends Module {
 
          return ageDays < 7L;
       } catch (DateTimeParseException invalidTimestamp) {
-         return false;
+         return true;
       }
    }
 
    private void saveCoordinates(String reason) {
-      if (this.coordinateText != null) {
-         StringBuilder entry = new StringBuilder().append(this.coordinateText).append(" | ").append(reason);
-         KeyboardHandler keyboard = ClientAccess.schizoMinecraft.keyboardHandler;
-         String clipboardText = entry.toString();
-         keyboard.setClipboard(clipboardText);
-         Boolean writeFile = this.fileSetting.getValue();
-         if (writeFile) {
-            LocalDateTime now = LocalDateTime.now();
-            DateTimeFormatter formatter = timestampFormatter;
-            String timestamp = now.format(formatter);
-            entry.append(" | ").append(timestamp);
-            this.appendRetainedEntry(entry.toString());
+      CoordinateSnapshot snapshot = this.snapshotCoordinates();
+      if (snapshot == null) {
+         return;
+      }
+
+      if (!ClientAccess.schizoMinecraft.isSameThread()) {
+         ClientAccess.schizoMinecraft.executeIfPossible(() -> {
+            if (this.isToggled()) {
+               this.saveCoordinates(snapshot, reason);
+            }
+         });
+         return;
+      }
+
+      this.saveCoordinates(snapshot, reason);
+   }
+
+   private void saveCoordinates(CoordinateSnapshot snapshot, String reason) {
+      String coordinates = "X: %d, Y: %d, Z: %d in The %s".formatted(
+         snapshot.x(), snapshot.y(), snapshot.z(), snapshot.dimension().getDisplayName()
+      );
+      StringBuilder entry = new StringBuilder().append(coordinates).append(" | ").append(reason);
+      KeyboardHandler keyboard = ClientAccess.schizoMinecraft.keyboardHandler;
+      if (!dev.schizo.client.utils.CoordinatePrivacy.isEnabled()) keyboard.setClipboard(entry.toString());
+
+      if (this.fileSetting.getValue()) {
+         String timestamp = LocalDateTime.now().format(timestampFormatter);
+         String retainedEntry = entry.append(" | ").append(timestamp).toString();
+         try {
+            ClientAccess.executorService.submit(() -> this.appendRetainedEntry(retainedEntry));
+         } catch (java.util.concurrent.RejectedExecutionException rejected) {
+            ClientAccess.logger.warn("Could not schedule coordinate log write", rejected);
          }
       }
    }
@@ -120,35 +188,28 @@ public class CoordLoggerModule extends Module {
 
    @EventHandler
    private void onDisconnect(MinecraftDisconnectEvent event) {
-      if (ClientAccess.schizoMinecraft.player != null) {
-         Setting<Boolean> disconnectSettingSnapshot = this.disconnectSetting;
-         Boolean saveOnDisconnect = disconnectSettingSnapshot.getValue();
-         if (saveOnDisconnect) {
-
+      try {
+         if (ClientAccess.schizoMinecraft.player != null && this.disconnectSetting.getValue()) {
             this.saveCoordinates("Disconnect");
-            return;
          }
+      } finally {
+         this.clearCachedCoordinates();
       }
    }
 
    @EventHandler
    private void onPlayerTick(LocalPlayerTickEvent event) {
-
-      Object[] formatArguments = new Object[4];
-      LocalPlayer xPlayer = ClientAccess.schizoMinecraft.player;
-      int blockX = xPlayer.getBlockX();
-      formatArguments[0] = blockX;
-      LocalPlayer yPlayer = ClientAccess.schizoMinecraft.player;
-      int blockY = yPlayer.getBlockY();
-      formatArguments[1] = blockY;
-
-      LocalPlayer zPlayer = ClientAccess.schizoMinecraft.player;
-      int blockZ = zPlayer.getBlockZ();
-      formatArguments[(2)] = blockZ;
-
-      DimensionType dimension = WorldUtils.getDimension();
-      formatArguments[(3)] = dimension.getDisplayName();
-      this.coordinateText = ("X: %d, Y: %d, Z: %d in The %s").formatted(formatArguments);
+      LocalPlayer player = ClientAccess.schizoMinecraft.player;
+      if (player == null) {
+         this.clearCachedCoordinates();
+         return;
+      }
+      this.cacheCoordinates(
+         player.getBlockX(),
+         player.getBlockY(),
+         player.getBlockZ(),
+         WorldUtils.getDimension()
+      );
    }
 
    @EventHandler
@@ -163,6 +224,16 @@ public class CoordLoggerModule extends Module {
             this.saveCoordinates("Death");
          }
       }
+   }
+
+   @Override
+   public void onEnable() {
+      this.clearCachedCoordinates();
+   }
+
+   @Override
+   public void onDisable() {
+      this.clearCachedCoordinates();
    }
 
    public CoordLoggerModule() {

@@ -58,6 +58,10 @@ public final class CoordsCommand extends Command {
       RequiredArgumentBuilder nameBuilder = Command.argument("name", playerNameType);
       com.mojang.brigadier.Command<Object> whisperAction = context -> {
 
+         if (dev.schizo.client.utils.CoordinatePrivacy.isEnabled()) {
+            ChatUtils.printChat(Component.literal("Disable CoordinatePrivacy before sharing your position."), ChatUtils.DEFAULT_SIGNATURE);
+            return 0;
+         }
          String playerName = (String)context.getArgument("name", String.class);
 
          String coordinates = this.formatCoordinates();
@@ -67,6 +71,10 @@ public final class CoordsCommand extends Command {
       ArgumentBuilder nameArgument = nameBuilder.executes(whisperAction);
       LiteralArgumentBuilder clipboardRoot = (LiteralArgumentBuilder)root.then(nameArgument);
       com.mojang.brigadier.Command<Object> clipboardAction = context -> {
+            if (dev.schizo.client.utils.CoordinatePrivacy.isEnabled()) {
+               ChatUtils.printChat(Component.literal("Disable CoordinatePrivacy before copying your position."), ChatUtils.DEFAULT_SIGNATURE);
+               return 0;
+            }
             try {
                KeyboardHandler capturedKeyboard = ClientAccess.schizoMinecraft.keyboardHandler;
 

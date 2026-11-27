@@ -9,6 +9,7 @@
 
 package dev.schizo.mixin;
 
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import com.llamalad7.mixinextras.injector.v2.WrapWithCondition;
@@ -54,10 +55,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(Player.class)
 public abstract class PlayerMixin extends LivingEntity implements PlayerState {
-   private static ScaffoldModule scaffoldModule = ClientContext.getModule(ScaffoldModule.class);
-   private static SprintModule sprintModule = ClientContext.getModule(SprintModule.class);
-   private static ReachModule reachModule = ClientContext.getModule(ReachModule.class);
-   private static NoSlowModule noSlowModule = ClientContext.getModule(NoSlowModule.class);
    @Unique
    private long lastCrawlingTime;
    @Unique
@@ -133,7 +130,7 @@ public abstract class PlayerMixin extends LivingEntity implements PlayerState {
          return originalHeight;
       }
 
-      if (!scaffoldModule.isToggled() || !scaffoldModule.safeWalkSetting.getValue()) {
+      if (!MixinModuleRegistry.playerScaffoldModule.isToggled() || !MixinModuleRegistry.playerScaffoldModule.safeWalkSetting.getValue()) {
          return originalHeight;
       }
       Item heldItem = ClientAccess.schizoMinecraft.player.getItemInHand(InteractionHand.MAIN_HAND).getItem();
@@ -165,14 +162,14 @@ public abstract class PlayerMixin extends LivingEntity implements PlayerState {
 
    @WrapWithCondition(method = "causeExtraKnockback", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/player/Player;setDeltaMovement(Lnet/minecraft/world/phys/Vec3;)V"))
    private boolean allowAttackMovementSlowdown(Player player, Vec3 movement) {
-      return !sprintModule.isToggled()
-         || !sprintModule.keepSetting.getValue();
+      return !MixinModuleRegistry.playerSprintModule.isToggled()
+         || !MixinModuleRegistry.playerSprintModule.keepSetting.getValue();
    }
 
    @WrapWithCondition(method = "causeExtraKnockback", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/player/Player;setSprinting(Z)V"))
    private boolean allowAttackSprintReset(Player player, boolean sprinting) {
-      return !sprintModule.isToggled()
-         || !sprintModule.keepSetting.getValue();
+      return !MixinModuleRegistry.playerSprintModule.isToggled()
+         || !MixinModuleRegistry.playerSprintModule.keepSetting.getValue();
    }
 
    @WrapWithCondition(method = "causeExtraKnockback", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/LivingEntity;knockback(DDD)V"))
@@ -185,9 +182,9 @@ public abstract class PlayerMixin extends LivingEntity implements PlayerState {
 
    @Inject(method = "entityInteractionRange", at = @At("HEAD"), cancellable = true)
    private void overrideEntityInteractionRange(CallbackInfoReturnable<Double> callback) {
-      if (reachModule.isToggled()) {
+      if (MixinModuleRegistry.playerReachModule.isToggled()) {
          callback.setReturnValue(
-            (reachModule.modifierSetting.getValue())
+            (MixinModuleRegistry.playerReachModule.modifierSetting.getValue())
                .doubleValue()
          );
       }
@@ -195,9 +192,9 @@ public abstract class PlayerMixin extends LivingEntity implements PlayerState {
 
    @Inject(method = "blockInteractionRange", at = @At("HEAD"), cancellable = true)
    private void overrideBlockInteractionRange(CallbackInfoReturnable<Double> callback) {
-      if (reachModule.isToggled()) {
+      if (MixinModuleRegistry.playerReachModule.isToggled()) {
          callback.setReturnValue(
-            (reachModule.modifierSetting.getValue())
+            (MixinModuleRegistry.playerReachModule.modifierSetting.getValue())
                .doubleValue()
          );
       }
@@ -228,7 +225,7 @@ public abstract class PlayerMixin extends LivingEntity implements PlayerState {
          return originalSpeed;
       }
 
-      if (!noSlowModule.isToggled() || !noSlowModule.slownessSetting.getValue()) {
+      if (!MixinModuleRegistry.playerNoSlowModule.isToggled() || !MixinModuleRegistry.playerNoSlowModule.slownessSetting.getValue()) {
          return originalSpeed;
       }
       float walkingSpeed = this.getAbilities().getWalkingSpeed();
@@ -279,19 +276,4 @@ public abstract class PlayerMixin extends LivingEntity implements PlayerState {
       this.lastAttackedTicksServer = 0;
    }
 
-   @Unique
-   private static void schizo$bindPlayerModules(ModuleRegistry moduleRegistry) {
-      scaffoldModule = (ScaffoldModule)moduleRegistry.getModule(
-         ScaffoldModule.class
-      );
-      sprintModule = (SprintModule)moduleRegistry.getModule(
-         SprintModule.class
-      );
-      reachModule = (ReachModule)moduleRegistry.getModule(
-         ReachModule.class
-      );
-      noSlowModule = (NoSlowModule)moduleRegistry.getModule(
-         NoSlowModule.class
-      );
-   }
 }

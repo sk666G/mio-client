@@ -17,32 +17,24 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.FileAlreadyExistsException;
+import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 
 public final class FileUtils {
-   private static final String suffixPathPattern;
+   private static final String suffixPathPattern = "\u0001\u0001";
 
-   static {
-      suffixPathPattern = "\u0001\u0001";
+   private FileUtils() {
    }
 
    public static byte[] readBytes(Path path) throws IOException {
-      FileInputStream input = null;
-
-      byte[] bytes;
-      try {
-         input = new FileInputStream(path.toFile());
-         bytes = input.readAllBytes();
-      } finally {
-         if (input != null) {
-            try {
-               input.close();
-            } catch (Exception ignoredCloseFailure) {
-            }
-         }
+      try (FileInputStream input = new FileInputStream(path.toFile())) {
+         return input.readAllBytes();
       }
-
-      return bytes;
    }
 
    public static Path findExistingWithSuffixes(Path path, String... suffixes) {
@@ -57,9 +49,8 @@ public final class FileUtils {
             .prepend(suffix)
             .prepend(pathText)
             .format(suffixPathPattern);
-         Path candidatePath = Path.of(candidatePathText, new String[0]);
-         File candidateFile = candidatePath.toFile();
-         if (candidateFile.exists()) {
+         Path candidatePath = Path.of(candidatePathText);
+         if (candidatePath.toFile().exists()) {
             return candidatePath;
          }
       }
@@ -74,8 +65,222 @@ public final class FileUtils {
    }
 
    public static void writeUtf8(Path path, String text) throws IOException {
-      Charset charset = StandardCharsets.UTF_8;
-      writeBytes(path, text.getBytes(charset));
+      writeBytes(path, text.getBytes(StandardCharsets.UTF_8));
+   }
+
+   public static void writeBytesAtomically(Path path, byte[] bytes) throws IOException {
+      Path target = path.toAbsolutePath().normalize();
+      Path parent = target.getParent();
+      if (parent == null) {
+         throw new IOException("Cannot write a file without a parent directory: " + target);
+      }
+      Files.createDirectories(parent);
+      Path temporary = Files.createTempFile(parent, "." + target.getFileName() + ".", ".tmp");
+      Throwable primaryFailure = null;
+      try {
+         Files.write(temporary, bytes, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING);
+         try {
+            Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+         } catch (AtomicMoveNotSupportedException unsupported) {
+            Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING);
+         }
+      } catch (IOException failure) {
+         IOException wrapped = new IOException("Unable to atomically write " + target, failure);
+         primaryFailure = wrapped;
+         throw wrapped;
+      } catch (RuntimeException | Error failure) {
+         primaryFailure = failure;
+         throw failure;
+      } finally {
+         cleanupTemporary(temporary, primaryFailure);
+      }
+   }
+
+   static void cleanupTemporary(Path temporary, Throwable primaryFailure) throws IOException {
+      try {
+         Files.deleteIfExists(temporary);
+      } catch (IOException cleanupFailure) {
+         if (primaryFailure == null) {
+            throw cleanupFailure;
+         }
+         if (primaryFailure != cleanupFailure) {
+            primaryFailure.addSuppressed(cleanupFailure);
+         }
+      }
+   }
+
+   public static void writeUtf8Atomically(Path path, String text) throws IOException {
+      Path target = path.toAbsolutePath().normalize();
+      Path parent = target.getParent();
+      if (parent == null) {
+         throw new IOException("Cannot write a file without a parent directory: " + target);
+      }
+      Files.createDirectories(parent);
+      Path temporary = Files.createTempFile(parent, "." + target.getFileName() + ".", ".tmp");
+      Throwable primaryFailure = null;
+      try {
+         try (var writer = Files.newBufferedWriter(temporary, StandardCharsets.UTF_8,
+            StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)) {
+            writer.write(text);
+            writer.flush();
+         }
+         try {
+            Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+         } catch (AtomicMoveNotSupportedException unsupported) {
+            Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING);
+         }
+      } catch (IOException failure) {
+         IOException wrapped = new IOException("Unable to atomically write " + target, failure);
+         primaryFailure = wrapped;
+         throw wrapped;
+      } catch (RuntimeException | Error failure) {
+         primaryFailure = failure;
+         throw failure;
+      } finally {
+         cleanupTemporary(temporary, primaryFailure);
+      }
+   }
+
+   /**
+    * Writes a brand-new binary file without ever replacing an existing target.
+    * CREATE_NEW makes destination ownership atomic under concurrent writers.
+    */
+   public static void writeBytesCreateNew(Path path, byte[] bytes) throws IOException {
+      Path target = path.toAbsolutePath().normalize();
+      Path parent = target.getParent();
+      if (parent == null) {
+         throw new IOException("Cannot write a file without a parent directory: " + target);
+      }
+      Files.createDirectories(parent);
+
+      boolean created = false;
+      try {
+         try (var output = Files.newOutputStream(
+            target,
+            StandardOpenOption.CREATE_NEW,
+            StandardOpenOption.WRITE
+         )) {
+            created = true;
+            output.write(bytes);
+            output.flush();
+         }
+      } catch (FileAlreadyExistsException existing) {
+         throw existing;
+      } catch (IOException failure) {
+         if (created) {
+            try {
+               Files.deleteIfExists(target);
+            } catch (IOException cleanupFailure) {
+               failure.addSuppressed(cleanupFailure);
+            }
+         }
+         throw new IOException("Unable to create " + target, failure);
+      }
+   }
+
+   /**
+    * Writes a brand-new UTF-8 file without ever replacing an existing target.
+    * CREATE_NEW makes ownership of the destination the atomic operation; only the
+    * writer that creates the target is allowed to populate it.
+    */
+   public static void writeUtf8CreateNew(Path path, String text) throws IOException {
+      Path target = path.toAbsolutePath().normalize();
+      Path parent = target.getParent();
+      if (parent == null) {
+         throw new IOException("Cannot write a file without a parent directory: " + target);
+      }
+      Files.createDirectories(parent);
+
+      boolean created = false;
+      try {
+         try (var writer = Files.newBufferedWriter(
+            target,
+            StandardCharsets.UTF_8,
+            StandardOpenOption.CREATE_NEW,
+            StandardOpenOption.WRITE
+         )) {
+            created = true;
+            writer.write(text);
+            writer.flush();
+         }
+      } catch (FileAlreadyExistsException existing) {
+         throw existing;
+      } catch (IOException failure) {
+         if (created) {
+            try {
+               Files.deleteIfExists(target);
+            } catch (IOException cleanupFailure) {
+               failure.addSuppressed(cleanupFailure);
+            }
+         }
+         throw new IOException("Unable to create " + target, failure);
+      }
+   }
+
+   /**
+    * Moves a regular file without replacing an existing target.
+    * A hard link publishes the complete file in one create-only operation on supported
+    * filesystems. Otherwise CREATE_NEW retains collision protection, but a reader may
+    * briefly observe the fallback copy in progress.
+    */
+   public static void moveFileNoReplace(Path sourcePath, Path targetPath) throws IOException {
+      Path source = sourcePath.toAbsolutePath().normalize();
+      Path target = targetPath.toAbsolutePath().normalize();
+      if (source.equals(target)) {
+         throw new IOException("Source and target must differ: " + source);
+      }
+      if (!Files.isRegularFile(source, LinkOption.NOFOLLOW_LINKS)) {
+         throw new IOException("Source is not a regular file: " + source);
+      }
+
+      Path parent = target.getParent();
+      if (parent == null) {
+         throw new IOException("Cannot move a file without a target parent: " + target);
+      }
+      Files.createDirectories(parent);
+
+      boolean targetCreated = false;
+      try {
+         try {
+            Files.createLink(target, source);
+            targetCreated = true;
+         } catch (FileAlreadyExistsException existing) {
+            throw existing;
+         } catch (UnsupportedOperationException | java.nio.file.FileSystemException hardLinkUnavailable) {
+            try (var input = Files.newInputStream(source, LinkOption.NOFOLLOW_LINKS);
+                 var output = Files.newOutputStream(
+                    target,
+                    StandardOpenOption.CREATE_NEW,
+                    StandardOpenOption.WRITE
+                 )) {
+               targetCreated = true;
+               input.transferTo(output);
+               output.flush();
+            }
+         }
+      } catch (FileAlreadyExistsException existing) {
+         throw existing;
+      } catch (IOException failure) {
+         if (targetCreated) {
+            try {
+               Files.deleteIfExists(target);
+            } catch (IOException cleanupFailure) {
+               failure.addSuppressed(cleanupFailure);
+            }
+         }
+         throw new IOException("Unable to publish " + source + " as " + target, failure);
+      }
+
+      try {
+         Files.delete(source);
+      } catch (IOException deleteFailure) {
+         try {
+            Files.deleteIfExists(target);
+         } catch (IOException rollbackFailure) {
+            deleteFailure.addSuppressed(rollbackFailure);
+         }
+         throw new IOException("Unable to remove source after moving " + source + " to " + target, deleteFailure);
+      }
    }
 
    public static String readUtf8(Path path) throws IOException {

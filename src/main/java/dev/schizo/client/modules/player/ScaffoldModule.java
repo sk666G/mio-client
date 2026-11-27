@@ -10,6 +10,7 @@
 package dev.schizo.client.modules.player;
 
 import java.util.Set;
+import java.util.Objects;
 
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
@@ -19,6 +20,7 @@ import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.LocalPlayerMoveEvent;
 import dev.schizo.client.events.LocalPlayerSendPositionEvent;
 import dev.schizo.client.events.PlayerIsStayingOnGroundSurfaceEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.utils.movement.MovementPhysics;
 import dev.schizo.client.utils.math.MathConstants;
 import dev.schizo.client.managers.RotationManager;
@@ -80,7 +82,7 @@ import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
 public class ScaffoldModule extends Module {
-   private static AntiCheatModule antiCheatModule = (AntiCheatModule)ClientContext.getModule(AntiCheatModule.class);
+   private static AntiCheatModule antiCheatModule;
    private final Setting<ScaffoldMode> modeSetting;
    private final Setting<Integer> sizeSetting;
    private final Setting<Integer> frequencySetting;
@@ -133,6 +135,30 @@ public class ScaffoldModule extends Module {
       this.blockSlot = -1;
    }
 
+   @Override
+   public void onDisable() {
+      ClientContext.playerTickController.releaseMultiplier(this);
+      this.restoreSavedJumpStrength();
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.savedJumpStrength = -1.0F;
+      ClientContext.playerTickController.releaseMultiplier(this);
+   }
+
+   private void restoreSavedJumpStrength() {
+      if (this.savedJumpStrength <= 0.0F) {
+         return;
+      }
+
+      float savedStrength = this.savedJumpStrength;
+      this.savedJumpStrength = -1.0F;
+      if (!this.isWorldUnavailable()) {
+         this.setJumpStrength(savedStrength);
+      }
+   }
+
    private float getJumpStrength() {
       LocalPlayer player = ClientAccess.schizoMinecraft.player;
       Holder jumpAttribute = Attributes.JUMP_STRENGTH;
@@ -141,13 +167,7 @@ public class ScaffoldModule extends Module {
 
    private void tickPlacement() {
       ClientContext.playerTickController.releaseMultiplier(this);
-      if (this.savedJumpStrength > 0.0F) {
-         float savedStrength = this.savedJumpStrength;
-
-         this.setJumpStrength(savedStrength);
-
-         this.savedJumpStrength = -1.0F;
-      }
+      this.restoreSavedJumpStrength();
 
       if (ClientAccess.schizoMinecraft.player.isHandsBusy()) {
          return;
@@ -764,8 +784,9 @@ public class ScaffoldModule extends Module {
    }
 
    public static void bindReferencedModules(ModuleRegistry moduleRegistry) {
-      antiCheatModule = (AntiCheatModule)moduleRegistry.getModule(
-         AntiCheatModule.class
+      antiCheatModule = (AntiCheatModule)Objects.requireNonNull(
+         moduleRegistry.getModule(AntiCheatModule.class),
+         "Required module is not registered: AntiCheatModule"
       );
    }
 

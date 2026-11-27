@@ -9,7 +9,7 @@
 
 package dev.schizo.mixin;
 
-import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.render.RenderUtils;
 import dev.schizo.client.modules.render.NoRenderModule;
 import dev.schizo.client.modules.render.XrayModule;
@@ -26,14 +26,15 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(ItemBlockRenderTypes.class)
 public class ItemBlockRenderTypesMixin {
-   private static final NoRenderModule noRenderModule = ClientContext.getModule(NoRenderModule.class);
-   private static final XrayModule xrayModule = ClientContext.getModule(XrayModule.class);
+   private static NoRenderModule noRenderModule() {
+      return MixinModuleRegistry.gameNoRender;
+   }
 
    @Inject(method = "getRenderType", at = @At("HEAD"), cancellable = true)
    private static void applyTranslucentHandRenderType(
       BlockState blockState, CallbackInfoReturnable<RenderType> callback
    ) {
-      if (noRenderModule.getHandOpacity()
+      if (noRenderModule().getHandOpacity()
             != 1.0F
          && RenderUtils.getRenderColor()[3]
             != 255) {
@@ -45,12 +46,12 @@ public class ItemBlockRenderTypesMixin {
    private static void applyXrayTranslucentChunkLayer(
       BlockState blockState, CallbackInfoReturnable<ChunkSectionLayer> callback
    ) {
-      if (xrayModule.isToggled()
-         && !xrayModule.alphaSetting
+      if (MixinModuleRegistry.renderXray.isToggled()
+         && !MixinModuleRegistry.renderXray.alphaSetting
             .isAtMinimum()
-         && !xrayModule.alphaSetting
+         && !MixinModuleRegistry.renderXray.alphaSetting
             .isAtMaximum()
-         && !xrayModule.shouldRenderBlock(
+         && !MixinModuleRegistry.renderXray.shouldRenderBlock(
             BlockPos.ZERO,
             blockState.getBlock()
          )) {

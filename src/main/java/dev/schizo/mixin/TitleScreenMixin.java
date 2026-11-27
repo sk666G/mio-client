@@ -12,6 +12,7 @@ package dev.schizo.mixin;
 import com.llamalad7.mixinextras.sugar.Local;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.modules.client.HudColorMode;
 import dev.schizo.client.modules.client.HUDModule;
 import dev.schizo.client.commands.PanicCommand;
@@ -42,8 +43,8 @@ public class TitleScreenMixin extends Screen {
       GuiGraphics graphics, int mouseX, int mouseY, float partialTick, CallbackInfo callback, @Local(ordinal = 1) float opacity
    ) {
       if (!PanicCommand.unloaded) {
-         WatermarkModule watermarkModule = ClientContext.getModule(WatermarkModule.class);
-         HUDModule hudModule = ClientContext.getModule(HUDModule.class);
+         WatermarkModule watermarkModule = MixinModuleRegistry.getModule(WatermarkModule.class);
+         HUDModule hudModule = MixinModuleRegistry.gameHud;
          if (watermarkModule != null && hudModule != null) {
             Minecraft client = ClientAccess.schizoMinecraft;
             int hudColor = hudModule.fadeSetting.getValue().getColor(hudModule, 0.0F).getRGB();
@@ -61,7 +62,7 @@ public class TitleScreenMixin extends Screen {
 
    @Override
    public boolean keyPressed(KeyEvent keyEvent) {
-      UIModule uiModule = ClientContext.getModule(UIModule.class);
+      UIModule uiModule = MixinModuleRegistry.minecraftUiModule;
       if (uiModule != null
          && !uiModule.getKeybind().mouse()
          && uiModule.getKeybind().code() == keyEvent.key()) {

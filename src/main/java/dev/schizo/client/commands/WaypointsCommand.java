@@ -64,15 +64,19 @@ public final class WaypointsCommand extends Command {
 
             Vec3 position = (Vec3)context.getArgument("pos", Vec3.class);
 
-            DimensionType currentDimension = WorldUtils.getDimension();
-            String dimensionDisplayName = currentDimension.getDisplayName();
-            String dimensionKey = dimensionDisplayName.toLowerCase();
+            String dimensionKey = WorldUtils.getDimensionId();
 
             Waypoint waypoint = new Waypoint(
                name, position, dimensionKey, getCurrentServerKey()
             );
             WaypointRegistry waypointRegistry = ClientContext.waypointRegistry;
-            waypointRegistry.registerWaypoint(waypoint);
+            if (!waypointRegistry.registerWaypoint(waypoint)) {
+               ChatUtils.printChat(
+                  Component.literal("Waypoint name already exists on this server"),
+                  -1
+               );
+               return 1;
+            }
 
             String messagePrefix = "Waypoint ";
             MutableComponent message = Component.literal(messagePrefix);
@@ -98,7 +102,13 @@ public final class WaypointsCommand extends Command {
                name, position, dimensionKey, getCurrentServerKey()
             );
             WaypointRegistry waypointRegistry = ClientContext.waypointRegistry;
-            waypointRegistry.registerWaypoint(waypoint);
+            if (!waypointRegistry.registerWaypoint(waypoint)) {
+               ChatUtils.printChat(
+                  Component.literal("Waypoint name already exists on this server"),
+                  -1
+               );
+               return 1;
+            }
 
             String messagePrefix = "Waypoint ";
             MutableComponent message = Component.literal(messagePrefix);
@@ -114,9 +124,7 @@ public final class WaypointsCommand extends Command {
 
             String name = (String)context.getArgument("name", String.class);
 
-            DimensionType currentDimension = WorldUtils.getDimension();
-            String dimensionDisplayName = currentDimension.getDisplayName();
-            String dimensionKey = dimensionDisplayName.toLowerCase();
+            String dimensionKey = WorldUtils.getDimensionId();
             LocalPlayer playerForPosition = ClientAccess.schizoMinecraft.player;
             Vec3 playerPosition = playerForPosition.position();
 
@@ -124,7 +132,13 @@ public final class WaypointsCommand extends Command {
                name, playerPosition, dimensionKey, getCurrentServerKey()
             );
             WaypointRegistry waypointRegistry = ClientContext.waypointRegistry;
-            waypointRegistry.registerWaypoint(waypoint);
+            if (!waypointRegistry.registerWaypoint(waypoint)) {
+               ChatUtils.printChat(
+                  Component.literal("Waypoint name already exists on this server"),
+                  -1
+               );
+               return 1;
+            }
 
             String messagePrefix = "Waypoint ";
             MutableComponent message = Component.literal(messagePrefix);
@@ -155,18 +169,17 @@ public final class WaypointsCommand extends Command {
 
             String server = (String)context.getArgument("server", String.class);
             WaypointRegistry waypointRegistry = ClientContext.waypointRegistry;
-            ((List)waypointRegistry.getRegistry()).removeIf((Predicate<Waypoint>)candidate -> {
-
-               String candidateServer = candidate.getServer();
-               if (server.equalsIgnoreCase(candidateServer)) {
-                  String candidateName = candidate.getName();
-                  if (name.equalsIgnoreCase(candidateName)) {
-                     return true;
-                  }
-               }
-
-               return false;
-            });
+            Predicate<Waypoint> matchesWaypoint = candidate ->
+               candidate != null
+                  && candidate.getName() != null
+                  && candidate.getServer() != null
+                  && name.equalsIgnoreCase(candidate.getName())
+                  && server.equalsIgnoreCase(candidate.getServer());
+            Waypoint waypoint = (Waypoint)waypointRegistry.findFirst(matchesWaypoint).orElse(null);
+            if (waypoint == null || !waypointRegistry.unregisterWaypoint(waypoint)) {
+               ChatUtils.printChat(Component.literal("Waypoint not found"), -1);
+               return 1;
+            }
 
             String messagePrefix = "Waypoint ";
             MutableComponent message = Component.literal(messagePrefix);
@@ -213,27 +226,17 @@ public final class WaypointsCommand extends Command {
                ChatUtils.printChat(Component.nullToEmpty(missingWaypointMessage), -1);
                return 1;
             } else {
-               WaypointRegistry registryForRemoval = ClientContext.waypointRegistry;
-               ((List)registryForRemoval.getRegistry()).removeIf(matchesWaypoint);
-               WaypointRegistry registryForReplacement = ClientContext.waypointRegistry;
-               List replacementRegistry = (List)registryForReplacement.getRegistry();
-
-               Vec3 waypointPosition = waypoint.getPosition();
-
-               String waypointDimension = waypoint.getDimension();
-
-               replacementRegistry.add(new Waypoint(
-                     targetName,
-                     waypointPosition,
-                     waypointDimension,
-                     waypoint.getServer()
-                  ));
+               WaypointRegistry waypointRegistry = ClientContext.waypointRegistry;
+               if (!waypointRegistry.renameWaypoint(waypoint, targetName)) {
+                  ChatUtils.printChat(Component.literal("Waypoint could not be renamed"), -1);
+                  return 1;
+               }
 
                String messagePrefix = "Waypoint ";
                MutableComponent renameMessage = Component.literal(messagePrefix);
                renameMessage = renameMessage.append(name);
 
-               String messageSuffix = " has been renamed to";
+               String messageSuffix = " has been renamed to ";
                MutableComponent messageForSuffix = renameMessage;
                renameMessage = messageForSuffix.append(messageSuffix);
                renameMessage = renameMessage.append(targetName);

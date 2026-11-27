@@ -192,7 +192,10 @@ public final class TradeCommand extends Command {
 
       TradeDefinition createdTrade = new TradeDefinition(name, fromItem, toItem, maxPrice, new ArrayList<>());
       TradeRegistry registry = ClientContext.tradeRegistry;
-      registry.registerTrade(createdTrade);
+      if (!registry.registerTrade(createdTrade)) {
+         ChatUtils.printChat(Component.literal("Trade could not be created"), ChatUtils.createSignature(-1));
+         return 0;
+      }
 
       Object[] messageArguments = new Object[]{name};
       String message = ("Trade %s has been created").formatted(messageArguments);

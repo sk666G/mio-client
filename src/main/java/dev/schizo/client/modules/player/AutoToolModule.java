@@ -13,6 +13,7 @@ import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.LocalPlayerPreTickEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.events.MultiPlayerGameModeStartDestroyBlockEvent;
 import dev.schizo.client.utils.world.BlockBreakingState;
 import dev.schizo.client.utils.network.PacketSender;
@@ -31,7 +32,6 @@ import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket.Action;
-import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
@@ -44,7 +44,7 @@ public class AutoToolModule extends Module {
    private final Setting<Boolean> inventorySetting;
    private final Setting<Boolean> swapBackSetting;
    public final Setting<Boolean> noBreakDelaySetting;
-   private int swapBackSlot;
+   private int swapBackSlot = -1;
    private boolean swapBackPending;
    private boolean inventorySwapActive;
 
@@ -56,10 +56,32 @@ public class AutoToolModule extends Module {
       Setting<Float> blockDamage = this.blockDamageSetting;
       return !blockDamage.isAtMaximum();
    }
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.clearSwapState();
+   }
 
-   static {
-      antiCheatModule = (AntiCheatModule)ClientContext.getModule(AntiCheatModule.class);
-      nukerModule = (NukerModule)ClientContext.getModule(NukerModule.class);
+   @Override
+   public void onDisable() {
+      try {
+         if (!this.isWorldUnavailable() && this.swapBackPending && this.swapBackSetting.getValue()) {
+            if (this.inventorySwapActive) {
+               InventoryUtils.swapIntoSelectedSlot(this.swapBackSlot);
+            } else {
+               InventoryUtils.selectHotbarSlot(this.swapBackSlot);
+            }
+         }
+      } catch (RuntimeException restoreFailure) {
+         ClientAccess.logger.warn("Could not restore AutoTool inventory state while disabling", restoreFailure);
+      } finally {
+         this.clearSwapState();
+      }
+   }
+
+   private void clearSwapState() {
+      this.swapBackSlot = -1;
+      this.swapBackPending = false;
+      this.inventorySwapActive = false;
    }
 
    @EventHandler
@@ -123,6 +145,9 @@ public class AutoToolModule extends Module {
       }
 
       if (breakingPos != null && ClientAccess.schizoMinecraft.options.keyAttack.isDown()) {
+         if (!this.swapBackPending && !this.inventorySwapActive) {
+            this.swapBackSlot = InventoryUtils.getSelectedSlot();
+         }
          this.swapBackPending = true;
          Boolean inventorySearch = this.inventorySetting.getValue();
          boolean hotbarOnly = !inventorySearch;
@@ -145,6 +170,9 @@ public class AutoToolModule extends Module {
       Setting<Boolean> swapBackSetting = this.swapBackSetting;
       Boolean swapBack = swapBackSetting.getValue();
       if (!swapBack) {
+         this.swapBackPending = false;
+         this.inventorySwapActive = false;
+         this.swapBackSlot = InventoryUtils.getSelectedSlot();
          return;
       }
       if (this.swapBackPending) {
@@ -156,11 +184,10 @@ public class AutoToolModule extends Module {
             return;
          }
 
-         Inventory restoreInventory = ClientAccess.schizoMinecraft.player.getInventory();
          int restoreSlot = this.swapBackSlot;
-         restoreInventory.setSelectedSlot(restoreSlot);
+         InventoryUtils.selectHotbarSlot(restoreSlot);
       } else if (!this.inventorySwapActive) {
-         this.swapBackSlot = ClientAccess.schizoMinecraft.player.getInventory().getSelectedSlot();
+         this.swapBackSlot = InventoryUtils.getSelectedSlot();
       }
    }
 

@@ -20,6 +20,7 @@ import dev.schizo.client.events.LocalPlayerSendPositionEvent;
 import dev.schizo.client.events.LocalPlayerTickEvent;
 import dev.schizo.client.events.MinecraftRunTickEvent;
 import dev.schizo.client.events.MouseHandlerOnScrollEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.events.MouseHandlerTurnPlayerEvent;
 import dev.schizo.client.events.GameModeUseItemPacketEvent;
 import dev.schizo.client.events.MultiPlayerGameModeUseItemOnEvent;
@@ -67,6 +68,7 @@ public class FreecamModule extends Module {
    public Vec3 cameraPosition;
    public Vec3 previousCameraPosition;
    private float[] savedPlayerRotation;
+   private LocalPlayer savedRotationOwner;
    public float cameraYaw;
    public float previousCameraYaw;
    public float cameraPitch;
@@ -88,6 +90,8 @@ public class FreecamModule extends Module {
          return;
       }
 
+      this.savedPlayerRotation = null;
+      this.savedRotationOwner = null;
       GameOptionsOverrides.registerCameraOverride(this);
       KeyboardInputTickEvent resetInputEvent = new KeyboardInputTickEvent(
          ClientAccess.schizoMinecraft.player.input
@@ -98,11 +102,11 @@ public class FreecamModule extends Module {
       this.previousCameraPosition = this.cameraPosition = camera.position();
 
       float[] savedRotation = new float[2];
-      LocalPlayer playerForYaw = ClientAccess.schizoMinecraft.player;
-      savedRotation[0] = playerForYaw.getYRot();
-      LocalPlayer playerForPitch = ClientAccess.schizoMinecraft.player;
-      savedRotation[1] = playerForPitch.getXRot();
+      LocalPlayer rotationOwner = ClientAccess.schizoMinecraft.player;
+      savedRotation[0] = rotationOwner.getYRot();
+      savedRotation[1] = rotationOwner.getXRot();
       this.savedPlayerRotation = savedRotation;
+      this.savedRotationOwner = rotationOwner;
       this.previousCameraYaw = this.cameraYaw = this.savedPlayerRotation[0];
       this.previousCameraPitch = this.cameraPitch = this.savedPlayerRotation[1];
       float cameraY = (float)this.cameraPosition.y();
@@ -125,16 +129,30 @@ public class FreecamModule extends Module {
 
    @Override
    public void onDisable() {
-      if (!this.isWorldUnavailable()) {
-         LocalPlayer playerForYaw = ClientAccess.schizoMinecraft.player;
-         float savedYaw = this.savedPlayerRotation[0];
-         playerForYaw.setYRot(savedYaw);
-         LocalPlayer playerForPitch = ClientAccess.schizoMinecraft.player;
-         float savedPitch = this.savedPlayerRotation[1];
-         playerForPitch.setXRot(savedPitch);
+      GameOptionsOverrides.unregisterCameraOverride(this);
 
-         GameOptionsOverrides.unregisterCameraOverride(this);
+      float[] rotation = this.savedPlayerRotation;
+      LocalPlayer rotationOwner = this.savedRotationOwner;
+      this.savedPlayerRotation = null;
+      this.savedRotationOwner = null;
+      if (rotation == null || this.isWorldUnavailable()) {
+         return;
       }
+
+      LocalPlayer player = ClientAccess.schizoMinecraft.player;
+      if (!shouldRestorePlayerRotation(rotationOwner, player)) {
+         return;
+      }
+      player.setYRot(rotation[0]);
+      player.setXRot(rotation[1]);
+   }
+
+   static boolean shouldRestorePlayerRotation(Object capturedPlayer, Object currentPlayer) {
+      return ownsCurrentPlayer(capturedPlayer, currentPlayer);
+   }
+
+   static boolean ownsCurrentPlayer(Object capturedPlayer, Object currentPlayer) {
+      return capturedPlayer != null && capturedPlayer == currentPlayer;
    }
 
    public boolean shouldHideHands() {
@@ -224,9 +242,13 @@ public class FreecamModule extends Module {
 
    @EventHandler
    private void onLocalPlayerTickEvent(LocalPlayerTickEvent event) {
-      Options options = ClientAccess.schizoMinecraft.options;
+      LocalPlayer currentPlayer = ClientAccess.schizoMinecraft.player;
+      if (!ownsCurrentPlayer(this.savedRotationOwner, currentPlayer)) {
+         this.disable();
+         return;
+      }
       CameraType cameraType = CameraType.FIRST_PERSON;
-      options.setCameraType(cameraType);
+      GameOptionsOverrides.applyCameraOverride(this, cameraType);
       this.previousCameraPosition = this.cameraPosition;
       float capturedYaw = this.cameraYaw;
       FreecamInput capturedInput = this.freecamInput;
@@ -354,6 +376,11 @@ public class FreecamModule extends Module {
    private void onMinecraftRunTickEvent(MinecraftRunTickEvent event) {
       this.horizontalSpeedAnimation.updateAndGet();
       this.verticalSpeedAnimation.updateAndGet();
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnectEvent(MinecraftDisconnectEvent event) {
+      this.disable();
    }
 
    @EventHandler

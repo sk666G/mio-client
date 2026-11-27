@@ -119,8 +119,15 @@ public final class WindowsMediaSessionProvider implements PortableMediaSessionPr
     public synchronized void close() {
         if (!closed.compareAndSet(false, true)) return;
         Thread thread = worker;
+        worker = null;
         if (thread != null) thread.interrupt();
-
+        if (thread != null && thread != Thread.currentThread()) {
+            try {
+                thread.join(1_000L);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+            }
+        }
     }
 
     public interface RuntimeApi extends StdCallLibrary {

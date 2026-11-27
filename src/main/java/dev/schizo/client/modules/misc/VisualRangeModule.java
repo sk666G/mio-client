@@ -26,6 +26,7 @@ import dev.schizo.client.utils.chat.ChatUtils;
 import dev.schizo.client.utils.entity.PlayerStateUtils;
 import dev.schizo.client.utils.collections.NamedIdentifier;
 import dev.schizo.client.modules.Module;
+import dev.schizo.client.modules.DeferredModuleActionGuard;
 import dev.schizo.client.modules.ModuleCategory;
 import dev.schizo.client.settings.BooleanSetting;
 import dev.schizo.client.settings.IdentifierSetting;
@@ -74,6 +75,7 @@ public class VisualRangeModule extends Module {
    private final Setting<Boolean> onlyEnemiesSetting;
    private final Setting<NamedIdentifier> soundSetting;
    private final Setting<Float> volumeSetting;
+   private long notificationGeneration;
 
    private void playAlertSound() {
       Setting<Boolean> playSoundOption = this.playSoundSetting;
@@ -117,7 +119,21 @@ public class VisualRangeModule extends Module {
    private void onClientLevelAddEntityEvent(ClientLevelAddEntityEvent event) {
       if (event.getEntity() instanceof Player player) {
          TaskScheduler scheduler = ClientContext.taskScheduler;
+         ClientLevel expectedLevel = ClientAccess.schizoMinecraft.level;
+         LocalPlayer expectedPlayer = ClientAccess.schizoMinecraft.player;
+         long expectedGeneration = this.notificationGeneration;
          Runnable joinNotificationTask = () -> {
+            if (!ownsNotificationContext(
+               this.isToggled(),
+               expectedGeneration,
+               this.notificationGeneration,
+               expectedLevel,
+               ClientAccess.schizoMinecraft.level,
+               expectedPlayer,
+               ClientAccess.schizoMinecraft.player
+            )) {
+               return;
+            }
             Player targetPlayer = player;
             if (!this.shouldNotifyPlayer(targetPlayer)) {
                return;
@@ -298,18 +314,61 @@ public class VisualRangeModule extends Module {
          || packet.getType() != EntityType.ENDER_PEARL) {
          return;
       }
-      Setting<Boolean> enderPearlsOption = this.enderPearlsSetting;
-      if (!enderPearlsOption.getValue()) {
-         return;
-      }
-      MutableComponent notification = Component.literal(("Ender Pearl entered visual range."));
-      Vec3 position = new Vec3(packet.getX(), packet.getY(), packet.getZ());
-      this.addPositionInteractions(notification, position);
-      MessageSignature signature = ChatUtils.createSignature((enderPearlMessageId));
-      ChatUtils.MessagePriority priority = ChatUtils.MessagePriority.MID;
-      ChatUtils.printChat(notification, signature, priority);
 
-      this.playAlertSound();
+      Vec3 position = new Vec3(packet.getX(), packet.getY(), packet.getZ());
+      long expectedGeneration = this.notificationGeneration;
+      ClientLevel expectedLevel = ClientAccess.schizoMinecraft.level;
+      LocalPlayer expectedPlayer = ClientAccess.schizoMinecraft.player;
+      ClientAccess.schizoMinecraft.executeIfPossible(() -> {
+         if (!ownsNotificationContext(
+               this.isToggled(),
+               expectedGeneration,
+               this.notificationGeneration,
+               expectedLevel,
+               ClientAccess.schizoMinecraft.level,
+               expectedPlayer,
+               ClientAccess.schizoMinecraft.player
+            )
+            || !this.enderPearlsSetting.getValue()) {
+            return;
+         }
+
+         MutableComponent notification = Component.literal("Ender Pearl entered visual range.");
+         this.addPositionInteractions(notification, position);
+         MessageSignature signature = ChatUtils.createSignature(enderPearlMessageId);
+         ChatUtils.printChat(notification, signature, ChatUtils.MessagePriority.MID);
+         this.playAlertSound();
+      });
+   }
+
+   static boolean ownsNotificationContext(
+      boolean enabled,
+      long expectedGeneration,
+      long currentGeneration,
+      Object expectedLevel,
+      Object currentLevel,
+      Object expectedPlayer,
+      Object currentPlayer
+   ) {
+      return DeferredModuleActionGuard.isCurrent(
+         enabled,
+         expectedGeneration,
+         currentGeneration,
+         expectedLevel,
+         currentLevel,
+         expectedPlayer,
+         currentPlayer
+      );
+   }
+
+   @Override
+   public void onEnable() {
+      this.notificationGeneration++;
+   }
+
+   @Override
+   public void onDisable() {
+      this.notificationGeneration++;
    }
 
    private boolean shouldNotifyPlayer(Player player) {

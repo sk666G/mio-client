@@ -15,6 +15,8 @@ import dev.schizo.client.gui.panels.Panel;
 import dev.schizo.client.gui.components.ActionButtonComponent;
 import dev.schizo.client.gui.components.ButtonComponent;
 import dev.schizo.client.config.EnumJsonConverter;
+import dev.schizo.client.config.ConfigFileReader;
+import dev.schizo.client.config.PresetData;
 import dev.schizo.client.settings.options.PresetCategory;
 
 import com.google.gson.JsonElement;
@@ -22,6 +24,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -111,16 +114,36 @@ public final class PresetImportScreen extends ClientScreen {
    }
 
    private String getPresetName(Path sourcePath) {
-      return sourcePath.toFile().getName().replace(".json", "");
+      return presetNameFromPath(sourcePath);
+   }
+
+   static boolean isJsonPresetPath(Path path) {
+      if (path == null || path.getFileName() == null) {
+         return false;
+      }
+      String filename = path.getFileName().toString();
+      return filename.length() > 5
+         && filename.regionMatches(true, filename.length() - 5, ".json", 0, 5);
+   }
+
+   static String presetNameFromPath(Path path) {
+      if (path == null || path.getFileName() == null) {
+         throw new IllegalArgumentException("Preset path is required");
+      }
+      String filename = path.getFileName().toString();
+      return isJsonPresetPath(path)
+         ? filename.substring(0, filename.length() - 5)
+         : filename;
    }
 
    private void importPreset(Path sourcePath, PresetCategory targetCategory) {
-      String fileName = sourcePath.toFile().getName();
-
       try {
-         Files.copy(sourcePath, targetCategory.getDirectory().resolve(fileName));
-      } catch (IOException copyFailure) {
-         copyFailure.printStackTrace();
+         JsonObject presetObject = this.readPresetObject(sourcePath);
+         PresetData preset = new PresetData(this.getPresetName(sourcePath), presetObject);
+         preset.saveNewToDirectory(targetCategory.getDirectory());
+      } catch (IOException | RuntimeException copyFailure) {
+         ClientAccess.logger.warn("Could not import dropped preset {}", sourcePath, copyFailure);
+         return;
       }
 
       ClientContext.configurationManager
@@ -131,29 +154,46 @@ public final class PresetImportScreen extends ClientScreen {
       );
    }
 
+   private JsonObject readPresetObject(Path sourcePath) throws IOException {
+      if (Files.isSymbolicLink(sourcePath)
+         || !Files.isRegularFile(sourcePath, LinkOption.NOFOLLOW_LINKS)) {
+         throw new IOException("Dropped preset is not a regular file");
+      }
+      String jsonText = ConfigFileReader.readUtf8(sourcePath, PresetData.MAX_PRESET_BYTES);
+      JsonElement parsedJson;
+      try {
+         parsedJson = JsonParser.parseString(jsonText);
+      } catch (RuntimeException malformed) {
+         throw new IOException("Dropped preset is not valid JSON", malformed);
+      }
+      if (!parsedJson.isJsonObject()) {
+         throw new IOException("Dropped preset must contain a JSON object");
+      }
+      return parsedJson.getAsJsonObject();
+   }
+
    private PresetCategory readPresetCategory(Path sourcePath) {
       try {
-         String jsonText = Files.readString(sourcePath);
-         JsonElement parsedJson = JsonParser.parseString(jsonText);
-         if (!parsedJson.isJsonObject()) {
-            return null;
-         }
-
-         JsonObject jsonObject = parsedJson.getAsJsonObject();
+         JsonObject jsonObject = this.readPresetObject(sourcePath);
          if (!jsonObject.has("category")) {
             return null;
          }
 
          String categoryName = jsonObject.get("category").getAsString();
          return PresetCategory.findByName(categoryName);
-      } catch (IOException readFailure) {
+      } catch (IOException | RuntimeException readFailure) {
+         ClientAccess.logger.debug("Could not infer dropped preset category from {}", sourcePath, readFailure);
          return null;
       }
    }
 
-   public static boolean openForDroppedFiles(Screen previousScreen, List droppedPaths) {
-      ArrayList jsonPaths = new ArrayList();
-      droppedPaths.stream().filter(path -> path.toString().endsWith(".json")).forEach(jsonPaths::add);
+   public static boolean openForDroppedFiles(Screen previousScreen, List<?> droppedPaths) {
+      ArrayList<Path> jsonPaths = new ArrayList<>();
+      droppedPaths.stream()
+         .filter(Path.class::isInstance)
+         .map(Path.class::cast)
+         .filter(PresetImportScreen::isJsonPresetPath)
+         .forEach(jsonPaths::add);
       if (jsonPaths.size() != 1) {
          return false;
       }

@@ -224,7 +224,9 @@ public abstract class Setting<T> extends NamedFeature implements ValueProvider<T
       if (this.changeCallback != null) {
          try {
             this.changeCallback.run();
-         } catch (Throwable ignoredFailure) {
+         } catch (RuntimeException | Error callbackFailure) {
+            dev.schizo.client.ClientAccess.logger.error("Setting change callback failed for {}", this.getConfigName(), callbackFailure);
+            throw callbackFailure;
          }
       }
    }
@@ -285,29 +287,31 @@ public abstract class Setting<T> extends NamedFeature implements ValueProvider<T
    }
 
    public void setValue(T newValue) {
+      T previousCommitted = this.value;
+      T previousStaged = this.stagedValue;
+      T previousNotificationValue = this.previousValue;
+
       this.setStagedValue(newValue);
       if (this.numericBoundsEnabled) {
-         Number minimum = (Number)this.minimumValue;
-         float minimumAsFloat = minimum.floatValue();
-         Number requestedMinimum = (Number)newValue;
-         if (minimumAsFloat > requestedMinimum.floatValue()) {
-            T lowerBound = this.minimumValue;
-            this.setStagedValue(lowerBound);
-         }
-
-         Number maximum = (Number)this.maximumValue;
-         float maximumAsFloat = maximum.floatValue();
-         Number requestedMaximum = (Number)newValue;
-         if (maximumAsFloat < requestedMaximum.floatValue()) {
-            T upperBound = this.maximumValue;
-            this.setStagedValue(upperBound);
+         double requested = ((Number)newValue).doubleValue();
+         if (requested < ((Number)this.minimumValue).doubleValue()) {
+            this.setStagedValue(this.minimumValue);
+         } else if (requested > ((Number)this.maximumValue).doubleValue()) {
+            this.setStagedValue(this.maximumValue);
          }
       }
 
       this.value = this.stagedValue;
       // Preserve reference-change notifications, including newly boxed numeric values.
       if (this.value != this.previousValue) {
-         this.runChangeCallback();
+         try {
+            this.runChangeCallback();
+         } catch (RuntimeException | Error callbackFailure) {
+            this.value = previousCommitted;
+            this.stagedValue = previousStaged;
+            this.previousValue = previousNotificationValue;
+            throw callbackFailure;
+         }
       }
 
       this.previousValue = this.value;

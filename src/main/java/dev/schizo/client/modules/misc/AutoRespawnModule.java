@@ -14,6 +14,7 @@ import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.PacketEvent;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.LocalPlayerTickEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.managers.TaskScheduler;
 import dev.schizo.client.utils.ElapsedTimer;
 import dev.schizo.client.utils.chat.ChatUtils;
@@ -32,6 +33,7 @@ public class AutoRespawnModule extends Module {
    private final ElapsedTimer respawnTimer = new ElapsedTimer();
    private final Setting<Boolean> saySetting;
    private final Setting<String> messageSetting;
+   private long lifecycleGeneration;
 
    @EventHandler
    private void onLocalPlayerTickEvent(LocalPlayerTickEvent event) {
@@ -48,22 +50,67 @@ public class AutoRespawnModule extends Module {
    @EventHandler
    private void onPacketReceive(PacketEvent.Receive event) {
       if (event.getPacket() instanceof ClientboundRespawnPacket) {
-         Setting<Boolean> saySnapshot = this.saySetting;
-         Boolean say = saySnapshot.getValue();
-         if (say) {
+         long expectedGeneration = this.lifecycleGeneration;
+         ClientAccess.schizoMinecraft.executeIfPossible(() -> {
+            if (!ownsQueuedPacketAction(
+               this.isToggled(),
+               expectedGeneration,
+               this.lifecycleGeneration
+            ) || !this.saySetting.getValue()) {
+               return;
+            }
+
+            String message = this.messageSetting.getValue();
             TaskScheduler scheduler = ClientContext.taskScheduler;
-            Runnable sendMessage = () -> {
-               Setting<String> messageSnapshot = this.messageSetting;
-               String message = messageSnapshot.getValue();
-               ChatUtils.sendChatOrCommand(message);
-            };
-            scheduler.scheduleRotationTask(sendMessage, 2);
-         }
+            scheduler.scheduleRotationTask(this, () -> {
+               if (ownsQueuedPacketAction(
+                     this.isToggled(),
+                     expectedGeneration,
+                     this.lifecycleGeneration
+                  )
+                  && this.saySetting.getValue()) {
+                  ChatUtils.sendChatOrCommand(message);
+               }
+            }, 2);
+         });
       }
 
       if (event.getPacket() instanceof ClientboundPlayerCombatKillPacket) {
-         this.respawnTimer.reset();
+         long expectedGeneration = this.lifecycleGeneration;
+         ClientAccess.schizoMinecraft.executeIfPossible(() -> {
+            if (ownsQueuedPacketAction(
+               this.isToggled(),
+               expectedGeneration,
+               this.lifecycleGeneration
+            )) {
+               this.respawnTimer.reset();
+            }
+         });
       }
+   }
+
+   @Override
+   public void onEnable() {
+      this.lifecycleGeneration++;
+   }
+
+   @Override
+   public void onDisable() {
+      this.lifecycleGeneration++;
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.lifecycleGeneration++;
+      this.respawnTimer.clear();
+   }
+
+   static boolean ownsQueuedPacketAction(
+      boolean enabled,
+      long expectedGeneration,
+      long currentGeneration
+   ) {
+      return enabled && expectedGeneration == currentGeneration;
    }
 
    public AutoRespawnModule() {

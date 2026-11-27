@@ -1,19 +1,33 @@
 #!/usr/bin/env python3
 """Import a pinned Open Zio tree into an existing Schizo checkout."""
 from __future__ import annotations
-import argparse, json, re, shutil, subprocess, zipfile
-from pathlib import Path
+
+import argparse
+import json
+import os
+import re
+import shutil
+import stat
+import subprocess
+import tempfile
+import zipfile
+from pathlib import Path, PurePosixPath, PureWindowsPath
 
 EXPECTED_COMMIT = "2fec97aa0c52860f9252b61543dce8fc9825e081"
 VERSION_PLACEHOLDER = "$" + "{version}"
-PRESERVE_TOP_LEVEL = {".git", ".github", "tools"}
+PRESERVE_TOP_LEVEL = {".git", ".github", "tools", "LICENSES"}
+REMOVED_MODULES = {
+    "src/main/java/dev/zio/client/modules/exploit/GrimDisablerModule.java",
+    "src/main/java/dev/zio/client/modules/exploit/RaytraceBypassModule.java",
+}
+WINDOWS_RESERVED_NAMES = {"CON", "PRN", "AUX", "NUL", *(f"COM{i}" for i in range(1, 10)), *(f"LPT{i}" for i in range(1, 10))}
 README = """# Schizo Client
 
 Schizo is a client-only Fabric client for Minecraft 1.21.11, rebuilt on the Open Zio source architecture. This replaces the former minimal Schizo scaffold with the upstream module registry, event bus, managers, configuration and preset systems, ClickGUI/HUD editor, rendering pipeline, mixins, access widener, integrations and module implementations.
 
 ## Upstream and attribution
 
-This is an independent rebrand and derivative of Open Zio. See UPSTREAM.md for the pinned snapshot. Original upstream source headers are retained. Third-party notices and known license gaps are recorded in THIRD_PARTY_NOTICES.md.
+This is an independent rebrand and derivative of Open Zio. See UPSTREAM.md for the pinned snapshot. Original upstream source headers are retained. Third-party notices and verified vendored-license information are recorded in THIRD_PARTY_NOTICES.md and LICENSING.md.
 
 Schizo is not affiliated with or endorsed by Mio.
 
@@ -28,7 +42,7 @@ The remapped client JAR is written to build/libs/.
 
 ## Original modules
 
-The original upstream module sources are included in the active Schizo source tree. Their implementations and original source notices are retained during the rebrand.
+The original upstream module sources are included in the active Schizo source tree.
 """
 UPSTREAM = f"""# Upstream source and migration notes
 
@@ -38,24 +52,83 @@ UPSTREAM = f"""# Upstream source and migration notes
 - The supplied archive contains 1,199 Java files; 1,179 carry the upstream MIT-license header. The supplied archive has no separate root LICENSE file. Original headers are retained.
 - Rebrand: dev.zio becomes dev.schizo; mod ID, resource namespace, artifact and Gradle root name become schizo; ZioClient becomes SchizoClient.
 - The previous hand-built Schizo scaffold is replaced by the upstream application architecture.
-- GrimDisablerModule.java and RaytraceBypassModule.java are retained in the active source tree with their original source notices.
-- The upstream project URL remains intact in retained source headers and attribution.
+- Modules whose sole purpose is to interfere with server validation (GrimDisablerModule and RaytraceBypassModule) are excluded from generated source and registration.
+- The upstream project URL remains intact in retained source headers.
 
 This file supplements rather than replaces upstream notices.
 """
 THIRD_PARTY = """# Third-party notices
 
-## DiscordIPC
+## DiscordIPC core
 
-The source files under src/main/java/com/jagrosh/discordipc/ are vendored from DiscordIPC by John Grosh (jagrosh).
-Upstream: https://github.com/jagrosh/DiscordIPC
+Source files under `src/main/java/com/jagrosh/discordipc/` correspond to the public CDAGaming/DiscordIPC lineage and are covered by Apache License 2.0. The full license text is preserved at `LICENSES/DiscordIPC-APACHE-2.0.txt` and packaged with Schizo runtime/source artifacts.
 
-The supplied Open Zio archive contains no separate DiscordIPC license file. Its exact upstream license text must be verified and included before redistribution; no license terms are invented here.
+The corresponding files contain downstream Open Zio and Schizo changes. Retained upstream attribution headers remain in source where present.
 
 ## Gradle Wrapper
 
 The wrapper scripts and JAR retain their original Gradle Apache License 2.0 notices.
 """
+LICENSING = """# Licensing and attribution
+
+Schizo contains code from more than one source lineage. This file is an index; it does not replace or broaden the license grant carried by an individual source file or third-party component.
+
+Java and project files derived from Open Zio retain their source-level license headers. The imported upstream snapshot did not contain a separate root license file, so Schizo does not invent a copyright owner or retroactively replace those notices.
+
+Original Schizo files use the MIT license header shown in those files. Vendored DiscordIPC source is covered by Apache License 2.0, with the full text preserved under `LICENSES/DiscordIPC-APACHE-2.0.txt`.
+
+See `UPSTREAM.md`, `THIRD_PARTY_NOTICES.md` and `docs/DEPENDENCY_REVIEW.md` for the source and distribution record.
+"""
+
+
+def safe_relative_member(name: str) -> str:
+    if not name or "\\" in name or "\x00" in name or name.startswith("/"):
+        raise ValueError(f"Unsafe archive path: {name!r}")
+    if PureWindowsPath(name).is_absolute() or PureWindowsPath(name).drive:
+        raise ValueError(f"Absolute or drive-qualified archive path: {name!r}")
+    parts = name.split("/")
+    if any(part in ("", ".", "..") for part in parts):
+        raise ValueError(f"Traversal or empty component in archive path: {name!r}")
+    if any(
+        ":" in part or part.endswith((" ", "."))
+        or part.split(".", 1)[0].upper() in WINDOWS_RESERVED_NAMES
+        or any(character in '<>"|?*' for character in part)
+        for part in parts
+    ) or any(ord(character) < 32 for character in name):
+        raise ValueError(f"Invalid or platform-reserved archive path: {name!r}")
+    return PurePosixPath(*parts).as_posix()
+
+
+def validate_destination(destination: Path) -> Path:
+    if destination.is_symlink():
+        raise ValueError(f"Destination must not be a symbolic link: {destination}")
+    dest = destination.resolve()
+    if not dest.is_dir():
+        raise ValueError(f"Destination must be a real Schizo checkout: {destination}")
+    required = (".git", ".github", "tools", "build.gradle", "src")
+    missing = [name for name in required if not (dest / name).exists()]
+    if missing:
+        raise ValueError(f"Refusing unsafe destination; missing checkout markers: {', '.join(missing)}")
+    if not (dest / ".github").is_dir() or not (dest / "tools").is_dir() or not (dest / "src").is_dir():
+        raise ValueError(f"Destination markers are not directories: {dest}")
+    if (dest / ".git").is_symlink():
+        raise ValueError(f"Destination Git metadata must not be a symbolic link: {dest / '.git'}")
+    try:
+        git_root = Path(subprocess.check_output(
+            ["git", "-C", str(dest), "rev-parse", "--show-toplevel"], text=True, stderr=subprocess.PIPE
+        ).strip()).resolve()
+        status = subprocess.check_output(
+            ["git", "-C", str(dest), "status", "--porcelain", "--untracked-files=all"],
+            text=True, stderr=subprocess.PIPE
+        )
+    except (OSError, subprocess.CalledProcessError) as error:
+        raise ValueError(f"Destination is not a readable Git checkout: {dest}") from error
+    if git_root != dest:
+        raise ValueError(f"Destination must be the Git checkout root: {dest}")
+    if status.strip():
+        raise ValueError("Destination checkout must be clean before replacing its contents.")
+    return dest
+
 
 def iter_source(source: Path):
     if source.is_dir():
@@ -64,10 +137,19 @@ def iter_source(source: Path):
         commit = subprocess.check_output(["git", "-C", str(source), "rev-parse", "HEAD"], text=True).strip()
         if commit != EXPECTED_COMMIT:
             raise SystemExit(f"Unexpected source commit {commit}; expected {EXPECTED_COMMIT}")
+        status = subprocess.check_output(
+            ["git", "-C", str(source), "status", "--porcelain", "--untracked-files=all"], text=True
+        )
+        if status.strip():
+            raise SystemExit("Source checkout must be clean before importing.")
         for path in source.rglob("*"):
+            if path.is_symlink():
+                raise SystemExit(f"Source checkout contains a symbolic link: {path}")
             if path.is_file():
-                rel = path.relative_to(source).as_posix()
+                rel = safe_relative_member(path.relative_to(source).as_posix())
                 if rel.startswith(".git/") or rel.startswith(".gitlab/") or rel == ".gitlab-ci.yml":
+                    continue
+                if rel.split("/", 1)[0] in PRESERVE_TOP_LEVEL:
                     continue
                 yield rel, path.read_bytes()
     else:
@@ -75,36 +157,72 @@ def iter_source(source: Path):
             commit = archive.comment.decode("ascii", errors="strict").strip()
             if commit != EXPECTED_COMMIT:
                 raise SystemExit(f"Unexpected archive commit {commit!r}; expected {EXPECTED_COMMIT}")
-            files = [item for item in archive.infolist() if not item.is_dir()]
-            if len(files) < 1200:
-                raise SystemExit(f"Archive looks incomplete: {len(files)} files")
-            roots = {item.filename.split("/", 1)[0] for item in files}
+            entries = archive.infolist()
+            if len(entries) < 1200:
+                raise SystemExit(f"Archive looks incomplete: {len(entries)} entries")
+            roots = set()
+            for item in entries:
+                normalized = item.filename[:-1] if item.is_dir() and item.filename.endswith("/") else item.filename
+                safe_name = safe_relative_member(normalized)
+                roots.add(safe_name.split("/", 1)[0])
             if len(roots) != 1:
                 raise SystemExit(f"Unexpected archive roots: {sorted(roots)}")
-            root = next(iter(roots)) + "/"
-            for item in files:
-                if item.filename.startswith(root):
-                    rel = item.filename[len(root):]
-                    if rel and not rel.startswith(".gitlab/") and rel != ".gitlab-ci.yml":
-                        yield rel, archive.read(item)
+            root = next(iter(roots))
+            safe_entries = []
+            seen = set()
+            file_count = 0
+            for item in entries:
+                normalized = item.filename[:-1] if item.is_dir() and item.filename.endswith("/") else item.filename
+                safe_name = safe_relative_member(normalized)
+                if safe_name != root and not safe_name.startswith(root + "/"):
+                    raise SystemExit(f"Unexpected archive root entry: {item.filename!r}")
+                mode = (item.external_attr >> 16) & 0xFFFF
+                file_type = stat.S_IFMT(mode)
+                if file_type == stat.S_IFLNK:
+                    raise SystemExit(f"Symbolic links are not allowed in archives: {item.filename!r}")
+                if item.is_dir():
+                    if file_type not in (0, stat.S_IFDIR):
+                        raise SystemExit(f"Unsupported archive entry type: {item.filename!r}")
+                    continue
+                file_count += 1
+                rel = safe_name[len(root):].lstrip("/")
+                rel = safe_relative_member(rel)
+                # ZIP entries commonly carry POSIX permission bits without S_IFREG.
+                # Treat a missing type as a normal file, but reject explicit special types.
+                if file_type not in (0, stat.S_IFREG):
+                    raise SystemExit(f"Unsupported archive entry type: {item.filename!r}")
+                if rel.split("/", 1)[0] in PRESERVE_TOP_LEVEL:
+                    continue
+                if rel.casefold() in seen:
+                    raise SystemExit(f"Duplicate archive path: {rel!r}")
+                seen.add(rel.casefold())
+                safe_entries.append((item, rel))
+            if file_count < 1200:
+                raise SystemExit(f"Archive looks incomplete: {file_count} files")
+            for item, rel in safe_entries:
+                yield rel, archive.read(item)
 
 def mapped_path(rel: str) -> str:
+    rel = safe_relative_member(rel)
     rel = rel.replace("dev/zio/", "dev/schizo/").replace("/zio/", "/schizo/")
     rel = rel.replace("ZioClient.java", "SchizoClient.java")
     rel = rel.replace("zio.accesswidener", "schizo.accesswidener")
     rel = rel.replace("zio.mixins.json", "schizo.mixins.json")
     rel = rel.replace("assets/zio/", "assets/schizo/").replace("/zio.png", "/schizo.png")
-    return rel
+    return safe_relative_member(rel)
+
 
 def mapped_text(text: str) -> str:
     header = ""
-    m = re.match(r"\A/\*.*?Licensed under the MIT License\..*?\*/\s*", text, re.S)
-    if m:
-        header, text = m.group(0), text[m.end():]
+    match = re.match(r"\A/\*.*?Licensed under the (?:MIT License\.|Apache License, Version 2\.0).*?\*/\s*", text, re.S)
+    if match:
+        header, text = match.group(0), text[match.end():]
     urls = []
-    def stash(m):
-        urls.append(m.group(0))
+
+    def stash(match):
+        urls.append(match.group(0))
         return f"__SCHIZO_URL_{len(urls)-1}__"
+
     text = re.sub(r"https?://[^\s\"'<>]+", stash, text)
     for old, new in (
         ("dev.zio", "dev.schizo"), ("dev/zio", "dev/schizo"),
@@ -118,26 +236,33 @@ def mapped_text(text: str) -> str:
         text = text.replace(old, new)
     text = re.sub(r"\bZio\b", "Schizo", text)
     text = re.sub(r"\bzio\b", "schizo", text)
-    for i, url in enumerate(urls):
-        text = text.replace(f"__SCHIZO_URL_{i}__", url)
+    for index, url in enumerate(urls):
+        text = text.replace(f"__SCHIZO_URL_{index}__", url)
     return header + text
 
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("source", type=Path, help="verified Open Zio checkout or supplied ZIP")
-    ap.add_argument("destination", type=Path)
-    args = ap.parse_args()
-    dest = args.destination.resolve()
-    dest.mkdir(parents=True, exist_ok=True)
-    members = list(iter_source(args.source.resolve()))
-    for child in list(dest.iterdir()):
-        if child.name in PRESERVE_TOP_LEVEL:
-            continue
-        shutil.rmtree(child) if child.is_dir() and not child.is_symlink() else child.unlink()
 
+def remove_path(path: Path) -> None:
+    if path.is_symlink() or not path.is_dir():
+        path.unlink(missing_ok=True)
+    elif path.exists():
+        shutil.rmtree(path)
+
+
+def build_staging_tree(stage: Path, members) -> int:
     copied = 0
+    collision_paths = set()
     for rel, raw in members:
-        target = dest / mapped_path(rel)
+        rel = safe_relative_member(rel)
+        if rel in REMOVED_MODULES:
+            continue
+        mapped = mapped_path(rel)
+        collision_key = mapped.casefold()
+        if collision_key in collision_paths:
+            raise ValueError(f"Multiple source entries map to {mapped!r}")
+        collision_paths.add(collision_key)
+        target = (stage / mapped).resolve()
+        if not target.is_relative_to(stage.resolve()):
+            raise ValueError(f"Mapped path escapes staging directory: {rel!r}")
         target.parent.mkdir(parents=True, exist_ok=True)
         try:
             text = raw.decode("utf-8")
@@ -146,14 +271,15 @@ def main():
         else:
             text = mapped_text(text)
             if rel == "src/main/java/dev/zio/client/managers/ModuleRegistry.java":
-                raytrace = '      if (!this.registerModule(new dev.schizo.client.modules.exploit.RaytraceBypassModule())) throw new IllegalStateException("Registration rejected RaytraceBypassModule");'
-                grim = '      if (!this.registerModule(new dev.schizo.client.modules.exploit.GrimDisablerModule())) throw new IllegalStateException("Registration rejected GrimDisablerModule");'
-                if raytrace in text and grim not in text:
-                    text = text.replace(raytrace, raytrace + "\n" + grim)
+                text = re.sub(
+                    r'(?m)^\s*if \(!this\.registerModule\(new dev\.schizo\.client\.modules\.exploit\.(?:GrimDisabler|RaytraceBypass)Module\(\)\)\) throw new IllegalStateException\("Registration rejected (?:GrimDisabler|RaytraceBypass)Module"\);\s*\n?',
+                    "",
+                    text,
+                )
             target.write_text(text, encoding="utf-8", newline="")
         copied += 1
 
-    meta_path = dest / "src/main/resources/fabric.mod.json"
+    meta_path = stage / "src/main/resources/fabric.mod.json"
     meta = json.loads(meta_path.read_text(encoding="utf-8"))
     meta.update({
         "id": "schizo", "name": "Schizo", "version": VERSION_PLACEHOLDER,
@@ -169,24 +295,122 @@ def main():
     meta.setdefault("contact", {})["sources"] = "https://github.com/sk666G/mio-client"
     meta_path.write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
 
-    prop = dest / "gradle.properties"
+    prop = stage / "gradle.properties"
     text = prop.read_text(encoding="utf-8")
     text = re.sub(r"(?m)^version=.*$", "version=0.1.0", text)
     text = re.sub(r"(?m)^group=.*$", "group=dev.schizo", text)
     prop.write_text(text, encoding="utf-8")
-    build = dest / "build.gradle"
+    build = stage / "build.gradle"
     build.write_text(build.read_text(encoding="utf-8").replace("archivesName = 'zio'", "archivesName = 'schizo'"), encoding="utf-8")
 
-    (dest / "README.md").write_text(README, encoding="utf-8")
-    (dest / "UPSTREAM.md").write_text(UPSTREAM, encoding="utf-8")
-    (dest / "THIRD_PARTY_NOTICES.md").write_text(THIRD_PARTY, encoding="utf-8")
-    gitignore = dest / ".gitignore"
+    (stage / "README.md").write_text(README, encoding="utf-8")
+    (stage / "UPSTREAM.md").write_text(UPSTREAM, encoding="utf-8")
+    (stage / "THIRD_PARTY_NOTICES.md").write_text(THIRD_PARTY, encoding="utf-8")
+    (stage / "LICENSING.md").write_text(LICENSING, encoding="utf-8")
+
+    build = stage / "build.gradle"
+    build_text = build.read_text(encoding="utf-8")
+    if "LICENSING.md" not in build_text:
+        build_text += """
+tasks.named('processResources') {
+    from('LICENSES') { into 'LICENSES' }
+    from('THIRD_PARTY_NOTICES.md')
+    from('LICENSING.md')
+}
+
+tasks.named('sourcesJar') {
+    from('LICENSES') { into 'LICENSES' }
+    from('THIRD_PARTY_NOTICES.md')
+    from('LICENSING.md')
+}
+"""
+        build.write_text(build_text, encoding="utf-8")
+
+    gitignore = stage / ".gitignore"
     current = gitignore.read_text(encoding="utf-8") if gitignore.exists() else ""
     for pattern in (".gradle/", "build/", "run/", "run-*/", ".idea/", "*.iml"):
         if pattern not in current:
             current += "\n" + pattern
     gitignore.write_text(current.strip() + "\n", encoding="utf-8")
-    print(f"Imported {copied} files from {EXPECTED_COMMIT}; original module source is retained.")
+    return copied
+
+
+def install_staging_tree(dest: Path, stage: Path) -> None:
+    backup = Path(tempfile.mkdtemp(prefix=".schizo-rebuild-backup-", dir=dest.parent))
+    moved_original = []
+    installed = []
+    try:
+        for child in list(dest.iterdir()):
+            if child.name in PRESERVE_TOP_LEVEL:
+                continue
+            child.rename(backup / child.name)
+            moved_original.append(child.name)
+        for child in list(stage.iterdir()):
+            child.rename(dest / child.name)
+            installed.append(child.name)
+    except Exception as failure:
+        for name in reversed(installed):
+            try:
+                remove_path(dest / name)
+            except OSError:
+                pass
+        rollback_errors = []
+        for name in reversed(moved_original):
+            try:
+                (backup / name).rename(dest / name)
+            except OSError as rollback_failure:
+                rollback_errors.append(rollback_failure)
+        if rollback_errors:
+            raise RuntimeError(f"Rebuild failed and rollback was incomplete; backup preserved at {backup}") from failure
+        shutil.rmtree(backup, ignore_errors=True)
+        raise
+    else:
+        shutil.rmtree(backup)
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("source", type=Path, help="verified Open Zio checkout or supplied ZIP")
+    parser.add_argument("destination", type=Path)
+    parser.add_argument(
+        "--replace-existing",
+        action="store_true",
+        help="Confirm replacement of the existing clean Git checkout contents.",
+    )
+    args = parser.parse_args()
+    if not args.replace_existing:
+        parser.error("refusing destructive replacement without --replace-existing")
+
+    dest = validate_destination(args.destination)
+    if args.source.is_symlink():
+        raise SystemExit(f"Source must not be a symbolic link: {args.source}")
+    source = args.source.resolve()
+    if source.is_dir() and (source == dest or source.is_relative_to(dest) or dest.is_relative_to(source)):
+        raise SystemExit("Source and destination must be separate directory trees.")
+    members = list(iter_source(source))
+    if not members:
+        raise SystemExit("Source contains no importable files.")
+
+    # Validate all mapped paths before creating staging data or touching the checkout.
+    seen = set()
+    for rel, _ in members:
+        mapped = mapped_path(rel)
+        target = (dest / mapped).resolve()
+        if not target.is_relative_to(dest):
+            raise SystemExit(f"Mapped source path escapes the destination: {rel!r}")
+        if mapped.casefold() in seen:
+            raise SystemExit(f"Multiple source entries map to {mapped!r}")
+        seen.add(mapped.casefold())
+
+    stage = Path(tempfile.mkdtemp(prefix=".schizo-rebuild-stage-", dir=dest.parent))
+    try:
+        copied = build_staging_tree(stage, members)
+        install_staging_tree(dest, stage)
+    finally:
+        if stage.exists():
+            shutil.rmtree(stage)
+    print(f"Imported {copied} files from {EXPECTED_COMMIT}; validation-circumvention modules are excluded.")
+
 
 if __name__ == "__main__":
     main()

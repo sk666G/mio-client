@@ -9,7 +9,7 @@
 
 package dev.schizo.mixin;
 
-import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.modules.misc.CustomDeathTextModule;
 import net.minecraft.client.gui.screens.DeathScreen;
 import net.minecraft.client.player.LocalPlayer;
@@ -24,7 +24,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(DeathScreen.class)
 public class DeathScreenMixin {
-   private static CustomDeathTextModule customDeathTextModule = ClientContext.getModule(CustomDeathTextModule.class);
+   private static CustomDeathTextModule customDeathTextModule() {
+      return MixinModuleRegistry.getModule(CustomDeathTextModule.class);
+   }
    @Mutable
    @Shadow
    @Final
@@ -34,9 +36,9 @@ public class DeathScreenMixin {
    public void applyCustomDeathText(
       Component deathMessage, boolean hardcore, LocalPlayer localPlayer, CallbackInfo callback
    ) {
-      if (customDeathTextModule != null
-         && customDeathTextModule.isToggled()) {
-         this.causeOfDeath = customDeathTextModule.getDeathText();
+      if (customDeathTextModule() != null
+         && customDeathTextModule().isToggled()) {
+         this.causeOfDeath = customDeathTextModule().getDeathText();
       }
    }
 }

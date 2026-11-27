@@ -14,6 +14,7 @@ import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.LocalPlayerTickEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.render.GuiDrawUtils;
 import dev.schizo.client.utils.combat.TotemPopTracker;
 import dev.schizo.client.managers.RotationManager;
@@ -43,11 +44,9 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
-import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.ToDoubleFunction;
-import java.util.stream.Stream;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Camera;
 import net.minecraft.client.multiplayer.ClientLevel;
@@ -70,8 +69,12 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
 public class TextRadarModule extends HudWidgetModule {
-   private static final FontsModule fonts;
-   private static final NameProtectModule nameProtect;
+   private static FontsModule fonts() {
+      return ClientContext.getModule(FontsModule.class);
+   }
+   private static NameProtectModule nameProtect() {
+      return ClientContext.getModule(NameProtectModule.class);
+   }
    private static final Color SNEAKING_COLOR;
    private final Setting<SortMode> sortSetting;
    private final Setting<Boolean> healthSetting;
@@ -90,11 +93,11 @@ public class TextRadarModule extends HudWidgetModule {
    private final Setting<Boolean> nakedsSetting;
    private final Setting<Boolean> botsSetting;
    private final List<Player> radarPlayers;
+   private final List<Player> displayPlayers;
+   private final List<Component> displayTexts;
 
    static {
 
-      fonts = ClientContext.getModule(FontsModule.class);
-      nameProtect = ClientContext.getModule(NameProtectModule.class);
 
       SNEAKING_COLOR = new Color(
          10945959,
@@ -104,7 +107,23 @@ public class TextRadarModule extends HudWidgetModule {
 
    @Override
    public void onEnable() {
+      this.clearRadarState();
+   }
+
+   @Override
+   public void onDisable() {
+      this.clearRadarState();
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.clearRadarState();
+   }
+
+   private void clearRadarState() {
       this.radarPlayers.clear();
+      this.displayPlayers.clear();
+      this.displayTexts.clear();
    }
 
    private Component buildPlayerText(Player player) {
@@ -122,14 +141,15 @@ public class TextRadarModule extends HudWidgetModule {
       }
       GameProfile profile = player.getGameProfile();
       String playerName = profile.name();
-      NameProtectModule nameProtectForToggle = nameProtect;
+      NameProtectModule nameProtectForToggle = nameProtect();
       if (nameProtectForToggle.isToggled()) {
          boolean previousNameProtectState = NameProtectModule.replacementBypassed;
-         NameProtectModule.replacementBypassed = !previousNameProtectState;
-         NameProtectModule nameProtectForName = nameProtect;
-
-         playerName = nameProtectForName.protectNames(playerName);
-         NameProtectModule.replacementBypassed = previousNameProtectState;
+         try {
+            NameProtectModule.replacementBypassed = !previousNameProtectState;
+            playerName = nameProtect().protectNames(playerName);
+         } finally {
+            NameProtectModule.replacementBypassed = previousNameProtectState;
+         }
       }
 
       String displayName = ClientContext.aliasRegistry.getPlayerAlias(playerName);
@@ -258,12 +278,15 @@ public class TextRadarModule extends HudWidgetModule {
    public float[] calculateDimensions() {
       float totalHeight = 0.0F;
       float maximumWidth = 0.0F;
+      this.displayPlayers.clear();
+      this.displayTexts.clear();
       for (Player player : this.radarPlayers) {
+         Component displayText = this.buildPlayerText(player);
+         this.displayPlayers.add(player);
+         this.displayTexts.add(displayText);
          FontRenderer textRenderer = FontRenderer.INSTANCE;
 
-         float rowWidth = textRenderer.getWidth(
-            this.buildPlayerText(player)
-         );
+         float rowWidth = textRenderer.getWidth(displayText);
          Setting<Boolean> headsOption = this.headsSetting;
          Boolean showHeads = headsOption.getValue();
          if (showHeads) {
@@ -281,40 +304,44 @@ public class TextRadarModule extends HudWidgetModule {
          }
       }
 
-      float[] dimensions = new float[2];
-      dimensions[0] = maximumWidth;
-      dimensions[1] = totalHeight;
-      return dimensions;
+      return this.dimensions(maximumWidth, totalHeight);
    }
 
    @EventHandler
    private void onLocalPlayerTickEvent(LocalPlayerTickEvent event) {
       synchronized (this.radarPlayers) {
-         this.radarPlayers.clear();
          ClientLevel level = ClientAccess.schizoMinecraft.level;
          List<AbstractClientPlayer> worldPlayers = level.players();
-         Stream<AbstractClientPlayer> playerStream = worldPlayers.stream();
-         Predicate<net.minecraft.client.player.AbstractClientPlayer> includedPlayer = this::shouldIncludePlayer;
-         Stream<AbstractClientPlayer> players = playerStream.filter(includedPlayer);
-
          Comparator<Entity> playerComparator = this.createPlayerComparator();
-         players = players.sorted(playerComparator);
-         Setting<Boolean> limitOption = this.limitSetting;
-         Boolean limitEnabled = limitOption.getValue();
-         long maximumCount;
-         if (limitEnabled) {
-            Setting<Integer> maximumOption = this.maxSetting;
-            Integer maximumPlayers = maximumOption.getValue();
-            maximumCount = maximumPlayers.intValue();
-         } else {
+         int maximumPlayers = this.limitSetting.getValue()
+            ? this.maxSetting.getValue()
+            : Integer.MAX_VALUE;
+         replaceFilteredSorted(
+            this.radarPlayers,
+            worldPlayers,
+            this::shouldIncludePlayer,
+            playerComparator,
+            maximumPlayers
+         );
+      }
+   }
 
-            maximumCount = Long.MAX_VALUE;
+   static <T> void replaceFilteredSorted(
+      List<T> destination,
+      Iterable<? extends T> source,
+      Predicate<? super T> included,
+      Comparator<? super T> comparator,
+      int maximumCount
+   ) {
+      destination.clear();
+      for (T value : source) {
+         if (included.test(value)) {
+            destination.add(value);
          }
-
-         players = players.limit(maximumCount);
-         List<Player> playerDestination = this.radarPlayers;
-         Consumer<net.minecraft.client.player.AbstractClientPlayer> appendPlayer = playerDestination::add;
-         players.forEachOrdered(appendPlayer);
+      }
+      destination.sort(comparator);
+      if (destination.size() > maximumCount) {
+         destination.subList(maximumCount, destination.size()).clear();
       }
    }
 
@@ -331,7 +358,7 @@ public class TextRadarModule extends HudWidgetModule {
 
    @Override
    public void renderContent(PoseStack poses) {
-      FontsModule fontsForToggle = fonts;
+      FontsModule fontsForToggle = fonts();
       float headSpacing;
       if (fontsForToggle.isToggled()) {
          headSpacing = 0.0F;
@@ -340,7 +367,7 @@ public class TextRadarModule extends HudWidgetModule {
          headSpacing = 1.0F;
       }
 
-      float hudScale = hud.getTextScale();
+      float hudScale = hud().getTextScale();
       float rowY = this.renderer
             .getContentY(
                FontRenderer.INSTANCE
@@ -351,7 +378,8 @@ public class TextRadarModule extends HudWidgetModule {
             .getY();
       rowY /= hudScale;
 
-      for (Player player : this.radarPlayers) {
+      for (int playerIndex = 0; playerIndex < this.radarPlayers.size(); playerIndex++) {
+         Player player = this.radarPlayers.get(playerIndex);
          Color rowColor;
          rowColorSelection: {
             rowColor = this.getHudColor(rowY);
@@ -392,7 +420,11 @@ public class TextRadarModule extends HudWidgetModule {
             }
          }
 
-         Component text = this.buildPlayerText(player);
+         Component text = playerIndex < this.displayPlayers.size()
+               && this.displayPlayers.get(playerIndex) == player
+               && playerIndex < this.displayTexts.size()
+            ? this.displayTexts.get(playerIndex)
+            : this.buildPlayerText(player);
          float headWidth = 0.0F;
          float headTextOffset = 0.0F;
          Setting<Boolean> headWidthOption = this.headsSetting;
@@ -606,6 +638,8 @@ public class TextRadarModule extends HudWidgetModule {
       BooleanSetting ignoreBotsSetting = new BooleanSetting("Bots", true);
       this.botsSetting = this.add(ignoreBotsSetting.dependsOn(new Setting<?>[]{this.ignoreSetting}));
       this.radarPlayers = new ArrayList<>();
+      this.displayPlayers = new ArrayList<>();
+      this.displayTexts = new ArrayList<>();
       ResizableHudWidgetRenderer widget = new ResizableHudWidgetRenderer(this);
       widget.enableHudScale();
       this.setRenderer(widget);

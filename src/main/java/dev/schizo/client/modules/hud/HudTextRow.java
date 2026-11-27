@@ -10,6 +10,7 @@
 package dev.schizo.client.modules.hud;
 
 import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.utils.InterpolatedFloat;
 import dev.schizo.client.render.ColorUtils;
 import dev.schizo.client.render.FontRenderer;
@@ -24,11 +25,11 @@ import net.minecraft.client.gui.Font.DisplayMode;
 import net.minecraft.util.Mth;
 
 public class HudTextRow {
-   private static final HUDModule hudSettings;
    private final Supplier<? extends Component> textSupplier;
    private final Supplier<?> visibilitySupplier;
    private float visibility;
    private Component cachedText;
+   private float measuredTextWidth;
    public final InterpolatedFloat widthAnimation;
 
    public void updateVisibility() {
@@ -54,10 +55,6 @@ public class HudTextRow {
       this.visibilitySupplier = visibilitySupplier;
    }
 
-   static {
-      hudSettings = ClientContext.getModule(HUDModule.class);
-   }
-
    public boolean isDrawn() {
       Boolean visible = (Boolean)this.visibilitySupplier.get();
       return visible;
@@ -71,8 +68,8 @@ public class HudTextRow {
          resetWidth(animationForReset);
       } else {
          FontRenderer font = FontRenderer.INSTANCE;
-         Component widthText = this.getText();
-         float textWidth = font.getWidth(widthText.getString());
+         float textWidth = this.measuredTextWidth;
+         HUDModule hudSettings = MixinModuleRegistry.gameHud;
          Setting<Boolean> smoothWidthOption = hudSettings.smoothWidthSetting;
          Boolean smoothWidth = smoothWidthOption.getValue();
          if (smoothWidth) {
@@ -103,6 +100,11 @@ public class HudTextRow {
 
    public Component getText() {
       return this.cachedText;
+   }
+
+   public float measureTextWidth(FontRenderer font) {
+      this.measuredTextWidth = font.getWidth(this.cachedText.getString());
+      return this.measuredTextWidth;
    }
 
    public float getVisibility() {

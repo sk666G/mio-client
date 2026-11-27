@@ -9,6 +9,7 @@
 
 package dev.schizo.mixin;
 
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.managers.ModuleRegistry;
@@ -20,23 +21,16 @@ import org.spongepowered.asm.mixin.injection.At;
 
 @Mixin(HoneyBlock.class)
 public class HoneyBlockMixin {
-   private static NoSlowModule noSlowModule = ClientContext.getModule(NoSlowModule.class);
 
    @ModifyExpressionValue(
       method = "entityInside",
       at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/block/HoneyBlock;isSlidingDown(Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/entity/Entity;)Z")
    )
    private boolean suppressHoneySliding(boolean originalSliding) {
-      return noSlowModule.isToggled()
-            && noSlowModule.honeySetting.getValue()
+      return MixinModuleRegistry.honeyBlockNoSlowModule.isToggled()
+            && MixinModuleRegistry.honeyBlockNoSlowModule.honeySetting.getValue()
          ? false
          : originalSliding;
    }
 
-   @Unique
-   private static void schizo$bindHoneyBlockModules(ModuleRegistry moduleRegistry) {
-      noSlowModule = (NoSlowModule)moduleRegistry.getModule(
-         NoSlowModule.class
-      );
-   }
 }

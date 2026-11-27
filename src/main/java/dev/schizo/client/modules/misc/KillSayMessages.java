@@ -10,19 +10,17 @@
 package dev.schizo.client.modules.misc;
 
 import dev.schizo.client.ClientContext;
+import dev.schizo.client.ClientAccess;
+import dev.schizo.client.config.ConfigFileReader;
 import dev.schizo.client.managers.TaskScheduler;
 import dev.schizo.client.managers.SocialRegistry;
 import dev.schizo.client.utils.chat.ChatUtils;
 import dev.schizo.client.managers.ConfigurationManager;
 import dev.schizo.client.settings.Setting;
 
-import java.io.File;
 import java.io.IOException;
-import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.attribute.FileAttribute;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -34,12 +32,13 @@ import net.minecraft.network.chat.MessageSignature;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.Style;
 import net.minecraft.world.entity.player.Player;
-import org.apache.commons.io.FileUtils;
 
 public final class KillSayMessages {
    private final KillEffectsModule module;
+   private static final int MAX_MESSAGE_FILE_BYTES = 262_144;
    private final List<String> lines = Collections.synchronizedList(new ArrayList<>());
    private int lineIndex = 0;
+   private long generation;
 
    private String nextMessage() {
       try {
@@ -94,9 +93,13 @@ public final class KillSayMessages {
             message = message.replace("{name}", playerName);
 
             String messageToSend = message;
+            long expectedGeneration = this.generation;
             Runnable sendMessage = () -> {
-
-               ChatUtils.sendChatOrCommand(messageToSend);
+               if (this.generation == expectedGeneration
+                  && this.module.isToggled()
+                  && this.module.killSaySetting.getValue()) {
+                  ChatUtils.sendChatOrCommand(messageToSend);
+               }
             };
             Setting<Float> delayOptionSnapshot = this.module.delaySetting;
 
@@ -115,58 +118,93 @@ public final class KillSayMessages {
    }
 
    void reloadMessages(boolean force) {
-      Setting<Boolean> killSayOption = this.module.killSaySetting;
-      Boolean killSay = killSayOption.getValue();
-      if (killSay || force) {
-         Path resolvedPath = ConfigurationManager.KILLSAY_DIRECTORY;
-         Setting<String> pathOption = this.module.pathSetting;
-         resolvedPath = resolvedPath.resolve(pathOption.getValue());
-         String[] extensions = new String[1];
+      boolean killSay = this.module.killSaySetting.getValue();
+      if (!killSay && !force) {
+         this.invalidate();
+         return;
+      }
 
-         extensions[0] = ".txt";
-         Path path = dev.schizo.client.utils.FileUtils.findExistingWithSuffixes(resolvedPath, extensions);
-
-         try {
-            File checkFile = path.toFile();
-            if (!checkFile.exists()) {
-
-               Object[] missingFileFormatArguments = new Object[1];
-               Setting<String> missingPathOption = this.module.pathSetting;
-               missingFileFormatArguments[0] = missingPathOption.getValue();
-               throw new IOException(("KillSay file %s not found").formatted(missingFileFormatArguments));
-            }
-
-            this.lines.clear();
-            List<String> messageLines = this.lines;
-            File readFileSnapshot = path.toFile();
-            Charset encoding = StandardCharsets.UTF_8;
-            messageLines.addAll(FileUtils.readLines(readFileSnapshot, encoding));
-            this.lineIndex = 0;
-         } catch (Exception loadFailure) {
-            Setting<Boolean> failureKillSayOption = this.module.killSaySetting;
-            Boolean showFailure = failureKillSayOption.getValue();
-            if (showFailure) {
-               String failureMessage = "Failed to update KillSay lines: " + String.valueOf(loadFailure);
-               MutableComponent notification = Component.literal(failureMessage);
-               UnaryOperator<Style> notificationStyler = style -> {
-                  ChatFormatting notificationColor = ChatFormatting.RED;
-                  Style notificationStyle = style;
-                  return notificationStyle.withColor(notificationColor);
-               };
-               notification = notification.withStyle(notificationStyler);
-
-               MessageSignature signature = ChatUtils.createSignature(-9634482);
-               ChatUtils.MessagePriority priority = ChatUtils.MessagePriority.LOW;
-               ChatUtils.printChat(notification, signature, priority);
-
-               try {
-                  FileAttribute<?>[] attributes = new FileAttribute[0];
-                  Files.createFile(path, attributes);
-               } catch (IOException creationFailure) {
+      String selectedPath = this.module.pathSetting.getValue();
+      long expectedGeneration = ++this.generation;
+      try {
+         ClientAccess.executorService.submit(() -> {
+            List<String> loadedLines = List.of();
+            Exception failure = null;
+            try {
+               Path root = ConfigurationManager.KILLSAY_DIRECTORY.toAbsolutePath().normalize();
+               Path requested = root.resolve(selectedPath).normalize();
+               if (!requested.startsWith(root)) {
+                  throw new IOException("KillSay path escapes its storage directory");
                }
+
+               Path path = requested;
+               if (!Files.exists(path, java.nio.file.LinkOption.NOFOLLOW_LINKS)
+                  && !selectedPath.endsWith(".txt")) {
+                  path = Path.of(requested.toString() + ".txt").normalize();
+               }
+               if (!path.startsWith(root)) {
+                  throw new IOException("KillSay path escapes its storage directory");
+               }
+               if (!Files.exists(path, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+                  Path parent = path.getParent();
+                  if (parent == null
+                     || Files.isSymbolicLink(parent)
+                     || !Files.isDirectory(parent, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+                     throw new IOException("KillSay parent directory is unsafe");
+                  }
+                  Files.createFile(path);
+                  throw new IOException("KillSay file " + selectedPath + " not found; created an empty file");
+               }
+
+               String text = ConfigFileReader.readUtf8(path, MAX_MESSAGE_FILE_BYTES);
+               loadedLines = text.lines().toList();
+            } catch (Exception loadFailure) {
+               failure = loadFailure;
             }
+
+            List<String> completedLines = loadedLines;
+            Exception completedFailure = failure;
+            ClientAccess.schizoMinecraft.executeIfPossible(() -> {
+               if (this.generation != expectedGeneration) {
+                  return;
+               }
+
+               this.lines.clear();
+               this.lineIndex = 0;
+               if (completedFailure == null) {
+                  this.lines.addAll(completedLines);
+                  return;
+               }
+
+               if (this.module.isToggled() && this.module.killSaySetting.getValue()) {
+                  MutableComponent notification = Component.literal(
+                     "Failed to update KillSay lines: " + completedFailure
+                  ).withStyle(style -> style.withColor(ChatFormatting.RED));
+                  ChatUtils.printChat(
+                     notification,
+                     ChatUtils.createSignature(-9634482),
+                     ChatUtils.MessagePriority.LOW
+                  );
+               }
+            });
+         });
+      } catch (java.util.concurrent.RejectedExecutionException rejected) {
+         if (this.module.isToggled() && this.module.killSaySetting.getValue()) {
+            MutableComponent notification = Component.literal(
+               "Failed to schedule KillSay file load"
+            ).withStyle(style -> style.withColor(ChatFormatting.RED));
+            ChatUtils.printChat(
+               notification,
+               ChatUtils.createSignature(-9634482),
+               ChatUtils.MessagePriority.LOW
+            );
          }
       }
+   }
+
+   void invalidate() {
+      this.generation++;
+      this.lineIndex = 0;
    }
 
 }

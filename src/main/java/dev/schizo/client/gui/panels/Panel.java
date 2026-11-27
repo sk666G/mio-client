@@ -18,6 +18,8 @@ import dev.schizo.client.utils.FloatAnimation;
 import dev.schizo.client.utils.ClampedInterpolatedFloat;
 import dev.schizo.client.utils.inventory.RegistryContainer;
 import dev.schizo.client.render.ColorUtils;
+import dev.schizo.client.gui.components.ModuleComponent;
+import dev.schizo.client.gui.components.SettingComponent;
 import dev.schizo.client.gui.GuiElement;
 import dev.schizo.client.render.FontRenderer;
 import dev.schizo.client.gui.ScissorStack;
@@ -147,7 +149,8 @@ public class Panel implements RegistryContainer, GuiElement, NamedEntry {
          guiScale = clientScreen.getGuiScale();
       }
 
-      return (int)((GuiScaleUtils.getBaseScaledHeight() - 50) / guiScale);
+      int computedLimit = (int)((GuiScaleUtils.getBaseScaledHeight() - 50) / guiScale);
+      return PanelBounds.ensureHeaderVisible(computedLimit, this.getHeaderHeight());
    }
 
    @Override
@@ -176,24 +179,12 @@ public class Panel implements RegistryContainer, GuiElement, NamedEntry {
    }
 
    public void setDragging(boolean requestedDragging) {
-      if (requestedDragging
-         && !ClientContext.getClickGui()
-            .isPanelDragging()) {
-         ClientContext.getClickGui()
-            .setPanelDragging(
-               true
-            );
-         this.dragging = true;
-      } else {
-         if (ClientContext.getClickGui()
-            .isPanelDragging()) {
-            ClientContext.getClickGui()
-               .setPanelDragging(
-                  false
-               );
-         }
-
-         this.dragging = false;
+      if (this.dragging == requestedDragging) {
+         return;
+      }
+      if (!requestedDragging || !ClientContext.getClickGui().isPanelDragging()) {
+         this.dragging = requestedDragging;
+         ClientContext.getClickGui().setPanelDragging(requestedDragging);
       }
    }
 
@@ -208,25 +199,15 @@ public class Panel implements RegistryContainer, GuiElement, NamedEntry {
    public void updateDragPosition(int mouseX, int mouseY) {
       if (this.dragging) {
          double guiScale = getDragScale();
-         this.setX(
-            (int)Math.clamp(
-               mouseX - this.dragOffsetX,
-               0.0,
-               ClientAccess.schizoMinecraft.getWindow().getGuiScaledWidth()
-                     / guiScale
-                  - this.getWidth()
-            )
-         );
-         this.setY(
-            (int)Math.clamp(
-               mouseY - this.dragOffsetY,
-               0.0,
-               ClientAccess.schizoMinecraft.getWindow().getGuiScaledHeight()
-                     / guiScale
-                  - this.getHeight()
-            )
-         );
+         this.placeWithinViewport(mouseX - this.dragOffsetX, mouseY - this.dragOffsetY,
+            ClientAccess.schizoMinecraft.getWindow().getGuiScaledWidth() / guiScale,
+            ClientAccess.schizoMinecraft.getWindow().getGuiScaledHeight() / guiScale);
       }
+   }
+
+   public void placeWithinViewport(int x, int y, double width, double height) {
+      this.setX(PanelBounds.clampPosition(x, width, this.getWidth()));
+      this.setY(PanelBounds.clampPosition(y, height, this.getHeight()));
    }
 
    public float getExpansionValue() {
@@ -238,7 +219,9 @@ public class Panel implements RegistryContainer, GuiElement, NamedEntry {
    public void keyPressed(int keyCode) {
       if (this.expanded) {
          for (GuiElement child : this.children) {
-            child.keyPressed(keyCode);
+            if (this.isChildVisible(child)) {
+               child.keyPressed(keyCode);
+            }
          }
       }
    }
@@ -248,10 +231,7 @@ public class Panel implements RegistryContainer, GuiElement, NamedEntry {
    }
 
    public int getHeaderHeight() {
-      return this.getUiModule().styleSetting.getValue()
-            == UIModule.StyleChoice.SLIM
-         ? (int)(12L)
-         : (int)(14L);
+      return this.getUiModule().styleSetting.getValue().getHeaderHeight();
    }
 
    @Override
@@ -294,7 +274,7 @@ public class Panel implements RegistryContainer, GuiElement, NamedEntry {
    public boolean unregister(Object child) {
       GuiElement element = (GuiElement)child;
 
-      return this.getRegistry().add(element);
+      return this.getRegistry().remove(element);
    }
 
    public int getY() {
@@ -372,6 +352,11 @@ public class Panel implements RegistryContainer, GuiElement, NamedEntry {
                || this.isMouseOverHeader(mouseX, mouseY),
             200L
          );
+      UIModule.StyleChoice style = this.getUiModule().styleSetting.getValue();
+      boolean schizoStyle = style == UIModule.StyleChoice.SCHIZO;
+      Color headerSurface = schizoStyle
+         ? this.getUiModule().buttonSetting.getValue()
+         : uiColor;
       float headerVerticalOffset = this.getUiModule().lineSetting.getValue()
          ? 0.0F
          : 0.5F;
@@ -379,28 +364,40 @@ public class Panel implements RegistryContainer, GuiElement, NamedEntry {
          poseStack,
          this.x,
          this.y,
-         this.x
-            + this.getWidth(),
-         this.y
-               + this.getHeaderHeight()
-            + headerVerticalOffset,
-         this.applyHeaderAlpha(uiColor)
+         this.x + this.getWidth(),
+         this.y + this.getHeaderHeight() + headerVerticalOffset,
+         this.applyHeaderAlpha(headerSurface)
       );
-      FontRenderer.INSTANCE
-         .drawWithShadow(
+      if (schizoStyle) {
+         Color railColor = this.applyHeaderAlpha(uiColor);
+         GuiDrawUtils.fillRect(
             poseStack,
-            this.name,
-            this.x
-               + (2),
-            this.y
-               + this.getHeaderHeight()
-                  / 2.0F
-               - FontRenderer.INSTANCE
-                     .getHeight()
-                  / 2.0F
-               + headerVerticalOffset,
-            this.applyHeaderAlpha(Color.white)
+            this.x,
+            this.y,
+            this.x + 2.0F,
+            this.y + this.getHeaderHeight(),
+            railColor
          );
+         GuiDrawUtils.fillRect(
+            poseStack,
+            this.x + 2.0F,
+            this.y + this.getHeaderHeight() - 1.0F,
+            this.x + this.getWidth(),
+            this.y + this.getHeaderHeight(),
+            ColorUtils.withAlpha(railColor, 90)
+         );
+      }
+
+      FontRenderer.INSTANCE.drawWithShadow(
+         poseStack,
+         this.name,
+         this.x + (schizoStyle ? 7.0F : 2.0F),
+         this.y
+            + this.getHeaderHeight() / 2.0F
+            - FontRenderer.INSTANCE.getHeight() / 2.0F
+            + headerVerticalOffset,
+         this.applyHeaderAlpha(schizoStyle ? uiColor : Color.white)
+      );
       if (expansionValue != 0.0F) {
          GuiDrawUtils.flush();
          ScissorStack.push(
@@ -414,98 +411,113 @@ public class Panel implements RegistryContainer, GuiElement, NamedEntry {
          );
       }
 
-      Color backgroundColor = UIModule.INSTANCE
-         .backgroundSetting
-         .getValue();
-      if (expansionValue > 0.0F && !this.children.isEmpty()) {
-         GuiDrawUtils.fillRect(
-            poseStack,
-            this.x,
-            this.y
-               + this.getHeaderHeight(),
-            this.x
-               + this.getWidth(),
-            this.y
-                  + this.height
-               + 0.5F,
-            backgroundColor
-         );
-         this.children
-            .forEach(
-               child -> {
-                  if (this.isChildVisible(child)) {
-                     child.update(mouseX, mouseY);
-                     int childYOffset = child.getYOffset();
-                     if (childYOffset <= this.height
-                        && childYOffset + child.getHeight() >= 0) {
-                        child.render(poseStack, mouseX, mouseY);
+      try {
+         Color backgroundColor = UIModule.INSTANCE
+            .backgroundSetting
+            .getValue();
+         if (expansionValue > 0.0F && !this.children.isEmpty()) {
+            GuiDrawUtils.fillRect(
+               poseStack,
+               this.x,
+               this.y
+                  + this.getHeaderHeight(),
+               this.x
+                  + this.getWidth(),
+               this.y
+                     + this.height
+                  + 0.5F,
+               backgroundColor
+            );
+            this.children
+               .forEach(
+                  child -> {
+                     if (this.isChildVisible(child)) {
+                        child.update(mouseX, mouseY);
+                        int childYOffset = child.getYOffset();
+                        if (childYOffset <= this.height
+                           && childYOffset + child.getHeight() >= 0) {
+                           child.render(poseStack, mouseX, mouseY);
+                        }
                      }
                   }
-               }
-            );
-      }
-
-      if (expansionValue != 0.0F) {
-         GuiDrawUtils.flush();
-         ScissorStack.pop();
+               );
+         }
+      } finally {
+         if (expansionValue != 0.0F) {
+            try {
+               GuiDrawUtils.flush();
+            } finally {
+               ScissorStack.pop();
+            }
+         }
       }
 
       poseStack.pushPose();
-      poseStack.translate(
-         0.0F,
-         0.0F,
-         500.0F
-      );
-      this.bottomScrollFadeAnimation
-         .setTarget(
-            this.scrollOffset
-               > Math.min(
-                  -this.contentHeight
-                     + this.height,
-                  0
-               ),
-            200L
+      try {
+         poseStack.translate(
+            0.0F,
+            0.0F,
+            500.0F
          );
-      this.topScrollFadeAnimation
-         .setTarget(
-            this.scrollOffset < 0, 200L
-         );
-      this.renderScrollFade(
-         poseStack,
          this.bottomScrollFadeAnimation
-            .getValue(),
-         false
-      );
-      this.renderScrollFade(
-         poseStack,
+            .setTarget(
+               this.scrollOffset
+                  > Math.min(
+                     -this.contentHeight
+                        + this.height,
+                     0
+                  ),
+               200L
+            );
          this.topScrollFadeAnimation
-            .getValue(),
-         true
-      );
-      if (UIModule.INSTANCE.lineSetting.getValue()) {
-         float outlineHeight = (int)(this.height * expansionValue)
-            + 0.5F;
-         if (outlineHeight
-            <= this.getHeaderHeight()
-               + (2)) {
-            outlineHeight = this.getHeaderHeight();
-         }
-
-         GuiDrawUtils.drawRectOutline(
+            .setTarget(
+               this.scrollOffset < 0, 200L
+            );
+         this.renderScrollFade(
             poseStack,
-            this.x - 1,
-            this.y - 1,
-            this.x
-               + this.getWidth(),
-            this.y + outlineHeight,
-            this.applyHeaderAlpha(uiColor)
+            this.bottomScrollFadeAnimation
+               .getValue(),
+            false
          );
-      }
+         this.renderScrollFade(
+            poseStack,
+            this.topScrollFadeAnimation
+               .getValue(),
+            true
+         );
+         if (UIModule.INSTANCE.lineSetting.getValue()) {
+            float outlineHeight = (int)(this.height * expansionValue)
+               + 0.5F;
+            if (outlineHeight
+               <= this.getHeaderHeight()
+                  + (2)) {
+               outlineHeight = this.getHeaderHeight();
+            }
 
-      poseStack.popPose();
+            GuiDrawUtils.drawRectOutline(
+               poseStack,
+               this.x - 1,
+               this.y - 1,
+               this.x
+                  + this.getWidth(),
+               this.y + outlineHeight,
+               this.applyHeaderAlpha(uiColor)
+            );
+         }
+      } finally {
+         poseStack.popPose();
+      }
       this.recoverScrollOffset();
       this.updateLayout();
       GuiDrawUtils.flush();
+   }
+
+   public boolean acceptsSettingInput(SettingComponent<?> setting) {
+      if (!this.expanded || !setting.getParentCloseState().isOpen()) {
+         return false;
+      }
+      GuiElement owner = setting.getParentCloseState() instanceof ModuleComponent module ? module : setting;
+      return this.children.contains(owner) && this.isChildVisible(owner);
    }
 
    protected boolean isChildVisible(GuiElement child) {
@@ -543,7 +555,9 @@ public class Panel implements RegistryContainer, GuiElement, NamedEntry {
 
       if (this.expanded) {
          for (GuiElement child : this.children) {
-            child.mouseClicked(mouseX, mouseY, button);
+            if (this.isChildVisible(child)) {
+               child.mouseClicked(mouseX, mouseY, button);
+            }
          }
       }
    }
@@ -572,7 +586,9 @@ public class Panel implements RegistryContainer, GuiElement, NamedEntry {
          }
 
          for (GuiElement child : this.children) {
-            child.mouseScrolled(mouseX, mouseY, scrollAmount);
+            if (this.isChildVisible(child)) {
+               child.mouseScrolled(mouseX, mouseY, scrollAmount);
+            }
          }
       }
    }
@@ -581,7 +597,9 @@ public class Panel implements RegistryContainer, GuiElement, NamedEntry {
    public void charTyped(char character) {
       if (this.expanded) {
          for (GuiElement child : this.children) {
-            child.charTyped(character);
+            if (this.isChildVisible(child)) {
+               child.charTyped(character);
+            }
          }
       }
    }

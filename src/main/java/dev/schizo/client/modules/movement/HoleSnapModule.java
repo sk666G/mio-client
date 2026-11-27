@@ -82,8 +82,8 @@ public class HoleSnapModule extends Module {
    private void onLocalPlayerPreTickEvent(LocalPlayerPreTickEvent event) {
       if (this.forwardOverrideActive && !this.shouldPauseSnapping() && !this.isWaitingForTarget()
          && RotationManager.isMovementSyncEnabled()) {
-         ClientContext.inputOverrides.requestForward(true);
-         ClientContext.inputOverrides.requestForwardMovement(1.0F);
+         ClientContext.inputOverrides.requestForward(this, true);
+         ClientContext.inputOverrides.requestForwardMovement(this, 1.0F);
       }
 
       AABB playerBounds = ClientAccess.schizoMinecraft.player.getBoundingBox();
@@ -97,7 +97,7 @@ public class HoleSnapModule extends Module {
       if (!holeManager.intersectsHole(belowPlayer) || BlockPos.betweenClosedStream(feetBounds).count() != 1L) {
          return;
       }
-      ClientContext.inputOverrides.requestSneak(true);
+      ClientContext.inputOverrides.requestSneak(this, true);
    }
 
    @EventHandler

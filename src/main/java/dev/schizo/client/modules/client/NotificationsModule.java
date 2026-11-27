@@ -16,8 +16,11 @@ import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.managers.AliasRegistry;
 import dev.schizo.client.managers.SocialRegistry;
 import dev.schizo.client.events.ModuleToggleEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.utils.chat.ChatUtils;
 import dev.schizo.client.managers.ConfigurationManager;
+import dev.schizo.client.config.ConfigFileReader;
+import dev.schizo.client.config.ConfigPathGuard;
 import dev.schizo.client.modules.Module;
 import dev.schizo.client.modules.ModuleCategory;
 import dev.schizo.client.settings.BooleanSetting;
@@ -27,14 +30,17 @@ import dev.schizo.client.settings.Setting;
 import dev.schizo.client.settings.StringSetting;
 
 import java.awt.Color;
-import java.io.File;
-import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.function.Predicate;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.OptionInstance;
 import net.minecraft.client.Options;
@@ -42,9 +48,10 @@ import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.world.entity.player.ChatVisiblity;
-import org.apache.commons.io.FileUtils;
 
 public class NotificationsModule extends Module {
+   private static final int MAX_TOTEM_MESSAGE_FILE_BYTES = 262_144;
+   private static final int MAX_PENDING_TOTEM_CHATS = 64;
    public final Setting<Color> watermarkSetting;
    public final Setting<Color> bracketsSetting;
    private final Setting<Boolean> commandsSetting;
@@ -63,10 +70,22 @@ public class NotificationsModule extends Module {
    private int totemMessageIndex;
    private final List<String> totemMessages;
    private final Random totemRandom;
+   private volatile AtomicInteger pendingTotemChats = new AtomicInteger();
+   private long totemGeneration;
 
    @Override
    public void onEnable() {
       this.reloadTotemMessages();
+   }
+
+   @Override
+   public void onDisable() {
+      this.invalidateTotemWork();
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.invalidateTotemWork();
    }
 
    private void printTotemNotification(String playerName, String actionText, int popCount) {
@@ -189,126 +208,107 @@ public class NotificationsModule extends Module {
       String moduleName = AliasRegistry.getModuleAlias(aliasRegistry, aliasModule);
       message.append(Component.literal(moduleName));
       ClientContext.taskScheduler.scheduleRunTickTask(() -> {
-            Module lambdaSignatureModule = event.getModule();
-            ChatUtils.printChat(message, ChatUtils.moduleSignature(lambdaSignatureModule));
-         });
+         if (!this.isToggled()) {
+            return;
+         }
+         Module signatureModule = event.getModule();
+         ChatUtils.printChat(message, ChatUtils.moduleSignature(signatureModule));
+      });
    }
 
    @EventHandler
    private void onPlayerTotem(PlayerTotemEvent event) {
       LocalPlayer localPlayer = ClientAccess.schizoMinecraft.player;
       boolean self = localPlayer == event.getPlayer();
-      Setting<Boolean> popsOption = this.totemPopsSetting;
-      Boolean notifyPops = popsOption.getValue();
-      if (!notifyPops) {
+      if (!this.totemPopsSetting.getValue()) {
+         return;
+      }
+      if (self && !this.selfSetting.getValue()) {
          return;
       }
 
-      if (self) {
-         Setting<Boolean> selfOption = this.selfSetting;
-         Boolean notifySelf = selfOption.getValue();
-         if (!notifySelf) {
-            return;
-         }
-      }
-
-      String displayName;
-      if (self) {
-
-         displayName = "You";
-      } else {
-         displayName = event.getName();
-      }
-
-      String playerName = displayName;
+      String playerName = self ? "You" : event.getName();
       int popCount = event.getPopCount();
-      PlayerTotemEvent kindEvent = event;
-      if (PlayerTotemEvent.Kind.TOTEM_POP != kindEvent.getKind()) {
+      if (event.getKind() != PlayerTotemEvent.Kind.TOTEM_POP) {
          this.printTotemNotification(playerName, " has died after popping ", popCount);
          return;
       }
 
-      String popVerb;
-      if (self) {
-
-         popVerb = " have";
-      } else {
-
-         popVerb = " has";
+      this.printTotemNotification(playerName, self ? " have popped " : " has popped ", popCount);
+      if (self || ClientContext.socialRegistry.isFriendName(playerName)) {
+         return;
       }
-
-      this.printTotemNotification(playerName, popVerb + " popped ", popCount);
-      SocialRegistry friendRegistry = ClientContext.socialRegistry;
-
-      if (friendRegistry.isFriendName(playerName) || self) {
+      if (!ClientContext.socialRegistry.isEnemyName(playerName)
+         && this.onlyEnemiesSetting.getValue()) {
+         return;
+      }
+      if (!this.sayChatSetting.getValue() || this.totemMessages.isEmpty()) {
          return;
       }
 
-      SocialRegistry enemyRegistry = ClientContext.socialRegistry;
+      long expectedGeneration = this.totemGeneration;
+      boolean randomOrder = this.randomSetting.getValue();
+      long delayMillis = (long)(this.delaySetting.getValue() * 1000.0F);
+      if (delayMillis > 0L) {
+         delayMillis += this.totemRandom.nextLong(500L);
+      }
 
-      if (!enemyRegistry.isEnemyName(playerName)) {
-         Setting<Boolean> enemiesOption = this.onlyEnemiesSetting;
-         Boolean onlyEnemies = enemiesOption.getValue();
-         if (onlyEnemies) {
+      Runnable dispatch = () -> ClientAccess.schizoMinecraft.executeIfPossible(
+         () -> this.sendTotemChat(playerName, popCount, randomOrder, expectedGeneration)
+      );
+      if (delayMillis <= 0L) {
+         dispatch.run();
+      } else {
+         AtomicInteger pendingCounter = this.pendingTotemChats;
+         int pending = pendingCounter.incrementAndGet();
+         if (pending > MAX_PENDING_TOTEM_CHATS) {
+            pendingCounter.decrementAndGet();
+            ClientAccess.logger.warn("Dropping delayed totem chat because the pending queue is full");
             return;
          }
-      }
 
-      Setting<Boolean> chatOption = this.sayChatSetting;
-      Boolean sayChat = chatOption.getValue();
-      if (!sayChat || this.totemMessages.isEmpty()) {
+         CompletableFuture.runAsync(
+            dispatch,
+            CompletableFuture.delayedExecutor(
+               delayMillis, TimeUnit.MILLISECONDS, ClientAccess.executorService
+            )
+         ).whenComplete((ignored, failure) -> pendingCounter.decrementAndGet());
+      }
+   }
+
+   private void sendTotemChat(
+      String playerName,
+      int popCount,
+      boolean randomOrder,
+      long expectedGeneration
+   ) {
+      if (!this.isToggled()
+         || this.totemGeneration != expectedGeneration
+         || !this.sayChatSetting.getValue()
+         || this.totemMessages.isEmpty()) {
          return;
       }
 
-      ClientAccess.executorService.submit(() -> {
-            try {
-               Setting<Float> lambdaDelayOption = this.delaySetting;
-               Float lambdaDelay = lambdaDelayOption.getValue();
-               if (lambdaDelay > 0.0F) {
-                  Setting<Float> lambdaSleepDelayOption = this.delaySetting;
-                  float lambdaDelaySeconds = lambdaSleepDelayOption.getValue();
+      int messageCount = this.totemMessages.size();
+      int selectedIndex;
+      if (randomOrder && messageCount > 1) {
+         do {
+            selectedIndex = this.totemRandom.nextInt(messageCount);
+         } while (selectedIndex == this.totemMessageIndex);
+      } else if (randomOrder) {
+         selectedIndex = 0;
+      } else {
+         selectedIndex = Math.floorMod(this.totemMessageIndex, messageCount);
+      }
 
-                  long lambdaDelayMillis = (long)(lambdaDelaySeconds * 1e+03F);
-                  Random lambdaJitterRandom = this.totemRandom;
+      this.totemMessageIndex = randomOrder
+         ? selectedIndex
+         : (selectedIndex + 1) % messageCount;
 
-                  long lambdaSleepMillis = lambdaDelayMillis + lambdaJitterRandom.nextLong(500L);
-                  Thread.sleep(lambdaSleepMillis);
-               }
-
-               String lambdaChatMessage = null;
-               Setting<Boolean> lambdaRandomOption = this.randomSetting;
-               Boolean lambdaRandomOrder = lambdaRandomOption.getValue();
-               if (lambdaRandomOrder) {
-                  if (this.totemMessages.size()
-                     == 1) {
-                     lambdaChatMessage = this.totemMessages.get(0);
-                  } else {
-                     while (lambdaChatMessage == null) {
-                        Random lambdaRandomSource = this.totemRandom;
-                        int lambdaMessageCount = this.totemMessages.size();
-                        int lambdaRandomIndex = lambdaRandomSource.nextInt(lambdaMessageCount);
-                        if (this.totemMessageIndex != lambdaRandomIndex) {
-                           this.totemMessageIndex = lambdaRandomIndex;
-                           lambdaChatMessage = this.totemMessages.get(lambdaRandomIndex);
-                        }
-                     }
-                  }
-               } else {
-                  lambdaChatMessage = this.totemMessages.get(this.totemMessageIndex);
-                  this.totemMessageIndex = (
-                        this.totemMessageIndex + 1
-                     )
-                     % this.totemMessages.size();
-               }
-
-               lambdaChatMessage = lambdaChatMessage.replace("{name}", playerName);
-
-               lambdaChatMessage = lambdaChatMessage.replace("{totems}", Integer.toString(popCount));
-
-               ChatUtils.sendChatOrCommand(lambdaChatMessage);
-            } catch (Exception lambdaIgnored) {
-            }
-         });
+      String chatMessage = this.totemMessages.get(selectedIndex)
+         .replace("{name}", playerName)
+         .replace("{totems}", Integer.toString(popCount));
+      ChatUtils.sendChatOrCommand(chatMessage);
    }
 
    private Color moduleToggleColor(boolean enabled) {
@@ -319,38 +319,76 @@ public class NotificationsModule extends Module {
       return notifications.commandsSetting.getValue();
    }
 
+   static Path resolveTotemMessagePath(Path root, String selectedPath) throws IOException {
+      Path messagePath = ConfigPathGuard.resolveForRead(root, selectedPath);
+      if (!Files.exists(messagePath, LinkOption.NOFOLLOW_LINKS)
+         && !selectedPath.endsWith(".txt")) {
+         messagePath = ConfigPathGuard.resolveForRead(root, selectedPath + ".txt");
+      }
+      if (!Files.isRegularFile(messagePath, LinkOption.NOFOLLOW_LINKS)) {
+         throw new IOException("Totem message path is not a regular file");
+      }
+      return messagePath;
+   }
+
    private void reloadTotemMessages() {
+      String selectedPath = this.pathSetting.getValue();
+      long expectedGeneration = ++this.totemGeneration;
       try {
-         Path configuredPath = ConfigurationManager.ROOT_DIRECTORY;
-         Setting<String> pathOption = this.pathSetting;
-         configuredPath = configuredPath.resolve(pathOption.getValue());
-         Path messagePath = dev.schizo.client.utils.FileUtils.findExistingWithSuffixes(configuredPath, ".txt");
-         File messageFile = messagePath.toFile();
-         if (!messageFile.exists()) {
+         ClientAccess.executorService.submit(() -> {
+            List<String> loadedMessages = List.of();
+            Exception failure = null;
+            try {
+               Path root = ConfigurationManager.ROOT_DIRECTORY.toAbsolutePath().normalize();
+               Path messagePath = resolveTotemMessagePath(root, selectedPath);
 
-            throw new RuntimeException("Invalid totem pop file path");
-         }
+               String text = ConfigFileReader.readUtf8(
+                  messagePath, MAX_TOTEM_MESSAGE_FILE_BYTES
+               );
+               loadedMessages = text.lines().toList();
+            } catch (Exception loadFailure) {
+               failure = loadFailure;
+            }
 
-         this.totemMessageIndex = 0;
-         this.totemMessages.clear();
-         List<String> messages = this.totemMessages;
-         File messageReadFile = messagePath.toFile();
-         Charset charset = StandardCharsets.UTF_8;
-         messages.addAll(FileUtils.readLines(messageReadFile, charset));
-      } catch (Exception exception) {
-         Setting<Boolean> chatOption = this.sayChatSetting;
-         Boolean sayChat = chatOption.getValue();
-         if (sayChat) {
+            List<String> completedMessages = loadedMessages;
+            Exception completedFailure = failure;
+            ClientAccess.schizoMinecraft.executeIfPossible(() -> {
+               if (!this.isToggled() || this.totemGeneration != expectedGeneration) {
+                  return;
+               }
 
-            MutableComponent errorMessage = Component.literal("Failed to open totem pop file")
+               this.totemMessageIndex = 0;
+               this.totemMessages.clear();
+               if (completedFailure == null) {
+                  this.totemMessages.addAll(completedMessages);
+               } else if (this.sayChatSetting.getValue()) {
+                  MutableComponent errorMessage = Component.literal("Failed to open totem pop file")
+                     .withStyle(style -> style.withColor(ChatFormatting.RED));
+                  ChatUtils.printChat(
+                     errorMessage,
+                     ChatUtils.createSignature(completedFailure.toString().hashCode()),
+                     ChatUtils.MessagePriority.LOW
+                  );
+               }
+            });
+         });
+      } catch (java.util.concurrent.RejectedExecutionException rejected) {
+         if (this.sayChatSetting.getValue()) {
+            MutableComponent errorMessage = Component.literal("Failed to schedule totem message reload")
                .withStyle(style -> style.withColor(ChatFormatting.RED));
-            String errorDescription = exception.toString();
-            int errorHash = errorDescription.hashCode();
-
-            ChatUtils.printChat(errorMessage, ChatUtils.createSignature((errorHash)), ChatUtils.MessagePriority.LOW);
-            exception.printStackTrace();
+            ChatUtils.printChat(
+               errorMessage,
+               ChatUtils.createSignature(rejected.toString().hashCode()),
+               ChatUtils.MessagePriority.LOW
+            );
          }
       }
+   }
+
+   private void invalidateTotemWork() {
+      this.totemGeneration++;
+      this.totemMessageIndex = 0;
+      this.pendingTotemChats = new AtomicInteger();
    }
 
    public int getBracketColor() {
@@ -365,8 +403,8 @@ public class NotificationsModule extends Module {
 
    public NotificationsModule() {
       super("Notifications", "Lets you know about what's going on in the chat.", ModuleCategory.CLIENT, new String[0]);
-      this.watermarkSetting = this.add(new ColorSetting(("Watermark"), new Color(-4351489, true)));
-      this.bracketsSetting = this.add(new ColorSetting("Brackets", new Color(-4351489, true)));
+      this.watermarkSetting = this.add(new ColorSetting(("Watermark"), new Color(190, 255, 64)));
+      this.bracketsSetting = this.add(new ColorSetting("Brackets", new Color(190, 255, 64)));
       this.commandsSetting = this.add(new BooleanSetting(("Commands"), true));
       BooleanSetting modulesOption = new BooleanSetting("Modules", true);
       modulesOption.markVisibilityDependency();
@@ -404,22 +442,29 @@ public class NotificationsModule extends Module {
 
       this.setDrawn(false);
       this.sayChatSetting.setChangeCallback(() -> {
-         Setting<Boolean> lambdaChatOption = this.sayChatSetting;
-         Boolean lambdaSayChat = lambdaChatOption.getValue();
-         if (lambdaSayChat) {
+         if (!this.isToggled()) {
+            return;
+         }
+         if (this.sayChatSetting.getValue()) {
             this.reloadTotemMessages();
+         } else {
+            this.invalidateTotemWork();
          }
       });
       this.refreshSetting.setChangeCallback(() -> {
-         Setting<Boolean> lambdaRefreshOption = this.refreshSetting;
-         Boolean lambdaRefreshEnabled = lambdaRefreshOption.getValue();
-         if (lambdaRefreshEnabled) {
+         if (this.refreshSetting.getValue()) {
             this.refreshSetting.setValue(false);
-            this.reloadTotemMessages();
+            if (this.isToggled()) {
+               this.reloadTotemMessages();
+            }
          }
       });
       this.randomSetting.setChangeCallback(() -> this.totemMessageIndex = 0);
-      this.pathSetting.setChangeCallback(this::reloadTotemMessages);
+      this.pathSetting.setChangeCallback(() -> {
+         if (this.isToggled()) {
+            this.reloadTotemMessages();
+         }
+      });
    }
 
 }

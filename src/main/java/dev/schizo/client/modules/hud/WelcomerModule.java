@@ -14,8 +14,9 @@ import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.ScreenChangeEvent;
 import dev.schizo.client.events.ConnectScreenConnectEvent;
 import dev.schizo.client.events.EventHandler;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.managers.ServerStateManager;
-import dev.schizo.client.utils.collections.IntPair;
+import dev.schizo.client.media.MediaSnapshot;
 import dev.schizo.client.utils.ElapsedTimer;
 import dev.schizo.client.render.ColorUtils;
 import dev.schizo.client.render.FontRenderer;
@@ -49,8 +50,12 @@ public class WelcomerModule extends HudWidgetModule {
    private boolean connectionScreenPending;
 
    private boolean tryAddServerWelcomeNotification() {
+      if (!this.connectionScreenPending) {
+         return false;
+      }
       ElapsedTimer timer = this.connectionScreenTimer;
       if (timer.hasElapsed(50L)) {
+         this.connectionScreenPending = false;
          return false;
       }
       Minecraft minecraft = ClientAccess.schizoMinecraft;
@@ -67,13 +72,14 @@ public class WelcomerModule extends HudWidgetModule {
          3000L,
          this.getHudColor(this.renderer.getY())
       ));
+      this.connectionScreenPending = false;
       return true;
    }
 
    private void updateSmartNotifications() {
       Setting<Boolean> smartOption = this.smartSetting;
       Boolean smartEnabled = smartOption.getValue();
-      if (!smartEnabled || this.isInHudEditor()) {
+      if (!smartEnabled || this.isInHudEditor() || this.isWorldUnavailable()) {
          this.finishLagNotification();
          return;
       }
@@ -141,7 +147,7 @@ public class WelcomerModule extends HudWidgetModule {
    public float[] calculateDimensions() {
       float maximumWidth = 0.0F;
       float accumulatedProgress = 0.0F;
-      float hudScale = hud.getTextScale();
+      float hudScale = hud().getTextScale();
 
       for (int index = this.notifications.size() - 1;
          index >= 0;
@@ -176,15 +182,9 @@ public class WelcomerModule extends HudWidgetModule {
          }
       }
 
-      float[] dimensions = new float[2];
-      dimensions[0] = maximumWidth * hudScale;
-      dimensions[1] = (
-            FontRenderer.INSTANCE
-                  .getHeight()
-               + 1
-         )
-         * hudScale;
-      return dimensions;
+      float width = maximumWidth * hudScale;
+      float height = (FontRenderer.INSTANCE.getHeight() + 1) * hudScale;
+      return this.dimensions(width, height);
    }
 
    private boolean overlapsWidget(HudWidgetModule widget) {
@@ -198,34 +198,37 @@ public class WelcomerModule extends HudWidgetModule {
          return false;
       }
 
-      IntPair welcomerPosition = new IntPair((int)this.renderer.getX(), (int)this.renderer.getY());
-      IntPair widgetPosition = new IntPair((int)widget.getRenderer().getX(), (int)widget.getRenderer().getY());
-      double distance = welcomerPosition.distanceTo(widgetPosition);
-      return distance <= 100.0D;
+      return isWithinOverlapDistance(
+         this.renderer.getX(), this.renderer.getY(),
+         widget.getRenderer().getX(), widget.getRenderer().getY(),
+         100.0D
+      );
+   }
+
+   static boolean isWithinOverlapDistance(
+      float firstX, float firstY, float secondX, float secondY, double maximumDistance
+   ) {
+      int firstPixelX = (int)firstX;
+      int firstPixelY = (int)firstY;
+      int secondPixelX = (int)secondX;
+      int secondPixelY = (int)secondY;
+      double deltaX = (double)firstPixelX - secondPixelX;
+      double deltaY = (double)firstPixelY - secondPixelY;
+      return deltaX * deltaX + deltaY * deltaY <= maximumDistance * maximumDistance;
    }
 
    private boolean slidesUp(HudNotification notification) {
-
-      long time = notification.getStartTimeMillis();
-
-      boolean evenStartTime = time % 2L == 0L;
-      time = System.currentTimeMillis();
-
-      time -= notification.getStartTimeMillis();
-
-      return time <= 500L ? !evenStartTime : evenStartTime;
+      boolean evenStartTime = notification.hasEvenStartMillis();
+      long elapsedMillis = notification.getElapsedMillis();
+      return elapsedMillis <= 500L ? !evenStartTime : evenStartTime;
    }
 
    private float getNotificationProgress(
       HudNotification notification, float transitionMillis, float progressOffset
    ) {
 
-      long timestamp = notification.getEndTimeMillis();
-
-      long lifetimeMillis = timestamp - notification.getStartTimeMillis();
-      timestamp = System.currentTimeMillis();
-
-      long elapsedMillis = timestamp - notification.getStartTimeMillis();
+      long lifetimeMillis = notification.getLifetimeMillis();
+      long elapsedMillis = notification.getElapsedMillis();
 
       float progress = 1.0F;
       if ((float)elapsedMillis <= transitionMillis) {
@@ -247,9 +250,7 @@ public class WelcomerModule extends HudWidgetModule {
       this.updateSmartNotifications();
       this.notifications.removeIf(
          notification -> {
-            long nowMillis = System.currentTimeMillis();
-
-            if (nowMillis < notification.getEndTimeMillis()) {
+            if (!notification.isExpired()) {
                Setting<Boolean> smartOption = this.smartSetting;
                Boolean smartEnabled = smartOption.getValue();
                if (smartEnabled || notification instanceof GreetingNotification) {
@@ -261,7 +262,7 @@ public class WelcomerModule extends HudWidgetModule {
          }
       );
       float[] dimensions = this.calculateDimensions();
-      float hudScale = hud.getTextScale();
+      float hudScale = hud().getTextScale();
       float accumulatedProgress = 0.0F;
 
       for (int index = this.notifications.size() - 1;
@@ -338,7 +339,6 @@ public class WelcomerModule extends HudWidgetModule {
       }
       if (event.getNewScreen() == null
          && this.connectionScreenPending) {
-         this.connectionScreenPending = false;
          this.connectionScreenTimer.reset();
       }
    }
@@ -353,6 +353,14 @@ public class WelcomerModule extends HudWidgetModule {
    }
 
    @EventHandler
+   private void onMinecraftDisconnectEvent(MinecraftDisconnectEvent event) {
+      this.connectionScreenPending = false;
+      this.connectionScreenTimer.reset();
+      this.lastMusicNotificationText = null;
+      this.notifications.removeIf(notification -> !(notification instanceof GreetingNotification));
+   }
+
+   @EventHandler
    private void onConnectScreenConnectEvent(ConnectScreenConnectEvent event) {
       this.connectionScreenPending = true;
    }
@@ -362,36 +370,30 @@ public class WelcomerModule extends HudWidgetModule {
       ModuleRegistry moduleRegistry = ClientContext.moduleRegistry;
       MusicModule musicWidget = (MusicModule)moduleRegistry.getModule(musicWidgetType);
       if (!this.isInHudEditor()) {
-         int statusOrTextLength = MediaSessionBridge.playbackStatus;
-
-         if (statusOrTextLength == 4) {
-            if (this.overlapsWidget(musicWidget)) {
-               String mediaDisplayText = MediaSessionBridge.getDisplayText();
-               String text = mediaDisplayText.trim();
-               statusOrTextLength = text.length();
-
-               if (statusOrTextLength < 3) {
-                  this.lastMusicNotificationText = null;
-                  return;
-               }
-
-               if (text.equals(this.lastMusicNotificationText)) {
-                  return;
-               }
-
-               this.notifications.add(
-                  new MusicNotification(
-                     "♪ " + text,
-                     3000L,
-                     this.getHudColor(
-                        this.renderer
-                           .getY()
-                     )
-                  )
-               );
-               this.lastMusicNotificationText = text;
+         MediaSnapshot snapshot = MediaSessionBridge.snapshot();
+         if (snapshot.playbackStatus() == MediaSnapshot.PLAYING && this.overlapsWidget(musicWidget)) {
+            String text = MediaSessionBridge.getDisplayText(snapshot).trim();
+            if (text.length() < 3) {
+               this.lastMusicNotificationText = null;
                return;
             }
+
+            if (text.equals(this.lastMusicNotificationText)) {
+               return;
+            }
+
+            this.notifications.add(
+               new MusicNotification(
+                  "♪ " + text,
+                  3000L,
+                  this.getHudColor(
+                     this.renderer
+                        .getY()
+                  )
+               )
+            );
+            this.lastMusicNotificationText = text;
+            return;
          }
 
          this.lastMusicNotificationText = null;

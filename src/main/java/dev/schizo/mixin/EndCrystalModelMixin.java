@@ -14,7 +14,7 @@ import com.llamalad7.mixinextras.sugar.Local;
 import dev.schizo.client.modules.render.AnimationsModule;
 import dev.schizo.client.settings.options.AutoCrystalInstantChoice;
 import dev.schizo.client.modules.combat.AutoCrystalModule;
-import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.utils.combat.EndCrystalState;
 import dev.schizo.client.render.EntityRenderStateAccess;
 import net.minecraft.client.model.geom.ModelPart;
@@ -29,8 +29,9 @@ import org.spongepowered.asm.mixin.injection.At;
 
 @Mixin(EndCrystalModel.class)
 public class EndCrystalModelMixin {
-   private static final AutoCrystalModule autoCrystalModule = ClientContext.getModule(AutoCrystalModule.class);
-   private static final AnimationsModule animationsModule = ClientContext.getModule(AnimationsModule.class);
+   private static AutoCrystalModule autoCrystalModule() {
+      return MixinModuleRegistry.minecraftAutoCrystalModule;
+   }
    @Shadow
    @Final
    public ModelPart base;
@@ -56,21 +57,21 @@ public class EndCrystalModelMixin {
       Entity entity = EntityRenderStateAccess.getEntity(renderState);
       float speedMultiplier = 1.0F;
       if (entity.tickCount < 10
-         && autoCrystalModule.isToggled()
-         && (autoCrystalModule.instantSetting
+         && autoCrystalModule().isToggled()
+         && (autoCrystalModule().instantSetting
                .getValue())
             .isEnabled()
          && ((EndCrystalState)entity).isClientAttacked()) {
          speedMultiplier *= 1.5F;
       }
 
-      if (animationsModule.isToggled()
-         && animationsModule.crystalsSetting.getValue()) {
-         speedMultiplier *= animationsModule.rotationSpeedSetting.getValue();
-         this.base.skipDraw = animationsModule.shouldHideCrystalPart(0);
-         this.outerGlass.skipDraw = animationsModule.shouldHideCrystalPart(1);
-         this.innerGlass.skipDraw = animationsModule.shouldHideCrystalPart(2);
-         this.cube.skipDraw = animationsModule.shouldHideCrystalPart(3);
+      if (MixinModuleRegistry.renderAnimations.isToggled()
+         && MixinModuleRegistry.renderAnimations.crystalsSetting.getValue()) {
+         speedMultiplier *= MixinModuleRegistry.renderAnimations.rotationSpeedSetting.getValue();
+         this.base.skipDraw = MixinModuleRegistry.renderAnimations.shouldHideCrystalPart(0);
+         this.outerGlass.skipDraw = MixinModuleRegistry.renderAnimations.shouldHideCrystalPart(1);
+         this.innerGlass.skipDraw = MixinModuleRegistry.renderAnimations.shouldHideCrystalPart(2);
+         this.cube.skipDraw = MixinModuleRegistry.renderAnimations.shouldHideCrystalPart(3);
       }
       return speedMultiplier;
    }

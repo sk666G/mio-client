@@ -41,6 +41,8 @@ public class AutoWalkModule extends Module {
    private final Setting<Boolean> miningSetting;
    private final Setting<Boolean> eatingSetting;
    private int stuckTicks;
+   private final Setting<Boolean> pauseUnloadedSetting;
+   private final Setting<Boolean> manualOverrideSetting;
 
    private boolean isMining() {
       if (!speedMineModule.isToggled()) {
@@ -57,8 +59,26 @@ public class AutoWalkModule extends Module {
    }
 
    private boolean shouldPauseForAction() {
-      return this.eatingSetting.getValue() && ClientAccess.schizoMinecraft.player.isUsingItem()
-         || this.miningSetting.getValue() && this.isMining();
+      this.clearPauseReason();
+      if (this.isWorldUnavailable()) return this.pauseWithReason("Waiting for world");
+      if (this.manualOverrideSetting.getValue()
+         && (ClientAccess.schizoMinecraft.options.keyUp.isDown() || ClientAccess.schizoMinecraft.options.keyDown.isDown()
+            || ClientAccess.schizoMinecraft.options.keyLeft.isDown() || ClientAccess.schizoMinecraft.options.keyRight.isDown())) {
+         return this.pauseWithReason("Manual movement");
+      }
+      if (this.pauseUnloadedSetting.getValue()) {
+         var player = ClientAccess.schizoMinecraft.player;
+         double heading = Math.toRadians(player.getYRot());
+         BlockPos ahead = BlockPos.containing(player.getX() - Math.sin(heading) * 4, player.getY(), player.getZ() + Math.cos(heading) * 4);
+         if (!ClientAccess.schizoMinecraft.level.hasChunkAt(ahead)) return this.pauseWithReason("Terrain not loaded");
+      }
+      if (this.eatingSetting.getValue() && ClientAccess.schizoMinecraft.player.isUsingItem()) return this.pauseWithReason("Using item");
+      return this.miningSetting.getValue() && this.isMining() && this.pauseWithReason("Mining");
+   }
+
+   @Override
+   public void onToggle() {
+      this.stuckTicks = 0;
    }
 
    @EventHandler
@@ -82,10 +102,10 @@ public class AutoWalkModule extends Module {
    @EventHandler
    private void onAbstractClientPlayerTickEvent(AbstractClientPlayerTickEvent event) {
       if (!this.shouldPauseForAction()) {
-         ClientContext.inputOverrides.requestForwardMovement(1.0F);
-         ClientContext.inputOverrides.requestForward(true);
+         ClientContext.inputOverrides.requestForwardMovement(this, 1.0F);
+         ClientContext.inputOverrides.requestForward(this, true);
          if (this.autoJumpSetting.getValue()) {
-            ClientContext.inputOverrides.requestJump(true);
+            ClientContext.inputOverrides.requestJump(this, true);
          }
       }
    }
@@ -96,6 +116,8 @@ public class AutoWalkModule extends Module {
 
    public AutoWalkModule() {
       super("AutoWalk", "Lets your forward key rest.", ModuleCategory.MOVEMENT, new String[0]);
+      this.pauseUnloadedSetting = this.add(new BooleanSetting("PauseUnloaded", true));
+      this.manualOverrideSetting = this.add(new BooleanSetting("ManualOverride", true));
       this.autoJumpSetting = this.add(new BooleanSetting("AutoJump", false));
       this.stuckNotifySetting = this.add(new BooleanSetting("StuckNotify", false).markVisibilityDependency());
       this.soundSetting = this.add(new IdentifierSetting("Sound", BuiltinSound.WARNING.getIdentifier()).dependsOn(this.stuckNotifySetting));

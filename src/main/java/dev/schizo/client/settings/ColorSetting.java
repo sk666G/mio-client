@@ -20,6 +20,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import java.awt.Color;
 import java.util.function.Predicate;
+import java.util.Objects;
 
 public final class ColorSetting extends Setting<Color> {
    private static ColorsModule colorsModule;
@@ -34,11 +35,6 @@ public final class ColorSetting extends Setting<Color> {
    public ColorSetting(String name, Color defaultColor) {
       super(name, defaultColor);
    }
-
-   static {
-      colorsModule = (ColorsModule)ClientContext.getModule(ColorsModule.class);
-   }
-
    @Override
    public Color getValue() {
       return this.getColor();
@@ -169,6 +165,9 @@ public final class ColorSetting extends Setting<Color> {
    }
 
    public static void bindModuleRegistry(ModuleRegistry registry) {
-      colorsModule = (ColorsModule)registry.getModule(ColorsModule.class);
+      colorsModule = (ColorsModule)Objects.requireNonNull(
+         registry.getModule(ColorsModule.class),
+         "Required module is not registered: ColorsModule"
+      );
    }
 }

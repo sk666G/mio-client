@@ -10,6 +10,10 @@
 package dev.schizo.client.modules;
 
 import dev.schizo.client.ClientAccess;
+import dev.schizo.client.config.ModuleConfigLoadReport;
+import dev.schizo.client.config.SafeModeManager;
+import dev.schizo.client.integrations.MultiplayerCompatibilityWarnings;
+import dev.schizo.client.integrations.MultiplayerCompatibilityPolicy;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.NamedFeature;
 import dev.schizo.client.events.bus.EventBus;
@@ -39,9 +43,12 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
    private final String[] aliases;
    private Keybind keybind;
    private boolean enabled;
+   private String pauseReason;
    private boolean drawn;
    private boolean workInProgress;
    private boolean ignoreEnabledState;
+   private boolean compatibilityPolicySuppressed;
+   private final List<ModuleConfigLoadReport.Issue> lastConfigLoadIssues = new ArrayList<>();
 
    public Module(String name, String description, ModuleCategory category, String... aliases) {
       super(name);
@@ -77,16 +84,94 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
 
    @Override
    public void enable() {
+      if (SafeModeManager.GLOBAL.isActive()) {
+         return;
+      }
       if (this.isToggled()) {
          return;
       }
+      MultiplayerCompatibilityWarnings.warnIfNeeded(this);
+      if (MultiplayerCompatibilityPolicy.GLOBAL.shouldBlock(this)) {
+         this.compatibilityPolicySuppressed = true;
+         return;
+      }
+      this.compatibilityPolicySuppressed = false;
+      this.pauseReason = null;
       this.enabled = true;
-      ClientAccess.eventBus.subscribe(this);
       EventBus eventBus = ClientAccess.eventBus;
-      ModuleToggleEvent toggleEvent = new ModuleToggleEvent(this);
-      eventBus.post(toggleEvent);
-      this.onToggle();
-      this.onEnable();
+      eventBus.subscribe(this);
+
+      Throwable lifecycleFailure = null;
+      try {
+         eventBus.post(new ModuleToggleEvent(this));
+      } catch (RuntimeException | Error notificationFailure) {
+         lifecycleFailure = notificationFailure;
+      }
+      boolean toggleHookStarted = false;
+      try {
+         toggleHookStarted = true;
+         this.onToggle();
+      } catch (RuntimeException | Error toggleFailure) {
+         if (lifecycleFailure != null && lifecycleFailure != toggleFailure) {
+            lifecycleFailure.addSuppressed(toggleFailure);
+         } else if (lifecycleFailure == null) {
+            lifecycleFailure = toggleFailure;
+         }
+      }
+
+      boolean enableHookStarted = false;
+      if (lifecycleFailure == null) {
+         try {
+            enableHookStarted = true;
+            this.onEnable();
+         } catch (RuntimeException | Error enableFailure) {
+            lifecycleFailure = enableFailure;
+         }
+      }
+
+      if (lifecycleFailure != null) {
+         if (ClientContext.taskScheduler != null) {
+            ClientContext.taskScheduler.cancelOwnedTasks(this);
+         }
+         this.clearOwnedInputOverrides();
+         eventBus.unsubscribe(this);
+         this.enabled = false;
+         this.compatibilityPolicySuppressed = false;
+
+         try {
+            eventBus.postCleanup(new ModuleToggleEvent(this));
+         } catch (RuntimeException | Error rollbackNotificationFailure) {
+            if (rollbackNotificationFailure != lifecycleFailure) {
+               lifecycleFailure.addSuppressed(rollbackNotificationFailure);
+            }
+         }
+
+         if (toggleHookStarted) {
+            try {
+               this.onToggle();
+            } catch (RuntimeException | Error rollbackToggleFailure) {
+               if (rollbackToggleFailure != lifecycleFailure) {
+                  lifecycleFailure.addSuppressed(rollbackToggleFailure);
+               }
+            }
+         }
+
+         if (enableHookStarted) {
+            try {
+               this.onDisable();
+            } catch (RuntimeException | Error cleanupFailure) {
+               if (cleanupFailure != lifecycleFailure) {
+                  lifecycleFailure.addSuppressed(cleanupFailure);
+               }
+            }
+         }
+
+         ClientAccess.logger.error("Module {} failed while enabling and was rolled back", this.getName(), lifecycleFailure);
+         if (lifecycleFailure instanceof RuntimeException runtimeFailure) {
+            throw runtimeFailure;
+         }
+         throw (Error)lifecycleFailure;
+      }
    }
 
    public boolean unregister(Setting<?> setting) {
@@ -102,8 +187,34 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
    }
 
    @Override
+   public void setToggled(boolean toggled) {
+      if (!toggled && !this.enabled) {
+         this.compatibilityPolicySuppressed = false;
+         return;
+      }
+      Toggleable.super.setToggled(toggled);
+   }
+
+   @Override
    public boolean isToggled() {
       return this.enabled;
+   }
+
+   /** Describes the most recently evaluated pause condition without running module logic from the GUI. */
+   public String getRuntimeStatus() {
+      if (!this.isToggled()) return "Disabled";
+      return this.pauseReason == null ? "Enabled" : "Paused - " + this.pauseReason;
+   }
+
+   protected final boolean pauseWithReason(String reason) {
+      this.pauseReason = reason;
+      return true;
+   }
+
+   protected final boolean hasPauseReason() { return this.pauseReason != null; }
+
+   protected final void clearPauseReason() {
+      this.pauseReason = null;
    }
 
    public void onEnable() {
@@ -147,53 +258,93 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
       return languageTable.getTranslationOrDefault(translationKey, defaultDescription);
    }
 
+   public List<ModuleConfigLoadReport.Issue> getLastConfigLoadIssues() {
+      return List.copyOf(this.lastConfigLoadIssues);
+   }
+
    @Override
    public void fromJson(JsonElement json) {
+      this.lastConfigLoadIssues.clear();
       json = dev.schizo.client.config.LegacyBranding.migrateModule(getName(), json);
       if (!(json instanceof JsonObject moduleJson)) {
          return;
       }
-      if (moduleJson.has("settings") && moduleJson.get("settings") instanceof JsonObject settingsJson) {
-         Iterator<Setting<?>> settingsIterator = this.getSettings().iterator();
-         while (settingsIterator.hasNext()) {
-            Setting<?> setting = settingsIterator.next();
-            if (setting.isExcludedFromConfig() || !settingsJson.has(setting.getConfigName())) {
-               continue;
+      if (moduleJson.has("settings")) {
+         JsonElement settingsElement = moduleJson.get("settings");
+         if (settingsElement instanceof JsonObject settingsJson) {
+            Iterator<Setting<?>> settingsIterator = this.getSettings().iterator();
+            while (settingsIterator.hasNext()) {
+               Setting<?> setting = settingsIterator.next();
+               if (setting.isExcludedFromConfig() || !settingsJson.has(setting.getConfigName())) {
+                  continue;
+               }
+               try {
+                  setting.fromJson(settingsJson.get(setting.getConfigName()));
+               } catch (Exception invalidSetting) {
+                  this.lastConfigLoadIssues.add(new ModuleConfigLoadReport.Issue(
+                     this.getName(),
+                     setting.getConfigName(),
+                     invalidSetting.getClass().getSimpleName()
+                  ));
+               }
             }
-            try {
-               setting.fromJson(settingsJson.get(setting.getConfigName()));
-            } catch (Exception invalidSetting) {
-            }
+         } else {
+            this.recordConfigIssue("settings", new IllegalArgumentException("Module settings must be a JSON object"));
          }
       }
       if (moduleJson.has("drawn")) {
-         this.setDrawn(moduleJson.get("drawn").getAsBoolean());
+         try {
+            this.setDrawn(moduleJson.get("drawn").getAsBoolean());
+         } catch (RuntimeException invalidDrawn) {
+            this.recordConfigIssue("drawn", invalidDrawn);
+         }
       }
       if (moduleJson.has("key")) {
-         Function<Keybind, Keybind> keybindModifier = keybind -> {
-            int keyCode = moduleJson.get("key").getAsInt();
-            Keybind codedKeybind = keybind.withCode(keyCode);
-            Keybind.Mode mode = moduleJson.has("state")
-               ? Keybind.Mode.fromSerializedName(moduleJson.get("state").getAsString())
-               : Keybind.Mode.TOGGLE;
-            return codedKeybind.withMode(mode);
-         };
-         this.modifyKeybind(keybindModifier);
+         try {
+            Function<Keybind, Keybind> keybindModifier = keybind -> {
+               int keyCode = moduleJson.get("key").getAsInt();
+               Keybind codedKeybind = keybind.withCode(keyCode);
+               Keybind.Mode mode = moduleJson.has("state")
+                  ? Keybind.Mode.fromSerializedName(moduleJson.get("state").getAsString())
+                  : Keybind.Mode.TOGGLE;
+               return codedKeybind.withMode(mode);
+            };
+            this.modifyKeybind(keybindModifier);
+         } catch (RuntimeException invalidKeybind) {
+            this.recordConfigIssue("key", invalidKeybind);
+         }
       }
       if (moduleJson.has("mouse")) {
-         Function<Keybind, Keybind> mouseModifier = keybind -> keybind.withMouse(moduleJson.get("mouse").getAsBoolean());
-         this.modifyKeybind(mouseModifier);
+         try {
+            Function<Keybind, Keybind> mouseModifier =
+               keybind -> keybind.withMouse(moduleJson.get("mouse").getAsBoolean());
+            this.modifyKeybind(mouseModifier);
+         } catch (RuntimeException invalidMouseBinding) {
+            this.recordConfigIssue("mouse", invalidMouseBinding);
+         }
       }
       if (moduleJson.has("enabled") && !this.ignoreEnabledState) {
-         this.setToggled(moduleJson.get("enabled").getAsBoolean());
+         try {
+            this.setToggled(moduleJson.get("enabled").getAsBoolean());
+         } catch (RuntimeException invalidEnabledState) {
+            this.recordConfigIssue("enabled", invalidEnabledState);
+         }
       }
+   }
+
+   private void recordConfigIssue(String fieldName, Throwable failure) {
+      this.lastConfigLoadIssues.add(new ModuleConfigLoadReport.Issue(
+         this.getName(),
+         fieldName,
+         failure == null ? "UnknownFailure" : failure.getClass().getSimpleName()
+      ));
    }
 
    @Override
    public JsonElement toJson() {
       JsonObject moduleJson = new JsonObject();
       if (!this.ignoreEnabledState) {
-         moduleJson.addProperty("enabled", this.enabled);
+         moduleJson.addProperty("enabled", this.enabled || this.compatibilityPolicySuppressed);
       }
       moduleJson.addProperty("key", this.keybind.code());
       moduleJson.addProperty("state", this.keybind.mode().getSerializedName());
@@ -219,26 +370,91 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
 
    @Override
    public void disable() {
+      this.compatibilityPolicySuppressed = false;
+      this.disableInternal();
+   }
+
+   /** Disables a running module for policy reasons without overwriting its saved enable preference. */
+   public void suspendForCompatibilityPolicy() {
+      if (!this.enabled) {
+         return;
+      }
+      this.compatibilityPolicySuppressed = true;
+      this.disableInternal();
+   }
+
+   /** Explicitly clears a policy-suspended module's saved enabled preference. */
+   public void resetCompatibilityPolicyPreference() {
+      if (this.enabled) {
+         this.disable();
+      } else {
+         this.compatibilityPolicySuppressed = false;
+      }
+   }
+
+   private void disableInternal() {
       if (!this.isToggled()) {
          return;
       }
-      ClientAccess.eventBus.unsubscribe(this);
-      this.enabled = false;
       EventBus eventBus = ClientAccess.eventBus;
-      ModuleToggleEvent toggleEvent = new ModuleToggleEvent(this);
-      eventBus.post(toggleEvent);
-      this.onToggle();
-      this.onDisable();
+      if (ClientContext.taskScheduler != null) {
+         ClientContext.taskScheduler.cancelOwnedTasks(this);
+      }
+      this.clearOwnedInputOverrides();
+      eventBus.unsubscribe(this);
+      this.enabled = false;
+
+      Throwable lifecycleFailure = null;
+      try {
+         eventBus.post(new ModuleToggleEvent(this));
+      } catch (RuntimeException | Error notificationFailure) {
+         lifecycleFailure = notificationFailure;
+      }
+
+      try {
+         this.onToggle();
+      } catch (RuntimeException | Error toggleFailure) {
+         if (lifecycleFailure != null && lifecycleFailure != toggleFailure) {
+            lifecycleFailure.addSuppressed(toggleFailure);
+         } else if (lifecycleFailure == null) {
+            lifecycleFailure = toggleFailure;
+         }
+      }
+
+      try {
+         this.onDisable();
+      } catch (RuntimeException | Error cleanupFailure) {
+         if (lifecycleFailure != null && lifecycleFailure != cleanupFailure) {
+            lifecycleFailure.addSuppressed(cleanupFailure);
+         } else if (lifecycleFailure == null) {
+            lifecycleFailure = cleanupFailure;
+         }
+      }
+
+      if (lifecycleFailure instanceof RuntimeException runtimeFailure) {
+         ClientAccess.logger.error("Module {} failed while disabling", this.getName(), runtimeFailure);
+         throw runtimeFailure;
+      }
+      if (lifecycleFailure instanceof Error errorFailure) {
+         ClientAccess.logger.error("Module {} failed while disabling", this.getName(), errorFailure);
+         throw errorFailure;
+      }
+   }
+
+   private void clearOwnedInputOverrides() {
+      if (ClientContext.inputOverrides != null) {
+         ClientContext.inputOverrides.clearRequests(this);
+      }
    }
 
    public String getInfoString() {
       AliasRegistry aliasRegistry = ClientContext.aliasRegistry;
       String moduleAlias = AliasRegistry.getModuleAlias(aliasRegistry, this);
+      String info = this.getInfo();
       String infoSuffix;
-      if (this.getInfo() != null) {
+      if (info != null) {
          String openingColor = String.valueOf(ChatFormatting.GRAY);
          String infoColor = String.valueOf(ChatFormatting.WHITE);
-         String info = this.getInfo();
          String closingColor = String.valueOf(ChatFormatting.GRAY);
          infoSuffix = openingColor + " [" + infoColor + info + closingColor + "]";
       } else {

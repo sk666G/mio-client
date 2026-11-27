@@ -18,14 +18,13 @@ import dev.schizo.client.events.PacketEvent;
 import dev.schizo.client.events.ConnectScreenConnectEvent;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.LocalPlayerTickEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.events.bus.EventBus;
 import dev.schizo.client.managers.ModuleRegistry;
 import dev.schizo.client.modules.exploit.FastLatencyModule;
 import dev.schizo.client.settings.options.DimensionType;
 
 import com.mojang.authlib.GameProfile;
-import java.util.ArrayDeque;
-import java.util.Iterator;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
@@ -51,24 +50,25 @@ import net.minecraft.world.entity.player.Player;
 
 public final class ServerStateManager implements ClientAccess {
    private static FastLatencyModule fastLatency;
-   private static final Pattern LATENCY_PATTERN;
-   private final ArrayDeque<Float> tickRateSamples;
+   private static final Pattern LATENCY_PATTERN = Pattern.compile("\\d+ ping");
+   private final ServerTickRateWindow tickRateWindow = new ServerTickRateWindow();
    private final ElapsedTimer setbackTimer;
    private final ElapsedTimer teleportAckTimer;
    private final ElapsedTimer packetFlowTimer;
    private final ElapsedTimer peakLatencyTimer;
-   private float latestTickRate;
-   private float averageTickRate;
-   private long lastPacketMillis;
-   private long lastEntityPacketMillis;
-   private long lastTimeUpdateMillis;
-   private int teleportId;
-   private boolean serverSprinting;
-   private boolean serverSneaking;
-   private boolean inEnd;
-   private ServerData serverData;
-   private int footerLatencyMillis;
-   private int peakLatencyMillis;
+   private volatile long lastPacketMillis;
+   private volatile long lastEntityPacketMillis;
+   private volatile long lastPacketNanos;
+   private volatile long lastEntityPacketNanos;
+   private volatile long lastTimeUpdateNanos;
+   private volatile long sessionGeneration;
+   private volatile int teleportId;
+   private volatile boolean serverSprinting;
+   private volatile boolean serverSneaking;
+   private volatile boolean inEnd;
+   private volatile ServerData serverData;
+   private volatile int footerLatencyMillis;
+   private volatile int peakLatencyMillis;
    public boolean autoLogged;
 
    public boolean isServerSneaking() {
@@ -84,7 +84,7 @@ public final class ServerStateManager implements ClientAccess {
    }
 
    public float getTickRate() {
-      return this.averageTickRate;
+      return this.tickRateWindow.average();
    }
 
    public long getLastPacketTime() {
@@ -104,7 +104,7 @@ public final class ServerStateManager implements ClientAccess {
    }
 
    public float getLatestTickRate() {
-      return this.latestTickRate;
+      return this.tickRateWindow.latest();
    }
 
    public ElapsedTimer getSetbackTimer() {
@@ -116,8 +116,8 @@ public final class ServerStateManager implements ClientAccess {
          return 0;
       }
       FastLatencyModule fastLatencyModule = fastLatency;
-      if (fastLatencyModule.isToggled()) {
-         return fastLatency.getLatencyMillis();
+      if (fastLatencyModule != null && fastLatencyModule.isToggled()) {
+         return fastLatencyModule.getLatencyMillis();
       }
       LocalPlayer latencyPlayer = ClientAccess.schizoMinecraft.player;
       int playerLatency = this.getPlayerLatencyMillis(latencyPlayer);
@@ -137,17 +137,11 @@ public final class ServerStateManager implements ClientAccess {
    }
 
    public ServerStateManager() {
-      this.tickRateSamples = new ArrayDeque<>(20);
       this.setbackTimer = new ElapsedTimer();
       this.teleportAckTimer = new ElapsedTimer();
       this.packetFlowTimer = new ElapsedTimer();
       this.peakLatencyTimer = new ElapsedTimer();
       ClientAccess.eventBus.subscribe(this);
-   }
-
-   static {
-      fastLatency = ClientContext.getModule(FastLatencyModule.class);
-      LATENCY_PATTERN = Pattern.compile("\\d+ ping");
    }
 
    public boolean hasElapsedSinceSetback(long durationMillis) {
@@ -161,8 +155,10 @@ public final class ServerStateManager implements ClientAccess {
 
    @EventHandler
    private void onLocalPlayerTickEvent(LocalPlayerTickEvent event) {
-      long packetAgeMillis = System.currentTimeMillis() - this.lastPacketMillis;
-      if (packetAgeMillis > 500L) {
+      long packetAgeNanos = this.lastPacketNanos == 0L
+         ? Long.MAX_VALUE
+         : System.nanoTime() - this.lastPacketNanos;
+      if (packetAgeNanos > TimeUnit.MILLISECONDS.toNanos(500L)) {
          this.packetFlowTimer.reset();
       }
 
@@ -181,6 +177,18 @@ public final class ServerStateManager implements ClientAccess {
          case ANY -> this.lastPacketMillis;
          case ENTITY -> this.lastEntityPacketMillis;
       };
+   }
+
+   public long getPacketIdleMillis(ServerStateManager.PacketActivity activity) {
+      long packetNanos = switch (activity) {
+         case ANY -> this.lastPacketNanos;
+         case ENTITY -> this.lastEntityPacketNanos;
+      };
+      if (packetNanos == 0L) {
+         return Long.MAX_VALUE;
+      }
+      long elapsedNanos = Math.max(0L, System.nanoTime() - packetNanos);
+      return TimeUnit.NANOSECONDS.toMillis(elapsedNanos);
    }
 
    @EventHandler(priority = 200)
@@ -225,26 +233,65 @@ public final class ServerStateManager implements ClientAccess {
       return this.packetFlowTimer.hasElapsed(durationMillis);
    }
 
-   @EventHandler
-   private void onConnectScreenConnectEvent(ConnectScreenConnectEvent event) {
-      this.autoLogged = false;
+   private void resetSessionState() {
+      this.sessionGeneration++;
+      this.tickRateWindow.clear();
+      this.lastPacketMillis = 0L;
+      this.lastEntityPacketMillis = 0L;
+      this.lastPacketNanos = 0L;
+      this.lastEntityPacketNanos = 0L;
+      this.lastTimeUpdateNanos = 0L;
+      this.teleportId = 0;
+      this.serverSprinting = false;
+      this.serverSneaking = false;
+      this.inEnd = false;
       this.footerLatencyMillis = 0;
       this.peakLatencyMillis = 0;
-      this.peakLatencyTimer.setTime(-1L);
+      this.autoLogged = false;
+      this.setbackTimer.clear();
+      this.teleportAckTimer.clear();
+      this.packetFlowTimer.clear();
+      this.peakLatencyTimer.clear();
+   }
+
+   @EventHandler
+   private void onConnectScreenConnectEvent(ConnectScreenConnectEvent event) {
+      this.resetSessionState();
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.resetSessionState();
+      this.serverData = null;
    }
 
    private void recordReceivedPacket(Packet packet) {
+      long nowMillis = System.currentTimeMillis();
+      long nowNanos = System.nanoTime();
       if (packet instanceof ClientboundMoveEntityPacket
          || packet instanceof ClientboundRotateHeadPacket
          || this.inEnd) {
-         this.lastEntityPacketMillis = System.currentTimeMillis();
+         this.lastEntityPacketMillis = nowMillis;
+         this.lastEntityPacketNanos = nowNanos;
       }
 
-      this.lastPacketMillis = System.currentTimeMillis();
+      this.lastPacketMillis = nowMillis;
+      this.lastPacketNanos = nowNanos;
    }
 
    public float getTickRateScale() {
-      return this.averageTickRate / 20.0F;
+      return this.tickRateWindow.average() / 20.0F;
+   }
+
+   static boolean matchesQueuedSession(
+      long expectedGeneration,
+      long currentGeneration,
+      Object expectedPlayer,
+      Object currentPlayer
+   ) {
+      return expectedGeneration == currentGeneration
+         && expectedPlayer != null
+         && expectedPlayer == currentPlayer;
    }
 
    @EventHandler
@@ -260,59 +307,27 @@ public final class ServerStateManager implements ClientAccess {
             this.setbackTimer.reset();
          }
 
-         LocalPlayer sprintPlayer = ClientAccess.schizoMinecraft.player;
-         this.serverSprinting = sprintPlayer.isSprinting();
+         long expectedSessionGeneration = this.sessionGeneration;
+         LocalPlayer expectedPlayer = ClientAccess.schizoMinecraft.player;
+         ClientAccess.schizoMinecraft.executeIfPossible(() -> {
+            LocalPlayer currentPlayer = ClientAccess.schizoMinecraft.player;
+            if (matchesQueuedSession(
+               expectedSessionGeneration,
+               this.sessionGeneration,
+               expectedPlayer,
+               currentPlayer
+            )) {
+               this.serverSprinting = expectedPlayer.isSprinting();
+            }
+         });
       }
 
       if (event.getPacket() instanceof ClientboundSetTimePacket) {
-         if (this.lastTimeUpdateMillis != 0L) {
-            int sampleCount = this.tickRateSamples.size();
-            if (sampleCount > (20)) {
-               this.tickRateSamples.poll();
-            }
-
-            float maxRate = 2e+01F;
-            float rateScale = 2e+01F;
-            float periodScale = 1e+03F;
-            float measuredTickRate = rateScale
-               * (
-                  periodScale
-                     / (float)(
-                        System.currentTimeMillis() - this.lastTimeUpdateMillis
-                     )
-               );
-            float upperClampedRate = Math.min(maxRate, measuredTickRate);
-            this.latestTickRate = Math.max(0.0F, upperClampedRate);
-            ArrayDeque<Float> samples = this.tickRateSamples;
-            float capturedRate = this.latestTickRate;
-            samples.add(capturedRate);
-            float rateSum = 0.0F;
-            Iterator<Float> samplesIterator = this.tickRateSamples.iterator();
-
-            while (samplesIterator.hasNext()) {
-               Float sample = samplesIterator.next();
-               float sampleMax = 2e+01F;
-               float sampleRate = sample;
-               float upperClampedSample = Math.min(sampleMax, sampleRate);
-               rateSum += Math.max(0.0F, upperClampedSample);
-            }
-
-            if (!this.tickRateSamples.isEmpty()) {
-               rateSum /= this.tickRateSamples.size();
-            }
-
-            double averageAsDouble = rateSum;
-            float averagedRate;
-            if (averageAsDouble > 19.95D) {
-               averagedRate = 2e+01F;
-            } else {
-               averagedRate = rateSum;
-            }
-
-            this.averageTickRate = averagedRate;
+         long nowNanos = System.nanoTime();
+         if (this.lastTimeUpdateNanos != 0L) {
+            this.tickRateWindow.recordIntervalNanos(nowNanos - this.lastTimeUpdateNanos);
          }
-
-         this.lastTimeUpdateMillis = System.currentTimeMillis();
+         this.lastTimeUpdateNanos = nowNanos;
       }
 
       if (event.getPacket() instanceof ClientboundBundlePacket bundlePacket) {
@@ -324,9 +339,7 @@ public final class ServerStateManager implements ClientAccess {
       }
 
       if (event.getPacket() instanceof ClientboundTabListPacket tabListPacket) {
-         ClientPacketListener serverConnection = ClientAccess.schizoMinecraft.player.connection;
-         ServerData connectedServer = serverConnection.getServerData();
-         if (connectedServer == null) {
+         if (this.serverData == null) {
             return;
          }
 
@@ -341,7 +354,8 @@ public final class ServerStateManager implements ClientAccess {
                int suffixEnd = textLength - 5;
                latencyText = latencyText.substring(0, suffixEnd).trim();
                this.footerLatencyMillis = Integer.parseInt(latencyText);
-            } catch (Throwable parseFailure) {
+            } catch (NumberFormatException parseFailure) {
+               ClientAccess.logger.debug("Could not parse latency footer value: {}", latencyText);
             }
          }
       }

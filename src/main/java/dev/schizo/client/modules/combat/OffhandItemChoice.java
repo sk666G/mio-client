@@ -10,7 +10,6 @@
 package dev.schizo.client.modules.combat;
 
 import dev.schizo.client.ClientAccess;
-import dev.schizo.client.ClientContext;
 import dev.schizo.client.utils.inventory.InventoryUtils;
 import dev.schizo.client.managers.ModuleRegistry;
 import dev.schizo.client.modules.exploit.XCarryModule;
@@ -41,8 +40,8 @@ public enum OffhandItemChoice implements ClientAccess, NamedEntry {
       }
    };
 
-   private static XCarryModule xCarryModule = (XCarryModule)ClientContext.getModule(XCarryModule.class);
-   private static OffhandModule offhandModule = (OffhandModule)ClientContext.getModule(OffhandModule.class);
+   private static XCarryModule xCarryModule ;
+   private static OffhandModule offhandModule ;
    private final String displayName;
    private final Item defaultItem;
 

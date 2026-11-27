@@ -12,15 +12,18 @@ package dev.schizo.client.modules.render;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.MinecraftRunTickEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.events.MouseHandlerOnScrollEvent;
 import dev.schizo.client.events.bus.EventBus;
 import dev.schizo.client.utils.FloatAnimation;
+import dev.schizo.client.render.GameOptionsOverrides;
 import dev.schizo.client.modules.Module;
 import dev.schizo.client.modules.ModuleCategory;
 import dev.schizo.client.settings.BooleanSetting;
 import dev.schizo.client.settings.NumberSetting;
 import dev.schizo.client.settings.Setting;
 
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.OptionInstance;
 import net.minecraft.client.Options;
 import net.minecraft.util.Mth;
@@ -32,7 +35,12 @@ public class ZoomModule extends Module {
    private final Setting<Integer> amountSetting;
    private final ZoomOptionsUpdater optionsUpdater;
    protected int baselineFov;
+   protected int lastAppliedFov;
+   protected boolean fovOverrideApplied;
    protected boolean savedSmoothCamera;
+   protected boolean smoothCameraCaptured;
+   protected boolean smoothCameraOverrideApplied;
+   protected boolean lastAppliedSmoothCamera;
    protected boolean fovUpdateActive;
    private final FloatAnimation zoomAnimation;
    private final FloatAnimation scrollAnimation;
@@ -72,11 +80,14 @@ public class ZoomModule extends Module {
          Options options = ClientAccess.schizoMinecraft.options;
          OptionInstance fov = options.fov();
          this.baselineFov = ((Integer)fov.get());
+         this.fovOverrideApplied = false;
       }
       FloatAnimation animation = this.zoomAnimation;
       long duration = this.getSmoothingDuration(200);
       animation.setTarget(1.0F, duration);
       this.savedSmoothCamera = ClientAccess.schizoMinecraft.options.smoothCamera;
+      this.smoothCameraCaptured = true;
+      this.smoothCameraOverrideApplied = false;
    }
 
    @Override
@@ -87,7 +98,22 @@ public class ZoomModule extends Module {
       FloatAnimation scroll = this.scrollAnimation;
       long scrollDuration = this.getSmoothingDuration(100);
       scroll.setTarget(0.0F, scrollDuration);
-      ClientAccess.schizoMinecraft.options.smoothCamera = this.savedSmoothCamera;
+      Minecraft minecraft = ClientAccess.schizoMinecraft;
+      if (this.smoothCameraCaptured
+         && this.smoothCameraOverrideApplied
+         && minecraft != null
+         && minecraft.options != null
+         && ZoomOptionsUpdater.shouldRestoreSmoothCamera(
+            true, minecraft.options.smoothCamera, this.lastAppliedSmoothCamera
+         )) {
+         minecraft.options.smoothCamera = this.savedSmoothCamera;
+      }
+      this.smoothCameraCaptured = false;
+      this.smoothCameraOverrideApplied = false;
+      if (!this.fovOverrideApplied) {
+         ClientAccess.eventBus.unsubscribe(this.optionsUpdater);
+         this.fovUpdateActive = false;
+      }
    }
 
    private int getSmoothingDuration(int duration) {
@@ -119,6 +145,33 @@ public class ZoomModule extends Module {
       long duration = this.getSmoothingDuration(100);
       targetScroll.setTarget(scrollTarget, duration);
       event.cancel();
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnectEvent(MinecraftDisconnectEvent event) {
+      try {
+         this.disable();
+      } finally {
+         this.releaseTailOnDisconnect();
+      }
+   }
+
+   private void releaseTailOnDisconnect() {
+      Minecraft minecraft = ClientAccess.schizoMinecraft;
+      if (this.fovOverrideApplied && minecraft != null && minecraft.options != null) {
+         OptionInstance<Integer> fovOption = minecraft.options.fov();
+         int currentFov = fovOption.get();
+         if (ZoomOptionsUpdater.shouldRestoreFov(
+            true, currentFov, this.lastAppliedFov
+         )) {
+            GameOptionsOverrides.forceSetOptionValue(fovOption, this.baselineFov);
+         }
+      }
+      ClientAccess.eventBus.unsubscribe(this.optionsUpdater);
+      this.fovUpdateActive = false;
+      this.fovOverrideApplied = false;
+      this.smoothCameraCaptured = false;
+      this.smoothCameraOverrideApplied = false;
    }
 
    @EventHandler

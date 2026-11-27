@@ -19,18 +19,22 @@ public final class MediaSessionBridge {
     public static volatile String title = "";
     public static volatile long positionMillis;
     public static volatile long durationMillis;
+    private static volatile MediaSnapshot latestSnapshot = MediaSnapshot.empty();
 
     private static final PortableMediaSessionProvider MEDIA = new PortableMediaSessionProvider(MediaSessionBridge::update);
+    private static boolean started;
 
-    static {
+    private MediaSessionBridge() {}
+
+    private static synchronized void ensureStarted() {
+        if (started) return;
+        started = true;
         MEDIA.start();
         Runtime.getRuntime().addShutdownHook(new Thread(MEDIA::close, "schizo-media-stop"));
     }
 
-    private MediaSessionBridge() {}
-
     private static void update(MediaSnapshot state) {
-
+        latestSnapshot = state;
         artist = state.artist();
         title = state.title();
         positionMillis = state.positionMillis();
@@ -38,11 +42,22 @@ public final class MediaSessionBridge {
         playbackStatus = state.playbackStatus();
     }
 
-    public static String getDisplayText() {
-        return artist + " - " + title;
+    public static MediaSnapshot snapshot() {
+        ensureStarted();
+        return latestSnapshot;
     }
 
-    public static void stopMediaUpdates() {
+    public static String getDisplayText() {
+        ensureStarted();
+        return getDisplayText(latestSnapshot);
+    }
+
+    static String getDisplayText(MediaSnapshot snapshot) {
+        return MediaDisplayText.format(snapshot);
+    }
+
+    public static synchronized void stopMediaUpdates() {
+        if (!started) return;
         MEDIA.close();
     }
 }

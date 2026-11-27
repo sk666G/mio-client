@@ -10,7 +10,7 @@
 package dev.schizo.mixin;
 
 import com.llamalad7.mixinextras.injector.ModifyReturnValue;
-import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.modules.render.NoRenderModule;
 import net.minecraft.client.renderer.entity.HumanoidMobRenderer;
 import net.minecraft.world.item.ItemStack;
@@ -20,12 +20,14 @@ import org.spongepowered.asm.mixin.injection.At;
 
 @Mixin(HumanoidMobRenderer.class)
 public class HumanoidMobRendererMixin {
-   private static final NoRenderModule noRenderModule = ClientContext.getModule(NoRenderModule.class);
+   private static NoRenderModule noRenderModule() {
+      return MixinModuleRegistry.gameNoRender;
+   }
 
    @ModifyReturnValue(method = "getEquipmentIfRenderable", at = @At("RETURN"))
    private static ItemStack suppressElytraEquipment(ItemStack originalStack) {
-      return noRenderModule.isToggled()
-            && noRenderModule.elytraSetting.getValue()
+      return noRenderModule().isToggled()
+            && noRenderModule().elytraSetting.getValue()
             && originalStack.is(Items.ELYTRA)
          ? ItemStack.EMPTY
          : originalStack;

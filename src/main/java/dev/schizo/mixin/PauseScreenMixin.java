@@ -10,7 +10,7 @@
 package dev.schizo.mixin;
 
 import dev.schizo.client.modules.misc.AntiQuitModule;
-import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.gui.screens.DisconnectConfirmationScreen;
 import dev.schizo.client.modules.exploit.IllegalDisconnectModule;
 import net.minecraft.client.Minecraft;
@@ -37,8 +37,8 @@ public abstract class PauseScreenMixin extends Screen {
    @Inject(method = "method_72129()V", at = @At("HEAD"), cancellable = true)
    private void confirmOrInterceptDisconnect(CallbackInfo callback) {
       Minecraft client = Minecraft.getInstance();
-      AntiQuitModule antiQuitModule = ClientContext.getModule(AntiQuitModule.class);
-      IllegalDisconnectModule illegalDisconnectModule = ClientContext.getModule(IllegalDisconnectModule.class);
+      AntiQuitModule antiQuitModule = MixinModuleRegistry.minecraftAntiQuitModule;
+      IllegalDisconnectModule illegalDisconnectModule = MixinModuleRegistry.getModule(IllegalDisconnectModule.class);
       if (antiQuitModule != null
          && antiQuitModule.isToggled()
          && antiQuitModule.disconnectSetting.getValue()

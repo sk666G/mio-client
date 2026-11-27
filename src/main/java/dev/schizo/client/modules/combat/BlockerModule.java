@@ -58,11 +58,6 @@ public class BlockerModule extends PlacementModule {
    private final Setting<Boolean> cevSetting;
    private final Setting<Boolean> extendedSetting;
    private final Map<BlockPos, Long> destroyedPositionExpiries;
-
-   static {
-      speedMineModule = (SpeedMineModule)ClientContext.getModule(SpeedMineModule.class);
-   }
-
    @Override
    public String getInfo() {
       if (this.modeSetting.getValue() == BlockerModeChoice.DAMAGE) {

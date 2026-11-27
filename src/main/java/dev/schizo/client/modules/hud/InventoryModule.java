@@ -37,7 +37,6 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map.Entry;
-import java.util.function.Function;
 import java.util.function.Predicate;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.NonNullList;
@@ -59,9 +58,9 @@ public class InventoryModule extends HudWidgetModule {
    private boolean lastStackWasBlockItem;
    private final FloatAnimation visibilityAnimation;
 
-   private Collection getDisplayedStacks() {
+   private Collection<ItemStack> getDisplayedStacks() {
       Setting<ListFilterMode> selectionOption = this.selectionSetting;
-      Collection stacks;
+      Collection<ItemStack> stacks;
       if (selectionOption.getValue() == ListFilterMode.ANY) {
 
          stacks = this.getSlotStacks();
@@ -73,9 +72,12 @@ public class InventoryModule extends HudWidgetModule {
       return stacks;
    }
 
-   private Collection getSlotStacks() {
-      ArrayList stacks = new ArrayList();
+   private Collection<ItemStack> getSlotStacks() {
+      ArrayList<ItemStack> stacks = new ArrayList<>(27);
       LocalPlayer player = ClientAccess.schizoMinecraft.player;
+      if (player == null) {
+         return stacks;
+      }
       Inventory inventory = player.getInventory();
       NonNullList inventorySlots = inventory.getNonEquipmentItems();
       int index = 0;
@@ -93,10 +95,13 @@ public class InventoryModule extends HudWidgetModule {
       }
    }
 
-   private Collection getSelectedItemTotals() {
-      HashMap itemCounts = new HashMap();
+   private Collection<ItemStack> getSelectedItemTotals() {
+      HashMap<Item, Integer> itemCounts = new HashMap<>();
       LocalPlayer player = ClientAccess.schizoMinecraft.player;
-      Iterator stacks = player.getInventory().iterator();
+      if (player == null) {
+         return java.util.List.of();
+      }
+      Iterator<?> stacks = player.getInventory().iterator();
 
       while (stacks.hasNext()) {
          ItemStack stack = (ItemStack)stacks.next();
@@ -106,21 +111,18 @@ public class InventoryModule extends HudWidgetModule {
             ListFilterMode selectionMode = selectionOption.getValue();
             Setting<Set<Item>> itemsOption = this.itemsSetting;
             if (ListFilterMode.matches(selectionMode, item, itemsOption)) {
-               byte zeroCount = 0;
-               Integer previousCount = (Integer)itemCounts.getOrDefault(item, Integer.valueOf(zeroCount));
-               int previousCountValue = previousCount;
-               int totalCount = previousCountValue + stack.getCount();
-               itemCounts.put(item, totalCount);
+               int previousCount = itemCounts.getOrDefault(item, 0);
+               itemCounts.put(item, previousCount + stack.getCount());
             }
          }
       }
 
-      return itemCounts.entrySet().stream().map((Function<Entry, ItemStack>)entry -> {
-         return new ItemStack((ItemLike)entry.getKey(), (Integer)entry.getValue());
-      }).sorted(Comparator.comparing((Function<ItemStack, String>)stack -> {
-         Item item = stack.getItem();
-         return item.getDescriptionId();
-      })).toList();
+      ArrayList<ItemStack> totals = new ArrayList<>(itemCounts.size());
+      for (Entry<Item, Integer> entry : itemCounts.entrySet()) {
+         totals.add(new ItemStack((ItemLike)entry.getKey(), entry.getValue()));
+      }
+      totals.sort(Comparator.comparing(stack -> stack.getItem().getDescriptionId()));
+      return totals;
    }
 
    private String formatStackCount(ItemStack stack) {
@@ -147,12 +149,11 @@ public class InventoryModule extends HudWidgetModule {
       }
    }
 
-   private boolean isEmpty() {
-
-      Iterator stacks = this.getDisplayedStacks().iterator();
+   private boolean isEmpty(Collection<ItemStack> displayedStacks) {
+      Iterator<ItemStack> stacks = displayedStacks.iterator();
 
       while (stacks.hasNext()) {
-         ItemStack stack = (ItemStack)stacks.next();
+         ItemStack stack = stacks.next();
          if (!stack.isEmpty()) {
             Setting<ListFilterMode> selectionOption = this.selectionSetting;
             ListFilterMode selectionMode = selectionOption.getValue();
@@ -169,6 +170,10 @@ public class InventoryModule extends HudWidgetModule {
 
    @Override
    public float[] calculateDimensions() {
+      return this.calculateDimensions(this.getDisplayedStacks());
+   }
+
+   private float[] calculateDimensions(Collection<ItemStack> displayedStacks) {
       Setting<ListFilterMode> sizeSelectionOption = this.selectionSetting;
       float selectedSlotSize;
       if (sizeSelectionOption.getValue() == ListFilterMode.ANY) {
@@ -186,7 +191,7 @@ public class InventoryModule extends HudWidgetModule {
          Integer configuredColumns = rowsOption.getValue();
          int maximumColumns = configuredColumns;
 
-         int stackCount = this.getDisplayedStacks().size();
+         int stackCount = displayedStacks.size();
 
          byte minimumColumns = 1;
          float columnCount = Mth.clamp(stackCount, minimumColumns, maximumColumns);
@@ -196,19 +201,10 @@ public class InventoryModule extends HudWidgetModule {
 
          float rowCount = (float)Math.max(roundedRows, 1.0D);
 
-         int dimensionCount = 2;
-         float[] selectedDimensions = new float[dimensionCount];
-         selectedDimensions[0] = slotSize * columnCount;
-         selectedDimensions[1] = slotSize * rowCount;
-         return selectedDimensions;
+         return this.dimensions(slotSize * columnCount, slotSize * rowCount);
       } else {
 
-         int dimensionCount = 2;
-         float[] slotDimensions = new float[dimensionCount];
-         slotDimensions[0] = slotSize * 9.0F;
-
-         slotDimensions[1] = slotSize * 3.0F;
-         return slotDimensions;
+         return this.dimensions(slotSize * 9.0F, slotSize * 3.0F);
       }
    }
 
@@ -239,9 +235,10 @@ public class InventoryModule extends HudWidgetModule {
 
          columns = 9;
       }
+      Collection<ItemStack> displayedStacks = this.getDisplayedStacks();
       FloatAnimation animationForTarget = this.visibilityAnimation;
 
-      boolean hasItems = !this.isEmpty();
+      boolean hasItems = !this.isEmpty(displayedStacks);
       animationForTarget.setTarget(hasItems, 200L);
       FloatAnimation animationForOpacity = this.visibilityAnimation;
 
@@ -271,7 +268,7 @@ public class InventoryModule extends HudWidgetModule {
       Color outlineColor = ColorUtils.withAlpha(
          outline, outlineAlpha / 255.0F * opacity
       );
-      float[] dimensions = this.calculateDimensions();
+      float[] dimensions = this.calculateDimensions(displayedStacks);
       GuiDrawUtils.fillRect(
          poses, 0.0F, 0.0F, dimensions[0], dimensions[1], backgroundColor
       );
@@ -283,39 +280,44 @@ public class InventoryModule extends HudWidgetModule {
       );
       GuiDrawUtils.flush();
       RenderUtils.clearColor(
-         PostProcessShaderPass.POST_TARGET, Color.black
+         PostProcessShaderPass.postTarget(), Color.black
       );
       RenderUtils.clearDepth(
-         PostProcessShaderPass.POST_TARGET
+         PostProcessShaderPass.postTarget()
       );
       RenderTargetUtils.overrideRenderTargets(
-         PostProcessShaderPass.POST_TARGET
+         PostProcessShaderPass.postTarget()
       );
-      poses.pushPose();
-      float contentDepth = 0.0F;
-      poses.translate(contentPadding, contentPadding, contentDepth);
-      int displayIndex = 0;
+      try {
+         poses.pushPose();
+         try {
+            float contentDepth = 0.0F;
+            poses.translate(contentPadding, contentPadding, contentDepth);
+            int displayIndex = 0;
 
-      for (Iterator stacks = this.getDisplayedStacks().iterator();
-         stacks.hasNext();
-         displayIndex++
-      ) {
-         ItemStack stack = (ItemStack)stacks.next();
-         int x = displayIndex % columns * slotStride;
-         int y = displayIndex / columns * slotStride;
+            for (Iterator<ItemStack> stacks = displayedStacks.iterator();
+               stacks.hasNext();
+               displayIndex++
+            ) {
+               ItemStack stack = stacks.next();
+               int x = displayIndex % columns * slotStride;
+               int y = displayIndex / columns * slotStride;
 
-         String countText = this.formatStackCount(stack);
-         this.renderStack(poses, stack, countText, x, y);
+               String countText = this.formatStackCount(stack);
+               this.renderStack(poses, stack, countText, x, y);
+            }
+         } finally {
+            poses.popPose();
+         }
+         RenderUtils.INSTANCE.flushEntities();
+      } finally {
+         RenderTargetUtils.restoreRenderTargets();
       }
-      poses.popPose();
-      RenderUtils.INSTANCE
-         .flushEntities();
-      RenderTargetUtils.restoreRenderTargets();
       RenderUtils.clearDepth(
-         PostProcessShaderPass.POST_TARGET
+         PostProcessShaderPass.postTarget()
       );
       RenderUtils.blitToMain(
-         PostProcessShaderPass.POST_TARGET
+         PostProcessShaderPass.postTarget()
       );
    }
 
@@ -330,25 +332,28 @@ public class InventoryModule extends HudWidgetModule {
 
       this.lastStackWasBlockItem = blockItem;
       poses.pushPose();
-      GuiDrawUtils.drawItem(poses, stack, x, y, 0.0F, false);
-      Setting<ListFilterMode> selectionOption = this.selectionSetting;
-      if (selectionOption.getValue() == ListFilterMode.ANY) {
-         GuiDrawUtils.drawDurabilityBar(poses, stack, x, y);
+      try {
+         GuiDrawUtils.drawItem(poses, stack, x, y, 0.0F, false);
+         Setting<ListFilterMode> selectionOption = this.selectionSetting;
+         if (selectionOption.getValue() == ListFilterMode.ANY) {
+            GuiDrawUtils.drawDurabilityBar(poses, stack, x, y);
+         }
+         if (stack.getCount() > 1) {
+            FontRenderer textRenderer = FontRenderer.INSTANCE;
+
+            float countX = x + 17
+               - FontRenderer.INSTANCE
+                  .getWidth(countText);
+
+            textRenderer.drawWithShadow(
+               poses, countText, countX, y + 9, Color.white
+            );
+         }
+
+         GuiDrawUtils.drawItemCooldown(poses, stack, x, y);
+      } finally {
+         poses.popPose();
       }
-      if (stack.getCount() > 1) {
-         FontRenderer textRenderer = FontRenderer.INSTANCE;
-
-         float countX = x + 17
-            - FontRenderer.INSTANCE
-               .getWidth(countText);
-
-         textRenderer.drawWithShadow(
-            poses, countText, countX, y + 9, Color.white
-         );
-      }
-
-      GuiDrawUtils.drawItemCooldown(poses, stack, x, y);
-      poses.popPose();
    }
 
    public InventoryModule() {

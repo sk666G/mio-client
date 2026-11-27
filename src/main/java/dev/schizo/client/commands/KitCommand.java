@@ -18,8 +18,6 @@ import com.mojang.brigadier.builder.ArgumentBuilder;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.builder.RequiredArgumentBuilder;
 import java.util.List;
-import java.util.Map;
-import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import net.minecraft.network.chat.Component;
@@ -41,11 +39,10 @@ public final class KitCommand extends Command {
 
             String name = (String)context.getArgument("name", String.class);
             KitRegistry capturedRegistry = ClientContext.kitRegistry;
-
-            capturedRegistry.captureInventory(name);
-            KitRegistry selectionRegistry = ClientContext.kitRegistry;
-
-            selectionRegistry.setCurrentKitName(name);
+            if (!capturedRegistry.captureInventory(name)) {
+               ChatUtils.printChat(Component.literal("Kit could not be saved"), ChatUtils.DEFAULT_SIGNATURE);
+               return 0;
+            }
 
             Object[] messageArguments = new Object[]{name};
             String messageFormat = "Kit %s has been saved";
@@ -67,11 +64,10 @@ public final class KitCommand extends Command {
 
             Kit kit = (Kit)context.getArgument("kit", Kit.class);
             KitRegistry registryForRemoval = ClientContext.kitRegistry;
-            ((List)registryForRemoval.getRegistry()).removeIf((Predicate<Kit>)candidate -> {
-               String removedNameSnapshot = kit.getName();
-               String candidateName = candidate.getName();
-               return removedNameSnapshot.equalsIgnoreCase(candidateName);
-            });
+            if (!registryForRemoval.unregisterKit(kit)) {
+               ChatUtils.printChat(Component.literal("Kit could not be removed"), ChatUtils.DEFAULT_SIGNATURE);
+               return 0;
+            }
 
             Object[] formattedArguments = new Object[1];
             Kit kitForMessage = kit;
@@ -120,20 +116,12 @@ public final class KitCommand extends Command {
             Command.argument("name", FancyStringArgument.fancyString()).executes((com.mojang.brigadier.Command<Object>)context -> {
                Kit kit = (Kit)context.getArgument("kit", Kit.class);
                String name = (String)context.getArgument("name", String.class);
-               boolean currentKit = KitRegistry.getCurrentKit(ClientContext.kitRegistry) == kit;
-               ((List<Kit>)ClientContext.kitRegistry.getRegistry()).removeIf(
-                  candidate -> kit.getName().equalsIgnoreCase(candidate.getName())
-               );
-               Kit renamedKit = new Kit(name);
-               Map<Integer, Kit.ItemDescriptor> items = kit.getItemsBySlot();
-               Map<Integer, Kit.ItemDescriptor> renamedItems = renamedKit.getItemsBySlot();
-               items.forEach(renamedItems::put);
-               ((List<Kit>)ClientContext.kitRegistry.getRegistry()).add(renamedKit);
-               if (currentKit) {
-                  ClientContext.kitRegistry.setCurrentKitName(renamedKit.getName());
+               if (!ClientContext.kitRegistry.renameKit(kit, name)) {
+                  ChatUtils.printChat(Component.literal("Kit could not be renamed"), ChatUtils.DEFAULT_SIGNATURE);
+                  return 0;
                }
                MutableComponent message = Component.literal(
-                  "Kit %s has been renamed to %s".formatted(kit.getName(), renamedKit.getName())
+                  "Kit %s has been renamed to %s".formatted(kit.getName(), name)
                );
                ChatUtils.printChat(message, ChatUtils.DEFAULT_SIGNATURE);
                return 1;

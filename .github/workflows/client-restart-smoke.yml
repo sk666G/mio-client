@@ -1,0 +1,130 @@
+name: Schizo client restart smoke
+
+on:
+  push:
+    branches: [zio-rebuild-v7, 'lunyx/runtime-*', 'lunyx/final-*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  client-restart-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out staging source
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Install Java 21 toolchain
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install Java 25 Gradle runtime
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Set up Gradle cache
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Ensure Gradle wrapper is executable
+        run: chmod +x ./gradlew
+
+      - name: Install headless graphics dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb mesa-vulkan-drivers
+
+      - name: Run two clean client gametest launches
+        env:
+          ORG_GRADLE_JAVA_INSTALLATIONS_PATHS: ${{ env.JAVA_HOME_21_X64 }}
+          JAVA_TOOL_OPTIONS: -Dfabric.client.gametest.disableNetworkSynchronizer=true
+        shell: bash
+        run: |
+          set -euo pipefail
+          evidence="$PWD/restart-evidence"
+          mkdir -p "$evidence"
+
+          run_pass() {
+            pass="$1"
+            out="$evidence/pass-${pass}-gradle.out"
+            rm -f "$out"
+
+            status=1
+            for attempt in 1 2 3; do
+              set +e
+              ./gradlew --no-daemon runClientGameTest 2>&1 | tee "$out"
+              status=${PIPESTATUS[0]}
+              set -e
+
+              if [ "$status" -eq 0 ]; then
+                break
+              fi
+
+              if ! grep -Eiq '429|Too Many Requests|HTTP (500|502|503|504)|Received status code (500|502|503|504)|Connection reset|Connection timed out|Read timed out|Temporary failure|Could not GET .*maven|Could not GET .*gradle' "$out"; then
+                return "$status"
+              fi
+
+              if [ "$attempt" -eq 3 ]; then
+                return "$status"
+              fi
+
+              printf 'Transient dependency/network failure detected; retrying restart pass %s (%s/3).\n' "$pass" "$attempt" >&2
+              sleep $((attempt * 15))
+            done
+
+            run_dir="build/run/clientGameTest"
+            log="$run_dir/logs/latest.log"
+            test -s "$log"
+
+            grep -Fq "Schizo main initialization completed." "$log"
+            grep -Fq "Schizo client initialization completed." "$log"
+
+            if grep -E '\[.*(WARN|ERROR).*\] \(Schizo\)|\(Schizo\).*\[(WARN|ERROR)\]' "$log"; then
+              echo "Schizo emitted WARN/ERROR diagnostics during restart pass $pass" >&2
+              return 1
+            fi
+
+            if grep -E 'MixinApplyError|InvalidMixinException|InjectionError|MixinTransformerError|Minecraft has crashed|Crash report saved' "$log" "$out"; then
+              echo "Fatal mixin/crash signature detected during restart pass $pass" >&2
+              return 1
+            fi
+
+            for shot in               0000_schizo-clickgui.png               0001_schizo-command-palette.png               0002_schizo-performance-center.png               0003_schizo-hud-editor.png               0004_schizo-expedition-discoveries.png               0005_schizo-expedition-travel.png               0006_schizo-expedition-profiles.png               0007_schizo-expedition-compatibility.png               0008_schizo-hud-layout-preview.png               0009_schizo-hud-editor-reconnect.png
+            do
+              test -s "$run_dir/screenshots/$shot"
+            done
+
+            cp "$log" "$evidence/pass-${pass}-latest.log"
+            rm -rf "$evidence/pass-${pass}-screenshots"
+            cp -R "$run_dir/screenshots" "$evidence/pass-${pass}-screenshots"
+
+            schizo_dir="$run_dir/schizo"
+            if [ -d "$schizo_dir" ]; then
+              if find "$schizo_dir" -type f -name '*.tmp' -print -quit | grep -q .; then
+                echo "Temporary configuration files leaked after restart pass $pass" >&2
+                find "$schizo_dir" -type f -name '*.tmp' -print >&2
+                return 1
+              fi
+              find "$schizo_dir" -type f -print | sort > "$evidence/pass-${pass}-schizo-files.txt"
+            fi
+          }
+
+          run_pass 1
+          run_pass 2
+
+          printf '%s\n' 'Two consecutive clean client gametest launches passed.'
+
+      - name: Upload restart evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: schizo-client-restart-evidence
+          path: restart-evidence
+          if-no-files-found: warn

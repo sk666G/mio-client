@@ -15,6 +15,7 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import dev.schizo.client.modules.render.ChamsModule;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.events.EntityRenderEvent;
 import dev.schizo.client.render.EntityRenderStateAccess;
 import dev.schizo.client.modules.render.NoRenderModule;
@@ -32,20 +33,18 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(EntityRenderDispatcher.class)
 public class EntityRenderDispatcherMixin {
-   private static final NoRenderModule noRenderModule = ClientContext.getModule(NoRenderModule.class);
-   private static final ChamsModule chamsModule = ClientContext.getModule(ChamsModule.class);
 
    @ModifyExpressionValue(method = "submit", at = @At(value = "INVOKE", target = "Ljava/util/List;isEmpty()Z"))
    private static boolean applyEntityGlintAndShadow(
       boolean originalShadowFlag, @Local(argsOnly = true) EntityRenderState renderState
    ) {
-      if (chamsModule.shouldRenderGlintForEntity(
+      if (MixinModuleRegistry.levelChams.shouldRenderGlintForEntity(
          EntityRenderStateAccess.getEntity(renderState)
       )) {
          return true;
       }
       return ClientContext.shaderRegistry.renderingIntoTarget
-         || noRenderModule.shouldHideEntityShadow()
+         || MixinModuleRegistry.levelNoRender.shouldHideEntityShadow()
          || originalShadowFlag;
    }
 
@@ -83,16 +82,16 @@ public class EntityRenderDispatcherMixin {
       EntityRenderState renderState, CameraRenderState cameraState, double x, double y, double z, PoseStack poses, SubmitNodeCollector collector, CallbackInfo callback
    ) {
       Entity entity = EntityRenderStateAccess.getEntity(renderState);
-      if (chamsModule.shouldRenderGlintForEntity(
+      if (MixinModuleRegistry.levelChams.shouldRenderGlintForEntity(
          entity
       )) {
          renderState.displayFireAnimation = false;
       }
 
-      if (noRenderModule.isToggled()
-         && noRenderModule.fireSetting.getValue()
+      if (MixinModuleRegistry.levelNoRender.isToggled()
+         && MixinModuleRegistry.levelNoRender.fireSetting.getValue()
          && (
-            noRenderModule.othersSetting.getValue()
+            MixinModuleRegistry.levelNoRender.othersSetting.getValue()
                || entity instanceof LocalPlayer
                || entity instanceof EndCrystal
          )) {

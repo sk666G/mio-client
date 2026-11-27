@@ -132,14 +132,12 @@ public class BreakHighlightModule extends Module {
                }
             }
          }
-         PoseStack fillPoseStack = event.getPoseStack();
-         WorldBoxRenderer.fillBox(
-            fillPoseStack, this.scaleBoxFromCenter(box, progress), fillColor
-         );
-         PoseStack outlinePoseStack = event.getPoseStack();
-         AABB scaledOutlineBox = this.scaleBoxFromCenter(box, progress);
+         AABB renderBox = this.scaleBoxFromCenter(box, progress);
+         PoseStack renderPoseStack = event.getPoseStack();
+         WorldBoxRenderer.fillBox(renderPoseStack, renderBox, fillColor);
          WorldBoxRenderer.outlineBox(
-            outlinePoseStack, scaledOutlineBox, outlineColor,1.0F);
+            renderPoseStack, renderBox, outlineColor, 1.0F
+         );
       }
    }
 

@@ -31,6 +31,7 @@ import dev.schizo.client.events.FireworkRocketEntityTickEvent;
 import dev.schizo.client.events.LocalPlayerSendPositionEvent;
 import dev.schizo.client.events.LocalPlayerPreTickEvent;
 import dev.schizo.client.events.MinecraftRunTickEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.events.MultiPlayerGameModeHandleInventoryMouseClickEvent;
 import dev.schizo.client.events.bus.EventBus;
 import dev.schizo.client.managers.ModuleRegistry;
@@ -38,8 +39,8 @@ import dev.schizo.client.modules.client.AntiCheatModule;
 import dev.schizo.client.settings.Setting;
 import dev.schizo.client.settings.options.AntiCheatRotationsChoice;
 
-import java.util.ArrayDeque;
-import java.util.Queue;
+import java.util.concurrent.atomic.AtomicBoolean;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.multiplayer.MultiPlayerGameMode;
 import net.minecraft.client.player.ClientInput;
@@ -73,9 +74,13 @@ public final class RotationManager implements ClientAccess {
    private int lastRotationTick;
    private int rotationHoldTicks;
    private final MovementInputProcessor movementInput = new MovementInputProcessor();
-   private final Queue<Runnable> deferredActions = new ArrayDeque<>();
-   private boolean collectingActions;
-   private boolean executingAction;
+   private static final int MAX_DEFERRED_ACTIONS = 4096;
+   private static final int MAX_DEFERRED_ACTIONS_PER_PASS = 500;
+   private final BoundedActionQueue deferredActions = new BoundedActionQueue(MAX_DEFERRED_ACTIONS);
+   private final AtomicBoolean deferredQueueOverflowWarningLogged = new AtomicBoolean();
+   private final AtomicBoolean deferredDrainScheduled = new AtomicBoolean();
+   private volatile boolean collectingActions;
+   private volatile boolean executingAction;
    private RotationRequest request;
    private boolean forcedOverride;
    private float movementYaw;
@@ -110,13 +115,49 @@ public final class RotationManager implements ClientAccess {
    }
 
    private void runDeferredActions() {
-      for (int index = 0; !this.deferredActions.isEmpty() && index < 500; index++) {
-         Runnable action = this.deferredActions.poll();
-         if (action != null) {
-            this.executeAction(action);
-         }
+      Minecraft minecraft = ClientAccess.schizoMinecraft;
+      if (minecraft == null) {
+         return;
       }
-      this.deferredActions.clear();
+      if (!minecraft.isSameThread()) {
+         if (!minecraft.isRunning() || !this.deferredDrainScheduled.compareAndSet(false, true)) {
+            return;
+         }
+         try {
+            minecraft.execute(() -> {
+               this.deferredDrainScheduled.set(false);
+               this.runDeferredActions();
+            });
+         } catch (RuntimeException dispatchFailure) {
+            this.deferredDrainScheduled.set(false);
+            ClientAccess.logger.warn("Could not dispatch deferred rotation actions to the client thread", dispatchFailure);
+         }
+         return;
+      }
+
+      this.deferredActions.drain(MAX_DEFERRED_ACTIONS_PER_PASS, this::executeAction);
+      if (!this.deferredActions.isFull()) {
+         this.deferredQueueOverflowWarningLogged.set(false);
+      }
+   }
+
+   /**
+    * Defers an operation while rotations are being collected. When the bounded queue is full,
+    * leave the originating event uncancelled so vanilla processing can continue instead of
+    * silently dropping the operation.
+    */
+   private boolean enqueueDeferredAction(Runnable action) {
+      if (this.deferredActions.offer(action)) {
+         return true;
+      }
+
+      if (this.deferredQueueOverflowWarningLogged.compareAndSet(false, true)) {
+         ClientAccess.logger.warn(
+            "Rotation action queue reached its {} action limit; incoming actions will run normally until it drains.",
+            MAX_DEFERRED_ACTIONS
+         );
+      }
+      return false;
    }
 
    public float getPreviousBodyYaw() {
@@ -192,10 +233,6 @@ public final class RotationManager implements ClientAccess {
    public RotationManager() {
       EventBus eventBus = ClientAccess.eventBus;
       eventBus.subscribe(this);
-   }
-
-   static {
-      antiCheat = (AntiCheatModule)ClientContext.getModule(AntiCheatModule.class);
    }
 
    private float calculateBodyYaw(float yaw, float previousBodyYaw) {
@@ -354,12 +391,12 @@ public final class RotationManager implements ClientAccess {
       if (event.isCancelled() || this.executingAction) {
          return;
       }
-      Queue<Runnable> queue = this.deferredActions;
       boolean sneaking = event.isSneaking();
-      queue.add(() -> {
+      if (this.enqueueDeferredAction(() -> {
          ClientContext.playerStateTracker.setSneaking(sneaking);
-      });
-      event.cancel();
+      })) {
+         event.cancel();
+      }
       return;
    }
 
@@ -530,8 +567,9 @@ public final class RotationManager implements ClientAccess {
          return;
       }
 
-      this.deferredActions.add(() -> replayInventoryClick(event));
-      event.cancel();
+      if (this.enqueueDeferredAction(() -> replayInventoryClick(event))) {
+         event.cancel();
+      }
       return;
    }
 
@@ -553,18 +591,34 @@ public final class RotationManager implements ClientAccess {
          if (movementPacket.hasRotation()) {
             float packetYaw = movementPacket.getYRot(0.0F);
             float packetPitch = movementPacket.getXRot(0.0F);
-
-            ((LocalPlayerTickAccess)ClientAccess.schizoMinecraft.player).schizo$updateServer(packetYaw, packetPitch);
+            Minecraft minecraft = ClientAccess.schizoMinecraft;
+            LocalPlayer player = minecraft.player;
+            if (player != null) {
+               Runnable updateServerRotations = () -> {
+                  if (minecraft.player == player) {
+                     ((LocalPlayerTickAccess)player).schizo$updateServer(packetYaw, packetPitch);
+                  }
+               };
+               if (minecraft.isSameThread()) {
+                  updateServerRotations.run();
+               } else if (minecraft.isRunning()) {
+                  try {
+                     minecraft.execute(updateServerRotations);
+                  } catch (RuntimeException dispatchFailure) {
+                     ClientAccess.logger.warn("Could not dispatch server rotation update to the client thread", dispatchFailure);
+                  }
+               }
+            }
          }
 
          this.runDeferredActions();
          return;
       }
 
-      Queue<Runnable> queue = this.deferredActions;
       Packet packet = event.getPacket();
-      queue.add(() -> PacketSender.send(packet));
-      event.cancel();
+      if (this.enqueueDeferredAction(() -> PacketSender.send(packet))) {
+         event.cancel();
+      }
       return;
    }
 
@@ -605,6 +659,22 @@ public final class RotationManager implements ClientAccess {
       this.forcedOverride = false;
       this.requestedYawForMovement = false;
       this.request = null;
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.deferredActions.clear();
+      this.deferredQueueOverflowWarningLogged.set(false);
+      this.deferredDrainScheduled.set(false);
+      this.collectingActions = false;
+      this.executingAction = false;
+      this.request = null;
+      this.forcedOverride = false;
+      this.requestedYawForMovement = false;
+      this.lastRotations = null;
+      this.rotationHoldTicks = 0;
+      frustum = null;
+      renderingInventory = false;
    }
 
    public void setRenderRotations(float[] angles, int holdTicks) {

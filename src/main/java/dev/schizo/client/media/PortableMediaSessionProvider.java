@@ -9,6 +9,8 @@
 
 package dev.schizo.client.media;
 
+import dev.schizo.client.integrations.IntegrationHealth;
+
 import java.io.IOException;
 import java.util.Locale;
 import java.util.Objects;
@@ -35,6 +37,7 @@ public final class PortableMediaSessionProvider implements AutoCloseable {
     private volatile Availability availability = Availability.NOT_STARTED;
     private volatile String lastFailure;
     private volatile MediaSessionSource source;
+    private MediaSessionSource externallyClosedSource;
     private volatile Thread worker;
     private volatile WindowsBackend windows;
     private volatile boolean closed;
@@ -59,14 +62,38 @@ public final class PortableMediaSessionProvider implements AutoCloseable {
     public MediaSnapshot latest() { return latest; }
     public Backend backend() { return backend; }
     public Availability availability() { return !closed && windows != null && windows.lastFailure() != null ? Availability.UNAVAILABLE : availability; }
+    public IntegrationHealth health() {
+        return switch (availability()) {
+            case NOT_STARTED -> IntegrationHealth.IDLE;
+            case AVAILABLE -> IntegrationHealth.AVAILABLE;
+            case UNAVAILABLE, UNSUPPORTED -> IntegrationHealth.UNAVAILABLE;
+            case CLOSED -> IntegrationHealth.DISABLED;
+        };
+    }
     public String lastFailure() { WindowsBackend w = windows; return w != null ? w.lastFailure() : lastFailure; }
 
     public synchronized void start() {
         if (closed || started) return;
         started = true;
         if (backend == Backend.WINDOWS_GSMTC) {
-            windows = windowsFactory.create(this::publish);
-            windows.start();
+            WindowsBackend candidate = null;
+            try {
+                candidate = windowsFactory.create(this::publish);
+                windows = candidate;
+                candidate.start();
+            } catch (RuntimeException | LinkageError startupFailure) {
+                windows = null;
+                if (candidate != null) {
+                    try {
+                        candidate.close();
+                    } catch (RuntimeException cleanupFailure) {
+                        if (cleanupFailure != startupFailure) {
+                            startupFailure.addSuppressed(cleanupFailure);
+                        }
+                    }
+                }
+                publishFailure(startupFailure);
+            }
         } else if (backend == Backend.LINUX_MPRIS || backend == Backend.MACOS_APPLE_EVENTS) {
             worker = new Thread(this::poll, backend == Backend.LINUX_MPRIS ? "schizo-mpris-session" : "schizo-mac-media");
             worker.setDaemon(true); worker.start();
@@ -76,16 +103,38 @@ public final class PortableMediaSessionProvider implements AutoCloseable {
 
         }
     }
-    private synchronized void publish(MediaSnapshot state) {
-        if (closed) return;
-        latest = Objects.requireNonNull(state); availability = Availability.AVAILABLE;
-        update.accept(state);
+    private void publish(MediaSnapshot state) {
+        MediaSnapshot published = Objects.requireNonNull(state);
+        synchronized (this) {
+            if (closed) return;
+            latest = published;
+            availability = Availability.AVAILABLE;
+            lastFailure = null;
+        }
+        deliverUpdate(published);
     }
-    private synchronized void publishFailure(Throwable failure) {
-        if (closed) return;
-        lastFailure = failure.getClass().getSimpleName() + ": " + failure.getMessage();
-        latest = MediaSnapshot.empty(); availability = Availability.UNAVAILABLE;
-        update.accept(latest);
+    private void publishFailure(Throwable failure) {
+        MediaSnapshot empty = MediaSnapshot.empty();
+        synchronized (this) {
+            if (closed) return;
+            lastFailure = failure.getClass().getSimpleName() + ": " + failure.getMessage();
+            latest = empty;
+            availability = Availability.UNAVAILABLE;
+        }
+        deliverUpdate(empty);
+    }
+    void deliverUpdate(MediaSnapshot state) {
+        try {
+            update.accept(state);
+        } catch (RuntimeException callbackFailure) {
+            synchronized (this) {
+                if (!closed && lastFailure == null) {
+                    lastFailure = "Media update callback failed: "
+                        + callbackFailure.getClass().getSimpleName()
+                        + ": " + callbackFailure.getMessage();
+                }
+            }
+        }
     }
     private void poll() {
         while (!closed && !Thread.currentThread().isInterrupted()) {
@@ -94,15 +143,29 @@ public final class PortableMediaSessionProvider implements AutoCloseable {
                 opened = (backend == Backend.MACOS_APPLE_EVENTS ? macSourceFactory : sourceFactory).open();
                 synchronized (this) { if (closed) return; source = opened; }
                 while (!closed && !Thread.currentThread().isInterrupted()) {
-                    publish(opened.read()); lastFailure = null; Thread.sleep(POLL_MILLIS);
+                    publish(opened.read()); Thread.sleep(POLL_MILLIS);
                 }
             } catch (InterruptedException interrupted) {
                 Thread.currentThread().interrupt();
             } catch (IOException | RuntimeException | LinkageError unavailable) {
                 publishFailure(unavailable);
             } finally {
-                synchronized (this) { if (source == opened) source = null; }
-                if (opened != null) try { opened.close(); } catch (IOException cleanup) { if (!closed) lastFailure = "Media close failed: " + cleanup.getMessage(); }
+                boolean closeOpened = opened != null;
+                synchronized (this) {
+                    if (source == opened) {
+                        source = null;
+                    } else if (externallyClosedSource == opened) {
+                        externallyClosedSource = null;
+                        closeOpened = false;
+                    }
+                }
+                if (closeOpened) {
+                    try {
+                        opened.close();
+                    } catch (IOException cleanup) {
+                        if (!closed) lastFailure = "Media close failed: " + cleanup.getMessage();
+                    }
+                }
             }
             if (!closed && !Thread.currentThread().isInterrupted()) {
                 try { Thread.sleep(RETRY_MILLIS); } catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); }
@@ -110,14 +173,35 @@ public final class PortableMediaSessionProvider implements AutoCloseable {
         }
     }
     @Override public void close() {
-        MediaSessionSource current; WindowsBackend w; Thread thread;
+        WindowsBackend w;
+        Thread thread;
         synchronized (this) {
             if (closed) return;
-            closed = true; availability = Availability.CLOSED;
-            current = source; w = windows; thread = worker;
+            closed = true;
+            availability = Availability.CLOSED;
+            thread = worker;
+            if (thread != null) thread.interrupt();
+
+            MediaSessionSource current = source;
+            source = null;
+            if (current != null) {
+                try {
+                    current.close();
+                    externallyClosedSource = current;
+                } catch (IOException cleanup) {
+                    lastFailure = "Media close failed: " + cleanup.getMessage();
+                }
+            }
+            w = windows;
+            windows = null;
         }
-        if (thread != null) thread.interrupt();
-        if (current != null) try { current.close(); } catch (IOException cleanup) { lastFailure = "Media close failed: " + cleanup.getMessage(); }
         if (w != null) w.close();
+        if (thread != null && thread != Thread.currentThread()) {
+            try {
+                thread.join(1_000L);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+            }
+        }
     }
 }

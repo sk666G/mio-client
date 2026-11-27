@@ -14,13 +14,13 @@ import dev.schizo.client.events.PacketEvent;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.LocalPlayerTickEvent;
 import dev.schizo.client.settings.options.WarpRechargeChoice;
-import java.util.LinkedList;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.Queue;
 import net.minecraft.network.protocol.common.ServerboundPongPacket;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 
 public class WarpRechargeController implements ClientAccess {
-   protected final Queue<ServerboundPongPacket> pendingPongs = new LinkedList<>();
+   protected final Queue<ServerboundPongPacket> pendingPongs = new ConcurrentLinkedQueue<>();
    private final WarpModule warp;
 
    public WarpRechargeController(WarpModule warp) {
@@ -48,11 +48,13 @@ public class WarpRechargeController implements ClientAccess {
          && this.warp.modeSetting.getValue() == WarpModule.ModeChoice.ALTERNATIVE
          && event.getPacket() instanceof ServerboundPongPacket pong) {
          if (!this.warp.hasMovementInputOrDisplacement()) {
-            int pendingCount = this.pendingPongs.size();
-            Integer chargeLimit = this.warp.chargeSetting.getValue();
-            if (pendingCount < chargeLimit) {
-               event.cancel();
-               this.pendingPongs.add(pong);
+            synchronized (this.pendingPongs) {
+               int pendingCount = this.pendingPongs.size();
+               Integer chargeLimit = this.warp.chargeSetting.getValue();
+               if (pendingCount < chargeLimit) {
+                  event.cancel();
+                  this.pendingPongs.add(pong);
+               }
             }
          }
 

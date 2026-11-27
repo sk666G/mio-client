@@ -14,6 +14,7 @@ import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.AuraAttackEvent;
 import dev.schizo.client.events.RotationRequestEvent;
 import dev.schizo.client.events.EventHandler;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.events.bus.EventBus;
 import dev.schizo.client.managers.RotationManager;
 import dev.schizo.client.utils.inventory.ItemUtils;
@@ -49,6 +50,7 @@ import dev.schizo.client.settings.options.EntitySortChoice;
 
 import java.awt.Color;
 import java.util.function.Predicate;
+import java.util.Objects;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.Holder;
 import net.minecraft.core.component.DataComponentType;
@@ -204,13 +206,6 @@ public final class AuraModule extends Module {
          ItemUtils.isAxe(stack) || ItemUtils.isSword(stack) || ItemUtils.isSpear(stack);
       return InventoryUtils.findSwapSlot(weaponPredicate, false);
    }
-
-   static {
-      antiCheat = (AntiCheatModule)ClientContext.getModule(AntiCheatModule.class);
-      multiTask = (MultiTaskModule)ClientContext.getModule(MultiTaskModule.class);
-      autoMace = (AutoMaceModule)ClientContext.getModule(AutoMaceModule.class);
-   }
-
    @Override
    public String getInfo() {
       if (this.target != null
@@ -220,6 +215,15 @@ public final class AuraModule extends Module {
       } else {
          return null;
       }
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.restoreSlot = -1;
+      this.target = null;
+      this.crosshairTarget = null;
+      this.criticalAttackFlag = false;
+      ClientContext.baritoneBridge.releasePause(this);
    }
 
    @Override
@@ -566,14 +570,17 @@ public final class AuraModule extends Module {
    }
 
    public static void bindModuleRegistry(ModuleRegistry modules) {
-      antiCheat = (AntiCheatModule)modules.getModule(
-         AntiCheatModule.class
+      antiCheat = (AntiCheatModule)Objects.requireNonNull(
+         modules.getModule(AntiCheatModule.class),
+         "Required module is not registered: AntiCheatModule"
       );
-      multiTask = (MultiTaskModule)modules.getModule(
-         MultiTaskModule.class
+      multiTask = (MultiTaskModule)Objects.requireNonNull(
+         modules.getModule(MultiTaskModule.class),
+         "Required module is not registered: MultiTaskModule"
       );
-      autoMace = (AutoMaceModule)modules.getModule(
-         AutoMaceModule.class
+      autoMace = (AutoMaceModule)Objects.requireNonNull(
+         modules.getModule(AutoMaceModule.class),
+         "Required module is not registered: AutoMaceModule"
       );
       AuraAttackReadiness.bindModuleRegistry(modules);
    }

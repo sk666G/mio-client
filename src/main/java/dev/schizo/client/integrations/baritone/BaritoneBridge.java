@@ -10,6 +10,7 @@
 package dev.schizo.client.integrations.baritone;
 
 import dev.schizo.client.NamedFeature;
+import dev.schizo.client.integrations.IntegrationHealth;
 
 import net.minecraft.core.BlockPos;
 
@@ -28,9 +29,19 @@ public interface BaritoneBridge {
 
    void pathTo(BlockPos position);
 
+   void pathTo(NamedFeature owner, BlockPos position);
+
+   boolean ownsPath(NamedFeature owner);
+
    void cancelPathing();
 
+   boolean cancelPathing(NamedFeature owner);
+
    boolean isAvailable();
+
+   default IntegrationHealth health() {
+      return this.isAvailable() ? IntegrationHealth.AVAILABLE : IntegrationHealth.UNAVAILABLE;
+   }
 
    void requestPause(NamedFeature feature);
 

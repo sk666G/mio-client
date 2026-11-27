@@ -31,11 +31,13 @@ public interface ClientAccess {
       .setPrettyPrinting()
       .create();
    EventBus eventBus = new EventBus();
-   ExecutorService executorService = Executors.newCachedThreadPool();
+   ExecutorService executorService = Executors.newCachedThreadPool(
+      Thread.ofPlatform().daemon().name("Schizo-Worker-", 0L).factory()
+   );
 
    default boolean isWorldUnavailable() {
-      return ClientAccess.schizoMinecraft.player == null
-         || ClientAccess.schizoMinecraft.level == null;
+      Minecraft minecraft = ClientAccess.schizoMinecraft;
+      return minecraft == null || minecraft.player == null || minecraft.level == null;
    }
 
    static String getVersion() {
@@ -43,7 +45,8 @@ public interface ClientAccess {
    }
 
    static boolean isLocalPlayer(Object candidate) {
-      return ClientAccess.schizoMinecraft.player == candidate;
+      Minecraft minecraft = ClientAccess.schizoMinecraft;
+      return minecraft != null && minecraft.player == candidate;
    }
 
 }

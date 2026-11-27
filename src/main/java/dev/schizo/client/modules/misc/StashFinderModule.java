@@ -40,6 +40,7 @@ import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.multiplayer.ClientPacketListener;
+import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.ClickEvent.SuggestCommand;
@@ -79,6 +80,7 @@ public class StashFinderModule extends Module {
    private final Setting<Boolean> stackedCartsSetting;
    private final Setting<Integer> minimumSetting;
    private final ElapsedTimer soundTimer;
+   private long deferredScanGeneration;
 
    private boolean isNaturalStorage(BlockPos position) {
       ChunkAccess chunkSnapshot = ClientAccess.schizoMinecraft.level.getChunk(position);
@@ -188,32 +190,35 @@ public class StashFinderModule extends Module {
       Boolean findStackedCarts = stackedCartsOption.getValue();
       if (findStackedCarts) {
          TaskScheduler deferredExecutor = ClientContext.taskScheduler;
+         ClientLevel expectedLevel = ClientAccess.schizoMinecraft.level;
+         LocalPlayer expectedPlayer = ClientAccess.schizoMinecraft.player;
+         ChunkPos expectedChunk = new ChunkPos(chunkPosition.x, chunkPosition.z);
+         long expectedGeneration = this.deferredScanGeneration;
          Runnable scanEntities = () -> {
-            int stackedMinecartCount = this.countStackedMinecarts(chunkPosition);
+            if (!this.isToggled()
+               || this.deferredScanGeneration != expectedGeneration
+               || ClientAccess.schizoMinecraft.level != expectedLevel
+               || ClientAccess.schizoMinecraft.player != expectedPlayer
+               || expectedLevel == null
+               || !expectedLevel.getChunkSource().hasChunk(expectedChunk.x, expectedChunk.z)) {
+               return;
+            }
+
+            int stackedMinecartCount = this.countStackedMinecarts(expectedChunk);
             Setting<Integer> minimumOption = this.minimumSetting;
             Integer requiredMinecarts = minimumOption.getValue();
             if (stackedMinecartCount >= requiredMinecarts) {
-
-               String minecartTimestamp = this.appendTimestamp(("Stacked minecarts"));
-               StashEntry minecartStash = this.createStash(
-                  minecartTimestamp, chunkPosition
-               );
-
-               this.registerStash(minecartStash, ("Stacked minecarts"));
+               String minecartTimestamp = this.appendTimestamp("Stacked minecarts");
+               StashEntry minecartStash = this.createStash(minecartTimestamp, expectedChunk);
+               this.registerStash(minecartStash, "Stacked minecarts");
             }
 
             Setting<Boolean> chestEntitiesOption = this.chestEntitiesSetting;
             Boolean findChestEntities = chestEntitiesOption.getValue();
-            if (findChestEntities) {
-               if (this.hasChestEntity(chunkPosition)) {
-
-                  String entityTimestamp = this.appendTimestamp(("Entity with chest"));
-                  StashEntry entityStash = this.createStash(
-                     entityTimestamp, chunkPosition
-                  );
-
-                  this.registerStash(entityStash, ("Entity with chest"));
-               }
+            if (findChestEntities && this.hasChestEntity(expectedChunk)) {
+               String entityTimestamp = this.appendTimestamp("Entity with chest");
+               StashEntry entityStash = this.createStash(entityTimestamp, expectedChunk);
+               this.registerStash(entityStash, "Entity with chest");
             }
          };
 
@@ -223,8 +228,7 @@ public class StashFinderModule extends Module {
 
    public StashEntry createStash(String description, ChunkPos chunk) {
 
-      DimensionType dimensionOption = WorldUtils.getDimension();
-      String dimension = dimensionOption.name();
+      String dimension = WorldUtils.getDimensionId();
       ClientPacketListener serverCheckConnection = ClientAccess.schizoMinecraft.player.connection;
       String serverAddress;
       if (serverCheckConnection.getServerData() == null) {
@@ -242,22 +246,9 @@ public class StashFinderModule extends Module {
 
    protected boolean registerStash(StashEntry stash, String description) {
       Optional existingStash = ClientContext.stashRegistry.findFirst(
-         (Predicate<StashEntry>)candidate -> {
-
-            double candidateCoordinate = candidate.getX();
-
-            if (candidateCoordinate == stash.getX()) {
-
-               candidateCoordinate = candidate.getZ();
-
-               if (candidateCoordinate == stash.getZ()) {
-                  return true;
-               }
-            }
-
-            return false;
-         }
+         (Predicate<StashEntry>)candidate -> candidate.hasSameLocation(stash)
       );
+      if (existingStash.isPresent()) ((StashEntry)existingStash.get()).observeAgain();
       if (existingStash.isEmpty()
          && ClientContext.stashRegistry.registerEntry(stash)) {
          Setting<Boolean> xaeroOption = this.xaeroSetting;
@@ -283,7 +274,7 @@ public class StashFinderModule extends Module {
             MutableComponent notification = moduleNameComponent.append(foundDescription);
             Setting<Boolean> censorCoordsOption = this.censorCoordsSetting;
             Boolean censorCoordinates = censorCoordsOption.getValue();
-            if (!censorCoordinates) {
+            if (!censorCoordinates && !dev.schizo.client.utils.CoordinatePrivacy.isEnabled()) {
 
                Object[] highlightFormatArguments = new Object[(3)];
 
@@ -340,29 +331,70 @@ public class StashFinderModule extends Module {
    }
 
    private int countStackedMinecarts(ChunkPos chunk) {
-      int overlappingCount = 0;
-      ArrayList<MinecartChest> seenMinecarts = new ArrayList<>();
+      ArrayList<AABB> minecartBounds = new ArrayList<>();
       ClientLevel level = ClientAccess.schizoMinecraft.level;
       Iterator entities = level.entitiesForRendering().iterator();
 
       while (entities.hasNext()) {
          Entity entity = (Entity)entities.next();
          if (entity instanceof MinecartChest minecart && minecart.chunkPosition().equals(chunk)) {
-            Iterator<MinecartChest> previousMinecarts = seenMinecarts.iterator();
-            while (previousMinecarts.hasNext()) {
-               MinecartChest previousMinecart = previousMinecarts.next();
-               AABB boundsSnapshot = minecart.getBoundingBox();
-               AABB previousBounds = previousMinecart.getBoundingBox();
-               if (boundsSnapshot.intersects(previousBounds)) {
-                  overlappingCount++;
-                  break;
-               }
-            }
-            seenMinecarts.add(minecart);
+            minecartBounds.add(minecart.getBoundingBox());
          }
       }
 
-      return overlappingCount;
+      return countStackedMinecartBounds(minecartBounds);
+   }
+
+   static int countStackedMinecartBounds(java.util.List<AABB> minecartBounds) {
+      int minecartCount = minecartBounds.size();
+      if (minecartCount < 2) {
+         return 0;
+      }
+
+      boolean[] visited = new boolean[minecartCount];
+      int largestStack = 0;
+      for (int startIndex = 0; startIndex < minecartCount; startIndex++) {
+         if (visited[startIndex]) {
+            continue;
+         }
+
+         java.util.ArrayDeque<Integer> pending = new java.util.ArrayDeque<>();
+         pending.add(startIndex);
+         visited[startIndex] = true;
+         int clusterSize = 0;
+
+         while (!pending.isEmpty()) {
+            int currentIndex = pending.removeFirst();
+            clusterSize++;
+            AABB currentBounds = minecartBounds.get(currentIndex);
+
+            for (int candidateIndex = 0; candidateIndex < minecartCount; candidateIndex++) {
+               if (visited[candidateIndex] || candidateIndex == currentIndex) {
+                  continue;
+               }
+               if (currentBounds.intersects(minecartBounds.get(candidateIndex))) {
+                  visited[candidateIndex] = true;
+                  pending.addLast(candidateIndex);
+               }
+            }
+         }
+
+         if (clusterSize > 1) {
+            largestStack = Math.max(largestStack, clusterSize);
+         }
+      }
+
+      return largestStack;
+   }
+
+   @Override
+   public void onEnable() {
+      this.deferredScanGeneration++;
+   }
+
+   @Override
+   public void onDisable() {
+      this.deferredScanGeneration++;
    }
 
    public StashFinderModule() {

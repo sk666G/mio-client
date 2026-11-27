@@ -166,14 +166,14 @@ public class Waypoint implements NamedEntry {
    }
 
    public boolean matches(String requestedName, String requestedServer) {
-      if (this.getName().equals(requestedName)) {
-         String waypointServer = this.getServer();
-         if (waypointServer.equalsIgnoreCase(requestedServer)) {
-            return true;
-         }
-      }
-
-      return false;
+      String waypointName = this.getName();
+      String waypointServer = this.getServer();
+      return waypointName != null
+         && requestedName != null
+         && waypointServer != null
+         && requestedServer != null
+         && waypointName.equalsIgnoreCase(requestedName)
+         && waypointServer.equalsIgnoreCase(requestedServer);
    }
 
 }

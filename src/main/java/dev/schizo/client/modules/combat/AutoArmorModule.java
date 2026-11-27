@@ -59,6 +59,7 @@ import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.Holder;
 import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.component.DataComponents;
@@ -217,6 +218,10 @@ public class AutoArmorModule extends Module {
       return piglinDistance <= range.floatValue();
    }
 
+   static boolean shouldCountPlayerForRange(boolean isFriend, boolean allowFriends) {
+      return !isFriend || allowFriends;
+   }
+
    private boolean hasRelevantPlayerInRange() {
       ClientLevel level = ClientAccess.schizoMinecraft.level;
       for (AbstractClientPlayer player : level.players()) {
@@ -227,9 +232,10 @@ public class AutoArmorModule extends Module {
                SocialRegistry socialRegistry = ClientContext.socialRegistry;
                GameProfile profile = player.getGameProfile();
                String playerName = profile.name();
-               if (!socialRegistry.isFriendName(playerName)) return true;
-
-               if (!this.allowFriendsSetting.getValue()) return true;
+               boolean isFriend = socialRegistry.isFriendName(playerName);
+               if (shouldCountPlayerForRange(isFriend, this.allowFriendsSetting.getValue())) {
+                  return true;
+               }
             }
          }
       }
@@ -256,12 +262,6 @@ public class AutoArmorModule extends Module {
    public void skipNextArmorUpdate() {
       this.skipNextArmorUpdate = true;
    }
-
-   static {
-      elytraFlyModule = (ElytraFlyModule)ClientContext.getModule(ElytraFlyModule.class);
-      noSlowModule = (NoSlowModule)ClientContext.getModule(NoSlowModule.class);
-   }
-
    private void performArmorUpdates() {
       if (this.skipNextArmorUpdate) {
          this.skipNextArmorUpdate = false;
@@ -539,10 +539,23 @@ public class AutoArmorModule extends Module {
                      }
                   }
 
-                  ClientContext.taskScheduler.scheduleRotationTask(() -> {
+                  ClientLevel expectedLevel = ClientAccess.schizoMinecraft.level;
+                  LocalPlayer expectedPlayer = ClientAccess.schizoMinecraft.player;
+                  var expectedMenu = expectedPlayer.containerMenu;
+                  Runnable restoreCursorStack = () -> {
+                     if (!this.isToggled()
+                        || ClientAccess.schizoMinecraft.level != expectedLevel
+                        || ClientAccess.schizoMinecraft.player != expectedPlayer
+                        || expectedPlayer.containerMenu != expectedMenu
+                        || ClientAccess.schizoMinecraft.screen != null) {
+                        return;
+                     }
                      InventoryUtils.clickSlot(0, 0, ClickType.PICKUP);
                      InventoryUtils.clickSlot(0, 0, ClickType.PICKUP);
-                  }, 0);
+                  };
+                  if (!ClientContext.taskScheduler.scheduleRotationTask(restoreCursorStack, 0)) {
+                     ClientAccess.schizoMinecraft.executeIfPossible(restoreCursorStack);
+                  }
                }
             }
          }

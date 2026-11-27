@@ -20,12 +20,12 @@ public class BlurMaskPipeline extends ShaderPipeline {
 
       CompiledShaderProgram program = CompiledShaderProgram.fromResources("base.vert", "multi/blur_mask.frag");
       ShaderStage verticalStage = new BlurMaskPipeline.DirectionalStage(
-         program, false, MaskShaderRenderer.VERTICAL_TARGET
+         program, false, MaskShaderRenderer.verticalTarget()
       );
 
       this.addStage(verticalStage);
       ShaderStage horizontalStage = new BlurMaskPipeline.DirectionalStage(
-         program, true, MaskShaderRenderer.HORIZONTAL_TARGET
+         program, true, MaskShaderRenderer.horizontalTarget()
       );
 
       this.addStage(horizontalStage);
@@ -39,7 +39,7 @@ public class BlurMaskPipeline extends ShaderPipeline {
       public void updateUniforms() {
          super.updateUniforms();
          ShaderUniforms maskUniforms = this.uniforms;
-         RenderTarget maskTarget = MaskShaderRenderer.MASK_TARGET;
+         RenderTarget maskTarget = MaskShaderRenderer.maskTarget();
          maskUniforms.set("u_Mask", 16, maskTarget);
          ShaderUniforms widthUniforms = this.uniforms;
          float blurWidth = MaskShaderRenderer.getBlurWidth();

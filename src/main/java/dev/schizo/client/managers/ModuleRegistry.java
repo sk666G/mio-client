@@ -11,6 +11,8 @@ package dev.schizo.client.managers;
 
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
+import dev.schizo.client.config.ModuleConfigLoadReport;
+import dev.schizo.client.config.ModuleConfigSchema;
 import dev.schizo.client.NamedFeature;
 import dev.schizo.client.events.InputPressEvent;
 import dev.schizo.client.events.WorldRenderEvent;
@@ -35,22 +37,20 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
-import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 public final class ModuleRegistry extends Registry<Module> implements ClientAccess, JsonConfigurable {
    private final Object2ObjectOpenHashMap<Class<?>, Module> modulesByClass = new Object2ObjectOpenHashMap<>();
+   private final ModuleConfigLoadReport lastConfigLoadReport = new ModuleConfigLoadReport();
 
    public List<PlacementModule> getPlacementModules() {
       ArrayList<PlacementModule> placementModules = new ArrayList<>();
       List<Module> registeredModules = (List<Module>)this.entries;
-      registeredModules.forEach((Consumer<Module>)module -> {
+      for (Module module : registeredModules) {
          if (module instanceof PlacementModule placementModule) {
             placementModules.add(placementModule);
          }
-      });
+      }
       return placementModules;
    }
 
@@ -201,8 +201,6 @@ public final class ModuleRegistry extends Registry<Module> implements ClientAcce
       if (!this.registerModule(new dev.schizo.client.modules.exploit.PortalGodModeModule())) throw new IllegalStateException("Registration rejected PortalGodModeModule");
       if (!this.registerModule(new dev.schizo.client.modules.combat.PistonCrystalModule())) throw new IllegalStateException("Registration rejected PistonCrystalModule");
       if (!this.registerModule(new dev.schizo.client.modules.combat.PusherModule())) throw new IllegalStateException("Registration rejected PusherModule");
-      if (!this.registerModule(new dev.schizo.client.modules.exploit.RaytraceBypassModule())) throw new IllegalStateException("Registration rejected RaytraceBypassModule");
-      if (!this.registerModule(new dev.schizo.client.modules.exploit.GrimDisablerModule())) throw new IllegalStateException("Registration rejected GrimDisablerModule");
       if (!this.registerModule(new dev.schizo.client.modules.exploit.ReachModule())) throw new IllegalStateException("Registration rejected ReachModule");
       if (!this.registerModule(new dev.schizo.client.modules.player.ReplenishModule())) throw new IllegalStateException("Registration rejected ReplenishModule");
       if (!this.registerModule(new dev.schizo.client.modules.exploit.RocketExtenderModule())) throw new IllegalStateException("Registration rejected RocketExtenderModule");
@@ -266,26 +264,35 @@ public final class ModuleRegistry extends Registry<Module> implements ClientAcce
    }
 
    public boolean unregisterModule(Module module) {
-      Object2ObjectOpenHashMap<Class<?>, Module> cache = this.modulesByClass;
-      Class moduleClass = module.getClass();
-      cache.remove(moduleClass, module);
-      return super.unregisterEntry(module);
+      return ModuleClassIndex.unregister(this.entries, this.modulesByClass, module);
+   }
+
+   public ModuleConfigLoadReport.Snapshot getLastConfigLoadReport() {
+      return this.lastConfigLoadReport.snapshot();
    }
 
    @Override
    public void fromJson(JsonElement config) {
+      JsonObject configObject = config.getAsJsonObject();
+      ModuleConfigSchema.validate(configObject);
+      this.lastConfigLoadReport.clear();
       List<Module> registeredModules = (List<Module>)this.getRegistry();
       Iterator<Module> modulesIterator = registeredModules.iterator();
 
       while (modulesIterator.hasNext()) {
          Module module = modulesIterator.next();
-         if (!(module instanceof HudWidgetModule)) {
-            try {
-               JsonObject configObject = config.getAsJsonObject();
-               String moduleConfigName = module.getConfigName();
-               JsonElement moduleConfig = dev.schizo.client.config.LegacyBranding.findModuleConfig(configObject, moduleConfigName);
-               module.fromJson(moduleConfig);
-            } catch (Exception ignoredFailure) {
+         if (module instanceof HudWidgetModule) continue;
+         try {
+            String moduleConfigName = module.getConfigName();
+            JsonElement moduleConfig = dev.schizo.client.config.LegacyBranding.findModuleConfig(configObject, moduleConfigName);
+            module.fromJson(moduleConfig);
+         } catch (Exception moduleFailure) {
+            this.lastConfigLoadReport.record(module.getName(), "(module)", moduleFailure);
+            ClientAccess.logger.warn("Could not fully apply configuration for module {} ({})", module.getName(), moduleFailure.getClass().getSimpleName());
+         } finally {
+            for (ModuleConfigLoadReport.Issue issue : module.getLastConfigLoadIssues()) {
+               this.lastConfigLoadReport.record(issue);
+               ClientAccess.logger.warn("Ignoring invalid configuration value for module {} setting {} ({})", issue.moduleName(), issue.settingName(), issue.failureType());
             }
          }
       }
@@ -293,23 +300,27 @@ public final class ModuleRegistry extends Registry<Module> implements ClientAcce
 
    @Override
    public JsonElement toJson() {
+      return serializeModules((List<Module>)this.getRegistry());
+   }
+
+   static JsonObject serializeModules(Iterable<Module> modules) {
       JsonObject config = new JsonObject();
-
+      config.addProperty("version", ModuleConfigSchema.CURRENT_VERSION);
       config.addProperty("client", "schizo");
-
       config.addProperty("category", "all");
-      List<Module> registeredModules = (List<Module>)this.getRegistry();
-      Iterator<Module> modulesIterator = registeredModules.iterator();
 
-      while (modulesIterator.hasNext()) {
-         Module module = modulesIterator.next();
-         if (!(module instanceof HudWidgetModule)) {
-            try {
-               String moduleConfigName = module.getConfigName();
-               JsonElement moduleConfig = module.toJson();
-               config.add(moduleConfigName, moduleConfig);
-            } catch (Exception ignoredFailure) {
-            }
+      for (Module module : modules) {
+         if (module instanceof HudWidgetModule) {
+            continue;
+         }
+
+         try {
+            config.add(module.getConfigName(), module.toJson());
+         } catch (RuntimeException serializationFailure) {
+            throw new IllegalStateException(
+               "Could not serialize module configuration for " + module.getName(),
+               serializationFailure
+            );
          }
       }
 
@@ -334,10 +345,15 @@ public final class ModuleRegistry extends Registry<Module> implements ClientAcce
       return this.getModule(moduleType);
    }
 
-   public List getModulesByCategory(ModuleCategory category) {
+   public List<Module> getModulesByCategory(ModuleCategory category) {
+      List<Module> matchingModules = new ArrayList<>();
       List<Module> registeredModules = (List<Module>)this.entries;
-      Stream<Module> modules = registeredModules.stream();
-      return modules.filter(module -> module.getCategory() == category).collect(Collectors.toList());
+      for (Module module : registeredModules) {
+         if (module.getCategory() == category) {
+            matchingModules.add(module);
+         }
+      }
+      return matchingModules;
    }
 
    @EventHandler
@@ -351,22 +367,15 @@ public final class ModuleRegistry extends Registry<Module> implements ClientAcce
 
       while (modulesIterator.hasNext()) {
          Module module = modulesIterator.next();
-         Keybind keybindForDeviceCheck = module.getKeybind();
+         Keybind keybind = module.getKeybind();
 
-         boolean mouseBinding = keybindForDeviceCheck.mouse();
-         if (mouseBinding != inputEvent.isMouse()) {
+         if (keybind.mouse() != inputEvent.isMouse()) {
             continue;
          }
-         Keybind keybindForCodeCheck = module.getKeybind();
-
-         int bindingCode = keybindForCodeCheck.code();
-         if (bindingCode != inputEvent.getCode()) {
+         if (keybind.code() != inputEvent.getCode()) {
             continue;
          }
-         Keybind keybindForModeCheck = module.getKeybind();
-
-         if (keybindForModeCheck.mode()
-            == Keybind.Mode.TOGGLE) {
+         if (keybind.mode() == Keybind.Mode.TOGGLE) {
             module.toggle();
          }
       }
@@ -412,10 +421,7 @@ public final class ModuleRegistry extends Registry<Module> implements ClientAcce
          return false;
       }
       ExperimentalFeatures.unregisterHiddenSettings(module);
-      Object2ObjectOpenHashMap<Class<?>, Module> cache = this.modulesByClass;
-      Class moduleClass = module.getClass();
-      cache.put(moduleClass, module);
-      return super.registerEntry(module);
+      return ModuleClassIndex.cacheSuccessfulRegistration(this.modulesByClass, module, super.registerEntry(module));
    }
 
    @Deprecated

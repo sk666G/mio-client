@@ -12,6 +12,7 @@ package dev.schizo.client.modules.combat;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.RotationRequestEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.settings.ValueProvider;
 import dev.schizo.client.managers.RotationManager;
@@ -76,6 +77,12 @@ public class PusherModule extends Module {
    private boolean powerPlacementFound;
    private final PusherFacingResolver facingResolver;
    private final PusherTargetSelector targetSelector;
+
+   private boolean hasPowerItem() {
+      boolean hasRedstoneBlock = InventoryUtils.findSwapSlot(Items.REDSTONE_BLOCK, this.isAlternativeAllowed()).isFound();
+      boolean hasRedstoneTorch = InventoryUtils.findSwapSlot(Items.REDSTONE_TORCH, this.isAlternativeAllowed()).isFound();
+      return PusherPowerPolicy.hasPowerSource(hasRedstoneBlock, hasRedstoneTorch);
+   }
 
    private boolean isAlternativeAllowed() {
       return this.alternativeSetting.getValue()
@@ -225,11 +232,6 @@ public class PusherModule extends Module {
          }
       }
    }
-
-   static {
-      multiTask = (MultiTaskModule)ClientContext.getModule(MultiTaskModule.class);
-   }
-
    @Override
    public String getInfo() {
       if (this.target != null) {
@@ -387,6 +389,12 @@ public class PusherModule extends Module {
    }
 
    @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.target = null;
+      this.powerPlacementFound = false;
+   }
+
+   @EventHandler
    private void onPlayerUpdate(RotationRequestEvent event) {
       if (!multiTask.shouldPauseModule(this)) {
          PusherTargetSelector selectorSnapshot = this.targetSelector;
@@ -419,6 +427,9 @@ public class PusherModule extends Module {
             long delayMillis = (this.delaySetting.getValue()).intValue();
 
             if (timerSnapshot.hasElapsed(delayMillis)) {
+               if (!this.hasPowerItem()) {
+                  return;
+               }
                this.powerPlacementFound = false;
                timerSnapshot = this.actionTimer;
 

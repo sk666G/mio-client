@@ -11,10 +11,9 @@ package dev.schizo.mixin;
 
 import com.llamalad7.mixinextras.sugar.Local;
 import dev.schizo.client.ClientAccess;
-import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.events.ClientLevelAddEntityEvent;
 import dev.schizo.client.events.ClientLevelRemoveEntityEvent;
-import dev.schizo.client.modules.render.NoRenderModule;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -29,8 +28,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(ClientLevel.class)
 public abstract class ClientLevelMixin {
-   private static final NoRenderModule noRenderModule = ClientContext.getModule(NoRenderModule.class);
-
    @Inject(method = "removeEntity", at = @At(value = "JUMP", shift = Shift.BEFORE, ordinal = 0), cancellable = true)
    private void postRemoveEntityEvent(
       int entityId, RemovalReason reason, CallbackInfo callback, @Local Entity entity
@@ -57,7 +54,7 @@ public abstract class ClientLevelMixin {
    private void suppressBreakingBlockEffect(
       BlockPos blockPos, Direction face, CallbackInfo callback
    ) {
-      if (noRenderModule.shouldHideBlockBreakingParticles()) {
+      if (MixinModuleRegistry.clientLevelNoRender.shouldHideBlockBreakingParticles()) {
          callback.cancel();
       }
    }
@@ -66,7 +63,7 @@ public abstract class ClientLevelMixin {
    private void suppressDestroyBlockEffect(
       BlockPos blockPos, BlockState blockState, CallbackInfo callback
    ) {
-      if (noRenderModule.shouldHideBlockBreakingParticles()) {
+      if (MixinModuleRegistry.clientLevelNoRender.shouldHideBlockBreakingParticles()) {
          callback.cancel();
       }
    }

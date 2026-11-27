@@ -124,6 +124,10 @@ public class ShulkerOpenController extends ChestStealerController {
       return usableCandidates.min(byDistance).orElse(null);
    }
 
+   void resetSession() {
+      this.pendingOpen = false;
+   }
+
    public void requestOpen() {
       this.pendingOpen = true;
    }

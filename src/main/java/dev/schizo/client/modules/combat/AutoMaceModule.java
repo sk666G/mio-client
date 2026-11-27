@@ -111,6 +111,20 @@ public final class AutoMaceModule extends Module {
    private boolean maceAvailable;
    private Entity target;
 
+   private void clearSessionState() {
+      this.savedChestplateSlot = -1;
+      this.pendingChestSwapSlot = -1;
+      this.striking = false;
+      this.maceAvailable = false;
+      this.target = null;
+      this.verticalDisplacement = 0.0F;
+      this.strikeTimer.clear();
+      this.recentFlightTimer.clear();
+      this.boostTimer.clear();
+      this.strikePlanner.reset();
+      this.targetRenderer.reset();
+   }
+
    private void restoreChestSwap() {
       if (this.pendingChestSwapSlot != -1) {
          int swapSlot = this.pendingChestSwapSlot;
@@ -314,19 +328,18 @@ public final class AutoMaceModule extends Module {
       if (!rocketSlot.isFound()) {
          return;
       }
-      InventoryUtils.swapTo(rocketSlot);
       MultiPlayerGameMode gameMode = ClientAccess.schizoMinecraft.gameMode;
       LocalPlayer usePlayer = ClientAccess.schizoMinecraft.player;
       InteractionHand useHand = rocketSlot.hand();
-
-      gameMode.useItem(usePlayer, useHand);
       SwingInteractionManager swingManager = ClientContext.swingManager;
       InteractionHand swingHand = rocketSlot.hand();
       SwingAction swingAction = SwingAction.INTERACT;
 
-      swingManager.swing(swingHand, swingAction);
-      InventoryUtils.swapBack(previousSlot, rocketSlot);
-      this.boostTimer.reset();
+      InventoryUtils.runWithSwap(previousSlot, rocketSlot, () -> {
+         gameMode.useItem(usePlayer, useHand);
+         swingManager.swing(swingHand, swingAction);
+         this.boostTimer.reset();
+      });
    }
 
    private void selectTarget() {
@@ -388,15 +401,6 @@ public final class AutoMaceModule extends Module {
 
       return solidBlocks > 3;
    }
-
-   static {
-      aura = (AuraModule)ClientContext.getModule(AuraModule.class);
-      elytraFly = (ElytraFlyModule)ClientContext.getModule(ElytraFlyModule.class);
-      autoArmor = (AutoArmorModule)ClientContext.getModule(AutoArmorModule.class);
-      noSlow = (NoSlowModule)ClientContext.getModule(NoSlowModule.class);
-      fireworks = ClientContext.getModule(FireworksModule.class);
-   }
-
    @Override
    public String getInfo() {
       if (this.target != null
@@ -432,6 +436,7 @@ public final class AutoMaceModule extends Module {
    @Override
    public void onDisable() {
       if (this.isWorldUnavailable()) {
+         this.clearSessionState();
          return;
       }
       boolean savedSlotInvalid = false;
@@ -450,6 +455,7 @@ public final class AutoMaceModule extends Module {
       } else {
          this.savedChestplateSlot = this.pendingChestSwapSlot = -1;
       }
+      this.clearSessionState();
    }
 
    private void refreshTarget() {
@@ -501,13 +507,7 @@ public final class AutoMaceModule extends Module {
 
    @EventHandler
    public void onMinecraftDisconnectEvent(MinecraftDisconnectEvent event) {
-      this.striking = false;
-      this.target = null;
-
-      this.strikeTimer.clear();
-      this.strikePlanner.reset();
-
-      this.targetRenderer.reset();
+      this.clearSessionState();
    }
 
    @EventHandler
@@ -574,7 +574,7 @@ public final class AutoMaceModule extends Module {
                   if (!PlayerStateUtils.isFallFlying()) {
                      if (ClientAccess.schizoMinecraft.player.onGround()) {
                         if (!this.strikeTimer.hasElapsed(500L)) {
-                           ClientContext.inputOverrides.requestJump(true);
+                           ClientContext.inputOverrides.requestJump(this, true);
                         }
                      }
                   }
