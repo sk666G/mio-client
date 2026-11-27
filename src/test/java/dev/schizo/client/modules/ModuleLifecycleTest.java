@@ -38,6 +38,22 @@ class ModuleLifecycleTest {
       }
    }
 
+
+   @Test
+   void failedLocalToggleHookRunsCleanupAndUnsubscribes() {
+      TestModule module = new TestModule();
+      module.failToggle = true;
+
+      assertThrows(IllegalStateException.class, module::enable);
+      assertFalse(module.isToggled());
+      assertEquals(1, module.toggleCalls.get());
+      assertEquals(0, module.enableCalls.get());
+      assertEquals(1, module.disableCalls.get());
+
+      ClientAccess.eventBus.post(new ProbeEvent());
+      assertEquals(0, module.eventCalls.get());
+   }
+
    @Test
    void toggleNotificationFailureStillRunsDisableHooks() {
       TestModule module = new TestModule();
@@ -82,6 +98,7 @@ class ModuleLifecycleTest {
       private final AtomicInteger toggleCalls = new AtomicInteger();
       private final AtomicInteger enableCalls = new AtomicInteger();
       private final AtomicInteger disableCalls = new AtomicInteger();
+      private boolean failToggle;
       private boolean failEnable;
       private boolean failDisable;
 
@@ -92,6 +109,9 @@ class ModuleLifecycleTest {
       @Override
       public void onToggle() {
          this.toggleCalls.incrementAndGet();
+         if (this.failToggle) {
+            throw new IllegalStateException("toggle failure");
+         }
       }
 
       @Override
