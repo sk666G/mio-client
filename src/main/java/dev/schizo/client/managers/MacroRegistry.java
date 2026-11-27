@@ -59,6 +59,9 @@ public final class MacroRegistry extends Registry<Macro> implements ClientAccess
       }
 
       releaseMacroState(macro);
+      // Release commands may try to re-register the exact instance being removed.
+      // A successful unregister must still guarantee that this object is no longer live.
+      this.entries.removeIf(registered -> registered == macro);
       return true;
    }
 
@@ -108,11 +111,21 @@ public final class MacroRegistry extends Registry<Macro> implements ClientAccess
       if (!this.unregisterEntry(previous)) {
          return false;
       }
+
+      // Releasing a hold macro can execute commands which mutate the registry. If
+      // that callback already installed the exact requested replacement, the
+      // replacement succeeded and must not be inserted a second time.
+      if (this.isRegisteredInstance(replacement)) {
+         return true;
+      }
       if (this.registerEntry(replacement)) {
          return true;
       }
 
-      this.entries.add(previous);
+      // A release callback may have claimed either the old or replacement name.
+      // Roll back through normal validation instead of bypassing the uniqueness
+      // invariant with a raw list append.
+      this.registerEntry(previous);
       return false;
    }
 
