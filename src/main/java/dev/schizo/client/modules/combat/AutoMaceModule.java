@@ -574,7 +574,7 @@ public final class AutoMaceModule extends Module {
                   if (!PlayerStateUtils.isFallFlying()) {
                      if (ClientAccess.schizoMinecraft.player.onGround()) {
                         if (!this.strikeTimer.hasElapsed(500L)) {
-                           ClientContext.inputOverrides.requestJump(true);
+                           ClientContext.inputOverrides.requestJump(this, true);
                         }
                      }
                   }
