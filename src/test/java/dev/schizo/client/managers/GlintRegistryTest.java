@@ -4,10 +4,19 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import net.minecraft.SharedConstants;
+import net.minecraft.server.Bootstrap;
 import net.minecraft.world.item.Items;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 class GlintRegistryTest {
+   @BeforeAll
+   static void bootstrapMinecraftRegistries() {
+      SharedConstants.tryDetectVersion();
+      Bootstrap.bootStrap();
+   }
+
    @Test
    void malformedSecondListDoesNotPartiallyReplaceExistingState() {
       GlintRegistry registry = new GlintRegistry();
