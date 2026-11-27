@@ -41,14 +41,11 @@ import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.network.chat.Component;
-import net.minecraft.util.ARGB;
 import org.lwjgl.glfw.GLFW;
 
 public class ClickGuiScreen extends ClientScreen implements ClientAccess {
@@ -68,9 +65,6 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
       GLFW.GLFW_KEY_B, GLFW.GLFW_KEY_A
    };
 
-   private static HUDModule hud() {
-      return ClientContext.getModule(HUDModule.class);
-   }
    private SettingComponent<?> editingSetting = null;
    private int secretSequenceIndex = 0;
    private boolean gamePanelUnlocked;
@@ -448,7 +442,20 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
                this.normalizedSearchQuery = normalizedQuery;
                for (Panel panel : this.panels) panel.resetScroll();
                if (!normalizedQuery.isEmpty()) {
-                  if (!(this.selectedPanel instanceof ModuleCategoryPanel selected) || !selected.hasSearchMatches()) {
+                  Panel exactMatch = null;
+                  for (Panel candidate : this.panels) {
+                     for (Object entry : candidate.getChildren()) {
+                        if (entry instanceof ModuleComponent component
+                           && component.getModule().getName().equalsIgnoreCase(normalizedQuery)) {
+                           exactMatch = candidate;
+                           break;
+                        }
+                     }
+                     if (exactMatch != null) break;
+                  }
+                  if (exactMatch != null) {
+                     this.selectPanel(exactMatch);
+                  } else if (!(this.selectedPanel instanceof ModuleCategoryPanel selected) || !selected.hasSearchMatches()) {
                      for (Panel candidate : this.panels) {
                         if (candidate instanceof ModuleCategoryPanel category && category.hasSearchMatches()) {
                            this.selectPanel(candidate);
