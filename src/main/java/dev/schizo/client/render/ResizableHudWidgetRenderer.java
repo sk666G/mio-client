@@ -180,6 +180,10 @@ public class ResizableHudWidgetRenderer extends HudWidgetRenderer {
          && mouseY <= bottom;
    }
 
+   public boolean supportsResizing() {
+      return this.resizingEnabled;
+   }
+
    public void enableResizing(HudWidgetModule widget) {
       this.resizingEnabled = true;
       widget.register(this.sizeSetting);

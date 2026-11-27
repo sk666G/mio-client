@@ -10,6 +10,7 @@ final class HudToolbar {
       RIGHT("Right", HudGroupAlignment.Mode.RIGHT, 2), TOP("Top", HudGroupAlignment.Mode.TOP, 2),
       CENTER_Y("Center Y", HudGroupAlignment.Mode.CENTER_Y, 2), BOTTOM("Bottom", HudGroupAlignment.Mode.BOTTOM, 2),
       DISTRIBUTE_X("Space X", HudGroupAlignment.Mode.DISTRIBUTE_X, 3), DISTRIBUTE_Y("Space Y", HudGroupAlignment.Mode.DISTRIBUTE_Y, 3),
+      SCALE_DOWN("Size -", null, 1), SCALE_RESET("100%", null, 1), SCALE_UP("Size +", null, 1),
       BACKGROUND("", null, Integer.MAX_VALUE);
 
       final String label;
@@ -20,6 +21,7 @@ final class HudToolbar {
          this.mode = mode;
          this.required = required;
       }
+      boolean isScaleAction() { return this == SCALE_DOWN || this == SCALE_RESET || this == SCALE_UP; }
       boolean enabled(int selected, boolean undo, boolean redo) {
          return this != BACKGROUND && selected >= required && (this != UNDO || undo) && (this != REDO || redo);
       }

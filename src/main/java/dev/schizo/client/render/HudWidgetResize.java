@@ -85,6 +85,13 @@ public final class HudWidgetResize {
       return clamp((float)rounded);
    }
 
+   /** Adjust the widget's own scale in whole percentage points, independent of global HUD scale. */
+   public static float adjustPercent(float currentScale, int points) {
+      if (!Float.isFinite(currentScale)) return 1.0F;
+      long percent = Math.round(clamp(currentScale) * 100.0F);
+      return Math.max(50L, Math.min(200L, percent + (long)points)) / 100.0F;
+   }
+
    private static float clamp(float scale) {
       return Math.max(MIN_SCALE, Math.min(scale, MAX_SCALE));
    }
