@@ -12,6 +12,7 @@ package dev.schizo.client.modules.misc;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.PacketEvent;
+import dev.schizo.client.events.ConnectScreenConnectEvent;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.LocalPlayerTickEvent;
 import dev.schizo.client.events.MinecraftDisconnectEvent;
@@ -25,6 +26,7 @@ import dev.schizo.client.settings.Setting;
 import dev.schizo.client.settings.StringSetting;
 
 import net.minecraft.client.gui.screens.DeathScreen;
+import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.protocol.game.ClientboundPlayerCombatKillPacket;
 import net.minecraft.network.protocol.game.ClientboundRespawnPacket;
@@ -33,7 +35,7 @@ public class AutoRespawnModule extends Module {
    private final ElapsedTimer respawnTimer = new ElapsedTimer();
    private final Setting<Boolean> saySetting;
    private final Setting<String> messageSetting;
-   private long lifecycleGeneration;
+   private volatile long lifecycleGeneration;
 
    @EventHandler
    private void onLocalPlayerTickEvent(LocalPlayerTickEvent event) {
@@ -49,13 +51,22 @@ public class AutoRespawnModule extends Module {
 
    @EventHandler
    private void onPacketReceive(PacketEvent.Receive event) {
+      if (!(event.getPacket() instanceof ClientboundRespawnPacket)
+         && !(event.getPacket() instanceof ClientboundPlayerCombatKillPacket)) {
+         return;
+      }
+
+      long expectedGeneration = this.lifecycleGeneration;
+      ClientPacketListener expectedConnection = ClientAccess.schizoMinecraft.getConnection();
+
       if (event.getPacket() instanceof ClientboundRespawnPacket) {
-         long expectedGeneration = this.lifecycleGeneration;
          ClientAccess.schizoMinecraft.executeIfPossible(() -> {
-            if (!ownsQueuedPacketAction(
+            if (!ownsQueuedPacketSession(
                this.isToggled(),
                expectedGeneration,
-               this.lifecycleGeneration
+               this.lifecycleGeneration,
+               expectedConnection,
+               ClientAccess.schizoMinecraft.getConnection()
             ) || !this.saySetting.getValue()) {
                return;
             }
@@ -63,12 +74,15 @@ public class AutoRespawnModule extends Module {
             String message = this.messageSetting.getValue();
             TaskScheduler scheduler = ClientContext.taskScheduler;
             scheduler.scheduleRotationTask(this, () -> {
-               if (ownsQueuedPacketAction(
+               if (ownsQueuedPacketSession(
                      this.isToggled(),
                      expectedGeneration,
-                     this.lifecycleGeneration
+                     this.lifecycleGeneration,
+                     expectedConnection,
+                     ClientAccess.schizoMinecraft.getConnection()
                   )
-                  && this.saySetting.getValue()) {
+                  && this.saySetting.getValue()
+                  && ClientAccess.schizoMinecraft.player != null) {
                   ChatUtils.sendChatOrCommand(message);
                }
             }, 2);
@@ -76,12 +90,13 @@ public class AutoRespawnModule extends Module {
       }
 
       if (event.getPacket() instanceof ClientboundPlayerCombatKillPacket) {
-         long expectedGeneration = this.lifecycleGeneration;
          ClientAccess.schizoMinecraft.executeIfPossible(() -> {
-            if (ownsQueuedPacketAction(
+            if (ownsQueuedPacketSession(
                this.isToggled(),
                expectedGeneration,
-               this.lifecycleGeneration
+               this.lifecycleGeneration,
+               expectedConnection,
+               ClientAccess.schizoMinecraft.getConnection()
             )) {
                this.respawnTimer.reset();
             }
@@ -100,6 +115,12 @@ public class AutoRespawnModule extends Module {
    }
 
    @EventHandler
+   private void onConnectScreenConnect(ConnectScreenConnectEvent event) {
+      this.lifecycleGeneration++;
+      this.respawnTimer.clear();
+   }
+
+   @EventHandler
    private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
       this.lifecycleGeneration++;
       this.respawnTimer.clear();
@@ -111,6 +132,18 @@ public class AutoRespawnModule extends Module {
       long currentGeneration
    ) {
       return enabled && expectedGeneration == currentGeneration;
+   }
+
+   static boolean ownsQueuedPacketSession(
+      boolean enabled,
+      long expectedGeneration,
+      long currentGeneration,
+      Object expectedConnection,
+      Object currentConnection
+   ) {
+      return ownsQueuedPacketAction(enabled, expectedGeneration, currentGeneration)
+         && expectedConnection != null
+         && expectedConnection == currentConnection;
    }
 
    public AutoRespawnModule() {
