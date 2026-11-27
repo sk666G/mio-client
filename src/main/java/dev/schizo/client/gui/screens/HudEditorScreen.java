@@ -82,6 +82,8 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
    private boolean centerPanelPending;
    private boolean directionsRefreshPending;
    private final List<HudWidgetRenderer> selection = new ArrayList<>();
+   private boolean toolbarVisible = true;
+   private HudToolbar.Action pressedToolbarAction;
    private int gridStep;
    private int dragGridStep;
    private double dragOffsetX;
@@ -451,6 +453,7 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
 
    @Override
    public boolean mouseDragged(MouseButtonEvent event, double dragX, double dragY) {
+      if (this.pressedToolbarAction != null && event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) return true;
       if (this.groupDrag != null && event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
          this.updateGroupDrag(event.x(), event.y());
          return true;
@@ -483,6 +486,14 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
 
    @Override
    public boolean mouseReleased(MouseButtonEvent event) {
+      if (this.pressedToolbarAction != null && event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+         HudToolbar.Action pressed = this.pressedToolbarAction;
+         this.pressedToolbarAction = null;
+         if (!this.closing && this.toolbarLayout().hit(event.x(), event.y()) == pressed && this.toolbarEnabled(pressed)) {
+            this.runToolbarAction(pressed);
+         }
+         return true;
+      }
       if (this.groupDrag != null && event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
          this.updateGroupDrag(event.x(), event.y());
          if (this.groupDrag != null) {
@@ -567,6 +578,15 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
    @Override
    public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
       if (this.closing || this.draggedWidget != null || this.resizedWidget != null || this.groupDrag != null) {
+         return true;
+      }
+      HudToolbar.Layout toolbar = this.toolbarLayout();
+      if (toolbar.contains(event.x(), event.y())) {
+         if (event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+            this.pruneSelection();
+            this.pressedToolbarAction = toolbar.hit(event.x(), event.y());
+            if (this.pressedToolbarAction == null) this.pressedToolbarAction = HudToolbar.Action.BACKGROUND;
+         }
          return true;
       }
       if (this.pointerOverPanel(event.x(), event.y())) {
@@ -808,6 +828,7 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
 
    @Override
    protected void init() {
+      this.pressedToolbarAction = null;
       this.selection.clear();
       this.cancelPendingLayoutGesture();
       this.marginController.mouseReleased(GLFW.GLFW_MOUSE_BUTTON_LEFT);
@@ -817,8 +838,17 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
 
    @Override
    public boolean keyPressed(KeyEvent event) {
+      if (this.pressedToolbarAction != null) {
+         if (event.key() == GLFW.GLFW_KEY_ESCAPE) this.pressedToolbarAction = HudToolbar.Action.BACKGROUND;
+         return true;
+      }
       if (this.focusedSetting() != null) {
          return super.keyPressed(event);
+      }
+      if (event.key() == GLFW.GLFW_KEY_T && !KeyUtils.isControlDown() && !KeyUtils.isShiftDown()
+         && !this.layoutHistory.hasPendingEdit() && this.pressedToolbarAction == null) {
+         this.toolbarVisible = !this.toolbarVisible;
+         return true;
       }
       if (!this.pointerOverPanel(this.mouseX, this.mouseY)) {
          if (KeyUtils.isControlDown() && event.key() == GLFW.GLFW_KEY_Z) {
@@ -1026,6 +1056,7 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
    @Override
    public void removed() {
       try {
+         this.pressedToolbarAction = null;
          this.selection.clear();
          this.cancelPendingLayoutGesture();
          this.marginController.mouseReleased(GLFW.GLFW_MOUSE_BUTTON_LEFT);
@@ -1152,21 +1183,64 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
       }
 
       super.render(graphics, mouseX, mouseY, partialTick);
-      String gridHint = this.gridStep == 0 ? "G: grid off" : "G: grid " + this.gridStep + " px | free placement";
-      if (!this.selection.isEmpty()) gridHint += " | " + this.selection.size() + " selected";
-      if (this.selection.size() >= 2) gridHint += " | drag group / Ctrl+Shift+arrows/H/V: align";
-      if (this.selection.size() >= 3 && graphics.guiHeight() >= 36) {
-         String distributionHint = "Ctrl+Shift+X/D: equal horizontal/vertical gaps";
-         if (graphics.guiWidth() >= ClientAccess.schizoMinecraft.font.width(distributionHint) + 16) {
-            graphics.drawString(ClientAccess.schizoMinecraft.font, distributionHint, 8, graphics.guiHeight() - 24, 0xffb8b9c7, true);
-         }
-      }
-      if (graphics.guiWidth() >= ClientAccess.schizoMinecraft.font.width(gridHint) + 16 && graphics.guiHeight() >= 24) {
-         graphics.drawString(ClientAccess.schizoMinecraft.font, gridHint, 8, graphics.guiHeight() - 12, 0xffb8b9c7, true);
-      }
+      this.renderToolbar(graphics, mouseX, mouseY);
       if (this.centerPanelPending) {
          this.centerModulePanel();
          this.centerPanelPending = false;
+      }
+   }
+
+   private HudToolbar.Layout toolbarLayout() {
+      var window = ClientAccess.schizoMinecraft.getWindow();
+      return HudToolbar.layout(window.getGuiScaledWidth(), window.getGuiScaledHeight(), this.toolbarVisible);
+   }
+
+   private boolean toolbarEnabled(HudToolbar.Action action) {
+      if (this.closing || this.focusedSetting() != null || this.layoutHistory.hasPendingEdit()
+         || this.draggedWidget != null || this.resizedWidget != null || this.groupDrag != null) return false;
+      return action.enabled(this.selection.size(), this.layoutHistory.canUndo(), this.layoutHistory.canRedo());
+   }
+
+   private void runToolbarAction(HudToolbar.Action action) {
+      this.pruneSelection();
+      if (!this.toolbarEnabled(action)) return;
+      switch (action) {
+         case GRID -> this.gridStep = HudEditorGrid.next(this.gridStep);
+         case UNDO -> this.undoLayoutEdit();
+         case REDO -> this.redoLayoutEdit();
+         case CLEAR -> this.selection.clear();
+         default -> {
+            if (action.mode != null) this.alignSelection(action.mode);
+         }
+      }
+   }
+
+   private void renderToolbar(GuiGraphics graphics, int mouseX, int mouseY) {
+      HudToolbar.Layout layout = HudToolbar.layout(graphics.guiWidth(), graphics.guiHeight(), this.toolbarVisible);
+      var font = ClientAccess.schizoMinecraft.font;
+      if (!layout.visible()) {
+         String hint = "T: HUD tools | G: grid | Ctrl-click: select";
+         if (graphics.guiWidth() >= font.width(hint) + 16 && graphics.guiHeight() >= 20)
+            graphics.drawString(font, hint, 8, graphics.guiHeight() - 12, 0xffb8b9c7, true);
+         return;
+      }
+      StudioScreenTheme theme = StudioScreenTheme.current();
+      graphics.fill(layout.x(), layout.y(), layout.x() + layout.width(), layout.y() + layout.height(), theme.panel());
+      graphics.fill(layout.x(), layout.y(), layout.x() + layout.width(), layout.y() + 1, theme.accent());
+      String title = "HUD TOOLS  |  " + this.selection.size() + " selected  |  T: hide";
+      graphics.drawString(font, font.plainSubstrByWidth(title, layout.width() - 12), layout.x() + 6, layout.y() + 6, 0xffeeeeef, false);
+      for (HudToolbar.Action action : HudToolbar.ACTIONS) {
+         HudToolbar.Cell cell = layout.cell(action);
+         boolean enabled = this.toolbarEnabled(action);
+         boolean hovered = enabled && cell.contains(mouseX, mouseY);
+         int surface = !enabled ? theme.panel() : hovered ? theme.hover() : theme.row();
+         if (enabled && this.pressedToolbarAction == action && hovered) surface = theme.selected();
+         graphics.fill(cell.x(), cell.y(), cell.x() + cell.width(), cell.y() + cell.height(), enabled && hovered ? theme.accent() : 0xff444651);
+         graphics.fill(cell.x() + 1, cell.y() + 1, cell.x() + cell.width() - 1, cell.y() + cell.height() - 1, surface);
+         String label = action == HudToolbar.Action.GRID ? "Grid " + (this.gridStep == 0 ? "off" : this.gridStep) : action.label;
+         label = font.plainSubstrByWidth(label, cell.width() - 6);
+         graphics.drawString(font, label, cell.x() + (cell.width() - font.width(label)) / 2,
+            cell.y() + (cell.height() - font.lineHeight) / 2, enabled ? 0xffeeeeef : 0xff898a96, false);
       }
    }
 
