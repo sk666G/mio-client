@@ -16,6 +16,8 @@ import dev.schizo.client.gui.panels.Panel;
 import dev.schizo.client.gui.components.ButtonComponent;
 import dev.schizo.client.render.FontRenderer;
 import dev.schizo.client.managers.ConfigurationManager;
+import dev.schizo.client.managers.SoundManager;
+import dev.schizo.client.config.ConfigPathGuard;
 import dev.schizo.client.utils.collections.NamedIdentifier;
 import dev.schizo.client.settings.Setting;
 
@@ -71,6 +73,10 @@ public class SoundSelectionScreen extends ClientScreen {
                || !Files.isRegularFile(droppedFile, LinkOption.NOFOLLOW_LINKS)) {
                throw new IOException("Dropped sound is not a regular file");
             }
+            long sourceSize = Files.size(droppedFile);
+            if (!isSupportedImportSize(sourceSize)) {
+               throw new IOException("Dropped sound exceeds the supported size limit");
+            }
             Files.copy(droppedFile, customSoundsDirectory.resolve(droppedFile.getFileName()));
             imported++;
          } catch (IOException exception) {
@@ -85,18 +91,11 @@ public class SoundSelectionScreen extends ClientScreen {
    }
 
    private void prepareCustomSoundsDirectory(Path directory) throws IOException {
-      Path soundRoot = ConfigurationManager.SOUNDS_DIRECTORY;
-      if (Files.isSymbolicLink(soundRoot)
-         || !Files.isDirectory(soundRoot, LinkOption.NOFOLLOW_LINKS)) {
-         throw new IOException("Sound root is not a real directory");
-      }
-      if (!Files.exists(directory, LinkOption.NOFOLLOW_LINKS)) {
-         Files.createDirectory(directory);
-      }
-      if (Files.isSymbolicLink(directory)
-         || !Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS)) {
-         throw new IOException("Custom sound directory is not a real directory");
-      }
+      ConfigPathGuard.ensureDirectory(ConfigurationManager.ROOT_DIRECTORY, directory);
+   }
+
+   static boolean isSupportedImportSize(long bytes) {
+      return bytes >= 0L && bytes <= SoundManager.MAX_CUSTOM_SOUND_BYTES;
    }
 
    private void rebuildSoundPanels() {
