@@ -58,7 +58,7 @@ public class TickRateController implements ClientAccess {
     * requests to resume when a newer owner releases its request.
     */
    static final class Requests {
-      private final Map<Object, Float> activeRequests = new LinkedHashMap<>();
+      private final Map<IdentityOwner, Float> activeRequests = new LinkedHashMap<>();
       private float multiplier = 1.0F;
 
       synchronized void request(Object owner, float requestedMultiplier) {
@@ -66,13 +66,14 @@ public class TickRateController implements ClientAccess {
          if (!Float.isFinite(requestedMultiplier)) {
             throw new IllegalArgumentException("Requested multiplier must be finite");
          }
-         this.activeRequests.remove(owner);
-         this.activeRequests.put(owner, requestedMultiplier);
+         IdentityOwner identityOwner = new IdentityOwner(owner);
+         this.activeRequests.remove(identityOwner);
+         this.activeRequests.put(identityOwner, requestedMultiplier);
          this.multiplier = requestedMultiplier;
       }
 
       synchronized void release(Object owner) {
-         this.activeRequests.remove(owner);
+         this.activeRequests.remove(new IdentityOwner(owner));
          this.multiplier = 1.0F;
 
          for (Float requestedMultiplier : this.activeRequests.values()) {
@@ -87,6 +88,24 @@ public class TickRateController implements ClientAccess {
 
       synchronized float getMultiplier() {
          return this.multiplier;
+      }
+
+      private static final class IdentityOwner {
+         private final Object owner;
+
+         private IdentityOwner(Object owner) {
+            this.owner = Objects.requireNonNull(owner, "owner");
+         }
+
+         @Override
+         public boolean equals(Object other) {
+            return other instanceof IdentityOwner identity && this.owner == identity.owner;
+         }
+
+         @Override
+         public int hashCode() {
+            return System.identityHashCode(this.owner);
+         }
       }
    }
 
