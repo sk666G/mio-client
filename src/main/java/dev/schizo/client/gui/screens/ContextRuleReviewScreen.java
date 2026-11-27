@@ -31,10 +31,8 @@ final class ContextRuleReviewScreen extends Screen {
       rowCount = Math.max(1, Math.min(17, (height - top - 72) / 13));
       int y = top + 34 + rowCount * 13 + 5;
       int half = Math.max(1, (panelWidth - 4) / 2);
-      addRenderableWidget(Button.builder(Component.literal("Cancel / edit"), button -> onClose())
-         .bounds(left, y, half, 20).build());
-      addRenderableWidget(Button.builder(Component.literal(preview.replaces() ? "Confirm replacement" : "Confirm new rule"),
-         button -> commit()).bounds(left + half + 4, y, half, 20).build());
+      addRenderableWidget(new StudioButton(left, y, half, 20, Component.literal("Cancel / edit"), button -> onClose()));
+      addRenderableWidget(new StudioButton(left + half + 4, y, half, 20, Component.literal(preview.replaces() ? "Confirm replacement" : "Confirm new rule"), button -> commit()));
       rows = buildRows();
       offset = Math.min(offset, Math.max(0, rows.size() - rowCount));
    }
