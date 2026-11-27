@@ -39,6 +39,10 @@ public final class InputOverrideManager {
         pendingSneak.set(value);
     }
 
+    public void clearSneakRequest() {
+        pendingSneak.clear();
+    }
+
     public void requestJump(boolean value) {
         pendingJump.set(value);
     }
