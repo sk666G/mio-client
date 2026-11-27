@@ -101,6 +101,8 @@ public final class WorldStateManager implements ClientAccess {
 
    private int chunkRadius;
 
+   private ClientLevel observedLevel;
+
    private volatile long packetGeneration;
 
    public DimensionType getDimension() {
@@ -339,6 +341,36 @@ public final class WorldStateManager implements ClientAccess {
    @EventHandler
    private void onMinecraftDisconnectEvent(MinecraftDisconnectEvent event) {
       this.packetGeneration++;
+      this.observedLevel = null;
+      this.resetWorldTransientState();
+      this.chunkRadius = 0;
+   }
+
+   @EventHandler(priority = 200)
+   private void onLocalPlayerPreTick(LocalPlayerPreTickEvent event) {
+      this.synchronizeLevel(ClientAccess.schizoMinecraft.level);
+      this.currentTickPlacements.clear();
+      this.dimension = WorldUtils.getDimension();
+      this.refreshHandSnapshots();
+   }
+
+   private void synchronizeLevel(ClientLevel currentLevel) {
+      if (this.observedLevel == currentLevel) {
+         return;
+      }
+
+      if (isLevelReplacement(this.observedLevel, currentLevel)) {
+         this.packetGeneration++;
+      }
+      this.observedLevel = currentLevel;
+      this.resetWorldTransientState();
+   }
+
+   static boolean isLevelReplacement(Object observedLevel, Object currentLevel) {
+      return observedLevel != null && observedLevel != currentLevel;
+   }
+
+   private void resetWorldTransientState() {
       this.pendingPlacements.clear();
       this.confirmedPlacements.clear();
       this.blockEntities.clear();
@@ -350,14 +382,6 @@ public final class WorldStateManager implements ClientAccess {
       this.mainHandSnapshot = ItemStack.EMPTY;
       this.offHandSnapshot = ItemStack.EMPTY;
       this.dimension = DimensionType.OVERWORLD;
-      this.chunkRadius = 0;
-   }
-
-   @EventHandler(priority = 200)
-   private void onLocalPlayerPreTick(LocalPlayerPreTickEvent event) {
-      this.currentTickPlacements.clear();
-      this.dimension = WorldUtils.getDimension();
-      this.refreshHandSnapshots();
    }
 
    private void trackGlassUpdate(BlockPos position, BlockState state) {
