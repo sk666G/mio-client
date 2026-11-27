@@ -1,43 +1,44 @@
 # Known limitations
 
-This file separates source-verified behavior from work that still needs live Minecraft, platform or controlled-server evidence.
+This file separates source/automation evidence from work that still needs hands-on Minecraft, platform or controlled-server validation. Draft PR #171 is the authoritative release path and should be consulted for the exact current candidate SHA and workflow status.
 
 ## Runtime and multiplayer
 
-- The v8/full-client static passes were followed by headless Fabric launch and local-world GUI tests on the runtime-validation line and PR #167. Automated screenshots cover ClickGUI, palette, Performance Center, HUD editor, Expedition and layout preview; they do not replace manual input/visual QA, packaged-JAR launch, resource reload, reconnect/respawn or long-session testing. See [Expedition workflow evidence and remaining gates](ANARCHY_WORKFLOWS.md).
-- No controlled Minecraft server was available. No claim is made that every movement, combat, interaction or packet-facing module is accepted by vanilla servers or specific plugins. The source audit removed `GrimDisablerModule` and `RaytraceBypassModule`, including registration and rebuild-script reinjection; no new anti-cheat evasion mode was added by the v8 quality work.
-- Context Profile baseline capture/partial-restore retry bookkeeping has isolated regression coverage, but connect/disconnect, server switch, dimension/game-mode changes and AutoPreset ordering still need initialized-client runtime validation.
-- AnchorAura and AutoCrystal placement scans no longer read mutable live-world state from worker executors. Both use bounded deterministic client-thread cursors and revalidate results before publication. Live placement behavior and frame-time cost still require in-game profiling.
-- Hole, Search and Tunnels scanning now keep live block/world reads on the Minecraft client thread in bounded slices. Search/Tunnels queue and deduplicate chunk work, discard stale/unloaded work and use runtime-generation ownership; Hole scanning no longer uses the fixed-rate background sweep. Scan freshness and frame-time behavior still need live validation.
-- Deferred work in UI, AutoArmor, AntiAFK, Fireworks, AutoCraft, ChestStealer, SpeedMine and related lifecycle paths now carries module/session/player/world ownership checks before acting. Those guards are source-verified, but reconnect, disable-mid-action and container-transition scenarios still need live smoke testing.
-- PhaseESP clears retained animation state across level replacement/disable and uses monotonic animation timing. Hitmarker uses monotonic expiry/cooldown timing, while Skeleton/Crosshair render-state restoration is guarded against draw failures. Visual parity still needs live rendering checks.
-- Discord IPC has bounded module-side connection timing, tracked transport cleanup and frame validation. Its Windows named-pipe endpoint construction still cannot be forcibly interrupted before a pipe object exists; a real Windows Discord runtime test remains required.
+- The release-candidate line has automated Fabric launch, local-world gametest and restart-smoke coverage. Those workflows exercise real client startup and selected lifecycle/GUI paths, but they do not replace hands-on packaged-JAR testing, real multiplayer transitions or long-session play.
+- No claim is made that every movement, combat, interaction or packet-facing module is accepted by every vanilla/plugin/modded server. Supported behavior still needs an authorized controlled-server compatibility matrix.
+- Context Profile recovery, deferred module work, pending input overrides and manager packet callbacks have increasingly strict lifecycle/player/level/connection ownership. Source tests and local-world automation cover many boundaries; real connect/disconnect/reconnect, server-switch and dimension-change ordering still needs manual verification.
+- AutoCrystal, AnchorAura, Hole, Search, Tunnels and related scanners keep mutable live-world reads on bounded client-thread work and revalidate results before use. Live placement behavior, scan freshness and frame-time cost still require representative in-game profiling.
+- PhaseESP, Hitmarker, Skeleton, Crosshair and related render-state paths have lifecycle/render cleanup guards, but visual parity still needs hands-on testing across resource packs, GUI scales, window sizes and representative hardware.
+- Discord IPC has bounded connection timing, late-connection ownership checks, transport cleanup and frame validation. A real Windows Discord runtime test is still required for named-pipe startup/failure/recovery behavior.
+- Portable media integration has backend lifecycle/error isolation, but real desktop MPRIS/Windows media-session behavior still requires platform testing.
 
 ## Performance
 
-- Event profiling is disabled by default. Callback timings can include nested event dispatch; sums are inclusive and must not be treated as total frame time.
-- No live benchmark has been run for allocation rate, GC pressure, entity-loop cost, render cost or scan latency. Static hot-path cleanups are not FPS claims.
-- AutoCrystal, AnchorAura, Hole, Search and Tunnels use bounded client-thread scan work. The full-client hardening line scales AutoCrystal/Search/Tunnels scan throughput against measured frame pressure and converts VoidESP floor work into an incremental frame-aware scan cycle. These source changes still need profiler comparison in representative worlds.
-- Non-fading Trails history is bounded and batch-pruned instead of growing for the entire session. Long-session retention limits still need runtime confirmation.
-- The command palette now normalizes its query once per refresh, snapshots quick-access ranks once per refresh and fits its result window to short/narrow viewports. Extreme GUI scales and window sizes still need visual/input QA.
-- The frame graph uses sample order horizontally and has no elapsed-seconds axis; pause/focus-loss behavior still needs runtime validation.
-- Build #722 confirmed removal of Schizo's targeted Gradle-10 execution-time `Task.project` warning. Remapping warnings for Minecraft synthetic names and a Lithium hook remain external/mapper-facing warnings and have not been hidden.
+- Event/module profiling is disabled by default. Callback timings are inclusive of nested dispatch and must not be interpreted as total frame time.
+- Static allocation/hot-path cleanups and frame-pressure-aware scan budgets are not FPS claims. No final live benchmark has yet been accepted for allocation rate, GC pressure, entity-loop cost, render cost or scan latency.
+- Non-fading Trails and other retained histories are bounded/pruned, but long-session memory behavior still needs representative runtime observation.
+- The command palette and GUI paths have short/narrow viewport safeguards and reduced-motion support, but extreme GUI scale/resolution combinations still need visual/input QA.
+- The frame graph uses sample order horizontally rather than an elapsed-seconds axis; focus-loss/pause interpretation still needs runtime review.
+- Mapper/remap warnings for external Minecraft synthetic names or third-party hooks may still appear; the project does not hide external warnings merely to make logs look clean.
 
 ## Persistence and data
 
-- Atomic configuration writes, safe preset naming, directory migration, rebuild staging and transactional live-state rollback have unit coverage. Power-loss and cross-filesystem edge cases remain platform-test work.
-- ClickGUI close captures configurable JSON on the owning client thread, deep-copies it and serializes asynchronous save snapshots in order so an older queued save cannot overwrite a newer capture. GUI close latency and shutdown ordering still need live testing.
-- Preset refresh builds a complete temporary registry before publication, preserves the last complete in-memory set when directory iteration fails, rolls replacement failures back with the exact original bytes and removes replaced entries consistently from memory/disk.
-- Map-cache decoding requires a regular no-follow file, bounds the map count, requires exact record payloads and preserves unreadable files instead of overwriting them. Map snapshots are bounded, session-isolated and written atomically. Real existing cache files and reconnect cycles still need runtime/platform validation.
-- Context Profile restore failures remain pending for retry rather than discarding recovery state. Full event/registry ordering still needs initialized-client validation.
-- The fresh-upstream rebuild workflow has security/staging coverage from earlier candidate runs, but it must be repeated from a clean dedicated staging checkout after the final v8 source head is settled.
+- Atomic writes, no-follow path validation, bounded reads, create-only/no-replace publication and transactional rollback have unit/platform coverage. They cannot prove behavior under every power-loss, antivirus, network-drive or unusual filesystem failure.
+- Windows storage CI exercises platform-sensitive persistence behavior, but target-user filesystems still need manual backup/restore, preset/HUD rename/copy/import and recovery checks.
+- Configuration restore deliberately protects restored bytes from later client saves until restart. Manual restore + shutdown + restart behavior still needs acceptance on the final packaged build.
+- Preset refresh preserves the last complete in-memory set when enumeration fails and avoids destructive replacement; real pre-existing user preset collections still need migration/rollback smoke testing.
+- Map-cache decoding is bounded and preserves unreadable files rather than overwriting them. Real existing caches and reconnect cycles remain runtime/platform validation work.
 
-## Release and artifact boundary
+## Automation and artifact boundary
 
-- GitHub Actions verifies clean Gradle tests/builds, access widener/remap tasks, exactly one runnable remapped JAR, artifact provenance and required third-party notices. The v8 integration lineage has green component and combined builds recorded on Draft PR #110.
-- Build #845's uploaded artifact was inspected directly: its SHA-256 matched `SHA256SUMS.txt`, its `COMMIT_SHA.txt` pointed to GitHub's synthetic PR merge whose Git tree exactly matched the tested v8 branch tree, `NESTED_JARS.txt` was empty, and the runtime JAR contained `fabric.mod.json`, `THIRD_PARTY_NOTICES.md` and `LICENSES/DiscordIPC-APACHE-2.0.txt`.
-- A successful CI build does not prove that the remapped JAR launches in the target Minecraft/Fabric environment. Final launch, visual/input QA, controlled-server scenarios and the fresh-upstream rebuild remain release gates.
-- No public release has been created and no v8 integration branch has been merged into `main`.
+- The Build workflow validates rebuild-security tests, Gradle tests/build, remapped output, required notices, checksum/provenance files and verified JAR upload.
+- The release-candidate line also has launch smoke, client gametest, restart smoke, Windows storage and clean Open-Zio rebuild workflows. Each is useful evidence only for the exact source head it tested.
+- A later commit, even a documentation-only commit, is not automatically qualified by an older exact-head workflow result. PR #171 records the accepted final-head matrix.
+- Headless/local-world automation does not prove real multiplayer compatibility, real desktop integration recovery, subjective GUI quality or long-session performance.
+- No public release has been approved and PR #171 remains draft until the manual gates are explicitly cleared.
 
-- Reduced Motion now snaps the shared timed/interpolated GUI animation primitives, removes screen transition delay and suppresses seasonal screen motion. Individual render-module animations are not globally classified as accessibility UI motion and still require live review.
-- Event listener failures are counted and attributed in bounded local diagnostics, but packet dispatch remains synchronous on the posting thread; the project still does not claim a universal client-thread event contract.
+## Other boundaries
+
+- Reduced Motion snaps shared timed/interpolated GUI animation primitives and suppresses selected decorative motion. Individual render-module animations are not universally classified as accessibility UI motion and still require review.
+- Event listener failures are counted/attributed in bounded diagnostics, but packet dispatch remains synchronous on the posting thread; the project does not claim a universal client-thread event contract.
+- This hardening line focuses on reliability, lifecycle ownership, persistence, GUI/performance quality and compatibility diagnostics. It does not add anti-cheat detection-evasion techniques or new server-protection bypass modes.
