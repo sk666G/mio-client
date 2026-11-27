@@ -8,6 +8,7 @@ import dev.schizo.client.modules.misc.HoldMacro;
 import dev.schizo.client.modules.misc.Macro;
 import dev.schizo.client.settings.options.MacroType;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 
 class MacroRegistryDispatchMutationTest {
@@ -157,6 +158,62 @@ class MacroRegistryDispatchMutationTest {
          assertFalse(registry.replaceMacro(previous, newer));
 
          assertSame(current, registry.getRegistry().iterator().next());
+         assertEquals(1, registry.getRegistry().size());
+      } finally {
+         ClientAccess.eventBus.unsubscribe(registry);
+      }
+   }
+
+   @Test
+   void unregisterCannotBeUndoneByHoldReleaseReregisteringSameInstance() {
+      MacroRegistry registry = new MacroRegistry();
+      try {
+         AtomicReference<TestHoldMacro> self = new AtomicReference<>();
+         TestHoldMacro macro = new TestHoldMacro("same", () -> registry.registerEntry(self.get()));
+         self.set(macro);
+         assertTrue(registry.registerEntry(macro));
+
+         assertTrue(registry.unregisterEntry(macro));
+
+         assertFalse(registry.getRegistry().stream().anyMatch(registered -> registered == macro));
+         assertTrue(registry.getRegistry().isEmpty());
+      } finally {
+         ClientAccess.eventBus.unsubscribe(registry);
+      }
+   }
+
+   @Test
+   void replacementInstalledByReleaseCallbackIsNotInsertedTwice() {
+      MacroRegistry registry = new MacroRegistry();
+      try {
+         TestMacro replacement = new TestMacro("replacement", () -> {});
+         TestHoldMacro previous = new TestHoldMacro("previous", () -> registry.registerEntry(replacement));
+         assertTrue(registry.registerEntry(previous));
+
+         assertTrue(registry.replaceMacro(previous, replacement));
+
+         assertFalse(registry.getRegistry().stream().anyMatch(registered -> registered == previous));
+         assertEquals(1, registry.getRegistry().stream().filter(registered -> registered == replacement).count());
+         assertEquals(1, registry.getRegistry().size());
+      } finally {
+         ClientAccess.eventBus.unsubscribe(registry);
+      }
+   }
+
+   @Test
+   void replacementRollbackCannotBypassNameCollisionCreatedDuringRelease() {
+      MacroRegistry registry = new MacroRegistry();
+      try {
+         TestMacro callbackWinner = new TestMacro("same", () -> {});
+         TestMacro replacement = new TestMacro("same", () -> {});
+         TestHoldMacro previous = new TestHoldMacro("same", () -> registry.registerEntry(callbackWinner));
+         assertTrue(registry.registerEntry(previous));
+
+         assertFalse(registry.replaceMacro(previous, replacement));
+
+         assertFalse(registry.getRegistry().stream().anyMatch(registered -> registered == previous));
+         assertFalse(registry.getRegistry().stream().anyMatch(registered -> registered == replacement));
+         assertSame(callbackWinner, registry.getRegistry().iterator().next());
          assertEquals(1, registry.getRegistry().size());
       } finally {
          ClientAccess.eventBus.unsubscribe(registry);
