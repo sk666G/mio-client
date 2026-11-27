@@ -32,7 +32,7 @@ class ZoomLifecycleTest {
    @Test
    void fovTailReleasesWhenNewerStateReplacesZoomValue() {
       assertTrue(ZoomOptionsUpdater.shouldContinueFovOverride(true, true, 90, 30));
-      assertTrue(ZoomOptionsUpdater.shouldContinueFovOverride(false, false, 90, 30));
+      assertFalse(ZoomOptionsUpdater.shouldContinueFovOverride(false, false, 90, 30));
       assertTrue(ZoomOptionsUpdater.shouldContinueFovOverride(false, true, 30, 30));
       assertFalse(ZoomOptionsUpdater.shouldContinueFovOverride(false, true, 90, 30));
    }
