@@ -68,6 +68,18 @@ class AmbienceLifecycleTest {
    }
 
 
+
+   @Test
+   void serverTimeRestoreRequiresSameCapturedLevelIdentity() {
+      Object capturedLevel = new Object();
+      Object replacementLevel = new Object();
+
+      assertTrue(AmbienceModule.shouldRestoreServerTime(capturedLevel, capturedLevel));
+      assertFalse(AmbienceModule.shouldRestoreServerTime(capturedLevel, replacementLevel));
+      assertFalse(AmbienceModule.shouldRestoreServerTime(null, replacementLevel));
+      assertFalse(AmbienceModule.shouldRestoreServerTime(capturedLevel, null));
+   }
+
    @Test
    void gammaRestoreRequiresAmbienceToStillOwnCurrentValue() {
       assertTrue(AmbienceModule.shouldRestoreGamma(true, 1000.0D, 1000.0D));
