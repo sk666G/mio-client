@@ -22,6 +22,10 @@ final class QueryMatchCache<T> {
       return result;
    }
 
+   void clearIfPresent() {
+      if (query != null) clear();
+   }
+
    void clear() {
       matches.clear();
       query = null;

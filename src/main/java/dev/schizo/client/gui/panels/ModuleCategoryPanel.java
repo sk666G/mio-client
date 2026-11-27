@@ -60,7 +60,11 @@ public class ModuleCategoryPanel extends Panel implements ClientAccess {
    @Override
    protected boolean isChildVisible(GuiElement child) {
       String query = ClientContext.getClickGui().getNormalizedSearchQuery();
-      if (child instanceof ModuleComponent moduleComponent && !query.isEmpty()) {
+      if (query.isEmpty()) {
+         this.searchMatches.clearIfPresent();
+         return true;
+      }
+      if (child instanceof ModuleComponent moduleComponent) {
          return this.searchMatches.matches(query, child, (element, text) -> matchesModule(((ModuleComponent)element).getModule(), text));
       }
       return true;

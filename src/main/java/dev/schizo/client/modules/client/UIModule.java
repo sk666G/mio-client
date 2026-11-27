@@ -256,9 +256,10 @@ public final class UIModule extends Module {
          || !configuration.getAsJsonObject("settings").has(this.paletteSetting.getConfigName())) {
          // Older configurations have no palette marker; preserve their saved colors as Custom.
          this.paletteSetting.setValue(PaletteChoice.CUSTOM);
-      } else if (this.paletteSetting.getValue() == PaletteChoice.SCHIZO
-         && this.colorSetting.getValue().equals(new Color(190, 255, 64, 220))) {
-         this.applySelectedPalette();
+      } else {
+         UiPaletteMigration.Action action = UiPaletteMigration.resolve(this.paletteSetting.getValue(), this.snapshotPalette());
+         if (action == UiPaletteMigration.Action.MIGRATE_LEGACY) this.applySelectedPalette();
+         else if (action == UiPaletteMigration.Action.PRESERVE_CUSTOM) this.paletteSetting.setValue(PaletteChoice.CUSTOM);
       }
    }
 

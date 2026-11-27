@@ -136,11 +136,7 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
                   for (Object childEntry : panel.getChildren()) {
                      if (childEntry instanceof ModuleComponent moduleComponent
                         && moduleComponent.getModule().getName().equalsIgnoreCase(completedSearch)) {
-                        this.selectPanel(panel);
-                        moduleComponent.setOpen(true);
-                        if (!this.openModuleComponents.contains(moduleComponent)) this.openModuleComponents.add(moduleComponent);
-                        moduleComponent.startSearchHighlight();
-                        foundModule = true;
+                        foundModule = this.revealModule(moduleComponent.getModule());
                         break;
                      }
                   }
@@ -243,6 +239,29 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
    /** Current visible category; also useful for initialized-client QA. */
    public String getSelectedPanelName() {
       return this.selectedPanel == null ? "" : this.selectedPanel.getName();
+   }
+
+   /** Reveal the actual registered module, including its category, rather than trusting a text match. */
+   public boolean revealModule(Module module) {
+      if (module == null || this.searchBox == null) return false;
+      for (Panel panel : this.panels) {
+         for (Object child : panel.getChildren()) {
+            if (child instanceof ModuleComponent component && component.getModule() == module) {
+               this.searchBox.setValue(module.getName());
+               // A normalized keyboard-layout query may not match every localized module name.
+               if (panel instanceof ModuleCategoryPanel category && !category.hasSearchMatches()) this.clearSearch();
+               this.selectPanel(panel);
+               component.setOpen(true);
+               this.openModuleComponents.remove(component);
+               this.openModuleComponents.add(component);
+               component.startSearchHighlight();
+               panel.resetScroll();
+               this.reset();
+               return true;
+            }
+         }
+      }
+      return false;
    }
 
    private void selectPanel(Panel panel) {
