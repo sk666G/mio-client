@@ -2,6 +2,7 @@ package dev.schizo.client.config;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.io.IOException;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
@@ -58,6 +59,65 @@ class ConfigurationSaveGateTest {
 
       gate.invalidatePendingAndRun(writes::incrementAndGet);
       assertEquals(1, writes.get());
+   }
+
+   @Test
+   void restoringAConfigInvalidatesPendingWritesAndProtectsOnlyThatConfig() throws Exception {
+      ConfigurationSaveGate gate = new ConfigurationSaveGate();
+      long queuedBeforeRestore = gate.reserveAsyncSave();
+      AtomicInteger writes = new AtomicInteger();
+      AtomicInteger restores = new AtomicInteger();
+
+      gate.restoreAndProtect("socials.json", restores::incrementAndGet);
+
+      assertEquals(1, restores.get());
+      assertTrue(gate.isSaveSuspended("socials.json"));
+      assertFalse(gate.isSaveSuspended("modules.json"));
+
+      gate.runIfCurrent(queuedBeforeRestore, () -> writes.addAndGet(100));
+      long afterRestore = gate.reserveAsyncSave();
+      gate.runIfCurrent(afterRestore, () -> {
+         if (!gate.isSaveSuspended("socials.json")) {
+            writes.addAndGet(10);
+         }
+         if (!gate.isSaveSuspended("modules.json")) {
+            writes.incrementAndGet();
+         }
+      });
+      assertEquals(1, writes.get());
+   }
+
+   @Test
+   void failedRestoreStillInvalidatesPendingSavesButDoesNotFreezeConfig() {
+      ConfigurationSaveGate gate = new ConfigurationSaveGate();
+      long queuedBeforeRestore = gate.reserveAsyncSave();
+      AtomicInteger writes = new AtomicInteger();
+
+      assertThrows(IOException.class, () ->
+         gate.restoreAndProtect("socials.json", () -> {
+            throw new IOException("Restore rejected");
+         })
+      );
+
+      assertFalse(gate.isSaveSuspended("socials.json"));
+      gate.runIfCurrent(queuedBeforeRestore, writes::incrementAndGet);
+      assertEquals(0, writes.get());
+
+      long nextSave = gate.reserveAsyncSave();
+      gate.runIfCurrent(nextSave, writes::incrementAndGet);
+      assertEquals(1, writes.get());
+   }
+
+   @Test
+   void aSecondRestoreKeepsAllPreviouslyRestoredConfigsProtected() throws Exception {
+      ConfigurationSaveGate gate = new ConfigurationSaveGate();
+
+      gate.restoreAndProtect("socials.json", () -> {});
+      gate.restoreAndProtect("modules.json", () -> {});
+
+      assertTrue(gate.isSaveSuspended("socials.json"));
+      assertTrue(gate.isSaveSuspended("modules.json"));
+      assertFalse(gate.isSaveSuspended("waypoints.json"));
    }
 
    @Test
