@@ -16,6 +16,7 @@ import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.PacketEvent;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.LocalPlayerPreTickEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.utils.movement.MovementPhysics;
 import dev.schizo.client.managers.RotationManager;
 import dev.schizo.client.utils.network.InteractPacketUtils;
@@ -26,6 +27,7 @@ import dev.schizo.client.utils.entity.PlayerStateUtils;
 import dev.schizo.client.managers.ModuleRegistry;
 import dev.schizo.client.modules.Module;
 import dev.schizo.client.modules.ModuleCategory;
+import dev.schizo.client.modules.DeferredModuleActionGuard;
 import dev.schizo.client.modules.client.AntiCheatModule;
 import dev.schizo.client.settings.BooleanSetting;
 import dev.schizo.client.settings.EnumSetting;
@@ -51,6 +53,7 @@ public class CriticalsModule extends Module {
    private final Setting<Boolean> onlyFullSetting;
    private final Setting<Boolean> onlyWeaponSetting;
    private boolean pendingPositionCorrection;
+   private long deferredGeneration;
 
    private boolean isCriticalWeapon(ItemStack stack) {
       Item mace = Items.MACE;
@@ -69,6 +72,24 @@ public class CriticalsModule extends Module {
    @Override
    public String getInfo() {
       return (this.modeSetting.getValue()).getName();
+   }
+
+   @Override
+   public void onEnable() {
+      this.deferredGeneration++;
+      this.pendingPositionCorrection = false;
+   }
+
+   @Override
+   public void onDisable() {
+      this.deferredGeneration++;
+      this.pendingPositionCorrection = false;
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.deferredGeneration++;
+      this.pendingPositionCorrection = false;
    }
 
    protected boolean canPerformCritical() {
@@ -171,9 +192,24 @@ public class CriticalsModule extends Module {
             if (!event.isCancelled()) {
                this.performCritical();
             }
-            BlockableEventLoop executor = ClientAccess.schizoMinecraft;
+            var minecraft = ClientAccess.schizoMinecraft;
+            var expectedLevel = minecraft.level;
+            LocalPlayer expectedPlayer = minecraft.player;
+            long expectedGeneration = this.deferredGeneration;
+            BlockableEventLoop executor = minecraft;
             Runnable criticalEffect = () -> {
-               ClientAccess.schizoMinecraft.player.crit(target);
+               if (!DeferredModuleActionGuard.isCurrent(
+                  this.isToggled(),
+                  expectedGeneration,
+                  this.deferredGeneration,
+                  expectedLevel,
+                  minecraft.level,
+                  expectedPlayer,
+                  minecraft.player
+               )) {
+                  return;
+               }
+               expectedPlayer.crit(target);
             };
 
             executor.execute(criticalEffect);
