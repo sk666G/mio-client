@@ -35,7 +35,8 @@ final class CustomPaletteScreen extends StudioScreen {
       panelWidth = Math.max(1, Math.min(460, width - 16));
       left = (width - panelWidth) / 2;
       top = Math.max(4, (height - 164) / 2);
-      compact = panelWidth < 170 || height < 164;
+      compact = panelWidth < 240 || height < 164;
+      preview = null;
       if (compact) {
          addRenderableWidget(new StudioButton(left, Math.max(1, height - 25), panelWidth, 20, Component.literal("Back"), button -> onClose()));
          return;
@@ -45,7 +46,7 @@ final class CustomPaletteScreen extends StudioScreen {
          final int index = i;
          int x = left + i % 2 * (columnWidth + 6);
          int y = top + 37 + i / 2 * 33;
-         var field = new StudioEditBox(font, x, y, columnWidth - 22, 18, Component.literal(LABELS[i]));
+         var field = new StudioEditBox(font, x, y, columnWidth - 58, 18, Component.literal(LABELS[i]));
          field.setMaxLength(9);
          field.setValue(values[i]);
          field.setResponder(text -> {
@@ -53,6 +54,13 @@ final class CustomPaletteScreen extends StudioScreen {
             validate();
          });
          fields[i] = addRenderableWidget(field);
+         addRenderableWidget(new StudioButton(x + columnWidth - 52, y, 30, 18, Component.literal("Pick"), button -> {
+            Color initial = parsed[index] == null ? Color.WHITE : parsed[index];
+            minecraft.setScreen(new PalettePickerScreen(this, LABELS[index], initial, color -> {
+               values[index] = PaletteHex.format(color);
+               validate();
+            }));
+         }));
       }
       preview = addRenderableWidget(new StudioButton(left, top + 138, columnWidth, 20, Component.literal("Preview colors"), button -> accept()));
       addRenderableWidget(new StudioButton(left + columnWidth + 6, top + 138, columnWidth, 20, Component.literal("Cancel"), button -> onClose()));
