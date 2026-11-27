@@ -44,7 +44,7 @@ public class SafeWalkModule extends Module {
 
     @Override
     public void onDisable() {
-        if (sneakSetting.getValue()) ClientAccess.schizoMinecraft.options.keyShift.setDown(false);
+        ClientContext.inputOverrides.clearSneakRequest();
     }
 
     @EventHandler
