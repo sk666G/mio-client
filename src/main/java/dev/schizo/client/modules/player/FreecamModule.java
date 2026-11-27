@@ -238,9 +238,8 @@ public class FreecamModule extends Module {
 
    @EventHandler
    private void onLocalPlayerTickEvent(LocalPlayerTickEvent event) {
-      Options options = ClientAccess.schizoMinecraft.options;
       CameraType cameraType = CameraType.FIRST_PERSON;
-      options.setCameraType(cameraType);
+      GameOptionsOverrides.applyCameraOverride(this, cameraType);
       this.previousCameraPosition = this.cameraPosition;
       float capturedYaw = this.cameraYaw;
       FreecamInput capturedInput = this.freecamInput;
