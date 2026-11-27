@@ -54,7 +54,7 @@ public final class ModuleInspectorScreen extends Screen {
       top = Math.max(4, (height - 320) / 2);
       rowCount = Math.max(1, Math.min(9, (height - top - 209) / 13));
       int controlsY = top + 106 + rowCount * 13;
-      filter = new EditBox(font, left, top + 75, panelWidth, 20, Component.literal("Filter settings"));
+      filter = new StudioEditBox(font, left, top + 75, panelWidth, 20, Component.literal("Filter settings"));
       filter.setMaxLength(64);
       filter.setValue(filterText);
       filter.setHint(Component.literal("Filter settings..."));
@@ -62,7 +62,7 @@ public final class ModuleInspectorScreen extends Screen {
       int half = Math.max(1, (panelWidth - 4) / 2);
       button("Previous setting", left, controlsY, half, () -> select(-1));
       button("Next setting", left + half + 4, controlsY, half, () -> select(1));
-      value = new EditBox(font, left, controlsY + 24, half, 20, Component.literal("Proposed value"));
+      value = new StudioEditBox(font, left, controlsY + 24, half, 20, Component.literal("Proposed value"));
       value.setMaxLength(48);
       addRenderableWidget(value);
       apply = button("Apply value", left + half + 4, controlsY + 24, half, this::applyValue);
