@@ -3,6 +3,9 @@ package dev.schizo.client.modules;
 import static org.junit.jupiter.api.Assertions.*;
 
 import dev.schizo.client.ClientAccess;
+import dev.schizo.client.ClientContext;
+import dev.schizo.client.managers.InputOverrideManager;
+import java.lang.reflect.Field;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.ModuleToggleEvent;
 import java.util.ArrayList;
@@ -104,6 +107,59 @@ class ModuleLifecycleTest {
       assertEquals(0, module.eventCalls.get());
    }
 
+   @Test
+   void disableClearsModuleOwnedPendingInput() throws Exception {
+      InputOverrideManager previous = ClientContext.inputOverrides;
+      InputOverrideManager manager = new InputOverrideManager();
+      TestModule module = new TestModule();
+      ClientContext.inputOverrides = manager;
+      try {
+         module.enable();
+         manager.requestJump(module, true);
+         manager.requestForward(module, true);
+
+         module.disable();
+
+         assertFalse(isPending(manager, "pendingJump"));
+         assertFalse(isPending(manager, "pendingForward"));
+      } finally {
+         if (module.isToggled()) {
+            module.disable();
+         }
+         ClientContext.inputOverrides = previous;
+         ClientAccess.eventBus.unsubscribe(manager);
+      }
+   }
+
+   @Test
+   void failedEnableRollbackClearsModuleOwnedPendingInput() throws Exception {
+      InputOverrideManager previous = ClientContext.inputOverrides;
+      InputOverrideManager manager = new InputOverrideManager();
+      TestModule module = new TestModule();
+      module.requestInputOnEnable = true;
+      module.failEnable = true;
+      ClientContext.inputOverrides = manager;
+      try {
+         assertThrows(IllegalStateException.class, module::enable);
+
+         assertFalse(isPending(manager, "pendingJump"));
+         assertFalse(isPending(manager, "pendingForward"));
+      } finally {
+         ClientContext.inputOverrides = previous;
+         ClientAccess.eventBus.unsubscribe(manager);
+      }
+   }
+
+   private static boolean isPending(InputOverrideManager manager, String fieldName) throws Exception {
+      Field pendingField = InputOverrideManager.class.getDeclaredField(fieldName);
+      pendingField.setAccessible(true);
+      Object pendingValue = pendingField.get(manager);
+
+      Field pending = pendingValue.getClass().getSuperclass().getDeclaredField("pending");
+      pending.setAccessible(true);
+      return pending.getBoolean(pendingValue);
+   }
+
    private static final class ProbeEvent {
    }
 
@@ -138,6 +194,7 @@ class ModuleLifecycleTest {
       private boolean failToggle;
       private boolean failEnable;
       private boolean failDisable;
+      private boolean requestInputOnEnable;
       private boolean lastToggleState;
       private boolean toggledDuringDisable;
 
@@ -157,6 +214,10 @@ class ModuleLifecycleTest {
       @Override
       public void onEnable() {
          this.enableCalls.incrementAndGet();
+         if (this.requestInputOnEnable) {
+            ClientContext.inputOverrides.requestJump(this, true);
+            ClientContext.inputOverrides.requestForward(this, true);
+         }
          if (this.failEnable) {
             throw new IllegalStateException("enable failure");
          }
