@@ -67,6 +67,14 @@ class AmbienceLifecycleTest {
       assertFalse(module.isWeatherOverrideSuppressed());
    }
 
+
+   @Test
+   void gammaRestoreRequiresAmbienceToStillOwnCurrentValue() {
+      assertTrue(AmbienceModule.shouldRestoreGamma(true, 1000.0D, 1000.0D));
+      assertFalse(AmbienceModule.shouldRestoreGamma(false, 1000.0D, 1000.0D));
+      assertFalse(AmbienceModule.shouldRestoreGamma(true, 0.75D, 1000.0D));
+   }
+
    @Test
    void disablingNonGammaAmbiencePreservesCurrentGamma() {
       if (ClientAccess.schizoMinecraft == null || ClientAccess.schizoMinecraft.options == null) {
