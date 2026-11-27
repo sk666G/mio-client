@@ -50,6 +50,8 @@ import net.minecraft.network.chat.Component;
 import org.lwjgl.glfw.GLFW;
 
 public class ClickGuiScreen extends ClientScreen implements ClientAccess {
+   private static final String[] TOOL_LABELS = {"HUD", "Performance", "Profiles", "Health", "Themes"};
+   private static final String[] SHORT_TOOL_LABELS = {"HUD", "Perf", "Rules", "Health", "Theme"};
    private static final Color STUDIO_FRAME = new Color(17, 18, 23, 250);
    private static final Color STUDIO_NAV = new Color(12, 13, 17, 250);
    private static final Color STUDIO_EDGE = new Color(55, 56, 64, 200);
@@ -386,17 +388,16 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
          if (font.getWidth(empty) > available) empty = "No matches.";
          font.drawWithoutShadow(poseStack, empty, l.contentX() + 9, l.contentY() + 31, STUDIO_MUTED);
       }
-      String[] toolLabels = {"HUD", "Performance", "Profiles", "Health", "Themes"};
-      String[] shortLabels = {"HUD", "Perf", "Rules", "Health", "Theme"};
-      for (int i = 0; i < toolLabels.length; i++) {
+      int hoveredTool = l.toolIndex(mouseX, mouseY);
+      for (int i = 0; i < TOOL_LABELS.length; i++) {
          int tx = l.toolX(i);
-         boolean hover = l.toolIndex(mouseX, mouseY) == i;
+         boolean hover = hoveredTool == i;
          GuiDrawUtils.fillRect(poseStack, tx, l.toolsY(), tx + l.toolWidth(), l.toolsY() + 21,
             hover ? ColorUtils.withAlpha(accent, 52) : new Color(33, 34, 42, 230));
          GuiDrawUtils.fillRect(poseStack, tx, l.toolsY() + 20, tx + l.toolWidth(), l.toolsY() + 21,
             hover ? accent : STUDIO_EDGE);
          GuiDrawUtils.flush();
-         String label = font.getWidth(toolLabels[i]) + 6 <= l.toolWidth() ? toolLabels[i] : shortLabels[i];
+         String label = font.getWidth(TOOL_LABELS[i]) + 6 <= l.toolWidth() ? TOOL_LABELS[i] : SHORT_TOOL_LABELS[i];
          if (font.getWidth(label) > l.toolWidth() - 2) label = label.substring(0, 1);
          font.drawWithoutShadow(poseStack, label, tx + (l.toolWidth() - font.getWidth(label)) / 2,
             l.toolsY() + (21 - font.getHeight()) / 2, Color.WHITE);
@@ -406,13 +407,10 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
       font.drawWithoutShadow(poseStack, footer, l.contentX() + 2, l.bottom() - 15, STUDIO_MUTED);
       this.openModuleComponents.removeIf((java.util.function.Predicate<ModuleComponent>)component -> !component.isOpen());
       // Hidden categories do not advance row animations; keep the open-limit local to the active category.
-      List<ModuleComponent> active = new ArrayList<>();
-      for (Object entry : this.openModuleComponents) {
-         ModuleComponent component = (ModuleComponent)entry;
-         if (component.getPanel() == this.selectedPanel) active.add(component);
-      }
-      if (active.size() > 2) {
-         for (int index = 0; index < active.size() - 2; index++) active.get(index).setOpen(false);
+      int activeCount = 0;
+      for (int i = this.openModuleComponents.size() - 1; i >= 0; i--) {
+         ModuleComponent component = (ModuleComponent)this.openModuleComponents.get(i);
+         if (component.getPanel() == this.selectedPanel && ++activeCount > 2) component.setOpen(false);
       }
    }
 
