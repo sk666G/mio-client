@@ -79,28 +79,24 @@ public class FreeLookModule extends Module {
    @Override
    public void onDisable() {
       GameOptionsOverrides.unregisterCameraOverride(this);
-      LocalPlayer yawPlayer = ClientAccess.schizoMinecraft.player;
-      Vector2f yawRotation = this.cameraRotation;
-      float yaw = yawRotation.x();
-      yawPlayer.setYRot(yaw);
-      LocalPlayer previousYawBobPlayer = ClientAccess.schizoMinecraft.player;
-      LocalPlayer yawBobPlayer = ClientAccess.schizoMinecraft.player;
-      LocalPlayer previousYawPlayer = ClientAccess.schizoMinecraft.player;
-      Vector2f previousYawRotation = this.cameraRotation;
-      previousYawBobPlayer.yBobO = yawBobPlayer.yBob = previousYawPlayer.yRotO = previousYawRotation.x();
-      LocalPlayer pitchPlayer = ClientAccess.schizoMinecraft.player;
-      Vector2f pitchRotation = this.cameraRotation;
-      float pitch = pitchRotation.y();
-      pitchPlayer.setXRot(pitch);
-      LocalPlayer previousPitchBobPlayer = ClientAccess.schizoMinecraft.player;
-      LocalPlayer pitchBobPlayer = ClientAccess.schizoMinecraft.player;
-      LocalPlayer previousPitchPlayer = ClientAccess.schizoMinecraft.player;
-      Vector2f previousPitchRotation = this.cameraRotation;
-      previousPitchBobPlayer.xBobO = pitchBobPlayer.xBob = previousPitchPlayer.xRotO = previousPitchRotation.y();
-      Camera camera = ClientAccess.schizoMinecraft.gameRenderer.getMainCamera();
+      LocalPlayer player = ClientAccess.schizoMinecraft.player;
+      if (player == null) {
+         return;
+      }
+
+      float yaw = this.cameraRotation.x();
+      float pitch = this.cameraRotation.y();
+      player.setYRot(yaw);
+      player.yBobO = player.yBob = player.yRotO = yaw;
+      player.setXRot(pitch);
+      player.xBobO = player.xBob = player.xRotO = pitch;
+
       ClientLevel level = ClientAccess.schizoMinecraft.level;
-      LocalPlayer cameraPlayer = ClientAccess.schizoMinecraft.player;
-      camera.setup(level, cameraPlayer, false, false, 1.0F);
+      if (level == null || ClientAccess.schizoMinecraft.gameRenderer == null) {
+         return;
+      }
+      Camera camera = ClientAccess.schizoMinecraft.gameRenderer.getMainCamera();
+      camera.setup(level, player, false, false, 1.0F);
    }
 
    public float getCameraDistanceOffset() {
