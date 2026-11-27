@@ -117,8 +117,9 @@ public final class FileUtils {
    }
 
    /**
-    * Writes a new UTF-8 file without ever replacing an existing target.
-    * The temporary file lives beside the target so the final move stays on one provider.
+    * Writes a brand-new UTF-8 file without ever replacing an existing target.
+    * CREATE_NEW makes ownership of the destination the atomic operation; only the
+    * writer that creates the target is allowed to populate it.
     */
    public static void writeUtf8CreateNew(Path path, String text) throws IOException {
       Path target = path.toAbsolutePath().normalize();
@@ -127,24 +128,30 @@ public final class FileUtils {
          throw new IOException("Cannot write a file without a parent directory: " + target);
       }
       Files.createDirectories(parent);
-      Path temporary = Files.createTempFile(parent, "." + target.getFileName() + ".", ".tmp");
+
+      boolean created = false;
       try {
-         try (var writer = Files.newBufferedWriter(temporary, StandardCharsets.UTF_8,
-            StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)) {
+         try (var writer = Files.newBufferedWriter(
+            target,
+            StandardCharsets.UTF_8,
+            StandardOpenOption.CREATE_NEW,
+            StandardOpenOption.WRITE
+         )) {
+            created = true;
             writer.write(text);
             writer.flush();
          }
-
-         // Deliberately do not request ATOMIC_MOVE here. The ATOMIC_MOVE contract permits
-         // provider-specific behavior when the target already exists. A plain same-directory
-         // move preserves CREATE_NEW-style "never replace" semantics across providers.
-         Files.move(temporary, target);
       } catch (FileAlreadyExistsException existing) {
          throw existing;
       } catch (IOException failure) {
+         if (created) {
+            try {
+               Files.deleteIfExists(target);
+            } catch (IOException cleanupFailure) {
+               failure.addSuppressed(cleanupFailure);
+            }
+         }
          throw new IOException("Unable to create " + target, failure);
-      } finally {
-         Files.deleteIfExists(temporary);
       }
    }
 
