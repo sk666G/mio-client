@@ -153,7 +153,8 @@ public final class MixinModuleRegistry {
    public static volatile CapesModule abstractClientPlayerCapes;
    public static volatile BlurModule screenBlur;
 
-   public static void bind(ModuleRegistry registry) {
+   // Serialize first-time binders so a second registry cannot pass the identity check concurrently.
+   public static synchronized void bind(ModuleRegistry registry) {
       Objects.requireNonNull(registry, "Module registry is not initialized");
       ModuleRegistry existingRegistry = moduleRegistry;
       if (existingRegistry != null && existingRegistry != registry) {
