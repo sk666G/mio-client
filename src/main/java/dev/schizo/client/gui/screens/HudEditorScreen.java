@@ -74,6 +74,7 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
    private ResizableHudWidgetRenderer resizedWidget;
    private boolean centerPanelPending;
    private boolean directionsRefreshPending;
+   private final List<HudWidgetRenderer> selection = new ArrayList<>();
    private int gridStep;
    private int dragGridStep;
    private double dragOffsetX;
@@ -548,6 +549,15 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
          return super.mouseClicked(event, doubleClick);
       }
       HudWidgetRenderer widget = this.findHoveredWidget(event.x(), event.y());
+      if (event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT && KeyUtils.isControlDown()) {
+         if (widget == null) this.selection.clear();
+         else if (!this.selection.remove(widget)) this.selection.add(widget);
+         return true;
+      }
+      if (event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+         this.selection.clear();
+         if (widget != null) this.selection.add(widget);
+      }
       if (widget != null && (event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT || event.button() == GLFW.GLFW_MOUSE_BUTTON_RIGHT)) {
          if (widget instanceof ResizableHudWidgetRenderer resizable && resizable.isResizeHandleHovered(event.x(), event.y())) {
             this.beginLayoutEdit();
@@ -753,6 +763,7 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
    }
 
    public void removeWidget(HudWidgetRenderer widget) {
+      this.selection.remove(widget);
       if (this.draggedWidget == widget || this.resizedWidget == widget) {
          this.cancelPendingLayoutGesture();
       }
@@ -766,6 +777,7 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
 
    @Override
    protected void init() {
+      this.selection.clear();
       this.cancelPendingLayoutGesture();
       this.marginController.mouseReleased(GLFW.GLFW_MOUSE_BUTTON_LEFT);
       super.init();
@@ -800,20 +812,11 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
          }
          HudWidgetRenderer widget = this.findHoveredWidget(this.mouseX, this.mouseY);
          IntPair offset = this.getArrowKeyOffset(event.key());
-         if (offset != null && widget != null && widget.isEnabled()) {
-            this.beginLayoutEdit();
-            float currentX = widget.getX();
-            float currentY = widget.getY();
-            if (widget.getAnchor() != HudAnchor.NONE) {
-               this.removeWidget(widget);
-               this.addWidget(HudAnchor.NONE, widget);
-               widget.setAnchor(HudAnchor.NONE);
-            }
-            widget.resetSnapping();
-            widget.setX(currentX + offset.first(), true);
-            widget.setY(currentY + offset.second(), true);
-            widget.updateDirections();
-            this.finishLayoutEdit();
+         this.pruneSelection();
+         if (offset != null && (!this.selection.isEmpty() || widget != null && widget.isEnabled())) {
+            List<HudWidgetRenderer> targets = this.selection.isEmpty() ? List.of(widget) : List.copyOf(this.selection);
+            this.moveSelection(targets, offset.first(), offset.second());
+            return true;
          } else {
             switch (event.key()) {
                case 73:
@@ -837,9 +840,43 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
       return super.keyPressed(event);
    }
 
+   private void pruneSelection() {
+      this.selection.removeIf(widget -> !widget.isEnabled() || this.anchorGroups.stream()
+         .noneMatch(group -> group.getWidgets().contains(widget)));
+   }
+
+   private void moveSelection(List<HudWidgetRenderer> targets, int dx, int dy) {
+      var window = ClientAccess.schizoMinecraft.getWindow();
+      float width = window.getGuiScaledWidth(), height = window.getGuiScaledHeight();
+      List<dev.schizo.client.render.HudGroupMove.Bounds> bounds = new ArrayList<>();
+      for (HudWidgetRenderer widget : targets) {
+         float[] size = widget.getDimensions();
+         bounds.add(new dev.schizo.client.render.HudGroupMove.Bounds(widget.getX(), widget.getY(), size[0], size[1]));
+      }
+      var delta = dev.schizo.client.render.HudGroupMove.clamp(bounds, width, height, dx, dy);
+      if (delta.x() == 0 && delta.y() == 0) return;
+      this.beginLayoutEdit();
+      for (int i = 0; i < targets.size(); i++) {
+         HudWidgetRenderer widget = targets.get(i);
+         var original = bounds.get(i);
+         if (widget.getAnchor() != HudAnchor.NONE) {
+            this.getAnchorGroup(widget.getAnchor()).getWidgets().remove(widget);
+            this.addWidget(HudAnchor.NONE, widget);
+            widget.setAnchor(HudAnchor.NONE);
+         }
+         widget.resetSnapping();
+         widget.setX(original.x() + delta.x(), true);
+         widget.setY(original.y() + delta.y(), true);
+         widget.updateDirections();
+      }
+      this.requestDirectionRefresh();
+      this.finishLayoutEdit();
+   }
+
    @Override
    public void removed() {
       try {
+         this.selection.clear();
          this.cancelPendingLayoutGesture();
          this.marginController.mouseReleased(GLFW.GLFW_MOUSE_BUTTON_LEFT);
       } finally {
@@ -925,6 +962,17 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
          this.snapWidget(graphics, poseStack, widget, widget.getDimensions());
       }
 
+      this.pruneSelection();
+      for (HudWidgetRenderer widget : this.selection) {
+         float[] size = widget.getDimensions();
+         float x = widget.getX(), y = widget.getY();
+         if (!Float.isFinite(x) || !Float.isFinite(y) || !Float.isFinite(size[0]) || !Float.isFinite(size[1]) || size[0] <= 0 || size[1] <= 0) continue;
+         Color edge = ColorUtils.withAlpha(ColorUtils.getThemeColor(), 180);
+         GuiDrawUtils.fillRect(poseStack, x, y, x + size[0], y + 0.5F, edge);
+         GuiDrawUtils.fillRect(poseStack, x, y + size[1] - 0.5F, x + size[0], y + size[1], edge);
+         GuiDrawUtils.fillRect(poseStack, x, y, x + 0.5F, y + size[1], edge);
+         GuiDrawUtils.fillRect(poseStack, x + size[0] - 0.5F, y, x + size[0], y + size[1], edge);
+      }
       float labelOpacity = this.hoverLabelOpacity
          .updateAndGet();
       this.hoverLabelOpacity
@@ -955,6 +1003,7 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
 
       super.render(graphics, mouseX, mouseY, partialTick);
       String gridHint = this.gridStep == 0 ? "G: grid off" : "G: grid " + this.gridStep + " px | free placement";
+      if (!this.selection.isEmpty()) gridHint += " | " + this.selection.size() + " selected";
       if (graphics.guiWidth() >= ClientAccess.schizoMinecraft.font.width(gridHint) + 16 && graphics.guiHeight() >= 24) {
          graphics.drawString(ClientAccess.schizoMinecraft.font, gridHint, 8, graphics.guiHeight() - 12, 0xffb8b9c7, true);
       }
