@@ -100,6 +100,29 @@ class MacroRegistryDispatchMutationTest {
       }
    }
 
+   @Test
+   void configurationReloadSkipsHoldMacrosRemovedDuringAnotherRelease() {
+      MacroRegistry registry = new MacroRegistry();
+      try {
+         AtomicInteger removedUpdateCalls = new AtomicInteger();
+         TestHoldMacro removed = new TestHoldMacro("removed", removedUpdateCalls::incrementAndGet);
+         TestHoldMacro remover = new TestHoldMacro("remover", () -> registry.unregisterEntry(removed));
+         assertTrue(registry.registerEntry(remover));
+         assertTrue(registry.registerEntry(removed));
+
+         com.google.gson.JsonObject root = new com.google.gson.JsonObject();
+         root.add("macros", new com.google.gson.JsonArray());
+         assertDoesNotThrow(() -> registry.fromJson(root));
+
+         // Unregistering the later macro releases it once. The outer reload
+         // snapshot must not release the already-removed instance again.
+         assertEquals(1, removedUpdateCalls.get());
+         assertTrue(registry.getRegistry().isEmpty());
+      } finally {
+         ClientAccess.eventBus.unsubscribe(registry);
+      }
+   }
+
    private static final class TestMacro extends Macro {
       private final Runnable action;
 
