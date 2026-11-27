@@ -155,6 +155,62 @@ public final class FileUtils {
       }
    }
 
+   /**
+    * Moves one regular file without ever replacing an existing target.
+    * The destination is acquired with CREATE_NEW, then the source is deleted only
+    * after the full copy is closed successfully. A source-delete failure rolls the
+    * destination back so the original remains authoritative.
+    */
+   public static void moveFileNoReplace(Path sourcePath, Path targetPath) throws IOException {
+      Path source = sourcePath.toAbsolutePath().normalize();
+      Path target = targetPath.toAbsolutePath().normalize();
+      if (source.equals(target)) {
+         throw new IOException("Source and target must differ: " + source);
+      }
+
+      Path parent = target.getParent();
+      if (parent == null) {
+         throw new IOException("Cannot move a file without a target parent: " + target);
+      }
+      Files.createDirectories(parent);
+
+      boolean targetCreated = false;
+      try {
+         try (var input = Files.newInputStream(source, LinkOption.NOFOLLOW_LINKS);
+              var output = Files.newOutputStream(
+                 target,
+                 StandardOpenOption.CREATE_NEW,
+                 StandardOpenOption.WRITE
+              )) {
+            targetCreated = true;
+            input.transferTo(output);
+            output.flush();
+         }
+      } catch (FileAlreadyExistsException existing) {
+         throw existing;
+      } catch (IOException failure) {
+         if (targetCreated) {
+            try {
+               Files.deleteIfExists(target);
+            } catch (IOException cleanupFailure) {
+               failure.addSuppressed(cleanupFailure);
+            }
+         }
+         throw new IOException("Unable to copy " + source + " to " + target, failure);
+      }
+
+      try {
+         Files.delete(source);
+      } catch (IOException deleteFailure) {
+         try {
+            Files.deleteIfExists(target);
+         } catch (IOException rollbackFailure) {
+            deleteFailure.addSuppressed(rollbackFailure);
+         }
+         throw new IOException("Unable to remove source after moving " + source + " to " + target, deleteFailure);
+      }
+   }
+
    public static String readUtf8(Path path) throws IOException {
       return new String(readBytes(path), StandardCharsets.UTF_8);
    }
