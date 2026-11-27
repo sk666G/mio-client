@@ -213,6 +213,11 @@ class RepositoryHygieneTest(unittest.TestCase):
             'sha256sum "$jar_file" > build/libs/SHA256SUMS.txt',
             workflow,
         )
+        self.assertIn(
+            "group: build-${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.head.ref || github.ref_name }}",
+            workflow,
+        )
+        self.assertIn("cancel-in-progress: true", workflow)
 
     def test_validation_circumvention_modules_cannot_reappear(self):
         forbidden = (
