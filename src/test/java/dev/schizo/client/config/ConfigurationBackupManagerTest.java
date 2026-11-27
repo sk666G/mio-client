@@ -3,6 +3,7 @@ package dev.schizo.client.config;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.IOException;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -19,6 +20,29 @@ class ConfigurationBackupManagerTest {
 
    private Path configPath(String name) {
       return this.temporaryDirectory.resolve(name);
+   }
+
+   @Test
+   void publishingNewBackupMustNotReplaceExistingTarget() throws IOException {
+      Path staged = Files.writeString(this.temporaryDirectory.resolve("staged.tmp"), "incoming");
+      Path destination = Files.writeString(this.temporaryDirectory.resolve("existing.bak"), "previous");
+
+      assertThrows(FileAlreadyExistsException.class,
+         () -> ConfigurationBackupManager.publishNewBackup(staged, destination));
+
+      assertEquals("previous", Files.readString(destination));
+      assertEquals("incoming", Files.readString(staged));
+   }
+
+   @Test
+   void publishingNewBackupMakesCompleteContentsVisibleAndRemovesStaging() throws IOException {
+      Path staged = Files.writeString(this.temporaryDirectory.resolve("staged.tmp"), "{\"state\":42}");
+      Path destination = this.temporaryDirectory.resolve("new.bak");
+
+      ConfigurationBackupManager.publishNewBackup(staged, destination);
+
+      assertEquals("{\"state\":42}", Files.readString(destination));
+      assertFalse(Files.exists(staged));
    }
 
    @Test
