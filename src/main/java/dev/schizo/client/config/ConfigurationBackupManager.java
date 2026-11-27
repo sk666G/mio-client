@@ -76,11 +76,18 @@ public final class ConfigurationBackupManager {
          + "-" + UUID.randomUUID().toString().substring(0, 8) + ".bak";
       Path target = this.resolveBackup(configName, fileName);
       Path temporary = Files.createTempFile(configBackupDirectory, ".config-backup-", ".tmp");
+      Throwable primaryFailure = null;
       try {
          Files.copy(source, temporary, StandardCopyOption.REPLACE_EXISTING);
          this.moveAtomically(temporary, target, false);
+      } catch (IOException failure) {
+         primaryFailure = failure;
+         throw failure;
+      } catch (RuntimeException | Error failure) {
+         primaryFailure = failure;
+         throw failure;
       } finally {
-         Files.deleteIfExists(temporary);
+         cleanupTemporary(temporary, primaryFailure);
       }
 
       this.pruneBackups(configName);
@@ -104,11 +111,18 @@ public final class ConfigurationBackupManager {
          + "-" + UUID.randomUUID().toString().substring(0, 8) + ".bak";
       Path target = this.resolveBackup(configName, fileName);
       Path temporary = Files.createTempFile(configBackupDirectory, ".config-backup-", ".tmp");
+      Throwable primaryFailure = null;
       try {
          Files.copy(source, temporary, StandardCopyOption.REPLACE_EXISTING);
          this.moveAtomically(temporary, target, false);
+      } catch (IOException failure) {
+         primaryFailure = failure;
+         throw failure;
+      } catch (RuntimeException | Error failure) {
+         primaryFailure = failure;
+         throw failure;
       } finally {
-         Files.deleteIfExists(temporary);
+         cleanupTemporary(temporary, primaryFailure);
       }
 
       this.pruneBackups(configName);
@@ -215,11 +229,18 @@ public final class ConfigurationBackupManager {
       }
 
       Path temporary = Files.createTempFile(this.root, ".config-restore-", ".tmp");
+      Throwable primaryFailure = null;
       try {
          Files.copy(source, temporary, StandardCopyOption.REPLACE_EXISTING);
          this.moveAtomically(temporary, destination, true);
+      } catch (IOException failure) {
+         primaryFailure = failure;
+         throw failure;
+      } catch (RuntimeException | Error failure) {
+         primaryFailure = failure;
+         throw failure;
       } finally {
-         Files.deleteIfExists(temporary);
+         cleanupTemporary(temporary, primaryFailure);
       }
    }
 
@@ -235,6 +256,19 @@ public final class ConfigurationBackupManager {
          }
       }
       return deleted;
+   }
+
+   static void cleanupTemporary(Path temporary, Throwable primaryFailure) throws IOException {
+      try {
+         Files.deleteIfExists(temporary);
+      } catch (IOException cleanupFailure) {
+         if (primaryFailure == null) {
+            throw cleanupFailure;
+         }
+         if (primaryFailure != cleanupFailure) {
+            primaryFailure.addSuppressed(cleanupFailure);
+         }
+      }
    }
 
    private Path resolveConfig(String configName) {
@@ -311,13 +345,7 @@ public final class ConfigurationBackupManager {
       Path current = this.root;
       for (Path component : this.root.relativize(target)) {
          current = current.resolve(component);
-         if (!Files.exists(current, LinkOption.NOFOLLOW_LINKS)) {
-            Files.createDirectory(current);
-         }
-         if (Files.isSymbolicLink(current)
-            || !Files.isDirectory(current, LinkOption.NOFOLLOW_LINKS)) {
-            throw new IOException("Configuration backup path is not a real directory");
-         }
+         ConfigPathGuard.ensureRealDirectoryComponent(current, true);
       }
       return target;
    }
