@@ -17,6 +17,24 @@ class CoordLoggerModuleTest {
 
    @TempDir Path temporaryDirectory;
 
+
+   @Test
+   void oversizedLogIsPreservedInsteadOfLoadedOrRewritten() throws IOException {
+      Path log = temporaryDirectory.resolve("coordlogger.txt");
+      byte[] contents = new byte[(int)CoordLoggerModule.MAX_COORDINATE_LOG_BYTES + 1];
+      contents[0] = 'x';
+      contents[contents.length - 1] = 'y';
+      Files.write(log, contents);
+      CoordLoggerModule module = new CoordLoggerModule();
+
+      module.appendRetainedEntry(log, currentEntry("Disconnect"));
+
+      assertEquals(contents.length, Files.size(log));
+      byte[] after = Files.readAllBytes(log);
+      assertEquals('x', after[0]);
+      assertEquals('y', after[after.length - 1]);
+   }
+
    @Test
    void malformedUtf8LogIsPreservedWhenRetentionReadFails() throws IOException {
       Path log = temporaryDirectory.resolve("coordlogger.txt");

@@ -39,6 +39,7 @@ import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.protocol.game.ClientboundPlayerCombatKillPacket;
 
 public class CoordLoggerModule extends Module {
+   static final long MAX_COORDINATE_LOG_BYTES = 8L * 1024L * 1024L;
    private static final DateTimeFormatter timestampFormatter;
    private final Setting<Boolean> disconnectSetting;
    private final Setting<Boolean> deathSetting;
@@ -59,6 +60,13 @@ public class CoordLoggerModule extends Module {
                if (Files.isSymbolicLink(logFile)
                   || !Files.isRegularFile(logFile, LinkOption.NOFOLLOW_LINKS)) {
                   ClientAccess.logger.warn("Skipping coordinate log write because coordlogger.txt is not a regular file");
+                  return;
+               }
+               if (Files.size(logFile) > MAX_COORDINATE_LOG_BYTES) {
+                  ClientAccess.logger.warn(
+                     "Skipping coordinate log write because coordlogger.txt exceeds {} bytes",
+                     MAX_COORDINATE_LOG_BYTES
+                  );
                   return;
                }
                existingLines = Files.lines(logFile);
