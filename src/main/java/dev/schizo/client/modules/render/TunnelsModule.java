@@ -13,6 +13,7 @@ import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.WorldRenderEvent;
 import dev.schizo.client.events.EventHandler;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.events.LocalPlayerTickEvent;
 import dev.schizo.client.render.WorldBoxRenderer;
 import dev.schizo.client.managers.RotationManager;
@@ -128,9 +129,19 @@ public class TunnelsModule extends Module {
 
    @Override
    public void onDisable() {
-      this.resetChunkScanState(true);
+      this.resetSessionState();
       ChunkScanner scanner = this.chunkScanner;
       scanner.stop();
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.resetSessionState();
+   }
+
+   void resetSessionState() {
+      this.resetChunkScanState(true);
+      this.scanLevel = null;
    }
 
    private boolean isVerticalTunnelCell(BlockPos position) {
