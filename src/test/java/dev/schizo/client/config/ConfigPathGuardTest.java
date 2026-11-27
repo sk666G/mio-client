@@ -5,6 +5,11 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.concurrent.Future;
+import java.util.concurrent.Executors;
+import java.util.concurrent.CountDownLatch;
+import java.util.List;
+import java.util.ArrayList;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -52,6 +57,43 @@ class ConfigPathGuardTest {
       assertThrows(
          IOException.class,
          () -> ConfigPathGuard.ensureDirectory(this.root, linkedDirectory.resolve("killstreaks"))
+      );
+   }
+
+
+   @Test
+   void concurrentWritersCanShareCreationOfTheSameNestedParent() throws Exception {
+      int workers = 24;
+      var executor = Executors.newFixedThreadPool(workers);
+      CountDownLatch start = new CountDownLatch(1);
+      List<Future<Path>> writes = new ArrayList<>();
+
+      try {
+         for (int index = 0; index < workers; index++) {
+            writes.add(executor.submit(() -> {
+               start.await();
+               return ConfigPathGuard.resolveForWrite(this.root, "presets/shared/auto.json");
+            }));
+         }
+
+         start.countDown();
+         Path expected = this.root.resolve("presets").resolve("shared").resolve("auto.json");
+         for (Future<Path> write : writes) {
+            assertEquals(expected, write.get());
+         }
+         assertTrue(Files.isDirectory(expected.getParent()));
+      } finally {
+         executor.shutdownNow();
+      }
+   }
+
+   @Test
+   void racedExistingNonDirectoryIsStillRejected() throws IOException {
+      Path component = Files.writeString(this.root.resolve("occupied"), "not a directory");
+
+      assertThrows(
+         IOException.class,
+         () -> ConfigPathGuard.ensureRealDirectoryComponent(component, true)
       );
    }
 
