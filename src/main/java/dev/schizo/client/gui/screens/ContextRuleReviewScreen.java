@@ -88,14 +88,15 @@ final class ContextRuleReviewScreen extends Screen {
    }
 
    @Override public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-      graphics.fill(0, 0, width, height, 0xee08090d);
-      graphics.fill(left - 4, top, left + panelWidth + 4, top + 62 + rowCount * 13, 0xff13141a);
-      graphics.fill(left - 4, top, left + panelWidth + 4, top + 2, 0xffe7394d);
-      draw(graphics, "SCHIZO / REVIEW RULE", top + 8, 0xffe7394d);
+      StudioScreenTheme theme = StudioScreenTheme.current();
+      graphics.fill(0, 0, width, height, theme.backdrop());
+      graphics.fill(left - 4, top, left + panelWidth + 4, top + 62 + rowCount * 13, theme.panel());
+      graphics.fill(left - 4, top, left + panelWidth + 4, top + 2, theme.accent());
+      draw(graphics, "SCHIZO / REVIEW RULE", top + 8, theme.accent());
       draw(graphics, notice.isEmpty() ? "No settings applied | Scroll for full preview" : notice, top + 21, 0xffa1a3af);
       for (int i = 0; i < rowCount && offset + i < rows.size(); i++) {
          int y = top + 34 + i * 13;
-         graphics.fill(left, y, left + panelWidth, y + 12, 0xff21222a);
+         graphics.fill(left, y, left + panelWidth, y + 12, theme.row());
          draw(graphics, rows.get(offset + i), y + 2, 0xffeeeeef);
       }
       super.render(graphics, mouseX, mouseY, partialTick);

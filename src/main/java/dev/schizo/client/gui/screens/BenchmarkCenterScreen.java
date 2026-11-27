@@ -122,27 +122,28 @@ public final class BenchmarkCenterScreen extends Screen {
    }
 
    @Override public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-      graphics.fill(0, 0, width, height, 0xee08090d);
-      graphics.fill(left, top, left + panelWidth, Math.min(height, graphY + graphHeight + 52), 0xff13141a);
-      graphics.fill(left, top, left + panelWidth, top + 2, 0xffe7394d);
-      line(graphics, "SCHIZO / BENCHMARK LAB", top + 8, 0xffe7394d);
+      StudioScreenTheme theme = StudioScreenTheme.current();
+      graphics.fill(0, 0, width, height, theme.backdrop());
+      graphics.fill(left, top, left + panelWidth, Math.min(height, graphY + graphHeight + 52), theme.panel());
+      graphics.fill(left, top, left + panelWidth, top + 2, theme.accent());
+      line(graphics, "SCHIZO / BENCHMARK LAB", top + 8, theme.accent());
       line(graphics, capture.isActive() ? "Recording gameplay | " + capture.frameCount() + " frames"
          : capture.hasCapture() ? "Capture ready to finish or save" : "Record in-world, then reopen Benchmarks to save.", top + 22, 0xffa1a3af);
-      line(graphics, detail("A", a), top + 37, 0xffe7394d);
+      line(graphics, detail("A", a), top + 37, theme.accent());
       line(graphics, detail("B", b), top + 50, 0xffb8b9c7);
       line(graphics, memoryLine(), top + 63, 0xffa1a3af);
       line(graphics, notice.isEmpty() ? "Compare matching workloads. 50 ms+ = hitch." : notice, top + 76, 0xffa1a3af);
-      drawGraph(graphics);
+      drawGraph(graphics, theme);
       super.render(graphics, mouseX, mouseY, partialTick);
    }
 
-   private void drawGraph(GuiGraphics graphics) {
+   private void drawGraph(GuiGraphics graphics, StudioScreenTheme theme) {
       int gx = left + 8, gw = Math.max(1, panelWidth - 16);
-      graphics.fill(gx, graphY, gx + gw, graphY + graphHeight, 0xff202129);
+      graphics.fill(gx, graphY, gx + gw, graphY + graphHeight, theme.row());
       double max = 50;
       if (a != null) for (double sample : a.timeline()) max = Math.max(max, sample);
       if (b != null) for (double sample : b.timeline()) max = Math.max(max, sample);
-      drawSeries(graphics, a, 0, max, gx, gw, 0xffe7394d);
+      drawSeries(graphics, a, 0, max, gx, gw, theme.accent());
       drawSeries(graphics, b, 1, max, gx, gw, 0xffa8a9b7);
       if (graphHeight >= 14) line(graphics, String.format(Locale.ROOT, "30s timeline | mean ms / second | scale %.0f ms", max), graphY + 2, 0xffeeeeef);
    }

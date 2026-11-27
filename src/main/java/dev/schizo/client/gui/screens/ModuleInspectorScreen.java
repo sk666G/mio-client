@@ -203,10 +203,11 @@ public final class ModuleInspectorScreen extends Screen {
    }
 
    @Override public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-      graphics.fill(0, 0, width, height, 0xee08090d);
-      graphics.fill(left - 4, top, left + panelWidth + 4, Math.min(height, top + 196 + rowCount * 13), 0xff13141a);
-      graphics.fill(left - 4, top, left + panelWidth + 4, top + 2, 0xffe7394d);
-      line(graphics, "SCHIZO / INSPECTOR / " + module.getName(), top + 8, 0xffe7394d);
+      StudioScreenTheme theme = StudioScreenTheme.current();
+      graphics.fill(0, 0, width, height, theme.backdrop());
+      graphics.fill(left - 4, top, left + panelWidth + 4, Math.min(height, top + 196 + rowCount * 13), theme.panel());
+      graphics.fill(left - 4, top, left + panelWidth + 4, top + 2, theme.accent());
+      line(graphics, "SCHIZO / INSPECTOR / " + module.getName(), top + 8, theme.accent());
       line(graphics, module.getDescription(), top + 21, 0xffeeeeef);
       line(graphics, "Compatibility: " + assessment.classification() + " | individual settings unverified", top + 34, 0xffa1a3af);
       line(graphics, bindingNotice, top + 47, 0xffb8b9c7);
@@ -217,8 +218,8 @@ public final class ModuleInspectorScreen extends Screen {
          Setting<?> setting = settings.get(index);
          int y = top + 100 + i * 13;
          boolean hover = mouseX >= left && mouseX < left + panelWidth && mouseY >= y && mouseY < y + 12;
-         graphics.fill(left, y, left + panelWidth, y + 12, index == selected ? 0xff48232c : hover ? 0xff30313b : 0xff21222a);
-         if (index == selected) graphics.fill(left, y, left + 2, y + 12, 0xffe7394d);
+         graphics.fill(left, y, left + panelWidth, y + 12, index == selected ? theme.selected() : hover ? theme.hover() : theme.row());
+         if (index == selected) graphics.fill(left, y, left + 2, y + 12, theme.accent());
          String text = setting.getName() + ": " + displayValue(setting) + (editable(setting) ? "" : " [read-only]");
          line(graphics, text, y + 2, index == selected ? 0xffeeeeef : 0xffb8b9c7);
       }

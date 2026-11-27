@@ -385,14 +385,15 @@ public final class ExpeditionScreen extends Screen {
 
    @Override
    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+      StudioScreenTheme theme = StudioScreenTheme.current();
       if (this.privacyAtRefresh != dev.schizo.client.utils.CoordinatePrivacy.isEnabled()) this.refresh();
-      graphics.fill(0, 0, this.width, this.height, 0xee08090d);
-      graphics.drawString(this.font, this.fit("Schizo Expedition / " + TABS[this.tab], this.panelWidth), this.left, this.titleY, 0xffe7394d);
+      graphics.fill(0, 0, this.width, this.height, theme.backdrop());
+      graphics.drawString(this.font, this.fit("Schizo Expedition / " + TABS[this.tab], this.panelWidth), this.left, this.titleY, theme.accent());
       int visible = Math.min(this.visibleRows, this.rows.size() - this.offset);
       for (int i = 0; i < visible; i++) {
          int index = this.offset + i, y = this.rowsTop + i * 34;
          Row row = this.rows.get(index);
-         graphics.fill(this.left, y, this.left + this.panelWidth, y + 32, index == this.selected ? 0xff48232c : 0xff191a21);
+         graphics.fill(this.left, y, this.left + this.panelWidth, y + 32, index == this.selected ? theme.selected() : theme.row());
          graphics.drawString(this.font, this.fit(row.title(), this.panelWidth - 8), this.left + 4, y + 4, 0xffffffff);
          graphics.drawString(this.font, this.fit(row.detail(), this.panelWidth - 8), this.left + 4, y + 17, 0xffacb9c9);
       }
