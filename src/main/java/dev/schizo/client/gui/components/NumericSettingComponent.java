@@ -176,6 +176,7 @@ public class NumericSettingComponent<N extends Number> extends SettingComponent<
          ClientScreen.cursor = CursorType.INPUT;
       }
 
+      if (!this.panel.isDocked()) {
       GuiDrawUtils.fillRect(
          poseStack,
          this.sliderX
@@ -199,6 +200,7 @@ public class NumericSettingComponent<N extends Number> extends SettingComponent<
             - 0.5F,
          this.getUiModule().colorSetting.getValue()
       );
+      }
       String displayText;
       if (this.editing) {
          displayText = this.inputText;
@@ -211,6 +213,20 @@ public class NumericSettingComponent<N extends Number> extends SettingComponent<
 
       String measuredText = this.editing ? displayText + "_" : displayText;
       String drawnText = this.editing && !this.getBlinkingCursor().isEmpty() ? measuredText : displayText;
+
+      if (this.panel.isDocked()) {
+         float x = this.panel.getX(), y = this.panel.getY() + this.yOffset;
+         float w = this.panel.getWidth(), h = this.getHeight();
+         Color accent = this.getUiModule().colorSetting.getValue();
+         float p = StudioControlGeometry.fraction(this.sliderFillAnimation.updateAndGet(), 0, Math.max(1, w - 2));
+         float hover = StudioControlGeometry.clampProgress(this.getHoverAnimationValue());
+         StudioControlStyle.softRect(poseStack, x + 5, y + 1, w - 10, h - 2,
+            dev.schizo.client.render.ColorUtils.withAlpha(Color.WHITE, Math.round(9 + 14 * hover)));
+         if (h >= 11) StudioControlStyle.slider(poseStack, x + 9, y + h - 4, w - 18, p, accent);
+         FontRenderer.INSTANCE.drawWithoutShadow(poseStack, StudioControlStyle.fitText(drawnText, w - 18),
+            x + 9, y + Math.max(0, this.getTextYOffset() - 2), this.getUiModule().textColorSetting.getValue());
+         return;
+      }
 
       this.renderWithTextScroll(
          poseStack,
@@ -322,20 +338,13 @@ public class NumericSettingComponent<N extends Number> extends SettingComponent<
             .equalsIgnoreCase("Integer")
          ? 1.0D
          : 0.1D;
-      this.sliderFillWidth = (float)(
-         sliderWidth
-            * (
-               (
-                     roundingStep == 1.0D
-                        ? (this.setting.getValue())
-                           .intValue()
-                        : (this.setting.getValue())
-                           .floatValue()
-                  )
-                  - minimumValue
-            )
-            / (maximumValue - minimumValue)
-      );
+      this.sliderFillWidth = (float)Math.max(0, sliderWidth) * StudioControlGeometry.fraction(
+         this.setting.getValue().doubleValue(), minimumValue, maximumValue);
+      if (sliderWidth <= 0 || !Double.isFinite(maximumValue - minimumValue) || maximumValue <= minimumValue) {
+         this.dragging = false;
+         this.sliderFillAnimation.setValue(0.0F);
+         return;
+      }
       if (this.dragging) {
          if (mouseOffset == 0.0) {
             if (roundingStep == 1.0D) {
