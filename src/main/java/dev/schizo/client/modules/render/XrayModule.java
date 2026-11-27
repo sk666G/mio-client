@@ -41,6 +41,7 @@ public class XrayModule extends Module {
    public final Setting<Integer> alphaSetting;
    private final Setting<Boolean> bypassSetting;
    private double previousGamma;
+   private boolean gammaOverrideApplied;
 
    @Override
    public void onEnable() {
@@ -48,6 +49,7 @@ public class XrayModule extends Module {
       this.previousGamma = previousGammaOption.get();
       OptionInstance<Double> gammaOption = ClientAccess.schizoMinecraft.options.gamma();
       GameOptionsOverrides.forceSetOptionValue(gammaOption, 1000.0D);
+      this.gammaOverrideApplied = true;
    }
 
    @Override
@@ -57,10 +59,25 @@ public class XrayModule extends Module {
 
    @Override
    public void onDisable() {
+      if (ClientAccess.schizoMinecraft == null || ClientAccess.schizoMinecraft.options == null) {
+         this.gammaOverrideApplied = false;
+         return;
+      }
       Options options = ClientAccess.schizoMinecraft.options;
       OptionInstance<Double> gammaOption = options.gamma();
-      double savedGamma = this.previousGamma;
-      GameOptionsOverrides.forceSetOptionValue(gammaOption, savedGamma);
+      double currentGamma = gammaOption.get();
+      if (shouldRestoreGamma(this.gammaOverrideApplied, currentGamma, 1000.0D)) {
+         GameOptionsOverrides.forceSetOptionValue(gammaOption, this.previousGamma);
+      }
+      this.gammaOverrideApplied = false;
+   }
+
+   static boolean shouldRestoreGamma(
+      boolean overrideApplied,
+      double currentGamma,
+      double lastAppliedGamma
+   ) {
+      return overrideApplied && Double.compare(currentGamma, lastAppliedGamma) == 0;
    }
 
    private void reloadRendererIfEnabled() {
