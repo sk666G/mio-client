@@ -17,7 +17,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
 /** Local, read-only health surface. Explicit clipboard action never exports raw exception text. */
-public final class HealthCenterScreen extends Screen {
+public final class HealthCenterScreen extends StudioScreen {
    private final Screen returnScreen;
    private HealthReport report;
    private List<String> reportRows = List.of();
@@ -32,6 +32,7 @@ public final class HealthCenterScreen extends Screen {
 
    @Override
    protected void init() {
+      super.init();
       panelWidth = Math.max(1, Math.min(440, width - 20));
       left = (width - panelWidth) / 2;
       top = Math.max(8, (height - 300) / 2);

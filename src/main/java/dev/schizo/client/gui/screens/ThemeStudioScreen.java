@@ -12,7 +12,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
 /** Theme sample is live-rendered locally without touching real settings until Apply. */
-public final class ThemeStudioScreen extends Screen {
+public final class ThemeStudioScreen extends StudioScreen {
    private final Screen parent;
    private ThemePreviewDraft draft;
    private final FloatAnimation switchMotion = new FloatAnimation();
@@ -34,6 +34,7 @@ public final class ThemeStudioScreen extends Screen {
    }
 
    @Override protected void init() {
+      super.init();
       panelWidth = Math.max(1, Math.min(520, width - 16));
       left = (width - panelWidth) / 2;
       top = Math.max(4, (height - 250) / 2);

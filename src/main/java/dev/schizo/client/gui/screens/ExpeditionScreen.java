@@ -25,7 +25,7 @@ import net.minecraft.world.item.Items;
 import org.lwjgl.glfw.GLFW;
 
 /** Client-thread snapshots and explicit actions over existing discovery/profile registries. */
-public final class ExpeditionScreen extends Screen {
+public final class ExpeditionScreen extends StudioScreen {
    private static final String[] TABS = {"Discoveries", "Travel", "Profiles", "Compatibility"};
    private record Row(String key, String title, String detail, DiscoveryEntry discovery) {}
    private List<Row> rows = List.of();
@@ -63,6 +63,7 @@ public final class ExpeditionScreen extends Screen {
 
    @Override
    protected void init() {
+      super.init();
       this.panelWidth = Math.max(1, Math.min(720, this.width - 16));
       this.left = (this.width - this.panelWidth) / 2;
       ExpeditionLayout.Geometry layout = ExpeditionLayout.forViewportHeight(this.height);
