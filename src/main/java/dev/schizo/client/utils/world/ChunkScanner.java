@@ -48,16 +48,16 @@ public class ChunkScanner implements ClientAccess {
    }
 
    public void scanLoadedChunks() {
-      if (this.chunkLoadCallback != null) {
+      if (!this.running || this.chunkLoadCallback == null || this.isWorldUnavailable()) {
+         return;
+      }
 
-         Iterator chunks = WorldUtils.getLoadedChunks().iterator();
-
-         while (chunks.hasNext()) {
-            LevelChunk chunk = (LevelChunk)chunks.next();
-            this.dispatch(() -> {
-               this.chunkLoadCallback.accept(chunk.getPos(), chunk);
-            });
-         }
+      Iterator chunks = WorldUtils.getLoadedChunks().iterator();
+      while (chunks.hasNext()) {
+         LevelChunk chunk = (LevelChunk)chunks.next();
+         this.dispatch(() -> {
+            this.chunkLoadCallback.accept(chunk.getPos(), chunk);
+         });
       }
    }
 
