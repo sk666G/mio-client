@@ -119,6 +119,10 @@ class WaypointRegistryTest {
       WaypointRegistry registry = new WaypointRegistry();
 
       assertFalse(registry.registerWaypoint(new Waypoint("Home", 1, 64, 2, null, "example.org")));
+      assertFalse(registry.registerWaypoint(new Waypoint("", 1, 64, 2, "overworld", "example.org")));
+      assertFalse(registry.registerWaypoint(new Waypoint("   ", 1, 64, 2, "overworld", "example.org")));
+      assertFalse(registry.registerWaypoint(new Waypoint("Home", 1, 64, 2, "", "example.org")));
+      assertFalse(registry.registerWaypoint(new Waypoint("Home", 1, 64, 2, "overworld", "   ")));
       assertFalse(registry.registerWaypoint(new Waypoint("Home", 1, 64, 2, "overworld", "example.org") {
          @Override
          public double getX() {
