@@ -1,10 +1,11 @@
 package dev.schizo.client.config;
 
+import dev.schizo.client.utils.FileUtils;
+
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
@@ -55,14 +56,7 @@ public final class CompatibilityEvidenceStore {
       for (String field : new String[]{"buildCommit", "serverSoftware", "serverVersion", "scenario"}) receipt.add(field, null);
       receipt.add("plugins", new JsonArray());
       receipt.add("observations", new JsonArray());
-      Path temporary = Files.createTempFile(this.directory, ".evidence-", ".tmp");
-      try {
-         Files.writeString(temporary, receipt.toString(), StandardCharsets.UTF_8);
-         // The non-replacing move preserves any receipt already at the requested name.
-         Files.move(temporary, target);
-      } finally {
-         Files.deleteIfExists(temporary);
-      }
+      FileUtils.writeUtf8CreateNew(target, receipt.toString());
    }
 
    public JsonObject load(String name) throws IOException {
