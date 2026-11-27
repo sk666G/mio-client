@@ -187,12 +187,12 @@ public final class PresetRegistry extends Registry<PresetData> {
          throw new IOException("Preset file no longer exists: " + sourcePath.getFileName());
       }
       ensureNoCollision(normalizedTarget, normalizedSource);
-      Files.move(sourcePath, targetPath);
+      FileUtils.moveFileNoReplace(sourcePath, targetPath);
       try {
          if (previousTarget != null) previousTarget.saveToDirectory(this.directory);
       } catch (IOException failure) {
          try {
-            Files.move(targetPath, sourcePath);
+            FileUtils.moveFileNoReplace(targetPath, sourcePath);
          } catch (IOException rollbackFailure) {
             failure.addSuppressed(rollbackFailure);
          }
@@ -246,7 +246,7 @@ public final class PresetRegistry extends Registry<PresetData> {
          throw new IOException("Preset file does not exist: " + sourcePath.getFileName());
       }
       ensureNoCollision(normalizedNew, normalizedOld);
-      Files.move(sourcePath, targetPath);
+      FileUtils.moveFileNoReplace(sourcePath, targetPath);
       synchronized (this.getRegistry()) {
          this.entries.removeIf(candidate -> candidate.getName().equalsIgnoreCase(normalizedOld));
          this.entries.add(new PresetData(normalizedNew, source.contents()));
