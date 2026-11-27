@@ -79,7 +79,7 @@ public class LongJumpModule extends Module {
          this.disable();
       } else {
          if (this.autoJumpSetting.getValue()) {
-            ClientContext.inputOverrides.requestJump(true);
+            ClientContext.inputOverrides.requestJump(this, true);
             this.jumpRequested = true;
          } else {
             this.jumpRequested = false;
