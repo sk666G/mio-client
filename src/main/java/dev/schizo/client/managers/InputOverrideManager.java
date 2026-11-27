@@ -63,28 +63,56 @@ public final class InputOverrideManager {
         pendingForward.set(value);
     }
 
+    public void requestForward(Object owner, boolean value) {
+        pendingForward.set(owner, value);
+    }
+
     public void requestBack(boolean value) {
         pendingBack.set(value);
+    }
+
+    public void requestBack(Object owner, boolean value) {
+        pendingBack.set(owner, value);
     }
 
     public void requestLeft(boolean value) {
         pendingLeft.set(value);
     }
 
+    public void requestLeft(Object owner, boolean value) {
+        pendingLeft.set(owner, value);
+    }
+
     public void requestRight(boolean value) {
         pendingRight.set(value);
+    }
+
+    public void requestRight(Object owner, boolean value) {
+        pendingRight.set(owner, value);
     }
 
     public void requestSprint(boolean value) {
         pendingSprint.set(value);
     }
 
+    public void requestSprint(Object owner, boolean value) {
+        pendingSprint.set(owner, value);
+    }
+
     public void requestForwardMovement(float value) {
         pendingForwardMovement.set(value);
     }
 
+    public void requestForwardMovement(Object owner, float value) {
+        pendingForwardMovement.set(owner, value);
+    }
+
     public void requestSidewaysMovement(float value) {
         pendingSidewaysMovement.set(value);
+    }
+
+    public void requestSidewaysMovement(Object owner, float value) {
+        pendingSidewaysMovement.set(owner, value);
     }
 
     public boolean isSprintBlocked() {
@@ -107,6 +135,11 @@ public final class InputOverrideManager {
         requestSidewaysMovement(sideways);
     }
 
+    public void requestMovement(Object owner, float forward, float sideways) {
+        requestForwardMovement(owner, forward);
+        requestSidewaysMovement(owner, sideways);
+    }
+
     public void requestReset() {
         requestSneak(false);
         requestSprint(false);
@@ -116,6 +149,32 @@ public final class InputOverrideManager {
         requestLeft(false);
         requestRight(false);
         requestMovement(0.0F, 0.0F);
+    }
+
+    public void requestReset(Object owner) {
+        requestSneak(owner, false);
+        requestSprint(owner, false);
+        requestJump(owner, false);
+        requestForward(owner, false);
+        requestBack(owner, false);
+        requestLeft(owner, false);
+        requestRight(owner, false);
+        requestMovement(owner, 0.0F, 0.0F);
+    }
+
+    public void clearRequests(Object owner) {
+        if (owner == null) {
+            return;
+        }
+        pendingSneak.clear(owner);
+        pendingJump.clear(owner);
+        pendingForward.clear(owner);
+        pendingBack.clear(owner);
+        pendingLeft.clear(owner);
+        pendingRight.clear(owner);
+        pendingSprint.clear(owner);
+        pendingForwardMovement.clear(owner);
+        pendingSidewaysMovement.clear(owner);
     }
 
     @EventHandler(priority = -100)
