@@ -61,6 +61,7 @@ public final class ServerStateManager implements ClientAccess {
    private volatile long lastPacketNanos;
    private volatile long lastEntityPacketNanos;
    private volatile long lastTimeUpdateNanos;
+   private volatile long sessionGeneration;
    private volatile int teleportId;
    private volatile boolean serverSprinting;
    private volatile boolean serverSneaking;
@@ -233,6 +234,7 @@ public final class ServerStateManager implements ClientAccess {
    }
 
    private void resetSessionState() {
+      this.sessionGeneration++;
       this.tickRateWindow.clear();
       this.lastPacketMillis = 0L;
       this.lastEntityPacketMillis = 0L;
@@ -281,6 +283,17 @@ public final class ServerStateManager implements ClientAccess {
       return this.tickRateWindow.average() / 20.0F;
    }
 
+   static boolean matchesQueuedSession(
+      long expectedGeneration,
+      long currentGeneration,
+      Object expectedPlayer,
+      Object currentPlayer
+   ) {
+      return expectedGeneration == currentGeneration
+         && expectedPlayer != null
+         && expectedPlayer == currentPlayer;
+   }
+
    @EventHandler
    private void onPacketReceive(
       PacketEvent.Receive event
@@ -294,10 +307,17 @@ public final class ServerStateManager implements ClientAccess {
             this.setbackTimer.reset();
          }
 
+         long expectedSessionGeneration = this.sessionGeneration;
+         LocalPlayer expectedPlayer = ClientAccess.schizoMinecraft.player;
          ClientAccess.schizoMinecraft.executeIfPossible(() -> {
-            LocalPlayer sprintPlayer = ClientAccess.schizoMinecraft.player;
-            if (sprintPlayer != null) {
-               this.serverSprinting = sprintPlayer.isSprinting();
+            LocalPlayer currentPlayer = ClientAccess.schizoMinecraft.player;
+            if (matchesQueuedSession(
+               expectedSessionGeneration,
+               this.sessionGeneration,
+               expectedPlayer,
+               currentPlayer
+            )) {
+               this.serverSprinting = expectedPlayer.isSprinting();
             }
          });
       }
