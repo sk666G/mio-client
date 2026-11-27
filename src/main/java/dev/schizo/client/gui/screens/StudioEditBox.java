@@ -14,7 +14,7 @@ final class StudioEditBox extends EditBox {
       super(font, x, y, width, height, message);
    }
 
-   @Override protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+   @Override public void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
       super.renderWidget(graphics, mouseX, mouseY, partialTick);
       int x = getX(), y = getY(), w = getWidth(), h = getHeight();
       if (w < 2 || h < 2) return;
