@@ -49,7 +49,7 @@ class SearchModuleConfigTest {
       assertDoesNotThrow(() -> module.fromJson(root));
 
       assertTrue(module.getLastConfigLoadIssues().isEmpty());
-      JsonObject serializedSettings = module.toJson().getAsJsonObject("settings");
+      JsonObject serializedSettings = module.toJson().getAsJsonObject().getAsJsonObject("settings");
       assertTrue(serializedSettings.get("SearchEntities").getAsBoolean());
    }
 }
