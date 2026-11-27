@@ -317,7 +317,13 @@ public final class InventoryStateManager implements ClientAccess {
             Integer readySlot = slotsIterator.next();
             InventoryStateManager.DeferredSlotUpdate removedUpdate = this.deferredSlotUpdates.remove(readySlot);
             LocalPlayer currentPlayer = ClientAccess.schizoMinecraft.player;
-            if (!matchesDeferredOwner(removedUpdate.player(), currentPlayer)) {
+            int currentContainerId = currentPlayer == null ? -1 : currentPlayer.containerMenu.containerId;
+            if (!matchesDeferredContext(
+               removedUpdate.player(),
+               currentPlayer,
+               removedUpdate.containerId(),
+               currentContainerId
+            )) {
                continue;
             }
 
@@ -405,7 +411,8 @@ public final class InventoryStateManager implements ClientAccess {
                new InventoryStateManager.DeferredSlotUpdate(
                   slotPacket,
                   System.nanoTime() + java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(500L),
-                  ClientAccess.schizoMinecraft.player
+                  ClientAccess.schizoMinecraft.player,
+                  ClientAccess.schizoMinecraft.player.containerMenu.containerId
                )
             );
 
@@ -447,8 +454,15 @@ public final class InventoryStateManager implements ClientAccess {
       return nowNanos - deadlineNanos >= 0L;
    }
 
-   static boolean matchesDeferredOwner(Object capturedPlayer, Object currentPlayer) {
-      return capturedPlayer != null && capturedPlayer == currentPlayer;
+   static boolean matchesDeferredContext(
+      Object capturedPlayer,
+      Object currentPlayer,
+      int capturedContainerId,
+      int currentContainerId
+   ) {
+      return capturedPlayer != null
+         && capturedPlayer == currentPlayer
+         && capturedContainerId == currentContainerId;
    }
 
    public static boolean isClickRateLimited(InventoryStateManager manager) {
@@ -458,7 +472,8 @@ public final class InventoryStateManager implements ClientAccess {
    private record DeferredSlotUpdate(
       ClientboundContainerSetSlotPacket packet,
       long resumeAtNanos,
-      LocalPlayer player
+      LocalPlayer player,
+      int containerId
    ) {
    }
 }
