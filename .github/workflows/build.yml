@@ -92,7 +92,11 @@ jobs:
           else
             printf '%s\n' '(none)'
           fi
-          sha256sum "$jar_file" > build/libs/SHA256SUMS.txt
+          jar_basename="$(basename "$jar_file")"
+          (
+            cd build/libs
+            sha256sum "$jar_basename" > SHA256SUMS.txt
+          )
           printf '%s\n' "$SOURCE_COMMIT_SHA" > build/libs/COMMIT_SHA.txt
           printf '%s\n' "$GITHUB_SHA" > build/libs/BUILD_COMMIT_SHA.txt
 

@@ -191,6 +191,29 @@ class RepositoryHygieneTest(unittest.TestCase):
         missing = [name for name in registrations if not (command_root / f"{name}.java").is_file()]
         self.assertEqual([], missing, f"Registered command source missing: {missing}")
 
+
+    def test_build_artifact_provenance_is_self_verifiable(self):
+        workflow = (ROOT / ".github/workflows/build.yml").read_text(encoding="utf-8")
+        self.assertIn(
+            "SOURCE_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}",
+            workflow,
+        )
+        self.assertIn(
+            'printf \'%s\\n\' "$SOURCE_COMMIT_SHA" > build/libs/COMMIT_SHA.txt',
+            workflow,
+        )
+        self.assertIn(
+            'printf \'%s\\n\' "$GITHUB_SHA" > build/libs/BUILD_COMMIT_SHA.txt',
+            workflow,
+        )
+        self.assertIn('jar_basename="$(basename "$jar_file")"', workflow)
+        self.assertIn("cd build/libs", workflow)
+        self.assertIn('sha256sum "$jar_basename" > SHA256SUMS.txt', workflow)
+        self.assertNotIn(
+            'sha256sum "$jar_file" > build/libs/SHA256SUMS.txt',
+            workflow,
+        )
+
     def test_validation_circumvention_modules_cannot_reappear(self):
         forbidden = (
             ROOT / "src/main/java/dev/schizo/client/modules/exploit/GrimDisablerModule.java",
