@@ -86,6 +86,10 @@ public class PositionModule extends HudWidgetModule {
       this.fakeOffset = null;
    }
 
+   static String formatRedactedText(String prefix) {
+      return prefix + ChatFormatting.WHITE + "REDACTED";
+   }
+
    private void refreshFakeOffset() {
       LocalPlayer player = ClientAccess.schizoMinecraft.player;
       if (player == null) {
@@ -269,11 +273,7 @@ public class PositionModule extends HudWidgetModule {
                return Component.literal(positionText);
             }
 
-            Object[] redactedFormatArguments = new Object[2];
-            redactedFormatArguments[0] = this.getCoordinatePrefix();
-            redactedFormatArguments[1] = ChatFormatting.WHITE;
-            String redactedText = "%s%sREDACTED".formatted(redactedFormatArguments);
-            return Component.literal(redactedText);
+            return Component.literal(formatRedactedText(this.getCoordinatePrefix()));
          },
          () -> true
       );

@@ -28,4 +28,13 @@ class PositionModuleSessionTest {
       disconnect.invoke(module, new MinecraftDisconnectEvent());
       assertNull(fakeOffset.get(module));
    }
+
+   @Test
+   void redactedTextPreservesPrefixAndColorLayout() {
+      assertEquals(
+         "XYZ " + net.minecraft.ChatFormatting.WHITE + "REDACTED",
+         PositionModule.formatRedactedText("XYZ ")
+      );
+   }
+
 }
