@@ -228,8 +228,7 @@ public class StashFinderModule extends Module {
 
    public StashEntry createStash(String description, ChunkPos chunk) {
 
-      DimensionType dimensionOption = WorldUtils.getDimension();
-      String dimension = dimensionOption.name();
+      String dimension = WorldUtils.getDimensionId();
       ClientPacketListener serverCheckConnection = ClientAccess.schizoMinecraft.player.connection;
       String serverAddress;
       if (serverCheckConnection.getServerData() == null) {
