@@ -97,12 +97,16 @@ public final class WorldUtils implements ClientAccess {
       return chunks;
    }
 
-   public static DimensionType getDimension() {
+   public static String getDimensionId() {
       if (ClientAccess.schizoMinecraft.level == null) {
-         return DimensionType.OVERWORLD;
+         return DimensionType.OVERWORLD.getName();
       }
       net.minecraft.resources.Identifier dimensionId = ClientAccess.schizoMinecraft.level.dimension().identifier();
-      return switch (dimensionId.getPath()) {
+      return DimensionCoordinates.canonical(dimensionId.toString());
+   }
+
+   public static DimensionType getDimension() {
+      return switch (getDimensionId()) {
          case "the_nether" -> DimensionType.THE_NETHER;
          case "the_end" -> DimensionType.THE_END;
          default -> DimensionType.OVERWORLD;

@@ -49,14 +49,19 @@ public final class StrictStrafeSpeedHandler extends SpeedModeHandler {
 
    @Override
    public void onMove(LocalPlayerMoveEvent event) {
-      if (this.shouldPauseStrictStrafe()) {
-         return;
-      }
-      if (this.speedModule.useTimerSetting.getValue()
-         && ClientContext.serverStateManager.getSetbackTimer().hasElapsed(250L)) {
+      boolean paused = this.shouldPauseStrictStrafe();
+      boolean timerRequested = shouldRequestTimer(
+         paused,
+         this.speedModule.useTimerSetting.getValue(),
+         ClientContext.serverStateManager.getSetbackTimer().hasElapsed(250L)
+      );
+      if (timerRequested) {
          ClientContext.tickRateController.requestMultiplier(this.speedModule, 1.0888F);
       } else {
          ClientContext.tickRateController.releaseMultiplier(this.speedModule);
+      }
+      if (paused) {
+         return;
       }
       if (!MovementPhysics.isLocalPlayerMoving()) {
          event.setHorizontalVelocity(0.0, 0.0);
@@ -67,6 +72,10 @@ public final class StrictStrafeSpeedHandler extends SpeedModeHandler {
          speed = Math.max(speed, Math.hypot(event.getX(), event.getZ()));
       }
       MovementPhysics.applyHorizontalMotion(event, speed);
+   }
+
+   static boolean shouldRequestTimer(boolean paused, boolean useTimer, boolean setbackElapsed) {
+      return !paused && useTimer && setbackElapsed;
    }
 
    private boolean shouldPauseStrictStrafe() {

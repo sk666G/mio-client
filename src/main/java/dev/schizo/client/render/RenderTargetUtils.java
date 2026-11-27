@@ -88,18 +88,20 @@ public final class RenderTargetUtils implements ClientAccess {
          }
          RenderSystem.outputColorTextureOverride = previous.colorOverride();
          RenderSystem.outputDepthTextureOverride = previous.depthOverride();
-         if (rollbackFailure != null) {
+         if (rollbackFailure != null && rollbackFailure != failure) {
             failure.addSuppressed(rollbackFailure);
          }
          throw failure;
       }
    }
 
-   private static Throwable combineFailures(Throwable existing, Throwable additional) {
+   static Throwable combineFailures(Throwable existing, Throwable additional) {
       if (existing == null) {
          return additional;
       }
-      existing.addSuppressed(additional);
+      if (existing != additional) {
+         existing.addSuppressed(additional);
+      }
       return existing;
    }
 

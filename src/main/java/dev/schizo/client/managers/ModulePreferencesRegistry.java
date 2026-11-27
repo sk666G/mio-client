@@ -130,8 +130,19 @@ public final class ModulePreferencesRegistry implements ClientAccess, JsonConfig
          return;
       }
 
-      List<String> favorites = this.loadKnownNames(root.get("favorites"), MAX_FAVORITES, false);
-      List<String> recent = this.loadKnownNames(root.get("recent"), MAX_RECENT, true);
+      JsonElement favoritesElement = root.get("favorites");
+      JsonElement recentElement = root.get("recent");
+      if (!(favoritesElement instanceof JsonArray) || !(recentElement instanceof JsonArray)) {
+         ClientAccess.logger.warn("Ignoring malformed module preferences configuration");
+         return;
+      }
+      if (ClientContext.moduleRegistry == null) {
+         ClientAccess.logger.warn("Ignoring module preferences until the module registry is available");
+         return;
+      }
+
+      List<String> favorites = this.loadKnownNames(favoritesElement, MAX_FAVORITES, false);
+      List<String> recent = this.loadKnownNames(recentElement, MAX_RECENT, true);
       this.state.replace(favorites, recent);
    }
 

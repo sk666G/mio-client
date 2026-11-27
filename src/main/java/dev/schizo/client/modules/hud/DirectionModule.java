@@ -27,11 +27,9 @@ public class DirectionModule extends HudWidgetModule {
    private final Setting<Boolean> prefixSetting;
 
    private String formatYawPitch() {
-      Camera cameraForYaw = ClientAccess.schizoMinecraft.gameRenderer.getMainCamera();
-      float cameraYaw = cameraForYaw.yRot();
-      float wrappedYaw = Mth.wrapDegrees(cameraYaw);
-      Camera cameraForPitch = ClientAccess.schizoMinecraft.gameRenderer.getMainCamera();
-      float pitch = cameraForPitch.xRot();
+      Camera camera = ClientAccess.schizoMinecraft.gameRenderer.getMainCamera();
+      float wrappedYaw = Mth.wrapDegrees(camera.yRot());
+      float pitch = camera.xRot();
       Setting<Boolean> preciseOption = this.preciseSetting;
       Boolean precise = preciseOption.getValue();
       if (precise) {
@@ -53,7 +51,7 @@ public class DirectionModule extends HudWidgetModule {
       ChatFormatting detailsColor = ChatFormatting.WHITE;
       String detailsColorCode = String.valueOf(detailsColor);
 
-      String detailsText = "%s, %s".formatted(this.formatYawPitch(), this.getAxisLabel(sector));
+      String detailsText = joinDirectionDetails(this.formatYawPitch(), this.getAxisLabel(sector));
       String details = detailsColorCode + detailsText;
       if (!prefix.isEmpty()) {
          ChatFormatting parenthesesColor = ChatFormatting.WHITE;
@@ -63,6 +61,10 @@ public class DirectionModule extends HudWidgetModule {
       }
 
       return prefix + details;
+   }
+
+   static String joinDirectionDetails(String yawPitch, String axisLabel) {
+      return yawPitch + ", " + axisLabel;
    }
 
    private String getCardinalPrefix(int sector) {

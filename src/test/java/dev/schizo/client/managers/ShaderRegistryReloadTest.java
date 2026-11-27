@@ -19,8 +19,13 @@ class ShaderRegistryReloadTest {
 
       ShaderPass broken = new TestReloadablePass(() -> {
          throw new IllegalStateException("broken");
+      }, () -> {
+         throw new IllegalArgumentException("fallback broken");
       });
-      ShaderPass healthy = new TestReloadablePass(() -> laterReloaded.set(true));
+      ShaderPass healthy = new TestReloadablePass(() -> {
+         laterReloaded.set(true);
+         return new CompiledShaderProgram(41);
+      }, () -> new CompiledShaderProgram(42));
 
       ShaderRegistry.reloadPasses(
          List.of(broken, healthy),
@@ -29,6 +34,7 @@ class ShaderRegistryReloadTest {
 
       assertEquals(1, failures.get());
       assertTrue(laterReloaded.get());
+      assertSame(healthy.getProgram(), ((BaseShaderPass)healthy).getProgram());
    }
 
    @Test
@@ -38,8 +44,11 @@ class ShaderRegistryReloadTest {
 
       ShaderPass broken = new TestReloadablePass(() -> {
          throw fatal;
-      });
-      ShaderPass later = new TestReloadablePass(() -> laterReloaded.set(true));
+      }, () -> new CompiledShaderProgram(51));
+      ShaderPass later = new TestReloadablePass(() -> {
+         laterReloaded.set(true);
+         return new CompiledShaderProgram(52);
+      }, () -> new CompiledShaderProgram(53));
 
       assertSame(
          fatal,
@@ -52,21 +61,30 @@ class ShaderRegistryReloadTest {
    }
 
    private static final class TestReloadablePass extends BaseShaderPass implements ReloadableShaderPass {
-      private final Runnable reloadAction;
+      private final java.util.function.Supplier<CompiledShaderProgram> primary;
+      private final java.util.function.Supplier<CompiledShaderProgram> fallback;
 
-      private TestReloadablePass(Runnable reloadAction) {
-         super("unused-vertex", "unused-fragment");
-         this.reloadAction = reloadAction;
+      private TestReloadablePass(
+         java.util.function.Supplier<CompiledShaderProgram> primary,
+         java.util.function.Supplier<CompiledShaderProgram> fallback
+      ) {
+         super("vertex", "fragment");
+         this.primary = primary;
+         this.fallback = fallback;
       }
 
       @Override
       public CompiledShaderProgram compileProgram() {
-         throw new UnsupportedOperationException("compileProgram is not used by this test");
+         return this.primary.get();
       }
 
       @Override
-      public void reload(BaseShaderPass ignored) {
-         this.reloadAction.run();
+      public CompiledShaderProgram compileFallback(BaseShaderPass ignored) {
+         return this.fallback.get();
+      }
+
+      @Override
+      public void reportReloadFailure(Throwable ignored) {
       }
    }
 }

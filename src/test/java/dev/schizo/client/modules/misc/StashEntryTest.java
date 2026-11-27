@@ -24,6 +24,18 @@ class StashEntryTest {
       assertTrue(later.hasSameLocation(first));
    }
 
+
+   @Test
+   void dimensionIdentityAcceptsLegacyAliasesButKeepsCustomNamespacesDistinct() {
+      StashEntry legacyNether = new StashEntry("legacy", 10, 20, "THE_NETHER", "server");
+      StashEntry canonicalNether = new StashEntry("canonical", 10, 20, "the_nether", "server");
+      StashEntry moonA = new StashEntry("moon-a", 10, 20, "moda:moon", "server");
+      StashEntry moonB = new StashEntry("moon-b", 10, 20, "modb:moon", "server");
+
+      assertTrue(legacyNether.hasSameLocation(canonicalNether));
+      assertFalse(moonA.hasSameLocation(moonB));
+   }
+
    @Test
    void persistenceRequiresIdentityAndLocationContext() {
       assertTrue(new StashEntry("stash", 0, 0, "OVERWORLD", "singleplayer").isPersistable());

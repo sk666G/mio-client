@@ -10,6 +10,7 @@
 package dev.schizo.client.modules.misc;
 
 import dev.schizo.client.settings.NamedEntry;
+import dev.schizo.client.utils.world.DimensionCoordinates;
 
 import com.google.gson.annotations.SerializedName;
 
@@ -71,8 +72,16 @@ public class StashEntry implements NamedEntry {
       return other != null
          && this.x == other.x
          && this.z == other.z
-         && java.util.Objects.equals(this.dimension, other.dimension)
+         && hasSameDimension(this.dimension, other.dimension)
          && java.util.Objects.equals(this.server, other.server);
+   }
+
+   static boolean hasSameDimension(String first, String second) {
+      if (first == null || second == null) {
+         return java.util.Objects.equals(first, second);
+      }
+      return DimensionCoordinates.canonical(first)
+         .equals(DimensionCoordinates.canonical(second));
    }
 
    public boolean isPersistable() {

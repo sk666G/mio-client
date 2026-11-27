@@ -76,6 +76,7 @@ public final class FileUtils {
       }
       Files.createDirectories(parent);
       Path temporary = Files.createTempFile(parent, "." + target.getFileName() + ".", ".tmp");
+      Throwable primaryFailure = null;
       try {
          Files.write(temporary, bytes, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING);
          try {
@@ -84,9 +85,27 @@ public final class FileUtils {
             Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING);
          }
       } catch (IOException failure) {
-         throw new IOException("Unable to atomically write " + target, failure);
+         IOException wrapped = new IOException("Unable to atomically write " + target, failure);
+         primaryFailure = wrapped;
+         throw wrapped;
+      } catch (RuntimeException | Error failure) {
+         primaryFailure = failure;
+         throw failure;
       } finally {
+         cleanupTemporary(temporary, primaryFailure);
+      }
+   }
+
+   static void cleanupTemporary(Path temporary, Throwable primaryFailure) throws IOException {
+      try {
          Files.deleteIfExists(temporary);
+      } catch (IOException cleanupFailure) {
+         if (primaryFailure == null) {
+            throw cleanupFailure;
+         }
+         if (primaryFailure != cleanupFailure) {
+            primaryFailure.addSuppressed(cleanupFailure);
+         }
       }
    }
 
@@ -98,6 +117,7 @@ public final class FileUtils {
       }
       Files.createDirectories(parent);
       Path temporary = Files.createTempFile(parent, "." + target.getFileName() + ".", ".tmp");
+      Throwable primaryFailure = null;
       try {
          try (var writer = Files.newBufferedWriter(temporary, StandardCharsets.UTF_8,
             StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)) {
@@ -110,9 +130,14 @@ public final class FileUtils {
             Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING);
          }
       } catch (IOException failure) {
-         throw new IOException("Unable to atomically write " + target, failure);
+         IOException wrapped = new IOException("Unable to atomically write " + target, failure);
+         primaryFailure = wrapped;
+         throw wrapped;
+      } catch (RuntimeException | Error failure) {
+         primaryFailure = failure;
+         throw failure;
       } finally {
-         Files.deleteIfExists(temporary);
+         cleanupTemporary(temporary, primaryFailure);
       }
    }
 
@@ -222,7 +247,6 @@ public final class FileUtils {
          } catch (FileAlreadyExistsException existing) {
             throw existing;
          } catch (UnsupportedOperationException | java.nio.file.FileSystemException hardLinkUnavailable) {
-            // Some providers reject hard links; acquire the destination exclusively instead.
             try (var input = Files.newInputStream(source, LinkOption.NOFOLLOW_LINKS);
                  var output = Files.newOutputStream(
                     target,

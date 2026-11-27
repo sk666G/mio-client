@@ -11,7 +11,7 @@ class HudModuleRegistryTest {
       JsonObject hud = new JsonObject();
       hud.addProperty("index", 7);
       JsonObject module = new JsonObject();
-      module.add("hud", hud);
+      module.add("hud()", hud);
 
       assertEquals(7, HudModuleRegistry.readHudIndex(module));
    }
@@ -24,7 +24,7 @@ class HudModuleRegistryTest {
       JsonObject hud = new JsonObject();
       hud.addProperty("index", "not-a-number");
       JsonObject module = new JsonObject();
-      module.add("hud", hud);
+      module.add("hud()", hud);
 
       assertEquals(0, HudModuleRegistry.readHudIndex(module));
       assertEquals(0, HudModuleRegistry.readHudIndex(null));

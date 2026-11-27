@@ -20,6 +20,7 @@ import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.LocalPlayerMoveEvent;
 import dev.schizo.client.events.LocalPlayerSendPositionEvent;
 import dev.schizo.client.events.PlayerIsStayingOnGroundSurfaceEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.utils.movement.MovementPhysics;
 import dev.schizo.client.utils.math.MathConstants;
 import dev.schizo.client.managers.RotationManager;
@@ -134,6 +135,30 @@ public class ScaffoldModule extends Module {
       this.blockSlot = -1;
    }
 
+   @Override
+   public void onDisable() {
+      ClientContext.playerTickController.releaseMultiplier(this);
+      this.restoreSavedJumpStrength();
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.savedJumpStrength = -1.0F;
+      ClientContext.playerTickController.releaseMultiplier(this);
+   }
+
+   private void restoreSavedJumpStrength() {
+      if (this.savedJumpStrength <= 0.0F) {
+         return;
+      }
+
+      float savedStrength = this.savedJumpStrength;
+      this.savedJumpStrength = -1.0F;
+      if (!this.isWorldUnavailable()) {
+         this.setJumpStrength(savedStrength);
+      }
+   }
+
    private float getJumpStrength() {
       LocalPlayer player = ClientAccess.schizoMinecraft.player;
       Holder jumpAttribute = Attributes.JUMP_STRENGTH;
@@ -142,13 +167,7 @@ public class ScaffoldModule extends Module {
 
    private void tickPlacement() {
       ClientContext.playerTickController.releaseMultiplier(this);
-      if (this.savedJumpStrength > 0.0F) {
-         float savedStrength = this.savedJumpStrength;
-
-         this.setJumpStrength(savedStrength);
-
-         this.savedJumpStrength = -1.0F;
-      }
+      this.restoreSavedJumpStrength();
 
       if (ClientAccess.schizoMinecraft.player.isHandsBusy()) {
          return;

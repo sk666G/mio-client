@@ -112,7 +112,7 @@ public class ArrowsModule extends Module {
             this.prepareArrow();
             TaskScheduler scheduler = ClientContext.taskScheduler;
             Runnable clearCooldown = this::clearItemUseCooldown;
-            scheduler.scheduleRunTickTask(clearCooldown);
+            scheduler.scheduleRunTickTask(this, clearCooldown);
             this.allowNextProjectileUse = true;
          }
       }

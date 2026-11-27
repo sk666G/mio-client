@@ -414,11 +414,22 @@ public class SearchModule extends Module {
 
    private void detectExistingEntities() {
       ClientLevel level = ClientAccess.schizoMinecraft.level;
+      if (level == null) {
+         return;
+      }
+
       for (Entity entity : level.entitiesForRendering()) {
          if (this.shouldSearchEntity(entity)) {
             this.alertPending = true;
             return;
          }
+      }
+   }
+
+   private void refreshEntityAlertState() {
+      this.alertPending = false;
+      if (this.isToggled() && this.entitiesSetting.getValue()) {
+         this.detectExistingEntities();
       }
    }
 
@@ -432,6 +443,7 @@ public class SearchModule extends Module {
       this.alertPending = false;
       this.chunkScanner.start();
       this.rescanBlocks();
+      this.refreshEntityAlertState();
    }
 
    @Override
@@ -511,7 +523,7 @@ public class SearchModule extends Module {
 
    @EventHandler
    private void onMinecraftDisconnectEvent(MinecraftDisconnectEvent event) {
-
+      this.alertPending = false;
       this.resetChunkScanner();
    }
 
@@ -679,11 +691,7 @@ public class SearchModule extends Module {
             this.clearBlockScanState(true);
          }
       });
-      this.entitiesSetting.setChangeCallback(() -> {
-         if (this.entitiesSetting.getValue()) {
-            this.detectExistingEntities();
-         }
-      });
+      this.entitiesSetting.setChangeCallback(this::refreshEntityAlertState);
       this.selectedBlocksSetting.setChangeCallback(this::rescanBlocks);
       this.onlyOminousSetting.setChangeCallback(this::rescanBlocks);
       this.heightSetting.setChangeCallback(this::rescanBlocks);

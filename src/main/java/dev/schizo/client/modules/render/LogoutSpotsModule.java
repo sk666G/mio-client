@@ -182,13 +182,18 @@ public class LogoutSpotsModule extends Module {
 
    @Override
    public void onToggle() {
-      Object2ObjectOpenHashMap<String, LogoutSpot> spots = this.spotsByName;
-      spots.clear();
-      this.clearTransientRemovalState();
+      this.clearSessionState();
    }
 
    @EventHandler
    private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.clearSessionState();
+   }
+
+   void clearSessionState() {
+      synchronized (this.spotsByName) {
+         this.spotsByName.clear();
+      }
       this.clearTransientRemovalState();
    }
 

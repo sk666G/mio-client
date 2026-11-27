@@ -28,7 +28,6 @@ import java.awt.Color;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import java.util.function.Function;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.client.player.LocalPlayer;
@@ -41,6 +40,9 @@ import net.minecraft.world.level.block.entity.ChestBlockEntity;
 import net.minecraft.world.level.block.entity.ShulkerBoxBlockEntity;
 
 public class MetricsModule extends HudWidgetModule {
+   private static final Comparator<HudTextRow> METRIC_WIDTH_COMPARATOR =
+      Comparator.comparingDouble(row -> measureMetricWidth(FontRenderer.INSTANCE, row));
+
    private final Setting<Boolean> speedSetting;
    private final Setting<Boolean> bpsSetting;
    private final Setting<Boolean> tpsSetting;
@@ -119,28 +121,16 @@ public class MetricsModule extends HudWidgetModule {
          return Component.literal(text);
       }, this.tpsSetting::getValue);
       HudTextRow pingRow = new HudTextRow(() -> {
-
-         Object[] formatArguments = new Object[2];
-         formatArguments[0] = ChatFormatting.WHITE;
          ServerStateManager networkTracker = ClientContext.serverStateManager;
-
-         int pingMillis = networkTracker.getLatencyMillis();
-         formatArguments[1] = pingMillis;
-         String format = "Ping %s%dms";
-         String text = format.formatted(formatArguments);
-         return Component.literal(text);
+         return Component.literal(formatColoredInteger(
+            "Ping ", networkTracker.getLatencyMillis(), "ms"
+         ));
       }, this.pingSetting::getValue);
       HudTextRow fpsRow = new HudTextRow(() -> {
-
-         Object[] formatArguments = new Object[2];
-         formatArguments[0] = ChatFormatting.WHITE;
          FrameTiming frameTiming = ClientContext.frameTiming;
-
-         int framesPerSecond = frameTiming.getFramesPerSecond();
-         formatArguments[1] = framesPerSecond;
-         String format = "FPS %s%d";
-         String text = format.formatted(formatArguments);
-         return Component.literal(text);
+         return Component.literal(formatColoredInteger(
+            "FPS ", frameTiming.getFramesPerSecond(), ""
+         ));
       }, this.fpsSetting::getValue);
       HudTextRow averageFpsRow = new HudTextRow(() -> {
          FrameTiming frameTiming = ClientContext.frameTiming;
@@ -185,17 +175,11 @@ public class MetricsModule extends HudWidgetModule {
          ));
       }, this.hitchesSetting::getValue);
       HudTextRow serverBrandRow = new HudTextRow(() -> {
-
-         Object[] formatArguments = new Object[2];
-         formatArguments[0] = ChatFormatting.WHITE;
          ClientPacketListener connection = ClientAccess.schizoMinecraft.getConnection();
          String serverBrand = connection == null || connection.serverBrand() == null
             ? "N/A"
             : connection.serverBrand();
-         formatArguments[1] = serverBrand;
-         String format = "ServerBrand %s%s";
-         String text = format.formatted(formatArguments);
-         return Component.literal(text);
+         return Component.literal("ServerBrand " + ChatFormatting.WHITE + serverBrand);
       }, this.serverBrandSetting::getValue);
       HudTextRow durabilityRow = new HudTextRow(
          () -> formatDurabilityMetric(this),
@@ -209,26 +193,18 @@ public class MetricsModule extends HudWidgetModule {
             return player != null && player.getMainHandItem().isDamageableItem();
          }
       );
-      HudTextRow chestRow = new HudTextRow(() -> {
-
-         Object[] formatArguments = new Object[2];
-         formatArguments[0] = ChatFormatting.WHITE;
-         int count = this.chestAndBarrelCount;
-         formatArguments[1] = count;
-         String format = "Chests %s%d";
-         String text = format.formatted(formatArguments);
-         return Component.literal(text);
-      }, this.chestSetting::getValue);
-      HudTextRow shulkerRow = new HudTextRow(() -> {
-
-         Object[] formatArguments = new Object[2];
-         formatArguments[0] = ChatFormatting.WHITE;
-         int count = this.shulkerCount;
-         formatArguments[1] = count;
-         String format = "Shulkers %s%d";
-         String text = format.formatted(formatArguments);
-         return Component.literal(text);
-      }, this.shulkersSetting::getValue);
+      HudTextRow chestRow = new HudTextRow(
+         () -> Component.literal(formatColoredInteger(
+            "Chests ", this.chestAndBarrelCount, ""
+         )),
+         this.chestSetting::getValue
+      );
+      HudTextRow shulkerRow = new HudTextRow(
+         () -> Component.literal(formatColoredInteger(
+            "Shulkers ", this.shulkerCount, ""
+         )),
+         this.shulkersSetting::getValue
+      );
 
       rowsForRegistration.addAll(List.of(
          speedRow, tpsRow, pingRow, fpsRow, averageFpsRow, frameTimeRow, averageFrameTimeRow,
@@ -255,15 +231,7 @@ public class MetricsModule extends HudWidgetModule {
 
    @EventHandler
    private void onLocalPlayerTickEvent(LocalPlayerTickEvent ignoredEvent) {
-      List<HudTextRow> rowsToSort = this.metricRows;
-      Function<HudTextRow, Float> metricWidth = row -> {
-         FontRenderer textRenderer = FontRenderer.INSTANCE;
-         return measureMetricWidth(textRenderer, row);
-      };
-
-      Comparator<HudTextRow> metricComparator = Comparator.comparing(metricWidth);
-
-      rowsToSort.sort(metricComparator);
+      this.metricRows.sort(METRIC_WIDTH_COMPARATOR);
       this.shulkerCount = this.chestAndBarrelCount = 0;
       boolean countChests = this.chestSetting.getValue();
       boolean countShulkers = this.shulkersSetting.getValue();
@@ -271,6 +239,10 @@ public class MetricsModule extends HudWidgetModule {
          WorldStateManager worldTracker = ClientContext.worldStateManager;
          countContainers(this, worldTracker, countChests, countShulkers);
       }
+   }
+
+   static String formatColoredInteger(String prefix, int value, String suffix) {
+      return prefix + ChatFormatting.WHITE + value + suffix;
    }
 
    private static Component formatSpeedMetric(MetricsModule owner, boolean useBpsSuffix) {
