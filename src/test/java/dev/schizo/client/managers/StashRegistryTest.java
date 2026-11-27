@@ -14,7 +14,7 @@ import org.junit.jupiter.api.Test;
 class StashRegistryTest {
    @Test
    void persistedStashesRoundTripWhenLoggingIsEnabled() throws Exception {
-      StashFinderModule stashFinder = new StashFinderModule();
+      StashFinderModule stashFinder = newTestStashFinderModule();
       Object previousBinding = replaceStashFinderBinding(stashFinder);
       try {
          StashRegistry source = new StashRegistry();
@@ -41,7 +41,7 @@ class StashRegistryTest {
 
    @Test
    void disabledLoggingSerializesIntentionalEmptyStateThatCanBeReloaded() throws Exception {
-      StashFinderModule stashFinder = new StashFinderModule();
+      StashFinderModule stashFinder = newTestStashFinderModule();
       stashFinder.logSetting.setValue(false);
       Object previousBinding = replaceStashFinderBinding(stashFinder);
       try {
