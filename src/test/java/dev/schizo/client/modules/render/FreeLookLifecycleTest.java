@@ -11,4 +11,16 @@ class FreeLookLifecycleTest {
       FreeLookModule module = new FreeLookModule();
       assertDoesNotThrow(module::onDisable);
    }
+
+   @Test
+   void rotationRestorationRequiresSameCapturedPlayerIdentity() {
+      Object captured = new Object();
+      Object replacement = new Object();
+
+      assertTrue(FreeLookModule.shouldRestorePlayerRotation(captured, captured));
+      assertFalse(FreeLookModule.shouldRestorePlayerRotation(captured, replacement));
+      assertFalse(FreeLookModule.shouldRestorePlayerRotation(null, replacement));
+      assertFalse(FreeLookModule.shouldRestorePlayerRotation(captured, null));
+   }
+
 }
