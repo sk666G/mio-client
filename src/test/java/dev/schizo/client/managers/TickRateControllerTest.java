@@ -1,6 +1,7 @@
 package dev.schizo.client.managers;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.junit.jupiter.api.Test;
@@ -48,6 +49,23 @@ class TickRateControllerTest {
       assertEquals(1.4F, requests.getMultiplier(), EPSILON);
    }
 
+
+   @Test
+   void equalButDistinctOwnersKeepIndependentRequests() {
+      TickRateController.Requests requests = new TickRateController.Requests();
+      Object firstOwner = new EqualOwner();
+      Object secondOwner = new EqualOwner();
+
+      assertEquals(firstOwner, secondOwner);
+      assertNotSame(firstOwner, secondOwner);
+
+      requests.request(firstOwner, 0.8F);
+      requests.request(secondOwner, 1.6F);
+      requests.release(secondOwner);
+
+      assertEquals(0.8F, requests.getMultiplier(), EPSILON);
+   }
+
    @Test
    void releasingLastRequestRestoresNormalTickRate() {
       TickRateController.Requests requests = new TickRateController.Requests();
@@ -83,5 +101,17 @@ class TickRateControllerTest {
    void rejectsMissingOwner() {
       TickRateController.Requests requests = new TickRateController.Requests();
       assertThrows(NullPointerException.class, () -> requests.request(null, 1.0F));
+   }
+
+   private static final class EqualOwner {
+      @Override
+      public boolean equals(Object other) {
+         return other instanceof EqualOwner;
+      }
+
+      @Override
+      public int hashCode() {
+         return 1;
+      }
    }
 }
