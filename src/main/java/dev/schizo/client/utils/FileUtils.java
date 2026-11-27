@@ -193,16 +193,19 @@ public final class FileUtils {
    }
 
    /**
-    * Moves one regular file without ever replacing an existing target.
-    * The destination is acquired with CREATE_NEW, then the source is deleted only
-    * after the full copy is closed successfully. A source-delete failure rolls the
-    * destination back so the original remains authoritative.
+    * Moves a regular file without replacing an existing target.
+    * A hard link publishes the complete file in one create-only operation on supported
+    * filesystems. Otherwise CREATE_NEW retains collision protection, but a reader may
+    * briefly observe the fallback copy in progress.
     */
    public static void moveFileNoReplace(Path sourcePath, Path targetPath) throws IOException {
       Path source = sourcePath.toAbsolutePath().normalize();
       Path target = targetPath.toAbsolutePath().normalize();
       if (source.equals(target)) {
          throw new IOException("Source and target must differ: " + source);
+      }
+      if (!Files.isRegularFile(source, LinkOption.NOFOLLOW_LINKS)) {
+         throw new IOException("Source is not a regular file: " + source);
       }
 
       Path parent = target.getParent();
@@ -213,15 +216,23 @@ public final class FileUtils {
 
       boolean targetCreated = false;
       try {
-         try (var input = Files.newInputStream(source, LinkOption.NOFOLLOW_LINKS);
-              var output = Files.newOutputStream(
-                 target,
-                 StandardOpenOption.CREATE_NEW,
-                 StandardOpenOption.WRITE
-              )) {
+         try {
+            Files.createLink(target, source);
             targetCreated = true;
-            input.transferTo(output);
-            output.flush();
+         } catch (FileAlreadyExistsException existing) {
+            throw existing;
+         } catch (UnsupportedOperationException | java.nio.file.FileSystemException hardLinkUnavailable) {
+            // Some providers reject hard links; acquire the destination exclusively instead.
+            try (var input = Files.newInputStream(source, LinkOption.NOFOLLOW_LINKS);
+                 var output = Files.newOutputStream(
+                    target,
+                    StandardOpenOption.CREATE_NEW,
+                    StandardOpenOption.WRITE
+                 )) {
+               targetCreated = true;
+               input.transferTo(output);
+               output.flush();
+            }
          }
       } catch (FileAlreadyExistsException existing) {
          throw existing;
@@ -233,7 +244,7 @@ public final class FileUtils {
                failure.addSuppressed(cleanupFailure);
             }
          }
-         throw new IOException("Unable to copy " + source + " to " + target, failure);
+         throw new IOException("Unable to publish " + source + " as " + target, failure);
       }
 
       try {
