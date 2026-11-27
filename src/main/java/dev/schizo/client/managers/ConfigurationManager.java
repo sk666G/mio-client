@@ -12,6 +12,7 @@ package dev.schizo.client.managers;
 import dev.schizo.client.config.LegacySocialMigration;
 import dev.schizo.client.config.LegacyDirectoryMigration;
 import dev.schizo.client.config.ConfigFileReader;
+import dev.schizo.client.config.BackedUpConfigWriter;
 import dev.schizo.client.config.SafeModeManager;
 import dev.schizo.client.config.ConfigurationBackupManager;
 import dev.schizo.client.config.ModulePresetCodec;
@@ -288,16 +289,11 @@ public final class ConfigurationManager implements ClientAccess {
          }
          try {
             Path configPath = ConfigPathGuard.resolveForWrite(ROOT_DIRECTORY, snapshot.name());
-            try {
-               this.backupManager.backupBeforeSave(snapshot.name());
-            } catch (IOException | IllegalArgumentException backupFailure) {
-               ClientAccess.logger.warn(
-                  "Could not back up configuration {} before saving",
-                  snapshot.name(),
-                  backupFailure
-               );
-            }
-            FileUtils.writeUtf8Atomically(configPath, gsonSnapshot.toJson(snapshot.json()));
+            BackedUpConfigWriter.writeAfterBackup(
+               configPath,
+               gsonSnapshot.toJson(snapshot.json()),
+               () -> this.backupManager.backupBeforeSave(snapshot.name())
+            );
          } catch (Exception saveFailure) {
             ClientAccess.logger.error("Could not save configuration {}", snapshot.name(), saveFailure);
          }
@@ -338,19 +334,14 @@ public final class ConfigurationManager implements ClientAccess {
 
          try {
             Path configPath = ConfigPathGuard.resolveForWrite(ROOT_DIRECTORY, configurable.getConfigName());
-            try {
-               this.backupManager.backupBeforeSave(configurable.getConfigName());
-            } catch (IOException | IllegalArgumentException backupFailure) {
-               ClientAccess.logger.warn(
-                  "Could not back up configuration {} before saving",
-                  configurable.getConfigName(),
-                  backupFailure
-               );
-            }
             Gson gsonSnapshot = ClientAccess.gson;
             JsonElement serialized = configurable.toJson();
             JsonObject object = serialized.getAsJsonObject();
-            FileUtils.writeUtf8Atomically(configPath, gsonSnapshot.toJson(object));
+            BackedUpConfigWriter.writeAfterBackup(
+               configPath,
+               gsonSnapshot.toJson(object),
+               () -> this.backupManager.backupBeforeSave(configurable.getConfigName())
+            );
          } catch (Exception saveFailure) {
             ClientAccess.logger.error("Could not save configuration {}", configurable.getConfigName(), saveFailure);
          }
