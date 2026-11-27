@@ -349,11 +349,11 @@ public final class ContextProfileRegistry implements ClientAccess, JsonConfigura
          if (restored) {
             this.baseline.clear();
             this.modifiedCategories.clear();
+            this.applyFailure.clear();
          } else {
             ClientAccess.logger.error("Context profile baseline remains pending after disconnect");
          }
          this.lastAppliedContext = null;
-         this.applyFailure.clear();
          this.dirty = true;
       }
    }
