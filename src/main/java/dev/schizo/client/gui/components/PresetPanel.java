@@ -133,7 +133,7 @@ public class PresetPanel extends Panel {
                      try {
                         ClientContext.configurationManager.getPresetUndoState().undo();
                         this.requestListRefresh();
-                     } catch (IOException undoFailure) {
+                     } catch (IOException | RuntimeException undoFailure) {
                         ClientAccess.logger.warn("Could not undo preset operation", undoFailure);
                         ChatUtils.printChat(Component.literal("Failed to undo preset operation."),
                            ChatUtils.DEFAULT_SIGNATURE, ChatUtils.MessagePriority.MID);
