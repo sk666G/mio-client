@@ -193,6 +193,19 @@ class RepositoryHygieneTest(unittest.TestCase):
 
 
 
+
+    def test_client_integration_cleanup_is_failure_isolated(self):
+        minecraft = (ROOT / "src/main/java/dev/schizo/mixin/MinecraftMixin.java").read_text(encoding="utf-8")
+        start = minecraft.index("public void closeClientIntegrations(CallbackInfo callback)")
+        method = minecraft[start:]
+        discord = method.index("minecraftDiscordModule.closeClient()")
+        finally_block = method.index("finally {")
+        media = method.index("MediaSessionBridge.stopMediaUpdates()")
+        self.assertLess(discord, finally_block)
+        self.assertLess(finally_block, media)
+        self.assertIn("catch (RuntimeException discordCleanupFailure)", method)
+        self.assertIn("catch (RuntimeException mediaCleanupFailure)", method)
+
     def test_shutdown_worker_cleanup_is_not_gated_on_configuration_manager(self):
         minecraft = (ROOT / "src/main/java/dev/schizo/mixin/MinecraftMixin.java").read_text(encoding="utf-8")
         start = minecraft.index('public void saveConfigurationOnDestroy(CallbackInfo callback)')

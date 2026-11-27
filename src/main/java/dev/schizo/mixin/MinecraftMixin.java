@@ -222,8 +222,19 @@ public class MinecraftMixin {
 
    @Inject(method = "close", at = @At("HEAD"))
    public void closeClientIntegrations(CallbackInfo callback) {
-      MixinModuleRegistry.minecraftDiscordModule.closeClient();
-      MediaSessionBridge.stopMediaUpdates();
+      try {
+         try {
+            MixinModuleRegistry.minecraftDiscordModule.closeClient();
+         } catch (RuntimeException discordCleanupFailure) {
+            ClientAccess.logger.warn("Could not cleanly close Discord integration", discordCleanupFailure);
+         }
+      } finally {
+         try {
+            MediaSessionBridge.stopMediaUpdates();
+         } catch (RuntimeException mediaCleanupFailure) {
+            ClientAccess.logger.warn("Could not cleanly close media integration", mediaCleanupFailure);
+         }
+      }
    }
 
 }
