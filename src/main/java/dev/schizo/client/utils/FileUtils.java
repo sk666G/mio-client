@@ -120,7 +120,7 @@ public final class FileUtils {
     * Writes a new UTF-8 file without ever replacing an existing target.
     * The temporary file lives beside the target so the final move stays on one provider.
     */
-   public static void writeUtf8AtomicallyCreateNew(Path path, String text) throws IOException {
+   public static void writeUtf8CreateNew(Path path, String text) throws IOException {
       Path target = path.toAbsolutePath().normalize();
       Path parent = target.getParent();
       if (parent == null) {
@@ -135,14 +135,10 @@ public final class FileUtils {
             writer.flush();
          }
 
-         try {
-            // Deliberately do not request ATOMIC_MOVE here. The ATOMIC_MOVE contract permits
-            // provider-specific behavior when the target already exists. A plain same-directory
-            // move preserves CREATE_NEW-style "never replace" semantics across providers.
-            Files.move(temporary, target);
-         } catch (FileAlreadyExistsException existing) {
-            throw existing;
-         }
+         // Deliberately do not request ATOMIC_MOVE here. The ATOMIC_MOVE contract permits
+         // provider-specific behavior when the target already exists. A plain same-directory
+         // move preserves CREATE_NEW-style "never replace" semantics across providers.
+         Files.move(temporary, target);
       } catch (FileAlreadyExistsException existing) {
          throw existing;
       } catch (IOException failure) {
