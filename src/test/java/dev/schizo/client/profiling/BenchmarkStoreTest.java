@@ -22,10 +22,19 @@ class BenchmarkStoreTest {
       assertEquals(session, store.load(BenchmarkStore.Slot.B));
    }
 
+   @Test void timelineFitsTheThirtySecondGraph() {
+      assertThrows(IllegalArgumentException.class, () ->
+         new BenchmarkSession(100, 1, 10, 12, 20, 0, java.util.Collections.nCopies(31, 10.0)));
+      assertThrows(IllegalArgumentException.class, () ->
+         new BenchmarkSession(100, 1, 10, 12, 20, 0, List.of(21.0)));
+   }
+
    @Test void oversizedAndMalformedSummariesAreRejected() throws IOException {
       var store = new BenchmarkStore(root);
       Path path = root.resolve("benchmark-a.json");
       Files.writeString(path, "{}");
+      assertThrows(IOException.class, () -> store.load(BenchmarkStore.Slot.A));
+      Files.writeString(path, "{\"frames\":10,\"seconds\":1,\"meanMillis\":100,\"p99Millis\":100,\"maxMillis\":100,\"hitches\":10,\"timeline\":[null]}");
       assertThrows(IOException.class, () -> store.load(BenchmarkStore.Slot.A));
       Files.writeString(path, " ".repeat(17000));
       assertThrows(IOException.class, () -> store.load(BenchmarkStore.Slot.A));

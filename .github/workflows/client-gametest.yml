@@ -47,6 +47,7 @@ jobs:
           set -euo pipefail
           for attempt in 1 2 3; do
             rm -f client-gametest-gradle.out
+            rm -rf build/run/clientGameTest/screenshots
             set +e
             ./gradlew --no-daemon runClientGameTest 2>&1 | tee client-gametest-gradle.out
             gradle_status=${PIPESTATUS[0]}
@@ -76,16 +77,6 @@ jobs:
           log="$run_dir/logs/latest.log"
           test -s "$log"
 
-          test -s "$run_dir/screenshots/0000_schizo-clickgui.png"
-          test -s "$run_dir/screenshots/0001_schizo-command-palette.png"
-          test -s "$run_dir/screenshots/0002_schizo-performance-center.png"
-          test -s "$run_dir/screenshots/0003_schizo-hud-editor.png"
-          test -s "$run_dir/screenshots/0004_schizo-expedition-discoveries.png"
-          test -s "$run_dir/screenshots/0005_schizo-expedition-travel.png"
-          test -s "$run_dir/screenshots/0006_schizo-expedition-profiles.png"
-          test -s "$run_dir/screenshots/0007_schizo-expedition-compatibility.png"
-          test -s "$run_dir/screenshots/0008_schizo-hud-layout-preview.png"
-          test -s "$run_dir/screenshots/0009_schizo-hud-editor-reconnect.png"
 
           if grep -E '\[.*(WARN|ERROR).*\] \(Schizo\)|\(Schizo\).*\[(WARN|ERROR)\]' "$log"; then
             echo "Schizo emitted WARN/ERROR diagnostics during the successful client gametest" >&2
@@ -100,18 +91,13 @@ jobs:
           python3 - <<'PY'
           import pathlib, struct
           root = pathlib.Path("build/run/clientGameTest/screenshots")
-          files = [
-              root / "0000_schizo-clickgui.png",
-              root / "0001_schizo-command-palette.png",
-              root / "0002_schizo-performance-center.png",
-              root / "0003_schizo-hud-editor.png",
-              root / "0004_schizo-expedition-discoveries.png",
-              root / "0005_schizo-expedition-travel.png",
-              root / "0006_schizo-expedition-profiles.png",
-              root / "0007_schizo-expedition-compatibility.png",
-              root / "0008_schizo-hud-layout-preview.png",
-              root / "0009_schizo-hud-editor-reconnect.png",
-          ]
+          names = ["schizo-clickgui","schizo-health-center","schizo-command-palette","schizo-performance-center","schizo-hud-editor","schizo-expedition-discoveries","schizo-expedition-travel","schizo-expedition-profiles","schizo-expedition-compatibility","schizo-hud-layout-preview","schizo-hud-editor-reconnect"]
+          files = []
+          for name in names:
+              matches = list(root.glob(f"[0-9][0-9][0-9][0-9]_{name}.png"))
+              if len(matches) != 1:
+                  raise SystemExit(f"expected one screenshot for {name}; found {len(matches)}")
+              files.append(matches[0])
           for path in files:
               data = path.read_bytes()
               if len(data) < 10_000 or data[:8] != b"\x89PNG\r\n\x1a\n":

@@ -58,6 +58,7 @@ jobs:
 
             status=1
             for attempt in 1 2 3; do
+              rm -rf build/run/clientGameTest/screenshots
               set +e
               ./gradlew --no-daemon runClientGameTest 2>&1 | tee "$out"
               status=${PIPESTATUS[0]}
@@ -96,10 +97,21 @@ jobs:
               return 1
             fi
 
-            for shot in               0000_schizo-clickgui.png               0001_schizo-command-palette.png               0002_schizo-performance-center.png               0003_schizo-hud-editor.png               0004_schizo-expedition-discoveries.png               0005_schizo-expedition-travel.png               0006_schizo-expedition-profiles.png               0007_schizo-expedition-compatibility.png               0008_schizo-hud-layout-preview.png               0009_schizo-hud-editor-reconnect.png
-            do
-              test -s "$run_dir/screenshots/$shot"
-            done
+            python3 - "$run_dir/screenshots" <<'PY'
+          import pathlib, struct, sys
+          root = pathlib.Path(sys.argv[1])
+          names = ["schizo-clickgui","schizo-health-center","schizo-command-palette","schizo-performance-center","schizo-hud-editor","schizo-expedition-discoveries","schizo-expedition-travel","schizo-expedition-profiles","schizo-expedition-compatibility","schizo-hud-layout-preview","schizo-hud-editor-reconnect"]
+          for name in names:
+              matches = list(root.glob(f"[0-9][0-9][0-9][0-9]_{name}.png"))
+              if len(matches) != 1:
+                  raise SystemExit(f"expected one screenshot for {name}; found {len(matches)}")
+              data = matches[0].read_bytes()
+              if len(data) < 10_000 or data[:8] != b"\x89PNG\r\n\x1a\n":
+                  raise SystemExit(f"invalid screenshot: {matches[0]}")
+              width, height = struct.unpack(">II", data[16:24])
+              if width < 640 or height < 360:
+                  raise SystemExit(f"screenshot viewport too small: {matches[0]} = {width}x{height}")
+          PY
 
             cp "$log" "$evidence/pass-${pass}-latest.log"
             rm -rf "$evidence/pass-${pass}-screenshots"

@@ -1,7 +1,6 @@
 package dev.schizo.client.profiling;
 
 import com.google.gson.Gson;
-import com.google.gson.JsonParseException;
 import dev.schizo.client.config.BackedUpConfigWriter;
 import dev.schizo.client.config.ConfigFileReader;
 import dev.schizo.client.config.ConfigPathGuard;
@@ -30,11 +29,13 @@ public final class BenchmarkStore {
    public BenchmarkSession load(Slot slot) throws IOException {
       Path target = ConfigPathGuard.resolveForRead(root, name(slot));
       if (!Files.exists(target, LinkOption.NOFOLLOW_LINKS)) return null;
+      String json = ConfigFileReader.readUtf8(target, MAX_BYTES);
       try {
-         BenchmarkSession result = GSON.fromJson(ConfigFileReader.readUtf8(target, MAX_BYTES), BenchmarkSession.class);
+         BenchmarkSession result = GSON.fromJson(json, BenchmarkSession.class);
          if (result == null) throw new IOException("Missing benchmark summary");
          return result;
-      } catch (JsonParseException | IllegalArgumentException failure) {
+      } catch (RuntimeException failure) {
+         // Gson can wrap record-constructor validation in a plain RuntimeException.
          throw new IOException("Invalid benchmark summary", failure);
       }
    }
