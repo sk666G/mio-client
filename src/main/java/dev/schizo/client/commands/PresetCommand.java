@@ -436,7 +436,7 @@ public final class PresetCommand extends Command {
       PresetUndoAction action;
       try {
          action = restoreManager.undo();
-      } catch (IOException undoFailure) {
+      } catch (IOException | RuntimeException undoFailure) {
          dev.schizo.client.ClientAccess.logger.warn("Preset undo failed", undoFailure);
          ChatUtils.printChat(Component.literal("Failed to undo preset change."), ChatUtils.DEFAULT_SIGNATURE, ChatUtils.MessagePriority.MID);
          return 1;
