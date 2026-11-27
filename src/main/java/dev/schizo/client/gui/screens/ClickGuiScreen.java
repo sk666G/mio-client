@@ -44,6 +44,7 @@ import java.util.List;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.network.chat.Component;
 import org.lwjgl.glfw.GLFW;
@@ -399,8 +400,8 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
          font.drawWithoutShadow(poseStack, label, tx + (l.toolWidth() - font.getWidth(label)) / 2,
             l.toolsY() + (21 - font.getHeight()) / 2, Color.WHITE);
       }
-      String footer = "Left click: toggle   /   Right click: settings";
-      if (font.getWidth(footer) > l.contentWidth()) footer = "L: toggle   R: settings";
+      String footer = "L: toggle   R: settings   M: inspect";
+      if (font.getWidth(footer) > l.contentWidth()) footer = "R: settings   M: inspect";
       font.drawWithoutShadow(poseStack, footer, l.contentX() + 2, l.bottom() - 15, STUDIO_MUTED);
       this.openModuleComponents.removeIf((java.util.function.Predicate<ModuleComponent>)component -> !component.isOpen());
       // Hidden categories do not advance row animations; keep the open-limit local to the active category.
@@ -412,6 +413,21 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
       if (active.size() > 2) {
          for (int index = 0; index < active.size() - 2; index++) active.get(index).setOpen(false);
       }
+   }
+
+   @Override
+   public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+      if (!this.closing && event.button() == GLFW.GLFW_MOUSE_BUTTON_MIDDLE && this.selectedPanel != null
+         && this.studioLayout != null && this.editingSetting == null) {
+         double scale = GuiScaleUtils.calculateScaleMultiplier(this.guiScale);
+         var component = this.selectedPanel.findVisibleModuleAt(event.x() / scale, event.y() / scale);
+         if (component != null) {
+            this.reset();
+            this.minecraft.setScreen(new ModuleInspectorScreen(this, component.getModule()));
+            return true;
+         }
+      }
+      return super.mouseClicked(event, doubleClick);
    }
 
    @Override

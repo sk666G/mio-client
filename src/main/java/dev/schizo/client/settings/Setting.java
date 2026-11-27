@@ -220,6 +220,10 @@ public abstract class Setting<T> extends NamedFeature implements ValueProvider<T
       return this;
    }
 
+   public final boolean hasChangeCallback() {
+      return this.changeCallback != null;
+   }
+
    public void runChangeCallback() {
       if (this.changeCallback != null) {
          try {
