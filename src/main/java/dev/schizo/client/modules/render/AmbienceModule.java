@@ -61,11 +61,13 @@ public class AmbienceModule extends Module {
    private RenderTarget depthRenderTarget;
    private AmbienceModule.BrightnessChoice previousBrightness;
    private double savedGamma;
+   private MobEffectInstance appliedNightVisionEffect;
    private boolean weatherOverrideSuppressed;
    private ServerTimeSnapshot serverTimeSnapshot;
 
    @Override
    public void onEnable() {
+      this.appliedNightVisionEffect = null;
       Options options = ClientAccess.schizoMinecraft.options;
       OptionInstance<Double> gammaOption = options.gamma();
       this.savedGamma = gammaOption.get();
@@ -93,12 +95,13 @@ public class AmbienceModule extends Module {
    public void onDisable() {
       Minecraft minecraft = ClientAccess.schizoMinecraft;
       if (minecraft == null) {
+         this.appliedNightVisionEffect = null;
          return;
       }
-      if (minecraft.player != null && minecraft.level != null) {
-         LocalPlayer effectPlayer = minecraft.player;
-         Holder nightVision = MobEffects.NIGHT_VISION;
-         effectPlayer.removeEffect(nightVision);
+      if (minecraft.player != null) {
+         this.removeOwnedNightVision(minecraft.player);
+      } else {
+         this.appliedNightVisionEffect = null;
       }
 
       if (this.serverTimeSnapshot != null && minecraft.level != null) {
@@ -182,8 +185,27 @@ public class AmbienceModule extends Module {
                   MobEffects.NIGHT_VISION, -1, getNightVisionAmplifier()
                );
                effectPlayerCapture.addEffect(nightVisionEffect);
+               MobEffectInstance appliedEffect = effectPlayerCapture.getEffect(MobEffects.NIGHT_VISION);
+               this.appliedNightVisionEffect = appliedEffect != null
+                  && appliedEffect.getAmplifier() == getNightVisionAmplifier()
+                  ? appliedEffect
+                  : null;
             }
          }
+      }
+   }
+
+   private void removeOwnedNightVision(LocalPlayer player) {
+      MobEffectInstance ownedEffect = this.appliedNightVisionEffect;
+      this.appliedNightVisionEffect = null;
+      if (ownedEffect == null) {
+         return;
+      }
+
+      MobEffectInstance currentEffect = player.getEffect(MobEffects.NIGHT_VISION);
+      if (currentEffect == ownedEffect
+         && currentEffect.getAmplifier() == getNightVisionAmplifier()) {
+         player.removeEffect(MobEffects.NIGHT_VISION);
       }
    }
 
@@ -264,22 +286,10 @@ public class AmbienceModule extends Module {
          }
 
          this.previousBrightness = this.brightnessSetting.getValue();
-         if (!this.isWorldUnavailable()) {
-            LocalPlayer playerToCheck = ClientAccess.schizoMinecraft.player;
-            Holder effectToCheck = MobEffects.NIGHT_VISION;
-            if (playerToCheck.hasEffect(effectToCheck)) {
-               LocalPlayer playerForEffect = ClientAccess.schizoMinecraft.player;
-               Holder effectToGet = MobEffects.NIGHT_VISION;
-               MobEffectInstance nightVisionEffect = playerForEffect.getEffect(effectToGet);
-               int effectAmplifier = nightVisionEffect.getAmplifier();
-
-               int expectedAmplifier = 68;
-               if (effectAmplifier == expectedAmplifier) {
-                  LocalPlayer playerForRemoval = ClientAccess.schizoMinecraft.player;
-                  Holder effectToRemove = MobEffects.NIGHT_VISION;
-                  playerForRemoval.removeEffect(effectToRemove);
-               }
-            }
+         if (previousBrightnessCapture == AmbienceModule.BrightnessChoice.POTION
+            && changedBrightness != AmbienceModule.BrightnessChoice.POTION
+            && !this.isWorldUnavailable()) {
+            this.removeOwnedNightVision(ClientAccess.schizoMinecraft.player);
          }
       };
       brightnessForCallback.setChangeCallback(brightnessChangeCallback);
