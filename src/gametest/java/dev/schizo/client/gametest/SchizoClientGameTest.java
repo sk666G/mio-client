@@ -89,6 +89,36 @@ public final class SchizoClientGameTest implements FabricClientGameTest {
          context.waitTicks(3);
          context.takeScreenshot("schizo-clickgui");
 
+         context.runOnClient(minecraft -> {
+            ClickGuiScreen studio = (ClickGuiScreen)minecraft.screen;
+            if (studio.getSelectedPanelName().isBlank() || studio.getPanels().size() < 7) {
+               throw new IllegalStateException("Studio categories are unavailable");
+            }
+            var panel = studio.getPanels().getFirst();
+            double scale = dev.schizo.client.render.GuiScaleUtils.calculateScaleMultiplier(studio.getGuiScale());
+            // Second navigation row. The workspace bounds are already established by the preceding render.
+            var categoryClick = new MouseButtonEvent((panel.getX() - 16) * scale,
+               (panel.getY() + 36) * scale, new MouseButtonInfo(0, 0));
+            studio.mouseClicked(categoryClick, false);
+            studio.mouseReleased(categoryClick);
+            if (!studio.getSelectedPanelName().equals(studio.getPanels().get(1).getName())) {
+               throw new IllegalStateException("Studio sidebar did not select the second category");
+            }
+            var searchClick = new MouseButtonEvent((panel.getX() + 20) * scale,
+               (panel.getY() - 20) * scale, new MouseButtonInfo(0, 0));
+            studio.mouseClicked(searchClick, false);
+            studio.mouseReleased(searchClick);
+            if (!studio.getSearchBox().isFocused()) {
+               throw new IllegalStateException("Studio search did not focus on click");
+            }
+            studio.getSearchBox().setValue("Crosshair");
+            if (!"Render".equalsIgnoreCase(studio.getSelectedPanelName())) {
+               throw new IllegalStateException("Studio search failed to select the matching category");
+            }
+            studio.getSearchBox().setValue("");
+         });
+         context.waitTicks(2);
+
          context.setScreen(() -> null);
          context.waitForScreen(null);
          context.waitTicks(2);

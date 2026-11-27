@@ -141,6 +141,7 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
                         && moduleComponent.getModule().getName().equalsIgnoreCase(completedSearch)) {
                         this.selectPanel(panel);
                         moduleComponent.setOpen(true);
+                        if (!this.openModuleComponents.contains(moduleComponent)) this.openModuleComponents.add(moduleComponent);
                         moduleComponent.startSearchHighlight();
                         foundModule = true;
                         break;
@@ -240,6 +241,11 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
    @Override
    public void resetPanelPositions() {
       this.studioLayout = null;
+   }
+
+   /** Current visible category; also useful for initialized-client QA. */
+   public String getSelectedPanelName() {
+      return this.selectedPanel == null ? "" : this.selectedPanel.getName();
    }
 
    private void selectPanel(Panel panel) {
@@ -345,7 +351,7 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
       String query = this.searchBox.getValue();
       float x = l.contentX() + 8;
       float y = l.searchY() + (22 - font.getHeight()) / 2.0F;
-      float available = Math.max(1, l.contentWidth() - 16);
+      float available = Math.max(1, l.contentWidth() - 32);
       ClickGuiSearchText.Selection selection = ClickGuiSearchText.selection(query.length(), this.searchBox.getCursorPosition(),
          ((EditBoxSelectionAccessor)this.searchBox).schizo$getSelectionAnchor());
       int start = 0;
@@ -365,11 +371,20 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
                x + font.getWidth(query.substring(start, right)), y + font.getHeight() + 1, ColorUtils.withAlpha(accent, 100));
             GuiDrawUtils.flush();
          }
-         font.drawWithoutShadow(poseStack, query.substring(start, end), x, y, Color.WHITE);
+         String visibleQuery = query.substring(start, end);
+         font.drawWithoutShadow(poseStack, visibleQuery, x, y, Color.WHITE);
+         if (this.searchBox.isFocused() && end == query.length() && caret == query.length()
+            && !this.searchCompletion.isEmpty()
+            && font.getWidth(visibleQuery + this.searchCompletion) <= available) {
+            font.drawWithoutShadow(poseStack, this.searchCompletion, x + font.getWidth(visibleQuery), y, STUDIO_MUTED);
+         }
          if (this.searchBox.isFocused() && !this.getSearchCursor().isEmpty() && selection.start() == selection.end()) {
             float caretX = x + font.getWidth(query.substring(start, Math.min(end, caret)));
             GuiDrawUtils.fillRect(poseStack, caretX, y, caretX + 1, y + font.getHeight(), accent);
          }
+      }
+      if (!query.isEmpty()) {
+         font.drawWithoutShadow(poseStack, "X", l.right() - 20, y, STUDIO_MUTED);
       }
       if (!query.isEmpty() && this.selectedPanel instanceof ModuleCategoryPanel category && !category.hasSearchMatches()) {
          String empty = "No matching modules in this category.";
@@ -379,8 +394,16 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
       String footer = "Left click: toggle   /   Right click: settings";
       if (font.getWidth(footer) > l.contentWidth()) footer = "L: toggle   R: settings";
       font.drawWithoutShadow(poseStack, footer, l.contentX() + 2, l.bottom() - 15, STUDIO_MUTED);
-      if (this.openModuleComponents.size() >= 3) ((ModuleComponent)this.openModuleComponents.getFirst()).setOpen(false);
-      this.openModuleComponents.removeIf((java.util.function.Predicate<ModuleComponent>)ModuleComponent::isClosed);
+      this.openModuleComponents.removeIf((java.util.function.Predicate<ModuleComponent>)component -> !component.isOpen());
+      // Hidden categories do not advance row animations; keep the open-limit local to the active category.
+      List<ModuleComponent> active = new ArrayList<>();
+      for (Object entry : this.openModuleComponents) {
+         ModuleComponent component = (ModuleComponent)entry;
+         if (component.getPanel() == this.selectedPanel) active.add(component);
+      }
+      if (active.size() > 2) {
+         for (int index = 0; index < active.size() - 2; index++) active.get(index).setOpen(false);
+      }
    }
 
    @Override
@@ -392,7 +415,11 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
          if (index >= 0 && index < this.panels.size()) this.selectPanel(this.panels.get(index));
       } else if (mouseX >= l.contentX() && mouseX < l.right() - 8 && mouseY >= l.searchY() && mouseY < l.searchY() + 22) {
          this.setEditingSetting(null);
-         this.setInitialFocus(this.searchBox);
+         if (mouseX >= l.right() - 28 && !this.searchBox.getValue().isEmpty()) {
+            this.clearSearch();
+         } else {
+            this.setInitialFocus(this.searchBox);
+         }
       }
    }
 
@@ -455,6 +482,10 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
       }
       if (this.searchBox.isFocused()) {
          this.handleFocusedSearchKey(event);
+         return true;
+      }
+      if (!this.searchBox.getValue().isEmpty() && event.key() == GLFW.GLFW_KEY_ESCAPE && this.editingSetting == null) {
+         this.clearSearch();
          return true;
       }
 
