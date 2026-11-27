@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      GH_TOKEN: \${{ github.token }}
+      GH_TOKEN: ${{ github.token }}
       GH_REPO: sk666G/mio-client
       RC_SHA: be2268932f6a2990c0db49849a6242f7dee67f5c
       VERIFIED_BUILD_RUN: '46052776168'
@@ -52,9 +52,9 @@ jobs:
           test "$(tr -d '\r\n' < release-input/BUILD_COMMIT_SHA.txt)" = "$RC_SHA"
           (cd release-input && sha256sum -c SHA256SUMS.txt)
           mapfile -t jars < <(find release-input -maxdepth 1 -type f -name 'schizo-*.jar' ! -name '*-sources.jar' ! -name '*-dev.jar')
-          test "\${#jars[@]}" -eq 1
-          test -s "\${jars[0]}"
-          echo "Verified \${jars[0]}"
+          test "${#jars[@]}" -eq 1
+          test -s "${jars[0]}"
+          echo "Verified ${jars[0]}"
 
       - name: Write release notes
         shell: bash
@@ -93,9 +93,9 @@ jobs:
         run: |
           set -euo pipefail
           mapfile -t jars < <(find release-input -maxdepth 1 -type f -name 'schizo-*.jar' ! -name '*-sources.jar' ! -name '*-dev.jar')
-          test "\${#jars[@]}" -eq 1
+          test "${#jars[@]}" -eq 1
           gh release create "$PREVIEW_TAG" \
-            "\${jars[0]}" \
+            "${jars[0]}" \
             release-input/SHA256SUMS.txt \
             release-input/COMMIT_SHA.txt \
             release-input/BUILD_COMMIT_SHA.txt \
