@@ -107,7 +107,9 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
       } catch (RuntimeException | Error notificationFailure) {
          lifecycleFailure = notificationFailure;
       }
+      boolean toggleHookStarted = false;
       try {
+         toggleHookStarted = true;
          this.onToggle();
       } catch (RuntimeException | Error toggleFailure) {
          if (lifecycleFailure != null && lifecycleFailure != toggleFailure) {
@@ -128,7 +130,7 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
       }
 
       if (lifecycleFailure != null) {
-         if (enableHookStarted) {
+         if (toggleHookStarted || enableHookStarted) {
             try {
                this.onDisable();
             } catch (RuntimeException | Error cleanupFailure) {
