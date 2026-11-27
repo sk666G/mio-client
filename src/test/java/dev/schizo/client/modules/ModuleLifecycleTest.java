@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.ModuleToggleEvent;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
@@ -16,10 +18,27 @@ class ModuleLifecycleTest {
 
       assertThrows(IllegalStateException.class, module::enable);
       assertFalse(module.isToggled());
+      assertEquals(2, module.toggleCalls.get());
+      assertFalse(module.lastToggleState);
       assertEquals(1, module.disableCalls.get());
+      assertFalse(module.toggledDuringDisable);
 
       ClientAccess.eventBus.post(new ProbeEvent());
       assertEquals(0, module.eventCalls.get());
+   }
+
+   @Test
+   void failedEnablePublishesDisabledRollbackState() {
+      TestModule module = new TestModule();
+      module.failEnable = true;
+      RecordingToggleObserver observer = new RecordingToggleObserver(module);
+      ClientAccess.eventBus.subscribe(observer);
+      try {
+         assertThrows(IllegalStateException.class, module::enable);
+         assertEquals(List.of(true, false), observer.states);
+      } finally {
+         ClientAccess.eventBus.unsubscribe(observer);
+      }
    }
 
    @Test
@@ -30,11 +49,30 @@ class ModuleLifecycleTest {
       try {
          assertThrows(IllegalStateException.class, module::enable);
          assertFalse(module.isToggled());
-         assertEquals(1, module.toggleCalls.get());
+         assertEquals(2, module.toggleCalls.get());
+         assertFalse(module.lastToggleState);
          assertEquals(0, module.enableCalls.get());
+         assertEquals(0, module.disableCalls.get());
       } finally {
          ClientAccess.eventBus.unsubscribe(observer);
       }
+   }
+
+
+   @Test
+   void failedLocalToggleHookRunsCleanupAndUnsubscribes() {
+      TestModule module = new TestModule();
+      module.failToggle = true;
+
+      assertThrows(IllegalStateException.class, module::enable);
+      assertFalse(module.isToggled());
+      assertEquals(2, module.toggleCalls.get());
+      assertFalse(module.lastToggleState);
+      assertEquals(0, module.enableCalls.get());
+      assertEquals(0, module.disableCalls.get());
+
+      ClientAccess.eventBus.post(new ProbeEvent());
+      assertEquals(0, module.eventCalls.get());
    }
 
    @Test
@@ -69,6 +107,22 @@ class ModuleLifecycleTest {
    private static final class ProbeEvent {
    }
 
+   private static final class RecordingToggleObserver {
+      private final Module target;
+      private final List<Boolean> states = new ArrayList<>();
+
+      private RecordingToggleObserver(Module target) {
+         this.target = target;
+      }
+
+      @EventHandler
+      private void onToggle(ModuleToggleEvent event) {
+         if (event.getModule() == this.target) {
+            this.states.add(event.getModule().isToggled());
+         }
+      }
+   }
+
    private static final class FailingToggleObserver {
       @EventHandler
       private void onToggle(ModuleToggleEvent event) {
@@ -81,8 +135,11 @@ class ModuleLifecycleTest {
       private final AtomicInteger toggleCalls = new AtomicInteger();
       private final AtomicInteger enableCalls = new AtomicInteger();
       private final AtomicInteger disableCalls = new AtomicInteger();
+      private boolean failToggle;
       private boolean failEnable;
       private boolean failDisable;
+      private boolean lastToggleState;
+      private boolean toggledDuringDisable;
 
       private TestModule() {
          super("LifecycleTest", "Lifecycle regression test", ModuleCategory.MISC);
@@ -91,6 +148,10 @@ class ModuleLifecycleTest {
       @Override
       public void onToggle() {
          this.toggleCalls.incrementAndGet();
+         this.lastToggleState = this.isToggled();
+         if (this.failToggle) {
+            throw new IllegalStateException("toggle failure");
+         }
       }
 
       @Override
@@ -104,6 +165,7 @@ class ModuleLifecycleTest {
       @Override
       public void onDisable() {
          this.disableCalls.incrementAndGet();
+         this.toggledDuringDisable = this.isToggled();
          if (this.failDisable) {
             throw new IllegalStateException("disable failure");
          }
