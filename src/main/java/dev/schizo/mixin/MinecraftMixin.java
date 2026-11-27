@@ -101,8 +101,11 @@ public class MinecraftMixin {
       Screen screen, boolean ignoredDisconnectFlag1, boolean ignoredDisconnectFlag2, CallbackInfo callback
    ) {
       MinecraftDisconnectEvent event = new MinecraftDisconnectEvent();
-      ClientAccess.eventBus
-         .post(event);
+      try {
+         ClientAccess.eventBus.postCleanup(event);
+      } catch (RuntimeException cleanupFailure) {
+         ClientAccess.logger.error("One or more disconnect cleanup listeners failed", cleanupFailure);
+      }
    }
 
    @ModifyExpressionValue(method = "continueAttack", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/player/LocalPlayer;isUsingItem()Z"))
