@@ -298,7 +298,7 @@ public final class PresetRegistry extends Registry<PresetData> {
       if (source == null) return false;
       ensureNoCollision(normalizedTarget, null);
       PresetData copy = new PresetData(normalizedTarget, source.copyContents());
-      copy.saveToDirectory(this.directory);
+      copy.saveNewToDirectory(this.directory);
       synchronized (this.getRegistry()) {
          this.entries.add(copy);
       }
