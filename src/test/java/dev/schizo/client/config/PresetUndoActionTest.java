@@ -57,6 +57,31 @@ class PresetUndoActionTest {
    }
 
    @Test
+   void failedUndoRemainsAvailableForRetry() throws Exception {
+      MacroRegistry registry = new MacroRegistry();
+      MacroRegistry previousRegistry = ClientContext.macroRegistry;
+      ClientContext.macroRegistry = registry;
+      try {
+         Macro original = MacroType.SIMPLE.create("Original", Keybind.toggle(65, false));
+         assertTrue(registry.registerEntry(original));
+
+         PresetUndoAction undo = PresetUndoAction.beforeLoad(PresetCategory.MACRO, "macro-set");
+         PresetUndoState state = new PresetUndoState();
+         state.push(undo);
+
+         ClientContext.macroRegistry = null;
+         assertThrows(NullPointerException.class, state::undo);
+
+         ClientContext.macroRegistry = registry;
+         assertSame(undo, state.undo());
+         assertNull(state.undo());
+      } finally {
+         ClientContext.macroRegistry = previousRegistry;
+         ClientAccess.eventBus.unsubscribe(registry);
+      }
+   }
+
+   @Test
    void loadUndoRequiresCategory() {
       assertThrows(
          IllegalArgumentException.class,
