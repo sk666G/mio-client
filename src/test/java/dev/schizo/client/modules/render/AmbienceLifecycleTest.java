@@ -32,4 +32,38 @@ class AmbienceLifecycleTest {
          GameOptionsOverrides.forceSetOptionValue(gamma, original);
       }
    }
+
+   @Test
+   void weatherSuppressionRestoresStateAfterFailure() {
+      AmbienceModule module = new AmbienceModule();
+      IllegalStateException failure = new IllegalStateException("render failure");
+      assertFalse(module.isWeatherOverrideSuppressed());
+      assertSame(failure, assertThrows(IllegalStateException.class,
+         () -> module.withWeatherOverrideSuppressed(() -> {
+            assertTrue(module.isWeatherOverrideSuppressed());
+            throw failure;
+         })));
+      assertFalse(module.isWeatherOverrideSuppressed());
+   }
+
+   @Test
+   void nestedWeatherSuppressionPreservesOuterScope() {
+      AmbienceModule module = new AmbienceModule();
+      Object sentinel = new Object();
+      assertSame(sentinel, module.withWeatherOverrideSuppressed(() -> {
+         assertTrue(module.isWeatherOverrideSuppressed());
+         assertSame(sentinel, module.withWeatherOverrideSuppressed(() -> {
+            assertTrue(module.isWeatherOverrideSuppressed());
+            return sentinel;
+         }));
+         assertTrue(module.isWeatherOverrideSuppressed());
+         assertThrows(IllegalArgumentException.class,
+            () -> module.withWeatherOverrideSuppressed(() -> {
+               throw new IllegalArgumentException("nested failure");
+            }));
+         assertTrue(module.isWeatherOverrideSuppressed());
+         return sentinel;
+      }));
+      assertFalse(module.isWeatherOverrideSuppressed());
+   }
 }
