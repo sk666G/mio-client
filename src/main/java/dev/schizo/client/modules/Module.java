@@ -133,6 +133,7 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
          if (ClientContext.taskScheduler != null) {
             ClientContext.taskScheduler.cancelOwnedTasks(this);
          }
+         this.clearOwnedInputOverrides();
          eventBus.unsubscribe(this);
          this.enabled = false;
          this.compatibilityPolicySuppressed = false;
@@ -399,6 +400,7 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
       if (ClientContext.taskScheduler != null) {
          ClientContext.taskScheduler.cancelOwnedTasks(this);
       }
+      this.clearOwnedInputOverrides();
       eventBus.unsubscribe(this);
       this.enabled = false;
 
@@ -436,6 +438,12 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
       if (lifecycleFailure instanceof Error errorFailure) {
          ClientAccess.logger.error("Module {} failed while disabling", this.getName(), errorFailure);
          throw errorFailure;
+      }
+   }
+
+   private void clearOwnedInputOverrides() {
+      if (ClientContext.inputOverrides != null) {
+         ClientContext.inputOverrides.clearRequests(this);
       }
    }
 

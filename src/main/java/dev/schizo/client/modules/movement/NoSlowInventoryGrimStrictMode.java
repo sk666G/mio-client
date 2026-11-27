@@ -123,7 +123,7 @@ public class NoSlowInventoryGrimStrictMode extends NoSlowInventoryMode {
       }
       if (!keepPendingFlush) this.flushPending = !this.pendingActions.isEmpty();
       if (this.flushPending) {
-         ClientContext.inputOverrides.requestReset();
+         ClientContext.inputOverrides.requestReset(this.noSlow);
          ClientAccess.schizoMinecraft.player.setSprinting(false);
       }
    }

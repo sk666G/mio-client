@@ -411,10 +411,10 @@ public final class ObstaclePasserModule extends Module {
                }
             }
 
-            ClientContext.inputOverrides.requestJump(true);
+            ClientContext.inputOverrides.requestJump(this, true);
          }
 
-         ClientContext.inputOverrides.requestMovement(1.0F, 0.0F);
+         ClientContext.inputOverrides.requestMovement(this, 1.0F, 0.0F);
       }
    }
 

@@ -341,7 +341,7 @@ public class NoFallModule extends Module {
             if (!ClientAccess.schizoMinecraft.player.onGround()) {
                return;
             }
-            ClientContext.inputOverrides.requestJump(true);
+            ClientContext.inputOverrides.requestJump(this, true);
             this.jumpPending = false;
          }
       };
