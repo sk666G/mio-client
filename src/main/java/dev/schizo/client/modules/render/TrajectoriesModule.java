@@ -16,6 +16,7 @@ import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.events.ConnectScreenConnectEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.LocalPlayerPreTickEvent;
 import dev.schizo.client.events.WorldRenderEvent;
@@ -196,15 +197,24 @@ public class TrajectoriesModule extends Module {
 
    @Override
    public void onDisable() {
-      this.trailsByEntityId.clear();
-      this.trailLevel = null;
-      this.previousPlayerVelocity = Vec3.ZERO;
-      this.previousBowPower = 0.0F;
+      this.resetSessionState();
    }
 
    @EventHandler
    private void onConnectScreenConnectEvent(ConnectScreenConnectEvent event) {
-      this.onDisable();
+      this.resetSessionState();
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.resetSessionState();
+   }
+
+   void resetSessionState() {
+      this.trailsByEntityId.clear();
+      this.trailLevel = null;
+      this.previousPlayerVelocity = Vec3.ZERO;
+      this.previousBowPower = 0.0F;
    }
 
    @EventHandler

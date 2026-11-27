@@ -44,11 +44,9 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
-import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.ToDoubleFunction;
-import java.util.stream.Stream;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Camera;
 import net.minecraft.client.multiplayer.ClientLevel;
@@ -312,31 +310,38 @@ public class TextRadarModule extends HudWidgetModule {
    @EventHandler
    private void onLocalPlayerTickEvent(LocalPlayerTickEvent event) {
       synchronized (this.radarPlayers) {
-         this.radarPlayers.clear();
          ClientLevel level = ClientAccess.schizoMinecraft.level;
          List<AbstractClientPlayer> worldPlayers = level.players();
-         Stream<AbstractClientPlayer> playerStream = worldPlayers.stream();
-         Predicate<net.minecraft.client.player.AbstractClientPlayer> includedPlayer = this::shouldIncludePlayer;
-         Stream<AbstractClientPlayer> players = playerStream.filter(includedPlayer);
-
          Comparator<Entity> playerComparator = this.createPlayerComparator();
-         players = players.sorted(playerComparator);
-         Setting<Boolean> limitOption = this.limitSetting;
-         Boolean limitEnabled = limitOption.getValue();
-         long maximumCount;
-         if (limitEnabled) {
-            Setting<Integer> maximumOption = this.maxSetting;
-            Integer maximumPlayers = maximumOption.getValue();
-            maximumCount = maximumPlayers.intValue();
-         } else {
+         int maximumPlayers = this.limitSetting.getValue()
+            ? this.maxSetting.getValue()
+            : Integer.MAX_VALUE;
+         replaceFilteredSorted(
+            this.radarPlayers,
+            worldPlayers,
+            this::shouldIncludePlayer,
+            playerComparator,
+            maximumPlayers
+         );
+      }
+   }
 
-            maximumCount = Long.MAX_VALUE;
+   static <T> void replaceFilteredSorted(
+      List<T> destination,
+      Iterable<? extends T> source,
+      Predicate<? super T> included,
+      Comparator<? super T> comparator,
+      int maximumCount
+   ) {
+      destination.clear();
+      for (T value : source) {
+         if (included.test(value)) {
+            destination.add(value);
          }
-
-         players = players.limit(maximumCount);
-         List<Player> playerDestination = this.radarPlayers;
-         Consumer<net.minecraft.client.player.AbstractClientPlayer> appendPlayer = playerDestination::add;
-         players.forEachOrdered(appendPlayer);
+      }
+      destination.sort(comparator);
+      if (destination.size() > maximumCount) {
+         destination.subList(maximumCount, destination.size()).clear();
       }
    }
 

@@ -23,6 +23,7 @@ class ShaderRegistryLifecycleTest {
       assertTrue(cleaned.get());
    }
 
+
    @Test
    void cleanupFailureDoesNotMaskRenderFailure() {
       IllegalStateException renderFailure = new IllegalStateException("render failed");

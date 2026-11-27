@@ -98,7 +98,7 @@ public final class HudModuleRegistry implements ClientAccess, JsonConfigurable {
 
    static int readHudIndex(JsonElement moduleJson) {
       if (!(moduleJson instanceof JsonObject moduleConfiguration)
-         || !(moduleConfiguration.get("hud") instanceof JsonObject hudConfiguration)) {
+         || !(moduleConfiguration.get("hud()") instanceof JsonObject hudConfiguration)) {
          return 0;
       }
 

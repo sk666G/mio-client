@@ -411,26 +411,21 @@ public class KillEffectsModule extends Module {
 
       callbackOption.setConfigName(("KillStreakVolume"));
       this.killSaySetting.setChangeCallback(() -> {
-         KillSayMessages messagesSnapshot = this.killSayMessages;
-
-         boolean force = false;
-         messagesSnapshot.reloadMessages(force);
+         if (this.isToggled()) {
+            this.killSayMessages.reloadMessages(false);
+         }
       });
       this.pathSetting.setChangeCallback(() -> {
-         KillSayMessages messagesSnapshot = this.killSayMessages;
-
-         boolean force = true;
-         messagesSnapshot.reloadMessages(force);
+         if (this.isToggled()) {
+            this.killSayMessages.reloadMessages(true);
+         }
       });
       this.refreshSetting.setChangeCallback(() -> {
-         Setting<Boolean> refreshOption = this.refreshSetting;
-         Boolean refresh = refreshOption.getValue();
-         if (refresh) {
-            KillSayMessages messagesSnapshot = this.killSayMessages;
-
-            boolean force = true;
-            messagesSnapshot.reloadMessages(force);
+         if (this.refreshSetting.getValue()) {
             this.refreshSetting.setValue(false);
+            if (this.isToggled()) {
+               this.killSayMessages.reloadMessages(true);
+            }
          }
       });
       this.randomSetting.setChangeCallback(this.killSayMessages::resetSequence);

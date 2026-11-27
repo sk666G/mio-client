@@ -12,4 +12,16 @@ class DimensionCoordinatesTest {
       assertTrue(Double.isNaN(DimensionCoordinates.scale("end", "overworld")));
       assertEquals(1, DimensionCoordinates.scale("custom:moon", "custom:moon"));
    }
+
+   @Test
+   void canonicalDimensionIdsPreserveCustomNamespaces() {
+      assertEquals("overworld", DimensionCoordinates.canonical("minecraft:overworld"));
+      assertEquals("the_nether", DimensionCoordinates.canonical("THE_NETHER"));
+      assertEquals("moda:moon", DimensionCoordinates.canonical("moda:moon"));
+      assertNotEquals(
+         DimensionCoordinates.canonical("moda:moon"),
+         DimensionCoordinates.canonical("modb:moon")
+      );
+   }
+
 }

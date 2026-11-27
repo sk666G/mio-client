@@ -22,6 +22,30 @@ class FileUtilsTest {
       }
    }
 
+
+   @Test
+   void cleanupFailureIsSuppressedOntoPrimaryFailure() throws IOException {
+      Path nonEmptyDirectory = Files.createDirectory(temporaryDirectory.resolve("primary.tmp"));
+      Files.writeString(nonEmptyDirectory.resolve("child"), "keep");
+      IOException primary = new IOException("write failed");
+
+      assertDoesNotThrow(() -> FileUtils.cleanupTemporary(nonEmptyDirectory, primary));
+
+      assertEquals(1, primary.getSuppressed().length);
+      assertInstanceOf(java.nio.file.DirectoryNotEmptyException.class, primary.getSuppressed()[0]);
+   }
+
+   @Test
+   void cleanupFailureWithoutPrimaryRemainsVisible() throws IOException {
+      Path nonEmptyDirectory = Files.createDirectory(temporaryDirectory.resolve("locked.tmp"));
+      Files.writeString(nonEmptyDirectory.resolve("child"), "keep");
+
+      assertThrows(
+         IOException.class,
+         () -> FileUtils.cleanupTemporary(nonEmptyDirectory, null)
+      );
+   }
+
    @Test
    void failedReplacementPreservesExistingDirectory() throws IOException {
       Path target = Files.createDirectory(temporaryDirectory.resolve("settings.json"));

@@ -191,6 +191,64 @@ class RepositoryHygieneTest(unittest.TestCase):
         missing = [name for name in registrations if not (command_root / f"{name}.java").is_file()]
         self.assertEqual([], missing, f"Registered command source missing: {missing}")
 
+
+
+
+    def test_client_integration_cleanup_is_failure_isolated(self):
+        minecraft = (ROOT / "src/main/java/dev/schizo/mixin/MinecraftMixin.java").read_text(encoding="utf-8")
+        start = minecraft.index("public void closeClientIntegrations(CallbackInfo callback)")
+        method = minecraft[start:]
+        discord = method.index("minecraftDiscordModule.closeClient()")
+        finally_block = method.index("finally {")
+        media = method.index("MediaSessionBridge.stopMediaUpdates()")
+        self.assertLess(discord, finally_block)
+        self.assertLess(finally_block, media)
+        self.assertIn("catch (RuntimeException discordCleanupFailure)", method)
+        self.assertIn("catch (RuntimeException mediaCleanupFailure)", method)
+
+    def test_shutdown_worker_cleanup_is_not_gated_on_configuration_manager(self):
+        minecraft = (ROOT / "src/main/java/dev/schizo/mixin/MinecraftMixin.java").read_text(encoding="utf-8")
+        start = minecraft.index('public void saveConfigurationOnDestroy(CallbackInfo callback)')
+        end = minecraft.index('@Inject(method = "disconnect', start)
+        method = minecraft[start:end]
+        self.assertIn("if (shutdownSaveStarted)", method)
+        self.assertIn("shutdownSaveStarted = true;", method)
+        self.assertIn("if (ClientContext.taskScheduler != null)", method)
+        self.assertIn(
+            "ConfigurationManager configuration = ClientContext.configurationManager;",
+            method,
+        )
+        self.assertIn("if (configuration == null)", method)
+        cleanup = method.index("WorkerExecutorShutdown.shutdownAndAwait(ClientAccess.executorService)")
+        self.assertGreater(cleanup, method.rindex("finally {"))
+
+    def test_build_artifact_provenance_is_self_verifiable(self):
+        workflow = (ROOT / ".github/workflows/build.yml").read_text(encoding="utf-8")
+        self.assertIn(
+            "SOURCE_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}",
+            workflow,
+        )
+        self.assertIn(
+            'printf \'%s\\n\' "$SOURCE_COMMIT_SHA" > build/libs/COMMIT_SHA.txt',
+            workflow,
+        )
+        self.assertIn(
+            'printf \'%s\\n\' "$GITHUB_SHA" > build/libs/BUILD_COMMIT_SHA.txt',
+            workflow,
+        )
+        self.assertIn('jar_basename="$(basename "$jar_file")"', workflow)
+        self.assertIn("cd build/libs", workflow)
+        self.assertIn('sha256sum "$jar_basename" > SHA256SUMS.txt', workflow)
+        self.assertNotIn(
+            'sha256sum "$jar_file" > build/libs/SHA256SUMS.txt',
+            workflow,
+        )
+        self.assertIn(
+            "group: build-${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.head.ref || github.ref_name }}",
+            workflow,
+        )
+        self.assertIn("cancel-in-progress: true", workflow)
+
     def test_validation_circumvention_modules_cannot_reappear(self):
         forbidden = (
             ROOT / "src/main/java/dev/schizo/client/modules/exploit/GrimDisablerModule.java",

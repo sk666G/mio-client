@@ -89,6 +89,8 @@ class EventBusLifecycleTest {
       assertEquals(1, calls.get());
    }
 
+
+
    @Test
    void cleanupDispatchRunsLaterListenersBeforeRethrowingRuntimeFailure() {
       EventFailureTracker failures = new EventFailureTracker(4);
@@ -110,7 +112,7 @@ class EventBusLifecycleTest {
    }
 
    @Test
-   void normalDispatchStillAbortsLaterListeners() {
+   void listenerFailureAbortsLaterListenersForThatDispatch() {
       EventFailureTracker failures = new EventFailureTracker(4);
       EventBus bus = new EventBus(new EventProfiler(() -> 0L), failures);
       FailingFirstListener first = new FailingFirstListener();
@@ -119,9 +121,32 @@ class EventBusLifecycleTest {
       bus.subscribe(first);
       bus.subscribe(later);
 
-      assertThrows(IllegalStateException.class, () -> bus.post(new TickEvent()));
+      IllegalStateException thrown = assertThrows(
+         IllegalStateException.class,
+         () -> bus.post(new TickEvent())
+      );
+
+      assertEquals("first failed", thrown.getMessage());
       assertEquals(0, later.calls.get());
       assertEquals(1L, failures.totalFailures());
+   }
+
+   @Test
+   void listenerFailuresAreAttributedAndStillPropagate() {
+      EventProfiler profiler = new EventProfiler(() -> 0L);
+      EventFailureTracker failures = new EventFailureTracker(4);
+      EventBus bus = new EventBus(profiler, failures);
+      FailingListener listener = new FailingListener();
+
+      bus.subscribe(listener);
+      IllegalStateException thrown = assertThrows(IllegalStateException.class, () -> bus.post(new TickEvent()));
+
+      assertEquals("boom", thrown.getMessage());
+      assertEquals(1L, failures.totalFailures());
+      EventFailureTracker.FailureSnapshot snapshot = failures.recentFailures().getFirst();
+      assertTrue(snapshot.listener().contains("FailingListener"));
+      assertEquals("TickEvent", snapshot.eventType());
+      assertEquals("IllegalStateException", snapshot.failureType());
    }
 
    @Test
@@ -145,26 +170,9 @@ class EventBusLifecycleTest {
       assertSame(diagnosticFailure, thrown.getSuppressed()[0]);
    }
 
-   @Test
-   void listenerFailuresAreAttributedAndStillPropagate() {
-      EventProfiler profiler = new EventProfiler(() -> 0L);
-      EventFailureTracker failures = new EventFailureTracker(4);
-      EventBus bus = new EventBus(profiler, failures);
-      FailingListener listener = new FailingListener();
-
-      bus.subscribe(listener);
-      IllegalStateException thrown = assertThrows(IllegalStateException.class, () -> bus.post(new TickEvent()));
-
-      assertEquals("boom", thrown.getMessage());
-      assertEquals(1L, failures.totalFailures());
-      EventFailureTracker.FailureSnapshot snapshot = failures.recentFailures().getFirst();
-      assertTrue(snapshot.listener().contains("FailingListener"));
-      assertEquals("TickEvent", snapshot.eventType());
-      assertEquals("IllegalStateException", snapshot.failureType());
-   }
-
    private static final class TickEvent {
    }
+
 
    private static final class FailingFirstListener {
       @EventHandler(priority = 100)

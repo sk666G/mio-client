@@ -64,9 +64,7 @@ public final class WaypointsCommand extends Command {
 
             Vec3 position = (Vec3)context.getArgument("pos", Vec3.class);
 
-            DimensionType currentDimension = WorldUtils.getDimension();
-            String dimensionDisplayName = currentDimension.getDisplayName();
-            String dimensionKey = dimensionDisplayName.toLowerCase();
+            String dimensionKey = WorldUtils.getDimensionId();
 
             Waypoint waypoint = new Waypoint(
                name, position, dimensionKey, getCurrentServerKey()
@@ -126,9 +124,7 @@ public final class WaypointsCommand extends Command {
 
             String name = (String)context.getArgument("name", String.class);
 
-            DimensionType currentDimension = WorldUtils.getDimension();
-            String dimensionDisplayName = currentDimension.getDisplayName();
-            String dimensionKey = dimensionDisplayName.toLowerCase();
+            String dimensionKey = WorldUtils.getDimensionId();
             LocalPlayer playerForPosition = ClientAccess.schizoMinecraft.player;
             Vec3 playerPosition = playerForPosition.position();
 

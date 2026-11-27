@@ -158,7 +158,6 @@ public class NukerModule extends Module {
 
    @Override
    public void onDisable() {
-      ClientAccess.schizoMinecraft.options.keyAttack.setDown(false);
       this.clickedBlock = null;
    }
 

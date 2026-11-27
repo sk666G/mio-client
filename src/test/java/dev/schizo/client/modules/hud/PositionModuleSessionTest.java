@@ -1,5 +1,6 @@
 package dev.schizo.client.modules.hud;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import dev.schizo.client.events.MinecraftDisconnectEvent;
@@ -28,4 +29,13 @@ class PositionModuleSessionTest {
       disconnect.invoke(module, new MinecraftDisconnectEvent());
       assertNull(fakeOffset.get(module));
    }
+
+   @Test
+   void redactedTextPreservesPrefixAndColorLayout() {
+      assertEquals(
+         "XYZ " + net.minecraft.ChatFormatting.WHITE + "REDACTED",
+         PositionModule.formatRedactedText("XYZ ")
+      );
+   }
+
 }

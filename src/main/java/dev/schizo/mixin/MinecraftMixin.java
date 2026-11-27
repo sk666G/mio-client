@@ -29,6 +29,7 @@ import dev.schizo.client.modules.hud.MediaSessionBridge;
 import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.events.MinecraftRunTickEvent;
 import dev.schizo.client.managers.ModuleRegistry;
+import dev.schizo.client.managers.ConfigurationManager;
 import dev.schizo.client.modules.exploit.MultiTaskModule;
 import dev.schizo.client.modules.combat.NoHitDelayModule;
 import dev.schizo.client.modules.render.NoRenderModule;
@@ -67,31 +68,37 @@ public class MinecraftMixin {
 
    @Inject(method = "destroy", at = @At("HEAD"), require = 1)
    public void saveConfigurationOnDestroy(CallbackInfo callback) {
-      if (!shutdownSaveStarted
-         && ClientContext.configurationManager != null) {
-         shutdownSaveStarted = true;
+      if (shutdownSaveStarted) {
+         return;
+      }
+      shutdownSaveStarted = true;
+      try {
          if (ClientContext.taskScheduler != null) {
             ClientContext.taskScheduler.shutdown();
          }
-         ClientContext.configurationManager.beginShutdown();
+
+         ConfigurationManager configuration = ClientContext.configurationManager;
+         if (configuration == null) {
+            return;
+         }
+
+         configuration.beginShutdown();
+         if (ClientContext.contextProfileRegistry != null
+            && !ClientContext.contextProfileRegistry.restoreBeforeShutdown()) {
+            ClientAccess.logger.error(
+               "Skipping shutdown configuration save to protect the user's pre-profile settings"
+            );
+            return;
+         }
          try {
-            if (ClientContext.contextProfileRegistry != null
-               && !ClientContext.contextProfileRegistry.restoreBeforeShutdown()) {
-               ClientAccess.logger.error(
-                  "Skipping shutdown configuration save to protect the user's pre-profile settings"
-               );
-               return;
-            }
-            try {
-               MixinModuleRegistry.minecraftUiModule.disable();
-            } catch (RuntimeException | Error uiShutdownFailure) {
-               ClientAccess.logger.error("Could not cleanly close the Schizo UI during shutdown", uiShutdownFailure);
-            }
-            ClientContext.configurationManager.save();
-         } finally {
-            if (!WorkerExecutorShutdown.shutdownAndAwait(ClientAccess.executorService)) {
-               ClientAccess.logger.warn("Schizo worker tasks did not finish before the shutdown deadline");
-            }
+            MixinModuleRegistry.minecraftUiModule.disable();
+         } catch (RuntimeException | Error uiShutdownFailure) {
+            ClientAccess.logger.error("Could not cleanly close the Schizo UI during shutdown", uiShutdownFailure);
+         }
+         configuration.save();
+      } finally {
+         if (!WorkerExecutorShutdown.shutdownAndAwait(ClientAccess.executorService)) {
+            ClientAccess.logger.warn("Schizo worker tasks did not finish before the shutdown deadline");
          }
       }
    }
@@ -215,8 +222,19 @@ public class MinecraftMixin {
 
    @Inject(method = "close", at = @At("HEAD"))
    public void closeClientIntegrations(CallbackInfo callback) {
-      MixinModuleRegistry.minecraftDiscordModule.closeClient();
-      MediaSessionBridge.stopMediaUpdates();
+      try {
+         try {
+            MixinModuleRegistry.minecraftDiscordModule.closeClient();
+         } catch (RuntimeException discordCleanupFailure) {
+            ClientAccess.logger.warn("Could not cleanly close Discord integration", discordCleanupFailure);
+         }
+      } finally {
+         try {
+            MediaSessionBridge.stopMediaUpdates();
+         } catch (RuntimeException mediaCleanupFailure) {
+            ClientAccess.logger.warn("Could not cleanly close media integration", mediaCleanupFailure);
+         }
+      }
    }
 
 }
