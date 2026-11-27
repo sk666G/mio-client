@@ -11,10 +11,13 @@ package dev.schizo.client.config;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
+import dev.schizo.client.utils.FileUtils;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.FileAlreadyExistsException;
+import java.nio.file.FileSystemException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
@@ -27,7 +30,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
-/** Bounded, atomic backups for safe Schizo JSON configuration paths under the data root. */
+/** Bounded, no-overwrite backups and atomic restores for safe Schizo JSON configuration paths. */
 public final class ConfigurationBackupManager {
    public static final int MAX_BACKUPS_PER_CONFIG = 5;
    public static final long MAX_CONFIG_BYTES = 8L * 1024L * 1024L;
@@ -453,19 +456,38 @@ public final class ConfigurationBackupManager {
       }
    }
 
-   private void moveAtomically(Path source, Path target, boolean replaceExisting) throws IOException {
+   /**
+    * Publishes a fully staged backup under a new name without replacing another writer's file.
+    * A hard link publishes the completed bytes atomically on supporting filesystems. When hard
+    * links are unavailable, the existing CREATE_NEW-based file mover preserves no-replace
+    * semantics (without promising an atomic publish on that provider).
+    */
+   static void publishNewBackup(Path staged, Path target) throws IOException {
       try {
-         if (replaceExisting) {
-            Files.move(source, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-         } else {
-            Files.move(source, target, StandardCopyOption.ATOMIC_MOVE);
+         Files.createLink(target, staged);
+      } catch (FileAlreadyExistsException existing) {
+         throw existing;
+      } catch (UnsupportedOperationException | FileSystemException unsupportedHardLinks) {
+         try {
+            FileUtils.moveFileNoReplace(staged, target);
+         } catch (IOException fallbackFailure) {
+            fallbackFailure.addSuppressed(unsupportedHardLinks);
+            throw fallbackFailure;
          }
+         return;
+      }
+      Files.delete(staged);
+   }
+
+   private void moveAtomically(Path source, Path target, boolean replaceExisting) throws IOException {
+      if (!replaceExisting) {
+         publishNewBackup(source, target);
+         return;
+      }
+      try {
+         Files.move(source, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
       } catch (AtomicMoveNotSupportedException unsupported) {
-         if (replaceExisting) {
-            Files.move(source, target, StandardCopyOption.REPLACE_EXISTING);
-         } else {
-            Files.move(source, target);
-         }
+         Files.move(source, target, StandardCopyOption.REPLACE_EXISTING);
       }
    }
 
