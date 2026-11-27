@@ -35,6 +35,8 @@ public class ZoomModule extends Module {
    protected int baselineFov;
    protected boolean savedSmoothCamera;
    protected boolean smoothCameraCaptured;
+   protected boolean smoothCameraOverrideApplied;
+   protected boolean lastAppliedSmoothCamera;
    protected boolean fovUpdateActive;
    private final FloatAnimation zoomAnimation;
    private final FloatAnimation scrollAnimation;
@@ -80,6 +82,7 @@ public class ZoomModule extends Module {
       animation.setTarget(1.0F, duration);
       this.savedSmoothCamera = ClientAccess.schizoMinecraft.options.smoothCamera;
       this.smoothCameraCaptured = true;
+      this.smoothCameraOverrideApplied = false;
    }
 
    @Override
@@ -91,9 +94,17 @@ public class ZoomModule extends Module {
       long scrollDuration = this.getSmoothingDuration(100);
       scroll.setTarget(0.0F, scrollDuration);
       Minecraft minecraft = ClientAccess.schizoMinecraft;
-      if (this.smoothCameraCaptured && minecraft != null && minecraft.options != null) {
+      if (this.smoothCameraCaptured
+         && this.smoothCameraOverrideApplied
+         && minecraft != null
+         && minecraft.options != null
+         && ZoomOptionsUpdater.shouldRestoreSmoothCamera(
+            true, minecraft.options.smoothCamera, this.lastAppliedSmoothCamera
+         )) {
          minecraft.options.smoothCamera = this.savedSmoothCamera;
       }
+      this.smoothCameraCaptured = false;
+      this.smoothCameraOverrideApplied = false;
    }
 
    private int getSmoothingDuration(int duration) {
