@@ -316,10 +316,13 @@ public final class InventoryStateManager implements ClientAccess {
          while (slotsIterator.hasNext()) {
             Integer readySlot = slotsIterator.next();
             InventoryStateManager.DeferredSlotUpdate removedUpdate = this.deferredSlotUpdates.remove(readySlot);
-            ClientPacketListener capturedConnection = ClientAccess.schizoMinecraft.player.connection;
+            LocalPlayer currentPlayer = ClientAccess.schizoMinecraft.player;
+            if (!matchesDeferredOwner(removedUpdate.player(), currentPlayer)) {
+               continue;
+            }
 
+            ClientPacketListener capturedConnection = currentPlayer.connection;
             ClientboundContainerSetSlotPacket packet = removedUpdate.packet();
-
             capturedConnection.handleContainerSetSlot(packet);
          }
       }
@@ -401,7 +404,8 @@ public final class InventoryStateManager implements ClientAccess {
                deferredSlot,
                new InventoryStateManager.DeferredSlotUpdate(
                   slotPacket,
-                  System.nanoTime() + java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(500L)
+                  System.nanoTime() + java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(500L),
+                  ClientAccess.schizoMinecraft.player
                )
             );
 
@@ -443,10 +447,18 @@ public final class InventoryStateManager implements ClientAccess {
       return nowNanos - deadlineNanos >= 0L;
    }
 
+   static boolean matchesDeferredOwner(Object capturedPlayer, Object currentPlayer) {
+      return capturedPlayer != null && capturedPlayer == currentPlayer;
+   }
+
    public static boolean isClickRateLimited(InventoryStateManager manager) {
       return wouldReachClickLimit(manager, 0);
    }
 
-   private record DeferredSlotUpdate(ClientboundContainerSetSlotPacket packet, long resumeAtNanos) {
+   private record DeferredSlotUpdate(
+      ClientboundContainerSetSlotPacket packet,
+      long resumeAtNanos,
+      LocalPlayer player
+   ) {
    }
 }
