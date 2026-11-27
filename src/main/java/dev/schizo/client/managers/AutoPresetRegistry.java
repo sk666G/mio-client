@@ -26,15 +26,17 @@ import dev.schizo.client.settings.options.PresetCategory;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -269,7 +271,9 @@ public final class AutoPresetRegistry implements ClientAccess, JsonConfigurable 
 
             AtomicInteger messageCounter = new AtomicInteger(-2);
 
-            settings.getPresets().forEach((BiConsumer<PresetCategory, String>)(category, presetName) -> {
+            for (Entry<PresetCategory, String> presetEntry : orderedPresetEntries(settings)) {
+               PresetCategory category = presetEntry.getKey();
+               String presetName = presetEntry.getValue();
                ConfigurationManager configurationManager = ClientContext.configurationManager;
                PresetRegistry presetRegistry = configurationManager.getPresetRegistry(category);
                if (presetRegistry == null || !presetRegistry.applyPreset(presetName)) {
@@ -279,7 +283,7 @@ public final class AutoPresetRegistry implements ClientAccess, JsonConfigurable 
                      category.getName(),
                      this.lastServer
                   );
-                  return;
+                  continue;
                }
                TaskScheduler schedulerForPreset = ClientContext.taskScheduler;
                Runnable messageForPreset = () -> {
@@ -293,7 +297,7 @@ public final class AutoPresetRegistry implements ClientAccess, JsonConfigurable 
                   ChatUtils.printChat(Component.literal(messageText), signature);
                };
                schedulerForPreset.scheduleRotationTask(messageForPreset, 0);
-            });
+            }
 
             if (settings.hasKit()) {
                String kitName = settings.getKitName();
@@ -317,6 +321,22 @@ public final class AutoPresetRegistry implements ClientAccess, JsonConfigurable 
             }
          }
       }
+   }
+
+   static List<Entry<PresetCategory, String>> orderedPresetEntries(AutoPresetServerEntry settings) {
+      List<Entry<PresetCategory, String>> ordered = new ArrayList<>();
+      for (Object rawEntry : settings.getPresets().entrySet()) {
+         Entry<?, ?> entry = (Entry<?, ?>)rawEntry;
+         if (entry.getKey() instanceof PresetCategory category && entry.getValue() instanceof String presetName) {
+            ordered.add(Map.entry(category, presetName));
+         }
+      }
+      ordered.sort(
+         Comparator.comparingInt((Entry<PresetCategory, String> entry) ->
+            entry.getKey() == PresetCategory.ALL ? 0 : 1)
+            .thenComparingInt(entry -> entry.getKey().ordinal())
+      );
+      return List.copyOf(ordered);
    }
 
    public boolean removeServer(String server) {
