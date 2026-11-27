@@ -12,6 +12,7 @@ package dev.schizo.client.managers;
 import dev.schizo.client.config.LegacySocialMigration;
 import dev.schizo.client.config.LegacyDirectoryMigration;
 import dev.schizo.client.config.ConfigFileReader;
+import dev.schizo.client.config.BackedUpConfigWriter;
 import dev.schizo.client.config.SafeModeManager;
 import dev.schizo.client.config.ConfigurationBackupManager;
 import dev.schizo.client.config.ModulePresetCodec;
@@ -210,6 +211,20 @@ public final class ConfigurationManager implements ClientAccess {
          && Files.isDirectory(ROOT_DIRECTORY, LinkOption.NOFOLLOW_LINKS);
    }
 
+   /**
+    * Restore is an on-disk recovery operation: in-memory config remains live until restart.
+    * Prevent pending and future saves from overwriting the recovered file this session.
+    */
+   public void restoreBackup(String configName, String backupFileName) throws IOException {
+      if (!this.isRegisteredConfig(configName)) {
+         throw new IllegalArgumentException("Unknown configuration: " + configName);
+      }
+      this.saveGate.restoreAndProtect(
+         configName,
+         () -> this.backupManager.restoreBackup(configName, backupFileName)
+      );
+   }
+
    public void saveAsyncSnapshot() {
       if (!isSafeRootDirectory()) {
          ClientAccess.logger.error("Skipping configuration save because the data root is not a real directory");
@@ -228,6 +243,9 @@ public final class ConfigurationManager implements ClientAccess {
       Iterator<?> configurableIterator = this.configurables.iterator();
       while (configurableIterator.hasNext()) {
          JsonConfigurable configurable = (JsonConfigurable)configurableIterator.next();
+         if (this.saveGate.isSaveSuspended(configurable.getConfigName())) {
+            continue;
+         }
          if (SafeModeManager.GLOBAL.isActive() && "modules.json".equals(configurable.getConfigName())) {
             ClientAccess.logger.info("Preserving module enablement state while Safe Mode is active");
             continue;
@@ -266,18 +284,16 @@ public final class ConfigurationManager implements ClientAccess {
       }
       Gson gsonSnapshot = ClientAccess.gson;
       for (ConfigSnapshot snapshot : snapshots) {
+         if (this.saveGate.isSaveSuspended(snapshot.name())) {
+            continue;
+         }
          try {
             Path configPath = ConfigPathGuard.resolveForWrite(ROOT_DIRECTORY, snapshot.name());
-            try {
-               this.backupManager.backupBeforeSave(snapshot.name());
-            } catch (IOException | IllegalArgumentException backupFailure) {
-               ClientAccess.logger.warn(
-                  "Could not back up configuration {} before saving",
-                  snapshot.name(),
-                  backupFailure
-               );
-            }
-            FileUtils.writeUtf8Atomically(configPath, gsonSnapshot.toJson(snapshot.json()));
+            BackedUpConfigWriter.writeAfterBackup(
+               configPath,
+               gsonSnapshot.toJson(snapshot.json()),
+               () -> this.backupManager.backupBeforeSave(snapshot.name())
+            );
          } catch (Exception saveFailure) {
             ClientAccess.logger.error("Could not save configuration {}", snapshot.name(), saveFailure);
          }
@@ -308,6 +324,9 @@ public final class ConfigurationManager implements ClientAccess {
       Iterator<?> configurableIterator = this.configurables.iterator();
       while (configurableIterator.hasNext()) {
          JsonConfigurable configurable = (JsonConfigurable)configurableIterator.next();
+         if (this.saveGate.isSaveSuspended(configurable.getConfigName())) {
+            continue;
+         }
          if (SafeModeManager.GLOBAL.isActive() && "modules.json".equals(configurable.getConfigName())) {
             ClientAccess.logger.info("Preserving module enablement state while Safe Mode is active");
             continue;
@@ -315,19 +334,14 @@ public final class ConfigurationManager implements ClientAccess {
 
          try {
             Path configPath = ConfigPathGuard.resolveForWrite(ROOT_DIRECTORY, configurable.getConfigName());
-            try {
-               this.backupManager.backupBeforeSave(configurable.getConfigName());
-            } catch (IOException | IllegalArgumentException backupFailure) {
-               ClientAccess.logger.warn(
-                  "Could not back up configuration {} before saving",
-                  configurable.getConfigName(),
-                  backupFailure
-               );
-            }
             Gson gsonSnapshot = ClientAccess.gson;
             JsonElement serialized = configurable.toJson();
             JsonObject object = serialized.getAsJsonObject();
-            FileUtils.writeUtf8Atomically(configPath, gsonSnapshot.toJson(object));
+            BackedUpConfigWriter.writeAfterBackup(
+               configPath,
+               gsonSnapshot.toJson(object),
+               () -> this.backupManager.backupBeforeSave(configurable.getConfigName())
+            );
          } catch (Exception saveFailure) {
             ClientAccess.logger.error("Could not save configuration {}", configurable.getConfigName(), saveFailure);
          }
