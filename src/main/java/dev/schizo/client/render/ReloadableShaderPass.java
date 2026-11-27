@@ -21,35 +21,70 @@ public interface ReloadableShaderPass {
 
    CompiledShaderProgram compileProgram();
 
+   default CompiledShaderProgram compileFallback(BaseShaderPass pass) {
+      String fallbackVertexRead = RenderTargetUtils.readShaderSource(
+         pass.vertexResource
+      );
+      String fallbackFragmentRead = RenderTargetUtils.readShaderSource(
+         pass.fragmentResource
+      );
+      return CompiledShaderProgram.compile(fallbackVertexRead, fallbackFragmentRead);
+   }
+
+   default void reportReloadFailure(Throwable failure) {
+      String errorMessage = RELOAD_FAILURE_MESSAGE;
+      String failureMessage = failure.getMessage();
+      ShaderDiagnostics.logError(failureMessage);
+      MutableComponent plainNotification = Component.literal(errorMessage);
+      ChatFormatting errorColor = ChatFormatting.RED;
+      MutableComponent coloredNotification = plainNotification.withStyle(errorColor);
+      MessageSignature signature = ChatUtils.createSignature(-99);
+      ChatUtils.MessagePriority priority = ChatUtils.MessagePriority.HIGH;
+      ChatUtils.printChat(coloredNotification, signature, priority);
+   }
+
    default void reload(BaseShaderPass pass) {
-      if (pass.program != null) {
-         CompiledShaderProgram oldProgram = pass.program;
-
-         oldProgram.delete();
-      }
-
+      CompiledShaderProgram previousProgram = pass.program;
+      CompiledShaderProgram replacementProgram;
       try {
-         pass.program = this.compileProgram();
-      } catch (Throwable failure) {
-         String errorMessage = RELOAD_FAILURE_MESSAGE;
-         String failureMessage = failure.getMessage();
-         ShaderDiagnostics.logError(failureMessage);
-         MutableComponent plainNotification = Component.literal(errorMessage);
-         ChatFormatting errorColor = ChatFormatting.RED;
-         MutableComponent coloredNotification = plainNotification.withStyle(errorColor);
-         MessageSignature signature = ChatUtils.createSignature(-99);
-         ChatUtils.MessagePriority priority = ChatUtils.MessagePriority.HIGH;
-         ChatUtils.printChat(coloredNotification, signature, priority);
-         String fallbackVertexRead = RenderTargetUtils.readShaderSource(
-            pass.vertexResource
-         );
-         String fallbackFragmentRead = RenderTargetUtils.readShaderSource(
-            pass.fragmentResource
-         );
-         pass.program = CompiledShaderProgram.compile(fallbackVertexRead, fallbackFragmentRead);
+         replacementProgram = this.compileProgram();
+      } catch (RuntimeException | Error primaryFailure) {
+         try {
+            this.reportReloadFailure(primaryFailure);
+         } catch (RuntimeException | Error reportingFailure) {
+            if (reportingFailure != primaryFailure) {
+               primaryFailure.addSuppressed(reportingFailure);
+            }
+         }
+
+         try {
+            replacementProgram = this.compileFallback(pass);
+         } catch (RuntimeException | Error fallbackFailure) {
+            if (fallbackFailure != primaryFailure) {
+               primaryFailure.addSuppressed(fallbackFailure);
+            }
+            ShaderDiagnostics.logError(fallbackFailure.getMessage());
+            if (previousProgram != null) {
+               return;
+            }
+            throw fallbackFailure;
+         }
       }
 
-      pass.uniforms = new ShaderUniforms(pass.program.programId());
+      if (replacementProgram == null) {
+         if (previousProgram != null) {
+            return;
+         }
+         throw new IllegalStateException("Shader reload produced no replacement program");
+      }
+
+      ShaderUniforms replacementUniforms = new ShaderUniforms(replacementProgram.programId());
+      pass.program = replacementProgram;
+      pass.uniforms = replacementUniforms;
+
+      if (previousProgram != null && previousProgram != replacementProgram) {
+         previousProgram.delete();
+      }
    }
 
 }
