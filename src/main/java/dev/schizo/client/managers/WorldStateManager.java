@@ -394,6 +394,34 @@ public final class WorldStateManager implements ClientAccess {
       });
    }
 
+   private void dispatchWorldPacketUpdate(
+      long expectedGeneration,
+      ClientLevel expectedLevel,
+      Runnable action
+   ) {
+      ClientAccess.schizoMinecraft.executeIfPossible(() -> {
+         if (matchesWorldPacketContext(
+            expectedGeneration,
+            this.packetGeneration,
+            expectedLevel,
+            ClientAccess.schizoMinecraft.level
+         )) {
+            action.run();
+         }
+      });
+   }
+
+   static boolean matchesWorldPacketContext(
+      long expectedGeneration,
+      long currentGeneration,
+      Object expectedLevel,
+      Object currentLevel
+   ) {
+      return expectedGeneration == currentGeneration
+         && expectedLevel != null
+         && expectedLevel == currentLevel;
+   }
+
    private void applyBlockUpdate(BlockPos position, BlockState state) {
       this.rollbackBlocks.remove(position);
       if (state.isAir()) {
@@ -420,10 +448,15 @@ public final class WorldStateManager implements ClientAccess {
       PacketEvent.Receive event
    ) {
       long expectedGeneration = this.packetGeneration;
+      ClientLevel expectedLevel = ClientAccess.schizoMinecraft.level;
       if (event.getPacket() instanceof ClientboundBlockUpdatePacket blockUpdate) {
          BlockPos position = blockUpdate.getPos().immutable();
          BlockState state = blockUpdate.getBlockState();
-         this.dispatchPacketUpdate(expectedGeneration, () -> this.applyBlockUpdate(position, state));
+         this.dispatchWorldPacketUpdate(
+            expectedGeneration,
+            expectedLevel,
+            () -> this.applyBlockUpdate(position, state)
+         );
       }
 
       if (event.getPacket() instanceof ClientboundSectionBlocksUpdatePacket sectionUpdate) {
@@ -433,7 +466,7 @@ public final class WorldStateManager implements ClientAccess {
          );
          if (!updates.isEmpty()) {
             List<PacketBlockUpdate> updateSnapshot = List.copyOf(updates);
-            this.dispatchPacketUpdate(expectedGeneration, () -> {
+            this.dispatchWorldPacketUpdate(expectedGeneration, expectedLevel, () -> {
                for (PacketBlockUpdate update : updateSnapshot) {
                   this.applySectionUpdate(update.position(), update.state());
                }
