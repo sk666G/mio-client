@@ -53,7 +53,8 @@ public final class MacroRegistry extends Registry<Macro> implements ClientAccess
 
    @Override
    public boolean unregisterEntry(NamedEntry entry) {
-      if (!(entry instanceof Macro macro) || !this.entries.remove(macro)) {
+      if (!(entry instanceof Macro macro)
+         || !this.entries.removeIf(registered -> registered == macro)) {
          return false;
       }
 
@@ -94,7 +95,7 @@ public final class MacroRegistry extends Registry<Macro> implements ClientAccess
       if (previous == null
          || replacement == null
          || !isValidName(replacement.getName())
-         || !this.entries.contains(previous)) {
+         || !this.isRegisteredInstance(previous)) {
          return false;
       }
 
