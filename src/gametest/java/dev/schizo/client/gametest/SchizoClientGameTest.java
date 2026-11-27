@@ -165,7 +165,7 @@ public final class SchizoClientGameTest implements FabricClientGameTest {
          context.waitTicks(2);
          // Exercise the actual dock buttons and return path, rather than creating destinations directly.
          Class<?>[] destinations = {HudEditorScreen.class, PerformanceCenterScreen.class,
-            ExpeditionScreen.class, HealthCenterScreen.class};
+            ExpeditionScreen.class, HealthCenterScreen.class, dev.schizo.client.gui.screens.ThemeStudioScreen.class};
          for (int index = 0; index < destinations.length; index++) {
             final int tool = index;
             context.runOnClient(minecraft -> {
@@ -180,6 +180,23 @@ public final class SchizoClientGameTest implements FabricClientGameTest {
             });
             context.waitTicks(3);
             if (tool == 3) context.takeScreenshot("schizo-health-center");
+            if (tool == 4) {
+               context.runOnClient(minecraft -> {
+                  var ui = dev.schizo.client.modules.client.UIModule.INSTANCE;
+                  var before = ui.snapshotPalette();
+                  var choice = ui.paletteSetting.getValue();
+                  clickButton(minecraft.screen, "Midnight");
+                  clickButton(minecraft.screen, "Test switch");
+                  if (!before.equals(ui.snapshotPalette()) || choice != ui.paletteSetting.getValue()) {
+                     throw new IllegalStateException("Theme preview mutated live settings");
+                  }
+                  clickButton(minecraft.screen, "Discard preview");
+                  if (!before.equals(ui.snapshotPalette()) || choice != ui.paletteSetting.getValue()) {
+                     throw new IllegalStateException("Discarding preview mutated live settings");
+                  }
+               });
+               context.waitTicks(2);
+            }
             context.runOnClient(minecraft -> {
                if (minecraft.screen instanceof dev.schizo.client.gui.screens.ClientScreen child) {
                   child.closeWithTransition();

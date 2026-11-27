@@ -19,11 +19,12 @@ record StudioLayout(int x, int y, int width, int height, int navWidth, int navRo
    int contentWidth() { return Math.max(1, right() - contentX() - 9); }
    int contentHeight() { return Math.max(1, toolsY() - contentY() - 5); }
    int toolsY() { return bottom() - 43; }
-   int toolWidth() { return Math.max(1, (contentWidth() - 12) / 4); }
+   static final int TOOL_COUNT = 5;
+   int toolWidth() { return Math.max(1, (contentWidth() - 4 * (TOOL_COUNT - 1)) / TOOL_COUNT); }
    int toolX(int index) { return contentX() + index * (toolWidth() + 4); }
    int toolIndex(double px, double py) {
       if (py < toolsY() || py >= toolsY() + 21) return -1;
-      for (int i = 0; i < 4; i++) {
+      for (int i = 0; i < TOOL_COUNT; i++) {
          if (px >= toolX(i) && px < toolX(i) + toolWidth()) return i;
       }
       return -1;

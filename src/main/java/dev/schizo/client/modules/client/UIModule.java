@@ -193,6 +193,14 @@ public final class UIModule extends Module {
 
    private boolean applyingPalette;
 
+   /** Snapshot actual colors, including custom edits, without invoking palette callbacks. */
+   public UiPalette snapshotPalette() {
+      return new UiPalette(this.colorSetting.getValue(), this.backgroundSetting.getValue(),
+         this.buttonSetting.getValue(), this.enabledSetting.getValue(), this.tintSetting.getValue(),
+         this.gradientColorSetting.getValue());
+   }
+
+
    private void applySelectedPalette() {
       if (this.applyingPalette) {
          return;
