@@ -31,6 +31,27 @@ class ModuleConfigFieldTest {
    }
 
    @Test
+   void malformedSettingsContainerIsReportedWithoutChangingSettings() {
+      ConfigModule module = new ConfigModule();
+      module.flag.setValue(true);
+
+      JsonObject root = new JsonObject();
+      root.add("settings", new JsonArray());
+      root.addProperty("drawn", false);
+
+      assertDoesNotThrow(() -> module.fromJson(root));
+
+      assertTrue(module.flag.getValue());
+      assertFalse(module.isDrawn());
+      assertEquals(
+         List.of("settings"),
+         module.getLastConfigLoadIssues().stream()
+            .map(dev.schizo.client.config.ModuleConfigLoadReport.Issue::settingName)
+            .toList()
+      );
+   }
+
+   @Test
    void malformedBindingAndEnableFieldsAreReportedIndependently() {
       ConfigModule module = new ConfigModule();
       JsonObject root = new JsonObject();
