@@ -136,7 +136,16 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
          eventBus.unsubscribe(this);
          this.enabled = false;
          this.compatibilityPolicySuppressed = false;
-         if (toggleHookStarted || enableHookStarted) {
+         if (toggleHookStarted) {
+            try {
+               this.onToggle();
+            } catch (RuntimeException | Error rollbackToggleFailure) {
+               if (rollbackToggleFailure != lifecycleFailure) {
+                  lifecycleFailure.addSuppressed(rollbackToggleFailure);
+               }
+            }
+         }
+         if (enableHookStarted) {
             try {
                this.onDisable();
             } catch (RuntimeException | Error cleanupFailure) {
