@@ -10,6 +10,7 @@
 package dev.schizo.client.utils;
 
 import dev.schizo.client.ClientAccess;
+import dev.schizo.client.profiling.BenchmarkCapture;
 
 import java.util.Arrays;
 import net.minecraft.util.Mth;
@@ -206,6 +207,7 @@ public final class FrameTiming implements ClientAccess {
          this.lastFrameDurationNanos = elapsedNanos;
          this.lastFrameRate = NANOS_PER_SECOND / elapsedNanos;
          this.appendFrameSample(sampledTimeNanos, elapsedNanos);
+         BenchmarkCapture.GLOBAL.onFrame(sampledTimeNanos, elapsedNanos);
       } else {
          this.lastFrameDurationNanos = 0L;
       }
