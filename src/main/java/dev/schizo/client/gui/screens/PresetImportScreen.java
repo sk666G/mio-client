@@ -17,7 +17,6 @@ import dev.schizo.client.gui.components.ButtonComponent;
 import dev.schizo.client.config.EnumJsonConverter;
 import dev.schizo.client.config.ConfigFileReader;
 import dev.schizo.client.config.PresetData;
-import dev.schizo.client.config.PresetNameValidator;
 import dev.schizo.client.settings.options.PresetCategory;
 
 import com.google.gson.JsonElement;
@@ -26,7 +25,6 @@ import com.google.gson.JsonParser;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
-import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -123,11 +121,7 @@ public final class PresetImportScreen extends ClientScreen {
       try {
          JsonObject presetObject = this.readPresetObject(sourcePath);
          PresetData preset = new PresetData(this.getPresetName(sourcePath), presetObject);
-         Path target = PresetNameValidator.resolve(targetCategory.getDirectory(), preset.getName());
-         if (Files.exists(target, LinkOption.NOFOLLOW_LINKS)) {
-            throw new FileAlreadyExistsException(target.toString());
-         }
-         preset.saveToDirectory(targetCategory.getDirectory());
+         preset.saveNewToDirectory(targetCategory.getDirectory());
       } catch (IOException | RuntimeException copyFailure) {
          ClientAccess.logger.warn("Could not import dropped preset {}", sourcePath, copyFailure);
          return;

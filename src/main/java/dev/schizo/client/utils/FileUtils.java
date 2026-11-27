@@ -18,6 +18,7 @@ import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
@@ -110,6 +111,38 @@ public final class FileUtils {
          }
       } catch (IOException failure) {
          throw new IOException("Unable to atomically write " + target, failure);
+      } finally {
+         Files.deleteIfExists(temporary);
+      }
+   }
+
+   /**
+    * Writes a new UTF-8 file without ever replacing an existing target.
+    * The temporary file lives beside the target so the final move stays on one provider.
+    */
+   public static void writeUtf8CreateNew(Path path, String text) throws IOException {
+      Path target = path.toAbsolutePath().normalize();
+      Path parent = target.getParent();
+      if (parent == null) {
+         throw new IOException("Cannot write a file without a parent directory: " + target);
+      }
+      Files.createDirectories(parent);
+      Path temporary = Files.createTempFile(parent, "." + target.getFileName() + ".", ".tmp");
+      try {
+         try (var writer = Files.newBufferedWriter(temporary, StandardCharsets.UTF_8,
+            StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)) {
+            writer.write(text);
+            writer.flush();
+         }
+
+         // Deliberately do not request ATOMIC_MOVE here. The ATOMIC_MOVE contract permits
+         // provider-specific behavior when the target already exists. A plain same-directory
+         // move preserves CREATE_NEW-style "never replace" semantics across providers.
+         Files.move(temporary, target);
+      } catch (FileAlreadyExistsException existing) {
+         throw existing;
+      } catch (IOException failure) {
+         throw new IOException("Unable to create " + target, failure);
       } finally {
          Files.deleteIfExists(temporary);
       }
