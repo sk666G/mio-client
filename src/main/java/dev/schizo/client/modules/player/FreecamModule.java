@@ -88,6 +88,7 @@ public class FreecamModule extends Module {
          return;
       }
 
+      this.savedPlayerRotation = null;
       GameOptionsOverrides.registerCameraOverride(this);
       KeyboardInputTickEvent resetInputEvent = new KeyboardInputTickEvent(
          ClientAccess.schizoMinecraft.player.input
@@ -125,16 +126,17 @@ public class FreecamModule extends Module {
 
    @Override
    public void onDisable() {
-      if (!this.isWorldUnavailable()) {
-         LocalPlayer playerForYaw = ClientAccess.schizoMinecraft.player;
-         float savedYaw = this.savedPlayerRotation[0];
-         playerForYaw.setYRot(savedYaw);
-         LocalPlayer playerForPitch = ClientAccess.schizoMinecraft.player;
-         float savedPitch = this.savedPlayerRotation[1];
-         playerForPitch.setXRot(savedPitch);
+      GameOptionsOverrides.unregisterCameraOverride(this);
 
-         GameOptionsOverrides.unregisterCameraOverride(this);
+      float[] rotation = this.savedPlayerRotation;
+      this.savedPlayerRotation = null;
+      if (rotation == null || this.isWorldUnavailable()) {
+         return;
       }
+
+      LocalPlayer player = ClientAccess.schizoMinecraft.player;
+      player.setYRot(rotation[0]);
+      player.setXRot(rotation[1]);
    }
 
    public boolean shouldHideHands() {
