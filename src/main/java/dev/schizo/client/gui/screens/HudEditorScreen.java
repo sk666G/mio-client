@@ -32,6 +32,8 @@ import dev.schizo.client.render.HudWidgetRenderer;
 import dev.schizo.client.render.HudWidgetDrag;
 import dev.schizo.client.render.HudWidgetSnap;
 import dev.schizo.client.render.HudEditorGrid;
+import dev.schizo.client.render.HudGroupAlignment;
+import dev.schizo.client.render.HudGroupMove;
 import dev.schizo.client.render.HudHorizontalAlignment;
 import dev.schizo.client.render.HudVerticalAlignment;
 import dev.schizo.client.utils.KeyUtils;
@@ -813,6 +815,21 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
          HudWidgetRenderer widget = this.findHoveredWidget(this.mouseX, this.mouseY);
          IntPair offset = this.getArrowKeyOffset(event.key());
          this.pruneSelection();
+         if (KeyUtils.isControlDown() && KeyUtils.isShiftDown()) {
+            HudGroupAlignment.Mode mode = switch (event.key()) {
+               case GLFW.GLFW_KEY_LEFT -> HudGroupAlignment.Mode.LEFT;
+               case GLFW.GLFW_KEY_RIGHT -> HudGroupAlignment.Mode.RIGHT;
+               case GLFW.GLFW_KEY_UP -> HudGroupAlignment.Mode.TOP;
+               case GLFW.GLFW_KEY_DOWN -> HudGroupAlignment.Mode.BOTTOM;
+               case GLFW.GLFW_KEY_H -> HudGroupAlignment.Mode.CENTER_X;
+               case GLFW.GLFW_KEY_V -> HudGroupAlignment.Mode.CENTER_Y;
+               default -> null;
+            };
+            if (mode != null) {
+               if (this.selection.size() >= 2) this.alignSelection(mode);
+               return true;
+            }
+         }
          if (offset != null && (!this.selection.isEmpty() || widget != null && widget.isEnabled())) {
             List<HudWidgetRenderer> targets = this.selection.isEmpty() ? List.of(widget) : List.copyOf(this.selection);
             this.moveSelection(targets, offset.first(), offset.second());
@@ -843,6 +860,42 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
    private void pruneSelection() {
       this.selection.removeIf(widget -> !widget.isEnabled() || this.anchorGroups.stream()
          .noneMatch(group -> group.getWidgets().contains(widget)));
+   }
+
+   private void alignSelection(HudGroupAlignment.Mode mode) {
+      var window = ClientAccess.schizoMinecraft.getWindow();
+      List<HudWidgetRenderer> targets = List.copyOf(this.selection);
+      List<HudGroupMove.Bounds> bounds = new ArrayList<>();
+      for (HudWidgetRenderer widget : targets) {
+         float[] size = widget.getDimensions();
+         bounds.add(new HudGroupMove.Bounds(widget.getX(), widget.getY(), size[0], size[1]));
+      }
+      var positions = HudGroupAlignment.plan(bounds, window.getGuiScaledWidth(), window.getGuiScaledHeight(), mode);
+      if (positions.isEmpty()) return;
+      boolean changed = false;
+      for (int i = 0; i < targets.size(); i++) {
+         var old = bounds.get(i);
+         var next = positions.get(i);
+         if (Math.abs(next.x() - old.x()) > 0.001F || Math.abs(next.y() - old.y()) > 0.001F) changed = true;
+      }
+      if (!changed) return;
+      this.beginLayoutEdit();
+      for (int i = 0; i < targets.size(); i++) {
+         var next = positions.get(i);
+         // Even an unchanged anchored member can shift when another member leaves its stack.
+         HudWidgetRenderer widget = targets.get(i);
+         if (widget.getAnchor() != HudAnchor.NONE) {
+            this.getAnchorGroup(widget.getAnchor()).getWidgets().remove(widget);
+            this.addWidget(HudAnchor.NONE, widget);
+            widget.setAnchor(HudAnchor.NONE);
+         }
+         widget.resetSnapping();
+         widget.setX(next.x(), true);
+         widget.setY(next.y(), true);
+         widget.updateDirections();
+      }
+      this.requestDirectionRefresh();
+      this.finishLayoutEdit();
    }
 
    private void moveSelection(List<HudWidgetRenderer> targets, int dx, int dy) {
@@ -1004,6 +1057,7 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
       super.render(graphics, mouseX, mouseY, partialTick);
       String gridHint = this.gridStep == 0 ? "G: grid off" : "G: grid " + this.gridStep + " px | free placement";
       if (!this.selection.isEmpty()) gridHint += " | " + this.selection.size() + " selected";
+      if (this.selection.size() >= 2) gridHint += " | Ctrl+Shift+arrows/H/V: align";
       if (graphics.guiWidth() >= ClientAccess.schizoMinecraft.font.width(gridHint) + 16 && graphics.guiHeight() >= 24) {
          graphics.drawString(ClientAccess.schizoMinecraft.font, gridHint, 8, graphics.guiHeight() - 12, 0xffb8b9c7, true);
       }
