@@ -209,10 +209,13 @@ public class AmbienceModule extends Module {
    }
 
    public Object withWeatherOverrideSuppressed(Supplier supplier) {
+      boolean previous = this.weatherOverrideSuppressed;
       this.weatherOverrideSuppressed = true;
-      Object result = supplier.get();
-      this.weatherOverrideSuppressed = false;
-      return result;
+      try {
+         return supplier.get();
+      } finally {
+         this.weatherOverrideSuppressed = previous;
+      }
    }
 
    public AmbienceModule() {
