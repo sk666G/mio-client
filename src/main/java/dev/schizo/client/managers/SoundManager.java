@@ -35,7 +35,7 @@ import org.apache.logging.log4j.Logger;
 
 public final class SoundManager implements ClientAccess {
    private static final Logger LOGGER = LogManager.getLogger("Schizo Sound System");
-   private static final long MAX_CUSTOM_SOUND_BYTES = 16L * 1024L * 1024L;
+   public static final long MAX_CUSTOM_SOUND_BYTES = 16L * 1024L * 1024L;
    private static final long MAX_CUSTOM_SOUND_TOTAL_BYTES = 128L * 1024L * 1024L;
    private static final int MAX_CUSTOM_SOUND_FILES = 512;
    private static final int MAX_CUSTOM_SOUND_CATEGORIES = 128;
