@@ -794,8 +794,13 @@ public class SpeedMineModule extends Module {
       PacketEvent.Receive event
    ) {
       if (event.getPacket() instanceof ClientboundRespawnPacket) {
+         long expectedGeneration = this.lifecycleGeneration;
          ClientAccess.schizoMinecraft.executeIfPossible(() -> {
-            if (!this.isToggled()) {
+            if (!ownsQueuedRespawnReset(
+               this.isToggled(),
+               expectedGeneration,
+               this.lifecycleGeneration
+            )) {
                return;
             }
             this.lifecycleGeneration++;
@@ -809,6 +814,14 @@ public class SpeedMineModule extends Module {
       }
 
       this.rebreakTracker.handleBlockUpdates(event);
+   }
+
+   static boolean ownsQueuedRespawnReset(
+      boolean enabled,
+      long expectedGeneration,
+      long currentGeneration
+   ) {
+      return enabled && expectedGeneration == currentGeneration;
    }
 
    public boolean hasCrystalDelayElapsed(long delayMillis) {
