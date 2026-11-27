@@ -359,8 +359,7 @@ public class ClientScreen extends Screen implements ClientAccess {
    protected void init() {
       int screenWidth = ClientAccess.schizoMinecraft.getWindow().getGuiScaledWidth();
       int screenHeight = ClientAccess.schizoMinecraft.getWindow().getGuiScaledHeight();
-      if (this.getParentScreen()
-         != null) {
+      if (this.getParentScreen() != null && !(this.getParentScreen() instanceof ClientScreen)) {
          this.getParentScreen()
             .init(screenWidth, screenHeight);
       }
@@ -689,7 +688,7 @@ public class ClientScreen extends Screen implements ClientAccess {
       if (!this.closing) {
          this.panelDragging = false;
          this.transitionStartedNanos = System.nanoTime();
-         if (UIModule.INSTANCE.isToggled()) {
+         if (!(this.parentScreen instanceof ClickGuiScreen) && UIModule.INSTANCE.isToggled()) {
             UIModule.INSTANCE
                .toggle();
          }

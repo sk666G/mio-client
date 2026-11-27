@@ -7,6 +7,7 @@ import dev.schizo.client.gui.screens.ExpeditionScreen;
 import dev.schizo.client.gui.screens.HudLayoutPreviewScreen;
 import dev.schizo.client.gui.screens.CommandPaletteScreen;
 import dev.schizo.client.gui.screens.HudEditorScreen;
+import dev.schizo.client.gui.screens.HealthCenterScreen;
 import dev.schizo.client.gui.screens.PerformanceCenterScreen;
 import dev.schizo.client.modules.client.UIModule;
 import dev.schizo.client.modules.misc.StashEntry;
@@ -118,6 +119,33 @@ public final class SchizoClientGameTest implements FabricClientGameTest {
             studio.getSearchBox().setValue("");
          });
          context.waitTicks(2);
+         // Exercise the actual dock buttons and return path, rather than creating destinations directly.
+         Class<?>[] destinations = {HudEditorScreen.class, PerformanceCenterScreen.class,
+            ExpeditionScreen.class, HealthCenterScreen.class};
+         for (int index = 0; index < destinations.length; index++) {
+            final int tool = index;
+            context.runOnClient(minecraft -> {
+               ClickGuiScreen studio = (ClickGuiScreen)minecraft.screen;
+               double scale = dev.schizo.client.render.GuiScaleUtils.calculateScaleMultiplier(studio.getGuiScale());
+               var event = new MouseButtonEvent(studio.studioToolX(tool) * scale, studio.studioToolY() * scale,
+                  new MouseButtonInfo(0, 0));
+               studio.mouseClicked(event, false);
+               if (!destinations[tool].isInstance(minecraft.screen)) {
+                  throw new IllegalStateException("Studio tool failed to open: " + tool);
+               }
+            });
+            context.waitTicks(3);
+            if (tool == 3) context.takeScreenshot("schizo-health-center");
+            context.runOnClient(minecraft -> {
+               if (minecraft.screen instanceof dev.schizo.client.gui.screens.ClientScreen child) {
+                  child.closeWithTransition();
+               } else {
+                  minecraft.screen.onClose();
+               }
+            });
+            context.waitForScreen(ClickGuiScreen.class);
+            context.waitTicks(3);
+         }
 
          context.setScreen(() -> null);
          context.waitForScreen(null);
