@@ -50,7 +50,7 @@ public class ZoomOptionsUpdater implements ClientAccess {
       int currentValue,
       int lastAppliedValue
    ) {
-      return toggled || !overrideApplied || currentValue == lastAppliedValue;
+      return toggled || (overrideApplied && currentValue == lastAppliedValue);
    }
 
    @EventHandler
