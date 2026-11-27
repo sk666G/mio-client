@@ -25,4 +25,16 @@ class FreecamLifecycleTest {
          owners.remove(ownerName);
       }
    }
+
+   @Test
+   void rotationRestorationRequiresSameCapturedPlayerIdentity() {
+      Object captured = new Object();
+      Object replacement = new Object();
+
+      assertTrue(FreecamModule.shouldRestorePlayerRotation(captured, captured));
+      assertFalse(FreecamModule.shouldRestorePlayerRotation(captured, replacement));
+      assertFalse(FreecamModule.shouldRestorePlayerRotation(null, replacement));
+      assertFalse(FreecamModule.shouldRestorePlayerRotation(captured, null));
+   }
+
 }
