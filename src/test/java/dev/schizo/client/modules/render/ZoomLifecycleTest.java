@@ -7,15 +7,25 @@ import org.junit.jupiter.api.Test;
 
 class ZoomLifecycleTest {
    @Test
-   void smoothCameraPolicyPreservesSavedValueDuringTailAnimation() {
-      assertTrue(ZoomOptionsUpdater.resolveSmoothCameraValue(false, true, true, false, false));
-      assertFalse(ZoomOptionsUpdater.resolveSmoothCameraValue(false, true, false, true, true));
+   void smoothCameraTailPreservesCurrentValueAfterOwnershipRelease() {
+      assertFalse(ZoomOptionsUpdater.resolveSmoothCameraValue(false, true, true, false, false));
+      assertTrue(ZoomOptionsUpdater.resolveSmoothCameraValue(false, true, false, true, true));
    }
 
    @Test
    void smoothCameraPolicyUsesConfiguredValueWhileEnabled() {
       assertTrue(ZoomOptionsUpdater.resolveSmoothCameraValue(true, true, false, true, false));
       assertFalse(ZoomOptionsUpdater.resolveSmoothCameraValue(true, true, true, false, true));
+   }
+
+
+   @Test
+   void smoothCameraRestoreRequiresZoomToStillOwnCurrentValue() {
+      assertTrue(ZoomOptionsUpdater.shouldRestoreSmoothCamera(true, true, true));
+      assertTrue(ZoomOptionsUpdater.shouldRestoreSmoothCamera(true, false, false));
+      assertFalse(ZoomOptionsUpdater.shouldRestoreSmoothCamera(false, true, true));
+      assertFalse(ZoomOptionsUpdater.shouldRestoreSmoothCamera(true, false, true));
+      assertFalse(ZoomOptionsUpdater.shouldRestoreSmoothCamera(true, true, false));
    }
 
    @Test
