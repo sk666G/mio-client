@@ -128,9 +128,8 @@ public class FreeLookModule extends Module {
       if (freecam.isToggled()) {
          return;
       }
-      Options options = ClientAccess.schizoMinecraft.options;
       CameraType selectedCameraType = this.cameraType;
-      options.setCameraType(selectedCameraType);
+      GameOptionsOverrides.applyCameraOverride(this, selectedCameraType);
       Minecraft minecraft = ClientAccess.schizoMinecraft;
       LocalPlayer pickPlayer = ClientAccess.schizoMinecraft.player;
       double range = ClientAccess.schizoMinecraft.player.blockInteractionRange();
