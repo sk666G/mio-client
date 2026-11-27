@@ -48,10 +48,10 @@ public interface ReloadableShaderPass {
       CompiledShaderProgram replacementProgram;
       try {
          replacementProgram = this.compileProgram();
-      } catch (RuntimeException | Error primaryFailure) {
+      } catch (RuntimeException primaryFailure) {
          try {
             this.reportReloadFailure(primaryFailure);
-         } catch (RuntimeException | Error reportingFailure) {
+         } catch (RuntimeException reportingFailure) {
             if (reportingFailure != primaryFailure) {
                primaryFailure.addSuppressed(reportingFailure);
             }
@@ -59,7 +59,7 @@ public interface ReloadableShaderPass {
 
          try {
             replacementProgram = this.compileFallback(pass);
-         } catch (RuntimeException | Error fallbackFailure) {
+         } catch (RuntimeException fallbackFailure) {
             if (fallbackFailure != primaryFailure) {
                primaryFailure.addSuppressed(fallbackFailure);
             }

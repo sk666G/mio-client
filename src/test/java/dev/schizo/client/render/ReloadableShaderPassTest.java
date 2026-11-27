@@ -85,4 +85,23 @@ class ReloadableShaderPassTest {
       );
       assertNull(pass.program);
    }
+
+   @Test
+   void fatalCompileErrorsStillPropagate() {
+      BaseShaderPass pass = new BaseShaderPass("vertex", "fragment");
+      CompiledShaderProgram existing = new CompiledShaderProgram(31);
+      pass.program = existing;
+      AssertionError fatal = new AssertionError("fatal");
+
+      ReloadableShaderPass reloadable = new ReloadableShaderPass() {
+         @Override
+         public CompiledShaderProgram compileProgram() {
+            throw fatal;
+         }
+      };
+
+      assertSame(fatal, assertThrows(AssertionError.class, () -> reloadable.reload(pass)));
+      assertSame(existing, pass.program);
+   }
+
 }
