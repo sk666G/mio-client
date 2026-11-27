@@ -15,6 +15,7 @@ import dev.schizo.client.events.PacketEvent;
 import dev.schizo.client.events.BlockUpdateAppliedEvent;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.LocalPlayerPreTickEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.utils.movement.MovementPhysics;
 import dev.schizo.client.managers.RotationManager;
 import dev.schizo.client.utils.combat.ExtraBreakTarget;
@@ -22,6 +23,7 @@ import dev.schizo.client.utils.movement.WallsVelocityHandler;
 import dev.schizo.client.utils.ElapsedTimer;
 import dev.schizo.client.utils.entity.EntityUtils;
 import dev.schizo.client.modules.PlacementModule;
+import dev.schizo.client.modules.DeferredModuleActionGuard;
 import dev.schizo.client.utils.combat.BoundingBoxUtils;
 import dev.schizo.client.utils.combat.BlockRaycastClassifier;
 import dev.schizo.client.utils.combat.BlockRaycastOverride;
@@ -94,6 +96,7 @@ public class FeetPlaceModule extends PlacementModule {
    private boolean sequentialPlacementComplete;
    private int nearbyCrystalCount;
    private boolean centered;
+   private long deferredGeneration;
 
    @Override
    protected BlockPos getPlacementOrigin() {
@@ -146,7 +149,9 @@ public class FeetPlaceModule extends PlacementModule {
    }
    @Override
    public void onEnable() {
+      this.deferredGeneration++;
       this.nearbyCrystalCount = 0;
+      this.fireworkSupport.onEnable();
       if (!this.isWorldUnavailable()) {
          this.centered = false;
 
@@ -154,8 +159,38 @@ public class FeetPlaceModule extends PlacementModule {
       }
 
       super.onEnable();
+   }
 
-      this.fireworkSupport.onEnable();
+   @Override
+   public void onDisable() {
+      this.deferredGeneration++;
+      this.nearbyCrystalCount = 0;
+      this.fireworkSupport.onDisable();
+      super.onDisable();
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.deferredGeneration++;
+      this.nearbyCrystalCount = 0;
+      this.fireworkSupport.onDisable();
+   }
+
+   private boolean ownsDeferredAction(
+      long expectedGeneration,
+      ClientLevel expectedLevel,
+      LocalPlayer expectedPlayer
+   ) {
+      Minecraft minecraft = ClientAccess.schizoMinecraft;
+      return DeferredModuleActionGuard.isCurrent(
+         this.isToggled(),
+         expectedGeneration,
+         this.deferredGeneration,
+         expectedLevel,
+         minecraft.level,
+         expectedPlayer,
+         minecraft.player
+      );
    }
 
    private void countNearbyCrystals() {
@@ -357,7 +392,13 @@ public class FeetPlaceModule extends PlacementModule {
 
                if (!multiTask.isItemUseRestricted()) {
                   Minecraft client = ClientAccess.schizoMinecraft;
+                  ClientLevel expectedLevel = client.level;
+                  LocalPlayer expectedPlayer = client.player;
+                  long expectedGeneration = this.deferredGeneration;
                   Runnable processFireworks = () -> {
+                     if (!this.ownsDeferredAction(expectedGeneration, expectedLevel, expectedPlayer)) {
+                        return;
+                     }
                      FeetPlaceFireworkSupport support = this.fireworkSupport;
                      Setting<Boolean> placementAirPlaceSettingSnapshot = this.placementAirPlaceSetting;
 
@@ -654,8 +695,14 @@ public class FeetPlaceModule extends PlacementModule {
                double spawnZ = entityPacket.getZ();
                BlockPos crystalPosition = BlockPos.containing(spawnX, spawnY, spawnZ);
                Minecraft client = ClientAccess.schizoMinecraft;
+               ClientLevel expectedLevel = client.level;
+               LocalPlayer expectedPlayer = client.player;
+               long expectedGeneration = this.deferredGeneration;
                Runnable countSpawnedCrystal = () -> {
-                  Set<BlockPos> spawnSurroundPositions = PlayerStateUtils.getSurroundPositions(ClientAccess.schizoMinecraft.player);
+                  if (!this.ownsDeferredAction(expectedGeneration, expectedLevel, expectedPlayer)) {
+                     return;
+                  }
+                  Set<BlockPos> spawnSurroundPositions = PlayerStateUtils.getSurroundPositions(expectedPlayer);
                   BlockPos crystalBase = crystalPosition.below();
                   if (spawnSurroundPositions.contains(crystalBase)) {
                      this.nearbyCrystalCount++;
@@ -668,7 +715,14 @@ public class FeetPlaceModule extends PlacementModule {
       }
 
       if (this.fireworkSetting.getValue()) {
-         this.fireworkSupport.observeSpawnPacket(event);
+         Minecraft client = ClientAccess.schizoMinecraft;
+         ClientLevel expectedLevel = client.level;
+         LocalPlayer expectedPlayer = client.player;
+         long expectedGeneration = this.deferredGeneration;
+         this.fireworkSupport.observeSpawnPacket(
+            event,
+            () -> this.ownsDeferredAction(expectedGeneration, expectedLevel, expectedPlayer)
+         );
       }
    }
 
