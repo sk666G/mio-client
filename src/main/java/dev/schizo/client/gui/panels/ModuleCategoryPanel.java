@@ -59,6 +59,7 @@ public class ModuleCategoryPanel extends Panel implements ClientAccess {
    protected boolean isChildVisible(GuiElement child) {
       String query = ClientContext.getClickGui().getNormalizedSearchQuery();
       if (child instanceof ModuleComponent moduleComponent && !query.isEmpty()) {
+         if (TextUtils.containsIgnoreCase(moduleComponent.getModule().getName(), query)) return true;
          for (String alias : moduleComponent.getModule()
             .getAliases()) {
             if (TextUtils.containsIgnoreCase(alias, query)) {

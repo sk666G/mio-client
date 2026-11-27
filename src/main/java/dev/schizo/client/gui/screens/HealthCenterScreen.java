@@ -4,6 +4,7 @@ import dev.schizo.client.ClientContext;
 import dev.schizo.client.config.SafeModeManager;
 import dev.schizo.client.config.ModuleConfigLoadReport;
 import dev.schizo.client.diagnostics.ClientHealthSnapshot;
+import dev.schizo.client.diagnostics.ClientBindingDiagnostics;
 import dev.schizo.client.diagnostics.HealthReport;
 import dev.schizo.client.events.bus.EventFailureTracker;
 import dev.schizo.client.integrations.IntegrationHealth;
@@ -19,6 +20,7 @@ import net.minecraft.network.chat.Component;
 public final class HealthCenterScreen extends Screen {
    private final Screen returnScreen;
    private HealthReport report;
+   private List<String> reportRows = List.of();
    private int left, top, panelWidth, rowCount, offset;
    private long refreshedAt;
    private String notice = "";
@@ -60,9 +62,11 @@ public final class HealthCenterScreen extends Screen {
          tasks.totalQueued(), tasks.totalOutstanding(), EventProfiler.GLOBAL.isEnabled()),
          ClientContext.baritoneBridge == null ? IntegrationHealth.UNAVAILABLE : ClientContext.baritoneBridge.health(),
          ClientContext.waypointAdapter == null ? IntegrationHealth.UNAVAILABLE : ClientContext.waypointAdapter.health(),
-         profiles != null && profiles.isEnabled(), profiles != null && profiles.getFailedContextDescription() != null);
+         profiles != null && profiles.isEnabled(), profiles != null && profiles.getFailedContextDescription() != null,
+         ClientBindingDiagnostics.capture().groupCount());
+      reportRows = report.lines();
       refreshedAt = System.nanoTime();
-      offset = Math.max(0, Math.min(offset, report.lines().size() - rowCount));
+      offset = Math.max(0, Math.min(offset, reportRows.size() - rowCount));
    }
 
    @Override public void tick() {
@@ -78,7 +82,7 @@ public final class HealthCenterScreen extends Screen {
       String hint = notice.isEmpty() ? "Local diagnostics  |  Scroll to browse" : notice;
       graphics.drawString(font, font.plainSubstrByWidth(hint, Math.max(0, panelWidth - 18)), left + 9, top + 24, 0xffa1a3af, false);
       if (report != null) {
-         var rows = report.lines();
+         var rows = reportRows;
          for (int i = 0; i < rowCount && offset + i < rows.size(); i++) {
             int y = top + 38 + i * 17;
             graphics.fill(left + 6, y, left + panelWidth - 6, y + 15, 0xff21222a);
@@ -91,7 +95,7 @@ public final class HealthCenterScreen extends Screen {
 
    @Override public boolean mouseScrolled(double x, double y, double horizontal, double vertical) {
       if (report != null && vertical != 0 && x >= left && x < left + panelWidth) {
-         offset = Math.max(0, Math.min(Math.max(0, report.lines().size() - rowCount), offset + (vertical < 0 ? 1 : -1)));
+         offset = Math.max(0, Math.min(Math.max(0, reportRows.size() - rowCount), offset + (vertical < 0 ? 1 : -1)));
          return true;
       }
       return super.mouseScrolled(x, y, horizontal, vertical);

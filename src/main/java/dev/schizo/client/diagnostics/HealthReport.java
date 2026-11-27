@@ -7,10 +7,15 @@ import dev.schizo.client.integrations.IntegrationHealth;
 /** Value-free, local diagnostics. No raw exceptions, settings, identifiers or addresses. */
 public record HealthReport(ClientHealthSnapshot snapshot, IntegrationHealth baritone,
                            IntegrationHealth waypoints, boolean profilesEnabled,
-                           boolean profileRecoveryPending) {
+                           boolean profileRecoveryPending, int sharedBindingGroups) {
+   public HealthReport(ClientHealthSnapshot snapshot, IntegrationHealth baritone,
+                       IntegrationHealth waypoints, boolean profilesEnabled, boolean profileRecoveryPending) {
+      this(snapshot, baritone, waypoints, profilesEnabled, profileRecoveryPending, 0);
+   }
+
    public List<String> lines() {
       List<String> rows = new ArrayList<>();
-      rows.add("Status: " + (snapshot.hasWarnings() || profileRecoveryPending ? "Attention" : "No recorded warnings"));
+      rows.add("Status: " + (snapshot.hasWarnings() || profileRecoveryPending || sharedBindingGroups > 0 ? "Attention" : "No recorded warnings"));
       rows.add("Safe Mode: " + (snapshot.safeModeActive() ? "active" : "inactive") + (snapshot.safeModeArmed() ? " / armed" : ""));
       rows.add("Startup recovery: " + (snapshot.safeModeInitializationFailed() || snapshot.safeModeUnsafeMarker() ? "attention" : "no recorded failure"));
       rows.add("Configuration issues: " + snapshot.moduleConfigIssues());
@@ -22,6 +27,7 @@ public record HealthReport(ClientHealthSnapshot snapshot, IntegrationHealth bari
       rows.add("Waypoints: " + waypoints.label());
       rows.add("Context profiles: " + (profilesEnabled ? "enabled" : "disabled"));
       rows.add("Profile recovery: " + (profileRecoveryPending ? "pending" : "no recorded failure"));
+      rows.add("Shared module input groups: " + sharedBindingGroups + " (review; may be intentional)");
       return List.copyOf(rows);
    }
 
