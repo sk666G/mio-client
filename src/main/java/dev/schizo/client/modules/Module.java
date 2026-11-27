@@ -136,6 +136,15 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
          eventBus.unsubscribe(this);
          this.enabled = false;
          this.compatibilityPolicySuppressed = false;
+
+         try {
+            eventBus.postCleanup(new ModuleToggleEvent(this));
+         } catch (RuntimeException | Error rollbackNotificationFailure) {
+            if (rollbackNotificationFailure != lifecycleFailure) {
+               lifecycleFailure.addSuppressed(rollbackNotificationFailure);
+            }
+         }
+
          if (toggleHookStarted) {
             try {
                this.onToggle();
@@ -145,6 +154,7 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
                }
             }
          }
+
          if (enableHookStarted) {
             try {
                this.onDisable();
@@ -154,6 +164,7 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
                }
             }
          }
+
          ClientAccess.logger.error("Module {} failed while enabling and was rolled back", this.getName(), lifecycleFailure);
          if (lifecycleFailure instanceof RuntimeException runtimeFailure) {
             throw runtimeFailure;
