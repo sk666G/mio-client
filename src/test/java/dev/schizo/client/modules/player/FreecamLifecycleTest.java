@@ -3,6 +3,7 @@ package dev.schizo.client.modules.player;
 import static org.junit.jupiter.api.Assertions.*;
 
 import dev.schizo.client.render.GameOptionsOverrides;
+import dev.schizo.client.settings.NamedEntry;
 import java.lang.reflect.Field;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
@@ -15,14 +16,13 @@ class FreecamLifecycleTest {
       ownersField.setAccessible(true);
 
       @SuppressWarnings("unchecked")
-      Set<String> owners = (Set<String>)ownersField.get(null);
-      String ownerName = module.getName();
-      owners.add(ownerName);
+      Set<NamedEntry> owners = (Set<NamedEntry>)ownersField.get(null);
+      owners.add(module);
       try {
          assertDoesNotThrow(module::onDisable);
-         assertFalse(owners.contains(ownerName));
+         assertFalse(owners.contains(module));
       } finally {
-         owners.remove(ownerName);
+         owners.remove(module);
       }
    }
 
