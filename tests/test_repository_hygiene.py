@@ -192,6 +192,23 @@ class RepositoryHygieneTest(unittest.TestCase):
         self.assertEqual([], missing, f"Registered command source missing: {missing}")
 
 
+
+    def test_shutdown_worker_cleanup_is_not_gated_on_configuration_manager(self):
+        minecraft = (ROOT / "src/main/java/dev/schizo/mixin/MinecraftMixin.java").read_text(encoding="utf-8")
+        start = minecraft.index('public void saveConfigurationOnDestroy(CallbackInfo callback)')
+        end = minecraft.index('@Inject(method = "disconnect', start)
+        method = minecraft[start:end]
+        self.assertIn("if (shutdownSaveStarted)", method)
+        self.assertIn("shutdownSaveStarted = true;", method)
+        self.assertIn("if (ClientContext.taskScheduler != null)", method)
+        self.assertIn(
+            "ConfigurationManager configuration = ClientContext.configurationManager;",
+            method,
+        )
+        self.assertIn("if (configuration == null)", method)
+        cleanup = method.index("WorkerExecutorShutdown.shutdownAndAwait(ClientAccess.executorService)")
+        self.assertGreater(cleanup, method.rindex("finally {"))
+
     def test_build_artifact_provenance_is_self_verifiable(self):
         workflow = (ROOT / ".github/workflows/build.yml").read_text(encoding="utf-8")
         self.assertIn(
