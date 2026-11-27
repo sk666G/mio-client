@@ -195,7 +195,7 @@ public final class FireworksModule extends Module {
       }
       if (this.fastLaunchSetting.getValue() && this.modeSetting.getValue() == ModeChoice.TOGGLE
          && ClientAccess.schizoMinecraft.player.onGround() && this.fastLaunchWasActive) {
-         ClientContext.inputOverrides.requestJump(true);
+         ClientContext.inputOverrides.requestJump(this, true);
       }
       if (this.isFastLaunchActive() && this.fastLaunchSetting.getValue()) {
          autoArmorModule.skipNextArmorUpdate();
@@ -676,7 +676,7 @@ public final class FireworksModule extends Module {
             this.modeSetting.getValue()
          )) {
             this.rocketUseTimer.clear();
-            ClientContext.inputOverrides.requestJump(true);
+            ClientContext.inputOverrides.requestJump(this, true);
          }
       });
    }
