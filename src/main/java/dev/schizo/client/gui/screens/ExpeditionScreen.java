@@ -107,10 +107,14 @@ public final class ExpeditionScreen extends Screen {
             this.selected = -1;
             this.refresh();
          });
-         this.button("Show / hide coordinates", this.left + half + 2, layout.secondaryY(), half, () -> {
-            this.message = "";
-            this.showCoordinates = !this.showCoordinates;
-            this.refresh();
+         this.button(this.tab == 2 ? "Edit rules" : "Show / hide coordinates", this.left + half + 2, layout.secondaryY(), half, () -> {
+            if (this.tab == 2) {
+               this.minecraft.setScreen(new ContextProfileEditorScreen(this));
+            } else {
+               this.message = "";
+               this.showCoordinates = !this.showCoordinates;
+               this.refresh();
+            }
          });
       }
 
