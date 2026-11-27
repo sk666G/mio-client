@@ -117,6 +117,43 @@ public final class FileUtils {
    }
 
    /**
+    * Writes a brand-new binary file without ever replacing an existing target.
+    * CREATE_NEW makes destination ownership atomic under concurrent writers.
+    */
+   public static void writeBytesCreateNew(Path path, byte[] bytes) throws IOException {
+      Path target = path.toAbsolutePath().normalize();
+      Path parent = target.getParent();
+      if (parent == null) {
+         throw new IOException("Cannot write a file without a parent directory: " + target);
+      }
+      Files.createDirectories(parent);
+
+      boolean created = false;
+      try {
+         try (var output = Files.newOutputStream(
+            target,
+            StandardOpenOption.CREATE_NEW,
+            StandardOpenOption.WRITE
+         )) {
+            created = true;
+            output.write(bytes);
+            output.flush();
+         }
+      } catch (FileAlreadyExistsException existing) {
+         throw existing;
+      } catch (IOException failure) {
+         if (created) {
+            try {
+               Files.deleteIfExists(target);
+            } catch (IOException cleanupFailure) {
+               failure.addSuppressed(cleanupFailure);
+            }
+         }
+         throw new IOException("Unable to create " + target, failure);
+      }
+   }
+
+   /**
     * Writes a brand-new UTF-8 file without ever replacing an existing target.
     * CREATE_NEW makes ownership of the destination the atomic operation; only the
     * writer that creates the target is allowed to populate it.
