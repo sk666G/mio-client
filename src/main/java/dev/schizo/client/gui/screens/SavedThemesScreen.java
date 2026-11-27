@@ -1,0 +1,139 @@
+package dev.schizo.client.gui.screens;
+
+import dev.schizo.client.config.ThemeLibrary;
+import dev.schizo.client.managers.ConfigurationManager;
+import dev.schizo.client.modules.client.UiPalette;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
+
+/** Local named palette library. Loading a theme changes only the parent preview. */
+final class SavedThemesScreen extends StudioScreen {
+   private final Screen parent;
+   private final UiPalette current;
+   private final Consumer<UiPalette> accepted;
+   private final ThemeLibrary library = new ThemeLibrary(ConfigurationManager.ROOT_DIRECTORY);
+   private List<ThemeLibrary.Entry> entries = List.of();
+   private boolean readable, confirming;
+   private int selected, left, top, panelWidth;
+   private boolean compact;
+   private EditBox name;
+   private Button load, duplicate, rename, delete, save, previous, next;
+   private String notice = "";
+   private String nameDraft = "";
+
+   SavedThemesScreen(Screen parent, UiPalette current, Consumer<UiPalette> accepted) {
+      super(Component.literal("Saved themes"));
+      this.parent = parent;
+      this.current = current;
+      this.accepted = accepted;
+      reload();
+   }
+
+   private void reload() {
+      confirming = false;
+      try { entries = library.load(); readable = true; selected = Math.max(0,Math.min(selected,entries.size()-1)); notice = "Saved themes are local."; }
+      catch (IOException failure) { readable = false; entries = List.of(); selected = 0; notice = "Library unreadable. Reload before editing."; }
+      refresh();
+   }
+
+   @Override protected void init() {
+      super.init();
+      panelWidth = Math.max(1,Math.min(480,width-16));
+      left = (width-panelWidth)/2;
+      top = Math.max(4,(height-178)/2);
+      compact = panelWidth < 240 || height < 186;
+      if (compact) { button("Back",left,Math.max(1,height-25),panelWidth,this::onClose); return; }
+      int w = (panelWidth-8)/3;
+      previous = button("Previous",left,top+30,w,() -> select(-1));
+      next = button("Next",left+w+4,top+30,w,() -> select(1));
+      load = button("Preview theme",left+2*(w+4),top+30,w,() -> {
+         if (readable && !entries.isEmpty()) { accepted.accept(entries.get(selected).colors()); onClose(); }
+      });
+      name = addRenderableWidget(new StudioEditBox(font,left,top+65,panelWidth,20,Component.literal("Theme name")));
+      name.setMaxLength(64);
+      name.setValue(nameDraft);
+      name.setResponder(value -> { nameDraft=value; confirming=false; refresh(); });
+      save = button("Save preview",left,top+92,w,() -> mutate(0));
+      duplicate = button("Duplicate",left+w+4,top+92,w,() -> mutate(1));
+      rename = button("Rename",left+2*(w+4),top+92,w,() -> mutate(2));
+      delete = button("Delete",left,top+115,w,() -> {
+         if (!confirming) { confirming=true; notice="Confirm deletion of selected theme."; refresh(); }
+         else mutate(3);
+      });
+      button("Reload",left+w+4,top+115,w,this::reload);
+      button("Back",left+2*(w+4),top+115,w,this::onClose);
+      refresh();
+   }
+
+   private Button button(String title,int x,int y,int w,Runnable action) {
+      return addRenderableWidget(new StudioButton(x,y,w,20,Component.literal(title),ignored -> action.run()));
+   }
+
+   private void select(int offset) {
+      selected = Math.max(0,Math.min(entries.size()-1,selected+offset));
+      confirming=false;
+      refresh();
+   }
+
+   private void refresh() {
+      if (save == null) return;
+      boolean has = readable && !entries.isEmpty(), named = !nameDraft.isBlank();
+      save.active = readable && named;
+      duplicate.active = has && named;
+      rename.active = has && named;
+      delete.active = has;
+      load.active = has;
+      previous.active = has && selected>0;
+      next.active = has && selected+1<entries.size();
+      delete.setMessage(Component.literal(confirming ? "Confirm delete" : "Delete"));
+   }
+
+   private void mutate(int operation) {
+      if (!readable) return;
+      List<ThemeLibrary.Entry> updated = new ArrayList<>(entries);
+      try {
+         switch(operation) {
+            case 0 -> updated.add(new ThemeLibrary.Entry(nameDraft,current));
+            case 1 -> updated.add(new ThemeLibrary.Entry(nameDraft,entries.get(selected).colors()));
+            case 2 -> updated.set(selected,new ThemeLibrary.Entry(nameDraft,entries.get(selected).colors()));
+            case 3 -> updated.remove(selected);
+            default -> { return; }
+         }
+         library.replace(entries,updated);
+         entries=List.copyOf(updated);
+         selected = operation<=1 ? entries.size()-1 : Math.max(0,Math.min(selected,entries.size()-1));
+         notice = "Theme library saved. Live colors unchanged.";
+      } catch (IllegalArgumentException invalid) { notice="Invalid or duplicate name, or theme limit reached."; }
+      catch (IOException failure) { notice="Theme write rejected or failed. Reload before editing."; readable=false; }
+      confirming=false;
+      refresh();
+   }
+
+   @Override public void render(GuiGraphics graphics,int mouseX,int mouseY,float partialTick) {
+      StudioScreenTheme theme=StudioScreenTheme.current();
+      graphics.fill(0,0,width,height,theme.backdrop());
+      if (compact) {
+         graphics.drawString(font,font.plainSubstrByWidth("Reduce GUI scale to manage themes",panelWidth),left,top,0xffeeeeef,false);
+      } else {
+         graphics.fill(left-4,top,left+panelWidth+4,top+174,theme.panel());
+         graphics.fill(left-4,top,left+panelWidth+4,top+1,theme.accent());
+         graphics.drawString(font,"SAVED THEMES",left,top+5,theme.accent(),false);
+         String item=entries.isEmpty()?"No saved themes":(selected+1)+"/"+entries.size()+"  "+entries.get(selected).name();
+         graphics.drawString(font,font.plainSubstrByWidth(item,panelWidth),left,top+17,0xffeeeeef,false);
+         graphics.drawString(font,"New name (save, duplicate or rename)",left,top+54,0xffb8b9c7,false);
+         graphics.drawString(font,font.plainSubstrByWidth(notice,panelWidth),left,top+144,0xffb8b9c7,false);
+         graphics.drawString(font,"Preview does not apply live settings.",left,top+156,0xffb8b9c7,false);
+      }
+      super.render(graphics,mouseX,mouseY,partialTick);
+   }
+
+   @Override public void onClose() { minecraft.setScreen(parent); }
+   @Override public boolean isPauseScreen() { return false; }
+}
