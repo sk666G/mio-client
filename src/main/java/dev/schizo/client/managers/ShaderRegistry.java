@@ -34,6 +34,7 @@ import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import net.minecraft.client.renderer.block.BlockRenderDispatcher;
 import net.minecraft.client.renderer.feature.FeatureRenderDispatcher;
 import net.minecraft.client.resources.model.AtlasManager;
+import java.util.function.BiConsumer;
 
 public final class ShaderRegistry implements ClientAccess {
    private static final ColorSubmitNodeStorage submitNodes;
@@ -113,9 +114,25 @@ public final class ShaderRegistry implements ClientAccess {
    }
 
    public void reloadAll() {
-      for (ShaderPass pass : this.passes.values()) {
+      reloadPasses(
+         this.passes.values(),
+         (pass, failure) -> ClientAccess.logger.error(
+            "Could not reload shader pass {}", pass.getClass().getSimpleName(), failure
+         )
+      );
+   }
+
+   static void reloadPasses(
+      Iterable<ShaderPass> passes,
+      BiConsumer<ShaderPass, RuntimeException> failureHandler
+   ) {
+      for (ShaderPass pass : passes) {
          if (pass instanceof ReloadableShaderPass reloadable) {
-            reloadable.reload((BaseShaderPass)pass);
+            try {
+               reloadable.reload((BaseShaderPass)pass);
+            } catch (RuntimeException failure) {
+               failureHandler.accept(pass, failure);
+            }
          }
       }
    }
