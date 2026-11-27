@@ -13,6 +13,7 @@ import dev.schizo.client.ClientAccess;
 import dev.schizo.client.events.CameraSetupEvent;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.LocalPlayerTickEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.utils.math.Vec3Utils;
 import dev.schizo.client.utils.entity.PlayerStateUtils;
 import dev.schizo.client.modules.Module;
@@ -122,7 +123,23 @@ public class AnimationsModule extends Module {
 
    @Override
    public void onDisable() {
-      this.resetCrystalModelVisibility();
+      try {
+         this.resetCrystalModelVisibility();
+      } finally {
+         this.resetSmoothCameraState();
+      }
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.resetSmoothCameraState();
+   }
+
+   void resetSmoothCameraState() {
+      this.verticalCameraCatchUp = false;
+      this.horizontalCameraCatchUp = false;
+      this.cameraPosition = null;
+      this.previousCameraPosition = null;
    }
 
    private boolean updateCameraCatchUp(boolean previousCatchUp, double distance, double catchUpThreshold) {
