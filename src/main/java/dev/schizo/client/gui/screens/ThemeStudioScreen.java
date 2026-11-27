@@ -60,7 +60,13 @@ public final class ThemeStudioScreen extends StudioScreen {
             notice = "Custom preview. Apply to save six fixed colors.";
          }));
       });
-      previewTop = top + 80;
+      button("Saved themes", left, top + 75, panelWidth, () -> {
+         minecraft.setScreen(new SavedThemesScreen(this, draft.preview(), colors -> {
+            draft.selectCustom(colors);
+            notice = "Saved theme preview. Apply to change live colors.";
+         }));
+      });
+      previewTop = top + 103;
       int bottom = Math.min(height - 25, top + 226);
       previewHeight = Math.max(1, bottom - previewTop - 15);
       button("Back", left, bottom, w, this::onClose);
