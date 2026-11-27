@@ -13,6 +13,7 @@ import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.LocalPlayerPreTickEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.managers.InputOverrideManager;
 import dev.schizo.client.managers.SocialRegistry;
 import dev.schizo.client.utils.entity.PlayerStateUtils;
@@ -50,6 +51,27 @@ public class MiddleClickModule extends Module {
    private boolean middleButtonHeld;
    private boolean launchAgainNextTick;
 
+   @Override
+   public void onEnable() {
+      this.middleButtonHeld = false;
+      this.launchAgainNextTick = false;
+   }
+
+   @Override
+   public void onDisable() {
+      this.middleButtonHeld = false;
+      this.launchAgainNextTick = false;
+      if (ClientContext.inputOverrides != null) {
+         ClientContext.inputOverrides.clearJumpRequest(this);
+      }
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.middleButtonHeld = false;
+      this.launchAgainNextTick = false;
+   }
+
    private void handleMiddleClick() {
       HitResult hitResult = ClientAccess.schizoMinecraft.hitResult;
       boolean canLaunch = true;
@@ -82,7 +104,7 @@ public class MiddleClickModule extends Module {
             LocalPlayer launchGroundPlayer = ClientAccess.schizoMinecraft.player;
             if (launchGroundPlayer.onGround()) {
                InputOverrideManager jumpManagerSnapshot = ClientContext.inputOverrides;
-               jumpManagerSnapshot.requestJump((true));
+               jumpManagerSnapshot.requestJump(this, true);
 
                this.launchFirework();
                this.launchAgainNextTick = true;
