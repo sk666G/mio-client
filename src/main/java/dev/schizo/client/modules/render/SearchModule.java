@@ -523,7 +523,7 @@ public class SearchModule extends Module {
 
    @EventHandler
    private void onMinecraftDisconnectEvent(MinecraftDisconnectEvent event) {
-
+      this.alertPending = false;
       this.resetChunkScanner();
    }
 
