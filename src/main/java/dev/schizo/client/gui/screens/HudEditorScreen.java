@@ -31,6 +31,7 @@ import dev.schizo.client.gui.components.ModuleComponent;
 import dev.schizo.client.render.HudWidgetRenderer;
 import dev.schizo.client.render.HudWidgetDrag;
 import dev.schizo.client.render.HudWidgetSnap;
+import dev.schizo.client.render.HudEditorGrid;
 import dev.schizo.client.render.HudHorizontalAlignment;
 import dev.schizo.client.render.HudVerticalAlignment;
 import dev.schizo.client.utils.KeyUtils;
@@ -73,6 +74,8 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
    private ResizableHudWidgetRenderer resizedWidget;
    private boolean centerPanelPending;
    private boolean directionsRefreshPending;
+   private int gridStep;
+   private int dragGridStep;
    private double dragOffsetX;
    private double dragOffsetY;
    private float mouseX;
@@ -425,6 +428,11 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
    }
 
    private void applyDragSnapping(HudWidgetRenderer widget, float[] size, float screenWidth, float screenHeight) {
+      if (this.dragGridStep > 0) {
+         widget.setX(HudEditorGrid.snap(widget.getX(), screenWidth, size[0], this.dragGridStep), true);
+         widget.setY(HudEditorGrid.snap(widget.getY(), screenHeight, size[1], this.dragGridStep), true);
+         return;
+      }
       float snappedX = HudWidgetSnap.snap(widget.getX(), size[0], screenWidth, hud.getSafeX(), 5.0F);
       float snappedY = HudWidgetSnap.snap(widget.getY(), size[1], screenHeight, hud.getSafeY(), 5.0F);
       widget.setX(snappedX, true);
@@ -480,9 +488,14 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
          HudWidgetRenderer widget = this.draggedWidget;
          int screenWidth = ClientAccess.schizoMinecraft.getWindow().getGuiScaledWidth();
          int screenHeight = ClientAccess.schizoMinecraft.getWindow().getGuiScaledHeight();
-         widget.updateSnapping(screenWidth, screenHeight, 5.0F);
-         HudAnchorGroup destination = this.findDropGroup(widget);
          HudAnchorGroup freeGroup = this.getAnchorGroup(HudAnchor.NONE);
+         HudAnchorGroup destination = freeGroup;
+         if (this.dragGridStep == 0) {
+            widget.updateSnapping(screenWidth, screenHeight, 5.0F);
+            destination = this.findDropGroup(widget);
+         } else {
+            widget.resetSnapping();
+         }
          if (destination != freeGroup) {
             destination.getWidgets().addLast(widget);
             freeGroup.getWidgets().remove(widget);
@@ -546,6 +559,7 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
             }
          } else if (event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
             this.beginLayoutEdit();
+            this.dragGridStep = this.gridStep;
             this.dragOffsetX = event.x() - widget.getX();
             this.dragOffsetY = event.y() - widget.getY();
             this.getAnchorGroup(widget.getAnchor()).getWidgets().remove(widget);
@@ -780,6 +794,10 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
          if (this.draggedWidget != null || this.resizedWidget != null) {
             return super.keyPressed(event);
          }
+         if (event.key() == GLFW.GLFW_KEY_G && !KeyUtils.isControlDown() && !KeyUtils.isShiftDown()) {
+            this.gridStep = HudEditorGrid.next(this.gridStep);
+            return true;
+         }
          HudWidgetRenderer widget = this.findHoveredWidget(this.mouseX, this.mouseY);
          IntPair offset = this.getArrowKeyOffset(event.key());
          if (offset != null && widget != null && widget.isEnabled()) {
@@ -894,6 +912,7 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
             + 0.5F,
          guideColor
       );
+      if (this.gridStep > 0) this.renderGrid(poseStack, graphics.guiWidth(), graphics.guiHeight());
       this.marginController
          .render(poseStack, mouseX, mouseY);
       this.renderWidgets(
@@ -901,7 +920,7 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
          mouseX,
          mouseY
       );
-      if (this.draggedWidget != null) {
+      if (this.draggedWidget != null && this.dragGridStep == 0) {
          HudWidgetRenderer widget = this.draggedWidget;
          this.snapWidget(graphics, poseStack, widget, widget.getDimensions());
       }
@@ -935,10 +954,22 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
       }
 
       super.render(graphics, mouseX, mouseY, partialTick);
+      String gridHint = this.gridStep == 0 ? "G: grid off" : "G: grid " + this.gridStep + " px | free placement";
+      if (graphics.guiWidth() >= ClientAccess.schizoMinecraft.font.width(gridHint) + 16 && graphics.guiHeight() >= 24) {
+         graphics.drawString(ClientAccess.schizoMinecraft.font, gridHint, 8, graphics.guiHeight() - 12, 0xffb8b9c7, true);
+      }
       if (this.centerPanelPending) {
          this.centerModulePanel();
          this.centerPanelPending = false;
       }
+   }
+
+   private void renderGrid(PoseStack poseStack, int width, int height) {
+      int step = HudEditorGrid.visualStep(this.gridStep, Math.max(width, height));
+      if (step <= 0) return;
+      Color color = ColorUtils.withAlpha(ColorUtils.getThemeColor(), 35);
+      for (int x = step; x < width; x += step) GuiDrawUtils.fillRect(poseStack, x, 0, x + 0.5F, height, color);
+      for (int y = step; y < height; y += step) GuiDrawUtils.fillRect(poseStack, 0, y, width, y + 0.5F, color);
    }
 
    @Override
