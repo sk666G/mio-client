@@ -44,17 +44,42 @@ public class ZoomOptionsUpdater implements ClientAccess {
       return overrideApplied && currentValue == lastAppliedValue;
    }
 
+   static boolean shouldContinueFovOverride(
+      boolean toggled,
+      boolean overrideApplied,
+      int currentValue,
+      int lastAppliedValue
+   ) {
+      return toggled || !overrideApplied || currentValue == lastAppliedValue;
+   }
+
    @EventHandler
    private void onMinecraftRunTickEvent(MinecraftRunTickEvent event) {
       ZoomModule fovModule = this.zoomModule;
       int fov = fovModule.calculateFov();
       OptionInstance fovOption = ClientAccess.schizoMinecraft.options.fov();
+      int currentFov = (Integer)fovOption.get();
+      boolean toggled = this.zoomModule.isToggled();
+      if (!shouldContinueFovOverride(
+         toggled,
+         this.zoomModule.fovOverrideApplied,
+         currentFov,
+         this.zoomModule.lastAppliedFov
+      )) {
+         ClientAccess.eventBus.unsubscribe(this);
+         this.zoomModule.fovUpdateActive = false;
+         this.zoomModule.fovOverrideApplied = false;
+         this.zoomModule.smoothCameraCaptured = false;
+         this.zoomModule.smoothCameraOverrideApplied = false;
+         return;
+      }
       Integer fovValue = fov;
       GameOptionsOverrides.forceSetOptionValue(fovOption, fovValue);
+      this.zoomModule.lastAppliedFov = fov;
+      this.zoomModule.fovOverrideApplied = true;
       Options cameraOptions = ClientAccess.schizoMinecraft.options;
       ZoomModule toggleModule = this.zoomModule;
       Setting<Boolean> smoothCameraSetting = this.zoomModule.smoothCameraSetting;
-      boolean toggled = toggleModule.isToggled();
       boolean resolvedSmoothCamera = resolveSmoothCameraValue(
          toggled,
          this.zoomModule.smoothCameraCaptured,
@@ -73,7 +98,9 @@ public class ZoomOptionsUpdater implements ClientAccess {
             EventBus bus = ClientAccess.eventBus;
             bus.unsubscribe(this);
             this.zoomModule.fovUpdateActive = false;
+            this.zoomModule.fovOverrideApplied = false;
             this.zoomModule.smoothCameraCaptured = false;
+            this.zoomModule.smoothCameraOverrideApplied = false;
             return;
          }
       }
