@@ -3,7 +3,7 @@ package dev.schizo.client.modules.render;
 import static org.junit.jupiter.api.Assertions.*;
 
 import dev.schizo.client.ClientAccess;
-import dev.schizo.client.utils.GameOptionsOverrides;
+import dev.schizo.client.render.GameOptionsOverrides;
 import net.minecraft.client.OptionInstance;
 import org.junit.jupiter.api.Test;
 
