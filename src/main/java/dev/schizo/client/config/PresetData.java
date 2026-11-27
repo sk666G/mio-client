@@ -48,6 +48,17 @@ public record PresetData(String name, JsonObject contents) implements NamedEntry
    }
 
    public void saveToDirectory(Path directory) throws IOException {
+      Path targetPath = this.resolveSafeTarget(directory);
+      FileUtils.writeUtf8Atomically(targetPath, this.serializeForSave());
+   }
+
+   /** Saves a brand-new preset and fails if another writer already created the target. */
+   public void saveNewToDirectory(Path directory) throws IOException {
+      Path targetPath = this.resolveSafeTarget(directory);
+      FileUtils.writeUtf8CreateNew(targetPath, this.serializeForSave());
+   }
+
+   private Path resolveSafeTarget(Path directory) throws IOException {
       Path root = directory.toAbsolutePath().normalize();
       Path parent = root.getParent();
       if (Files.isSymbolicLink(root)
@@ -62,11 +73,14 @@ public record PresetData(String name, JsonObject contents) implements NamedEntry
             && !Files.isRegularFile(targetPath, LinkOption.NOFOLLOW_LINKS))) {
          throw new IOException("Preset target is not a regular file: " + targetPath.getFileName());
       }
+      return targetPath;
+   }
 
+   private String serializeForSave() throws IOException {
       String serialized = GSON.toJson(this.contents);
       if (serialized.getBytes(StandardCharsets.UTF_8).length > MAX_PRESET_BYTES) {
          throw new IOException("Preset exceeds the supported size limit");
       }
-      FileUtils.writeUtf8Atomically(targetPath, serialized);
+      return serialized;
    }
 }
