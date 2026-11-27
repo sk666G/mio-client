@@ -364,13 +364,7 @@ public enum PresetCategory implements JsonConfigurable, NamedEntry {
 
       @Override
       public void fromJson(JsonElement json) {
-         MacroRegistry registryForLock = ClientContext.macroRegistry;
-         synchronized ((List)registryForLock.getRegistry()) {
-            MacroRegistry registryForClear = ClientContext.macroRegistry;
-            ((List<?>)registryForClear.getRegistry()).clear();
-            MacroRegistry registryForLoad = ClientContext.macroRegistry;
-            registryForLoad.fromJson(json);
-         }
+         ClientContext.macroRegistry.fromJson(json);
       }
 
       @Override
@@ -390,10 +384,9 @@ public enum PresetCategory implements JsonConfigurable, NamedEntry {
    };
 
    private final String displayName;
-   private final Path directory;
 
    public Path getDirectory() {
-      return this.directory;
+      return ConfigurationManager.PRESETS_DIRECTORY.resolve(this.displayName.toLowerCase(Locale.ROOT));
    }
 
    @Override
@@ -403,8 +396,6 @@ public enum PresetCategory implements JsonConfigurable, NamedEntry {
 
    PresetCategory(String displayName) {
       this.displayName = displayName;
-      Path presetsDirectory = ConfigurationManager.PRESETS_DIRECTORY;
-      this.directory = presetsDirectory.resolve(displayName.toLowerCase());
    }
 
    @Override
