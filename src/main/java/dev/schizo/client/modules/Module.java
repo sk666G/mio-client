@@ -265,26 +265,51 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
          }
       }
       if (moduleJson.has("drawn")) {
-         this.setDrawn(moduleJson.get("drawn").getAsBoolean());
+         try {
+            this.setDrawn(moduleJson.get("drawn").getAsBoolean());
+         } catch (RuntimeException invalidDrawn) {
+            this.recordConfigIssue("drawn", invalidDrawn);
+         }
       }
       if (moduleJson.has("key")) {
-         Function<Keybind, Keybind> keybindModifier = keybind -> {
-            int keyCode = moduleJson.get("key").getAsInt();
-            Keybind codedKeybind = keybind.withCode(keyCode);
-            Keybind.Mode mode = moduleJson.has("state")
-               ? Keybind.Mode.fromSerializedName(moduleJson.get("state").getAsString())
-               : Keybind.Mode.TOGGLE;
-            return codedKeybind.withMode(mode);
-         };
-         this.modifyKeybind(keybindModifier);
+         try {
+            Function<Keybind, Keybind> keybindModifier = keybind -> {
+               int keyCode = moduleJson.get("key").getAsInt();
+               Keybind codedKeybind = keybind.withCode(keyCode);
+               Keybind.Mode mode = moduleJson.has("state")
+                  ? Keybind.Mode.fromSerializedName(moduleJson.get("state").getAsString())
+                  : Keybind.Mode.TOGGLE;
+               return codedKeybind.withMode(mode);
+            };
+            this.modifyKeybind(keybindModifier);
+         } catch (RuntimeException invalidKeybind) {
+            this.recordConfigIssue("key", invalidKeybind);
+         }
       }
       if (moduleJson.has("mouse")) {
-         Function<Keybind, Keybind> mouseModifier = keybind -> keybind.withMouse(moduleJson.get("mouse").getAsBoolean());
-         this.modifyKeybind(mouseModifier);
+         try {
+            Function<Keybind, Keybind> mouseModifier =
+               keybind -> keybind.withMouse(moduleJson.get("mouse").getAsBoolean());
+            this.modifyKeybind(mouseModifier);
+         } catch (RuntimeException invalidMouseBinding) {
+            this.recordConfigIssue("mouse", invalidMouseBinding);
+         }
       }
       if (moduleJson.has("enabled") && !this.ignoreEnabledState) {
-         this.setToggled(moduleJson.get("enabled").getAsBoolean());
+         try {
+            this.setToggled(moduleJson.get("enabled").getAsBoolean());
+         } catch (RuntimeException invalidEnabledState) {
+            this.recordConfigIssue("enabled", invalidEnabledState);
+         }
       }
+   }
+
+   private void recordConfigIssue(String fieldName, Throwable failure) {
+      this.lastConfigLoadIssues.add(new ModuleConfigLoadReport.Issue(
+         this.getName(),
+         fieldName,
+         failure == null ? "UnknownFailure" : failure.getClass().getSimpleName()
+      ));
    }
 
    @Override
