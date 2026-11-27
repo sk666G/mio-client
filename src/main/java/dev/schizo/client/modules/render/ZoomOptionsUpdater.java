@@ -26,6 +26,19 @@ public class ZoomOptionsUpdater implements ClientAccess {
       this.zoomModule = zoomModule;
    }
 
+   static boolean resolveSmoothCameraValue(
+      boolean toggled,
+      boolean captured,
+      boolean savedValue,
+      boolean configuredValue,
+      boolean currentValue
+   ) {
+      if (toggled) {
+         return configuredValue;
+      }
+      return captured ? savedValue : currentValue;
+   }
+
    @EventHandler
    private void onMinecraftRunTickEvent(MinecraftRunTickEvent event) {
       ZoomModule fovModule = this.zoomModule;
@@ -35,14 +48,14 @@ public class ZoomOptionsUpdater implements ClientAccess {
       GameOptionsOverrides.forceSetOptionValue(fovOption, fovValue);
       Options cameraOptions = ClientAccess.schizoMinecraft.options;
       ZoomModule toggleModule = this.zoomModule;
-      boolean smoothCamera = this.zoomModule.smoothCameraCaptured
-         ? this.zoomModule.savedSmoothCamera
-         : cameraOptions.smoothCamera;
-      if (toggleModule.isToggled()) {
-         Setting<Boolean> smoothCameraSetting = this.zoomModule.smoothCameraSetting;
-         smoothCamera = smoothCameraSetting.getValue();
-      }
-      cameraOptions.smoothCamera = smoothCamera;
+      Setting<Boolean> smoothCameraSetting = this.zoomModule.smoothCameraSetting;
+      cameraOptions.smoothCamera = resolveSmoothCameraValue(
+         toggleModule.isToggled(),
+         this.zoomModule.smoothCameraCaptured,
+         this.zoomModule.savedSmoothCamera,
+         smoothCameraSetting.getValue(),
+         cameraOptions.smoothCamera
+      );
       if (fov >= this.zoomModule.baselineFov) {
          ZoomModule currentToggleModule = this.zoomModule;
          if (!currentToggleModule.isToggled()) {
