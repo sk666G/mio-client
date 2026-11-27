@@ -67,6 +67,7 @@ public class FreecamModule extends Module {
    public Vec3 cameraPosition;
    public Vec3 previousCameraPosition;
    private float[] savedPlayerRotation;
+   private LocalPlayer savedRotationOwner;
    public float cameraYaw;
    public float previousCameraYaw;
    public float cameraPitch;
@@ -89,6 +90,7 @@ public class FreecamModule extends Module {
       }
 
       this.savedPlayerRotation = null;
+      this.savedRotationOwner = null;
       GameOptionsOverrides.registerCameraOverride(this);
       KeyboardInputTickEvent resetInputEvent = new KeyboardInputTickEvent(
          ClientAccess.schizoMinecraft.player.input
@@ -99,11 +101,11 @@ public class FreecamModule extends Module {
       this.previousCameraPosition = this.cameraPosition = camera.position();
 
       float[] savedRotation = new float[2];
-      LocalPlayer playerForYaw = ClientAccess.schizoMinecraft.player;
-      savedRotation[0] = playerForYaw.getYRot();
-      LocalPlayer playerForPitch = ClientAccess.schizoMinecraft.player;
-      savedRotation[1] = playerForPitch.getXRot();
+      LocalPlayer rotationOwner = ClientAccess.schizoMinecraft.player;
+      savedRotation[0] = rotationOwner.getYRot();
+      savedRotation[1] = rotationOwner.getXRot();
       this.savedPlayerRotation = savedRotation;
+      this.savedRotationOwner = rotationOwner;
       this.previousCameraYaw = this.cameraYaw = this.savedPlayerRotation[0];
       this.previousCameraPitch = this.cameraPitch = this.savedPlayerRotation[1];
       float cameraY = (float)this.cameraPosition.y();
@@ -129,14 +131,23 @@ public class FreecamModule extends Module {
       GameOptionsOverrides.unregisterCameraOverride(this);
 
       float[] rotation = this.savedPlayerRotation;
+      LocalPlayer rotationOwner = this.savedRotationOwner;
       this.savedPlayerRotation = null;
+      this.savedRotationOwner = null;
       if (rotation == null || this.isWorldUnavailable()) {
          return;
       }
 
       LocalPlayer player = ClientAccess.schizoMinecraft.player;
+      if (!shouldRestorePlayerRotation(rotationOwner, player)) {
+         return;
+      }
       player.setYRot(rotation[0]);
       player.setXRot(rotation[1]);
+   }
+
+   static boolean shouldRestorePlayerRotation(Object capturedPlayer, Object currentPlayer) {
+      return capturedPlayer != null && capturedPlayer == currentPlayer;
    }
 
    public boolean shouldHideHands() {
