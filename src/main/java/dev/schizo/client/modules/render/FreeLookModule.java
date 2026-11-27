@@ -82,12 +82,12 @@ public class FreeLookModule extends Module {
    @Override
    public void onDisable() {
       GameOptionsOverrides.unregisterCameraOverride(this);
+      LocalPlayer owner = this.cameraOwner;
+      this.cameraOwner = null;
       Minecraft minecraft = ClientAccess.schizoMinecraft;
       if (minecraft == null) {
          return;
       }
-      LocalPlayer owner = this.cameraOwner;
-      this.cameraOwner = null;
       LocalPlayer player = minecraft.player;
       if (!shouldRestorePlayerRotation(owner, player)) {
          return;
