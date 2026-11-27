@@ -25,12 +25,14 @@ class FileUtilsTest {
 
    @Test
    void cleanupFailureIsSuppressedOntoPrimaryFailure() throws IOException {
-      Path missing = temporaryDirectory.resolve("missing.tmp");
+      Path nonEmptyDirectory = Files.createDirectory(temporaryDirectory.resolve("primary.tmp"));
+      Files.writeString(nonEmptyDirectory.resolve("child"), "keep");
       IOException primary = new IOException("write failed");
 
-      // A missing temp is harmless and proves the helper does not disturb the primary path.
-      assertDoesNotThrow(() -> FileUtils.cleanupTemporary(missing, primary));
-      assertEquals(0, primary.getSuppressed().length);
+      assertDoesNotThrow(() -> FileUtils.cleanupTemporary(nonEmptyDirectory, primary));
+
+      assertEquals(1, primary.getSuppressed().length);
+      assertInstanceOf(java.nio.file.DirectoryNotEmptyException.class, primary.getSuppressed()[0]);
    }
 
    @Test
