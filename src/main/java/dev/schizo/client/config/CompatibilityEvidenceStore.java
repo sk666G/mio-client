@@ -1,5 +1,7 @@
 package dev.schizo.client.config;
 
+import dev.schizo.client.utils.FileUtils;
+
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
