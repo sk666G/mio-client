@@ -93,8 +93,9 @@ public final class PortableMediaSessionProvider implements AutoCloseable {
             if (closed) return;
             latest = published;
             availability = Availability.AVAILABLE;
+            lastFailure = null;
         }
-        update.accept(published);
+        deliverUpdate(published);
     }
     private void publishFailure(Throwable failure) {
         MediaSnapshot empty = MediaSnapshot.empty();
@@ -104,7 +105,20 @@ public final class PortableMediaSessionProvider implements AutoCloseable {
             latest = empty;
             availability = Availability.UNAVAILABLE;
         }
-        update.accept(empty);
+        deliverUpdate(empty);
+    }
+    void deliverUpdate(MediaSnapshot state) {
+        try {
+            update.accept(state);
+        } catch (RuntimeException callbackFailure) {
+            synchronized (this) {
+                if (!closed && lastFailure == null) {
+                    lastFailure = "Media update callback failed: "
+                        + callbackFailure.getClass().getSimpleName()
+                        + ": " + callbackFailure.getMessage();
+                }
+            }
+        }
     }
     private void poll() {
         while (!closed && !Thread.currentThread().isInterrupted()) {
@@ -113,7 +127,7 @@ public final class PortableMediaSessionProvider implements AutoCloseable {
                 opened = (backend == Backend.MACOS_APPLE_EVENTS ? macSourceFactory : sourceFactory).open();
                 synchronized (this) { if (closed) return; source = opened; }
                 while (!closed && !Thread.currentThread().isInterrupted()) {
-                    publish(opened.read()); lastFailure = null; Thread.sleep(POLL_MILLIS);
+                    publish(opened.read()); Thread.sleep(POLL_MILLIS);
                 }
             } catch (InterruptedException interrupted) {
                 Thread.currentThread().interrupt();
