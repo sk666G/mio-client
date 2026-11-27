@@ -187,7 +187,7 @@ public final class PresetImportScreen extends ClientScreen {
       }
    }
 
-   public static boolean openForDroppedFiles(Screen previousScreen, List droppedPaths) {
+   public static boolean openForDroppedFiles(Screen previousScreen, List<?> droppedPaths) {
       ArrayList<Path> jsonPaths = new ArrayList<>();
       droppedPaths.stream()
          .filter(Path.class::isInstance)
