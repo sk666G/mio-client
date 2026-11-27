@@ -61,12 +61,14 @@ public class AmbienceModule extends Module {
    private RenderTarget depthRenderTarget;
    private AmbienceModule.BrightnessChoice previousBrightness;
    private double savedGamma;
+   private boolean gammaOverrideApplied;
    private MobEffectInstance appliedNightVisionEffect;
    private boolean weatherOverrideSuppressed;
    private ServerTimeSnapshot serverTimeSnapshot;
 
    @Override
    public void onEnable() {
+      this.gammaOverrideApplied = false;
       this.appliedNightVisionEffect = null;
       Options options = ClientAccess.schizoMinecraft.options;
       OptionInstance<Double> gammaOption = options.gamma();
@@ -110,12 +112,7 @@ public class AmbienceModule extends Module {
          );
       }
 
-      Options options = minecraft.options;
-      if (options != null) {
-         OptionInstance<Double> gammaOption = options.gamma();
-         double gammaToRestore = this.savedGamma;
-         GameOptionsOverrides.forceSetOptionValue(gammaOption, gammaToRestore);
-      }
+      this.restoreGammaIfOwned(minecraft);
    }
 
    public void updateServerTimeSnapshot(long gameTime, long dayTime) {
@@ -173,6 +170,10 @@ public class AmbienceModule extends Module {
       if (gammaBrightnessOption.getValue() == AmbienceModule.BrightnessChoice.GAMMA) {
          Options options = ClientAccess.schizoMinecraft.options;
          OptionInstance<Double> gammaOption = options.gamma();
+         if (!this.gammaOverrideApplied) {
+            this.savedGamma = gammaOption.get();
+            this.gammaOverrideApplied = true;
+         }
          GameOptionsOverrides.forceSetOptionValue(gammaOption, 1000.0D);
       } else {
          Setting<BrightnessChoice> potionBrightnessOption = this.brightnessSetting;
@@ -193,6 +194,17 @@ public class AmbienceModule extends Module {
             }
          }
       }
+   }
+
+   private void restoreGammaIfOwned(Minecraft minecraft) {
+      boolean owned = this.gammaOverrideApplied;
+      this.gammaOverrideApplied = false;
+      if (!owned || minecraft == null || minecraft.options == null) {
+         return;
+      }
+
+      OptionInstance<Double> gammaOption = minecraft.options.gamma();
+      GameOptionsOverrides.forceSetOptionValue(gammaOption, this.savedGamma);
    }
 
    private void removeOwnedNightVision(LocalPlayer player) {
@@ -274,18 +286,12 @@ public class AmbienceModule extends Module {
          }
 
          AmbienceModule.BrightnessChoice previousBrightnessCapture = this.previousBrightness;
-         if (previousBrightnessCapture != changedBrightness
-            && this.previousBrightness
-               == AmbienceModule.BrightnessChoice.GAMMA) {
-            OptionInstance<Double> restoreGammaOption = ClientAccess.schizoMinecraft.options.gamma();
-            double gammaToRestore = this.savedGamma;
-            GameOptionsOverrides.forceSetOptionValue(restoreGammaOption, gammaToRestore);
-         } else {
-            OptionInstance<Double> captureGammaOption = ClientAccess.schizoMinecraft.options.gamma();
-            this.savedGamma = captureGammaOption.get();
+         if (previousBrightnessCapture == AmbienceModule.BrightnessChoice.GAMMA
+            && changedBrightness != AmbienceModule.BrightnessChoice.GAMMA) {
+            this.restoreGammaIfOwned(ClientAccess.schizoMinecraft);
          }
 
-         this.previousBrightness = this.brightnessSetting.getValue();
+         this.previousBrightness = changedBrightness;
          if (previousBrightnessCapture == AmbienceModule.BrightnessChoice.POTION
             && changedBrightness != AmbienceModule.BrightnessChoice.POTION
             && !this.isWorldUnavailable()) {
