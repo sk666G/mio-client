@@ -102,10 +102,10 @@ public class AutoWalkModule extends Module {
    @EventHandler
    private void onAbstractClientPlayerTickEvent(AbstractClientPlayerTickEvent event) {
       if (!this.shouldPauseForAction()) {
-         ClientContext.inputOverrides.requestForwardMovement(1.0F);
-         ClientContext.inputOverrides.requestForward(true);
+         ClientContext.inputOverrides.requestForwardMovement(this, 1.0F);
+         ClientContext.inputOverrides.requestForward(this, true);
          if (this.autoJumpSetting.getValue()) {
-            ClientContext.inputOverrides.requestJump(true);
+            ClientContext.inputOverrides.requestJump(this, true);
          }
       }
    }
