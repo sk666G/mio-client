@@ -255,21 +255,24 @@ public final class MacroRegistry extends Registry<Macro> implements ClientAccess
    @EventHandler
    private void onInputPress(InputPressEvent event) {
       if (ClientAccess.schizoMinecraft.screen == null && !this.isWorldUnavailable()) {
-         Iterator<Macro> macroIterator = this.entries.iterator();
-         while (macroIterator.hasNext()) {
-            Macro macro = macroIterator.next();
-            if (macro.isToggled()) {
-               Keybind keybind = macro.getKeybind();
-               boolean mouse = keybind.mouse();
-               if (mouse == event.isMouse()) {
-                  keybind = macro.getKeybind();
-                  int keyCode = keybind.code();
-                  if (keyCode == event.getCode()) {
-                     macro.run();
-                     ClientAccess.eventBus.post(new MacroTriggerEvent(macro));
-                  }
-               }
-            }
+         this.runMatchingMacros(event.getCode(), event.isMouse());
+      }
+   }
+
+   /**
+    * A macro command can register, unregister, or replace macros while it is running.
+    * Dispatch only entries present at the start and still registered when visited.
+    */
+   void runMatchingMacros(int keyCode, boolean mouse) {
+      for (Macro macro : List.copyOf(this.entries)) {
+         if (!this.isRegisteredInstance(macro) || !macro.isToggled()) {
+            continue;
+         }
+
+         Keybind keybind = macro.getKeybind();
+         if (keybind.mouse() == mouse && keybind.code() == keyCode) {
+            macro.run();
+            ClientAccess.eventBus.post(new MacroTriggerEvent(macro));
          }
       }
    }
@@ -277,16 +280,29 @@ public final class MacroRegistry extends Registry<Macro> implements ClientAccess
    @EventHandler
    private void onTick(WorldRenderEvent.Main event) {
       boolean canRunHoldMacros = ClientAccess.schizoMinecraft.screen == null && !this.isWorldUnavailable();
-      Iterator<Macro> macroIterator = this.entries.iterator();
-      while (macroIterator.hasNext()) {
-         Macro macro = macroIterator.next();
-         if (macro instanceof HoldMacro holdMacro) {
-            boolean physicallyDown = canRunHoldMacros
-               && holdMacro.isToggled()
-               && KeyUtils.isPhysicallyDown(holdMacro.getKeybind());
-            holdMacro.updatePressed(physicallyDown);
+      this.updateHoldMacros(canRunHoldMacros);
+   }
+
+   /** Hold-macro press/release commands can also modify the registry. */
+   void updateHoldMacros(boolean canRunHoldMacros) {
+      for (Macro macro : List.copyOf(this.entries)) {
+         if (!(macro instanceof HoldMacro holdMacro) || !this.isRegisteredInstance(macro)) {
+            continue;
+         }
+         boolean physicallyDown = canRunHoldMacros
+            && holdMacro.isToggled()
+            && KeyUtils.isPhysicallyDown(holdMacro.getKeybind());
+         holdMacro.updatePressed(physicallyDown);
+      }
+   }
+
+   private boolean isRegisteredInstance(Macro expected) {
+      for (Macro registered : this.entries) {
+         if (registered == expected) {
+            return true;
          }
       }
+      return false;
    }
 
    @EventHandler
