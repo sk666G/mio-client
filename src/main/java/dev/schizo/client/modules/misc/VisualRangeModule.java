@@ -26,6 +26,7 @@ import dev.schizo.client.utils.chat.ChatUtils;
 import dev.schizo.client.utils.entity.PlayerStateUtils;
 import dev.schizo.client.utils.collections.NamedIdentifier;
 import dev.schizo.client.modules.Module;
+import dev.schizo.client.modules.DeferredModuleActionGuard;
 import dev.schizo.client.modules.ModuleCategory;
 import dev.schizo.client.settings.BooleanSetting;
 import dev.schizo.client.settings.IdentifierSetting;
@@ -122,10 +123,15 @@ public class VisualRangeModule extends Module {
          LocalPlayer expectedPlayer = ClientAccess.schizoMinecraft.player;
          long expectedGeneration = this.notificationGeneration;
          Runnable joinNotificationTask = () -> {
-            if (!this.isToggled()
-               || this.notificationGeneration != expectedGeneration
-               || ClientAccess.schizoMinecraft.level != expectedLevel
-               || ClientAccess.schizoMinecraft.player != expectedPlayer) {
+            if (!ownsNotificationContext(
+               this.isToggled(),
+               expectedGeneration,
+               this.notificationGeneration,
+               expectedLevel,
+               ClientAccess.schizoMinecraft.level,
+               expectedPlayer,
+               ClientAccess.schizoMinecraft.player
+            )) {
                return;
             }
             Player targetPlayer = player;
@@ -310,8 +316,20 @@ public class VisualRangeModule extends Module {
       }
 
       Vec3 position = new Vec3(packet.getX(), packet.getY(), packet.getZ());
+      long expectedGeneration = this.notificationGeneration;
+      ClientLevel expectedLevel = ClientAccess.schizoMinecraft.level;
+      LocalPlayer expectedPlayer = ClientAccess.schizoMinecraft.player;
       ClientAccess.schizoMinecraft.executeIfPossible(() -> {
-         if (!this.isToggled() || !this.enderPearlsSetting.getValue()) {
+         if (!ownsNotificationContext(
+               this.isToggled(),
+               expectedGeneration,
+               this.notificationGeneration,
+               expectedLevel,
+               ClientAccess.schizoMinecraft.level,
+               expectedPlayer,
+               ClientAccess.schizoMinecraft.player
+            )
+            || !this.enderPearlsSetting.getValue()) {
             return;
          }
 
@@ -321,6 +339,26 @@ public class VisualRangeModule extends Module {
          ChatUtils.printChat(notification, signature, ChatUtils.MessagePriority.MID);
          this.playAlertSound();
       });
+   }
+
+   static boolean ownsNotificationContext(
+      boolean enabled,
+      long expectedGeneration,
+      long currentGeneration,
+      Object expectedLevel,
+      Object currentLevel,
+      Object expectedPlayer,
+      Object currentPlayer
+   ) {
+      return DeferredModuleActionGuard.isCurrent(
+         enabled,
+         expectedGeneration,
+         currentGeneration,
+         expectedLevel,
+         currentLevel,
+         expectedPlayer,
+         currentPlayer
+      );
    }
 
    @Override
