@@ -29,6 +29,14 @@ class ZoomLifecycleTest {
    }
 
 
+
+   @Test
+   void fovRestoreRequiresZoomToStillOwnCurrentValue() {
+      assertTrue(ZoomOptionsUpdater.shouldRestoreFov(true, 30, 30));
+      assertFalse(ZoomOptionsUpdater.shouldRestoreFov(false, 30, 30));
+      assertFalse(ZoomOptionsUpdater.shouldRestoreFov(true, 90, 30));
+   }
+
    @Test
    void fovTailReleasesWhenNewerStateReplacesZoomValue() {
       assertTrue(ZoomOptionsUpdater.shouldContinueFovOverride(true, true, 90, 30));
