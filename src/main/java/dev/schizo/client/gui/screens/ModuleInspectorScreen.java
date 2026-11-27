@@ -20,7 +20,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
 /** Read-only module details and explicit reversible edits of reviewed local scalar controls. */
-public final class ModuleInspectorScreen extends Screen {
+public final class ModuleInspectorScreen extends StudioScreen {
    private final Screen parent;
    private final Module module;
    private final SettingEditHistory history = new SettingEditHistory();
@@ -49,6 +49,7 @@ public final class ModuleInspectorScreen extends Screen {
    }
 
    @Override protected void init() {
+      super.init();
       panelWidth = Math.max(1, Math.min(550, width - 16));
       left = (width - panelWidth) / 2;
       top = Math.max(4, (height - 320) / 2);

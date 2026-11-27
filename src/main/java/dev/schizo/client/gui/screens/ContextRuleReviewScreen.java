@@ -11,7 +11,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
 /** Read-only simulation; saving registers the rule for the normal lifecycle, not direct preset application. */
-final class ContextRuleReviewScreen extends Screen {
+final class ContextRuleReviewScreen extends StudioScreen {
    private final ContextProfileEditorScreen parent;
    private final ContextRulePreview.Result preview;
    private List<String> rows = List.of();
@@ -25,6 +25,7 @@ final class ContextRuleReviewScreen extends Screen {
    }
 
    @Override protected void init() {
+      super.init();
       panelWidth = Math.max(1, Math.min(560, width - 16));
       left = (width - panelWidth) / 2;
       top = Math.max(6, (height - 320) / 2);

@@ -13,7 +13,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
 /** Edits one rule at a time; explicit review before a registry mutation. */
-public final class ContextProfileEditorScreen extends Screen {
+public final class ContextProfileEditorScreen extends StudioScreen {
    private final Screen parent;
    private EditBox server, dimension, gameMode, preset;
    private PresetCategory category = PresetCategory.COLORS;
@@ -30,6 +30,7 @@ public final class ContextProfileEditorScreen extends Screen {
    }
 
    @Override protected void init() {
+      super.init();
       panelWidth = Math.max(1, Math.min(520, width - 16));
       left = (width - panelWidth) / 2;
       top = Math.max(4, (height - 216) / 2);

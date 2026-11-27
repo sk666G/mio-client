@@ -13,7 +13,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
 /** Opt-in capture and two durable, local comparison slots. */
-public final class BenchmarkCenterScreen extends Screen {
+public final class BenchmarkCenterScreen extends StudioScreen {
    private final Screen returnScreen;
    private final BenchmarkCapture capture = BenchmarkCapture.GLOBAL;
    private final BenchmarkStore store = new BenchmarkStore(ConfigurationManager.ROOT_DIRECTORY);
@@ -30,6 +30,7 @@ public final class BenchmarkCenterScreen extends Screen {
    }
 
    @Override protected void init() {
+      super.init();
       panelWidth = Math.max(1, Math.min(560, width - 16));
       left = (width - panelWidth) / 2;
       top = Math.max(4, (height - 270) / 2);
