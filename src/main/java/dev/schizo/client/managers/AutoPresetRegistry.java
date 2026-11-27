@@ -191,14 +191,17 @@ public final class AutoPresetRegistry implements ClientAccess, JsonConfigurable 
    }
 
    public boolean removeKit(String server) {
-      AutoPresetServerEntry settings = server == null
-         ? null
-         : (AutoPresetServerEntry)this.serverSettings.get(normalizeServerKey(server));
-      if (settings == null) {
+      if (server == null) {
+         return false;
+      }
+      String serverKey = normalizeServerKey(server);
+      AutoPresetServerEntry settings = (AutoPresetServerEntry)this.serverSettings.get(serverKey);
+      if (settings == null || !settings.hasKit()) {
          return false;
       }
 
       settings.setKitName(null);
+      this.removeServerIfEmpty(serverKey, settings);
       return true;
    }
 
@@ -210,14 +213,20 @@ public final class AutoPresetRegistry implements ClientAccess, JsonConfigurable 
    }
 
    public boolean removePreset(String server, PresetCategory category) {
-      AutoPresetServerEntry settings = server == null
-         ? null
-         : (AutoPresetServerEntry)this.serverSettings.get(normalizeServerKey(server));
+      if (server == null) {
+         return false;
+      }
+      String serverKey = normalizeServerKey(server);
+      AutoPresetServerEntry settings = (AutoPresetServerEntry)this.serverSettings.get(serverKey);
       if (settings == null) {
          return false;
       }
 
-      return settings.getPresets().remove(category) != null;
+      boolean removed = settings.getPresets().remove(category) != null;
+      if (removed) {
+         this.removeServerIfEmpty(serverKey, settings);
+      }
+      return removed;
    }
 
    public void setPreset(
@@ -307,6 +316,13 @@ public final class AutoPresetRegistry implements ClientAccess, JsonConfigurable 
 
    public boolean removeServer(String server) {
       return server != null && this.serverSettings.remove(normalizeServerKey(server)) != null;
+   }
+
+   private void removeServerIfEmpty(String serverKey, AutoPresetServerEntry settings) {
+      if (settings.getPresets().isEmpty() && !settings.hasKit()
+         && this.serverSettings.get(serverKey) == settings) {
+         this.serverSettings.remove(serverKey);
+      }
    }
 
    public void setKit(String server, String kitName) {
