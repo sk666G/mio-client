@@ -148,7 +148,7 @@ public final class HudLayoutStore {
 
       // Do not use ATOMIC_MOVE here: providers may replace a concurrently-created
       // target under ATOMIC_MOVE even without REPLACE_EXISTING.
-      Files.move(source, target);
+      FileUtils.moveFileNoReplace(source, target);
    }
 
    private Path resolve(String name) {
