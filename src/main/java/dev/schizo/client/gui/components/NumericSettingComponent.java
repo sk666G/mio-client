@@ -218,7 +218,7 @@ public class NumericSettingComponent<N extends Number> extends SettingComponent<
          float x = this.panel.getX(), y = this.panel.getY() + this.yOffset;
          float w = this.panel.getWidth(), h = this.getHeight();
          Color accent = this.getUiModule().colorSetting.getValue();
-         float p = StudioControlGeometry.fraction(this.sliderFillAnimation.updateAndGet(), 0, Math.max(1, w - 2));
+         float p = StudioControlGeometry.fraction(this.sliderFillAnimation.updateAndGet(), 0, Math.max(1, w - 18));
          float hover = StudioControlGeometry.clampProgress(this.getHoverAnimationValue());
          StudioControlStyle.softRect(poseStack, x + 5, y + 1, w - 10, h - 2,
             dev.schizo.client.render.ColorUtils.withAlpha(Color.WHITE, Math.round(9 + 14 * hover)));
@@ -318,11 +318,9 @@ public class NumericSettingComponent<N extends Number> extends SettingComponent<
       this.sliderY = this.panel
             .getY()
          + this.yOffset;
-      this.sliderX = this.panel
-         .getX();
-      double sliderWidth = this.getPanel()
-            .getWidth()
-         - (2);
+      boolean docked = this.panel.isDocked();
+      this.sliderX = this.panel.getX() + (docked ? 9 : 0);
+      double sliderWidth = this.getPanel().getWidth() - (docked ? 18 : 2);
       double mouseOffset = Math.min(
          sliderWidth, Math.max(0.0, mouseX - this.sliderX)
       );
@@ -380,14 +378,8 @@ public class NumericSettingComponent<N extends Number> extends SettingComponent<
          }
       }
 
-      if ((this.setting.getValue()).floatValue()
-         >= (this.setting
-               .getMaximumValue())
-            .floatValue()) {
-         this.sliderFillWidth = this.getPanel()
-               .getWidth()
-            - (2);
-      }
+      this.sliderFillWidth = (float)sliderWidth * StudioControlGeometry.fraction(
+         this.setting.getValue().doubleValue(), minimumValue, maximumValue);
 
       this.sliderFillAnimation
          .setTarget(

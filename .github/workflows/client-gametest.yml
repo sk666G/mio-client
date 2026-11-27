@@ -91,7 +91,7 @@ jobs:
           python3 - <<'PY'
           import pathlib, struct
           root = pathlib.Path("build/run/clientGameTest/screenshots")
-          names = ["schizo-clickgui","schizo-health-center","schizo-command-palette","schizo-performance-center","schizo-hud-editor","schizo-expedition-discoveries","schizo-expedition-travel","schizo-expedition-profiles","schizo-expedition-compatibility","schizo-hud-layout-preview","schizo-hud-editor-reconnect"]
+          names = ["schizo-clickgui","schizo-studio-controls","schizo-health-center","schizo-command-palette","schizo-performance-center","schizo-hud-editor","schizo-expedition-discoveries","schizo-expedition-travel","schizo-expedition-profiles","schizo-expedition-compatibility","schizo-hud-layout-preview","schizo-hud-editor-reconnect"]
           files = []
           for name in names:
               matches = list(root.glob(f"[0-9][0-9][0-9][0-9]_{name}.png"))
