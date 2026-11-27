@@ -4,6 +4,9 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.google.gson.JsonObject;
 import dev.schizo.client.ClientAccess;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import net.minecraft.SharedConstants;
 import net.minecraft.server.Bootstrap;
 import org.junit.jupiter.api.BeforeAll;
@@ -14,6 +17,23 @@ class SearchModuleConfigTest {
    static void bootstrapMinecraftRegistries() {
       SharedConstants.tryDetectVersion();
       Bootstrap.bootStrap();
+   }
+
+   @Test
+   void disconnectClearsQueuedAlertFromPreviousWorld() throws Exception {
+      SearchModule module = new SearchModule();
+      Field alertPending = SearchModule.class.getDeclaredField("alertPending");
+      alertPending.setAccessible(true);
+      alertPending.setBoolean(module, true);
+
+      Method disconnect = SearchModule.class.getDeclaredMethod(
+         "onMinecraftDisconnectEvent",
+         MinecraftDisconnectEvent.class
+      );
+      disconnect.setAccessible(true);
+      disconnect.invoke(module, new MinecraftDisconnectEvent());
+
+      assertFalse(alertPending.getBoolean(module));
    }
 
    @Test
