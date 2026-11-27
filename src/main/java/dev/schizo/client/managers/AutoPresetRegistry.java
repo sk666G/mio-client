@@ -19,6 +19,7 @@ import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.ConnectScreenConnectEvent;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.MinecraftDisconnectEvent;
+import dev.schizo.client.events.ScreenChangeEvent;
 import dev.schizo.client.settings.JsonConfigurable;
 import dev.schizo.client.settings.options.PresetCategory;
 
@@ -39,6 +40,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import net.minecraft.client.gui.screens.DisconnectedScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MessageSignature;
 
@@ -150,7 +152,12 @@ public final class AutoPresetRegistry implements ClientAccess, JsonConfigurable 
       if (server == null) {
          throw new IllegalArgumentException("Server key must not be null");
       }
-      return server.toLowerCase(Locale.ROOT);
+
+      String normalized = server.strip().toLowerCase(Locale.ROOT);
+      if (normalized.isEmpty() || normalized.length() > 255) {
+         throw new IllegalArgumentException("Server key must not be empty or longer than 255 characters");
+      }
+      return normalized;
    }
 
    record ParsedServerEntry(Map<String, String> presets, String kitName) {
@@ -191,14 +198,17 @@ public final class AutoPresetRegistry implements ClientAccess, JsonConfigurable 
    }
 
    public boolean removeKit(String server) {
-      AutoPresetServerEntry settings = server == null
-         ? null
-         : (AutoPresetServerEntry)this.serverSettings.get(normalizeServerKey(server));
-      if (settings == null) {
+      if (server == null) {
+         return false;
+      }
+      String serverKey = normalizeServerKey(server);
+      AutoPresetServerEntry settings = (AutoPresetServerEntry)this.serverSettings.get(serverKey);
+      if (settings == null || !settings.hasKit()) {
          return false;
       }
 
       settings.setKitName(null);
+      this.removeServerIfEmpty(serverKey, settings);
       return true;
    }
 
@@ -210,14 +220,20 @@ public final class AutoPresetRegistry implements ClientAccess, JsonConfigurable 
    }
 
    public boolean removePreset(String server, PresetCategory category) {
-      AutoPresetServerEntry settings = server == null
-         ? null
-         : (AutoPresetServerEntry)this.serverSettings.get(normalizeServerKey(server));
+      if (server == null) {
+         return false;
+      }
+      String serverKey = normalizeServerKey(server);
+      AutoPresetServerEntry settings = (AutoPresetServerEntry)this.serverSettings.get(serverKey);
       if (settings == null) {
          return false;
       }
 
-      return settings.getPresets().remove(category) != null;
+      boolean removed = settings.getPresets().remove(category) != null;
+      if (removed) {
+         this.removeServerIfEmpty(serverKey, settings);
+      }
+      return removed;
    }
 
    public void setPreset(
@@ -230,6 +246,18 @@ public final class AutoPresetRegistry implements ClientAccess, JsonConfigurable 
       );
 
       settings.getPresets().put(category, presetName);
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.lastServer = null;
+   }
+
+   @EventHandler
+   private void onScreenChangeAfterInit(ScreenChangeEvent.AfterInit event) {
+      if (event.getNewScreen() instanceof DisconnectedScreen) {
+         this.lastServer = null;
+      }
    }
 
    @EventHandler
@@ -248,7 +276,15 @@ public final class AutoPresetRegistry implements ClientAccess, JsonConfigurable 
                String presetName = presetEntry.getValue();
                ConfigurationManager configurationManager = ClientContext.configurationManager;
                PresetRegistry presetRegistry = configurationManager.getPresetRegistry(category);
-               boolean applied = presetRegistry != null && presetRegistry.applyPreset(presetName);
+               if (presetRegistry == null || !presetRegistry.applyPreset(presetName)) {
+                  ClientAccess.logger.warn(
+                     "Auto preset {} ({}) could not be applied for {}",
+                     presetName,
+                     category.getName(),
+                     this.lastServer
+                  );
+                  continue;
+               }
                TaskScheduler schedulerForPreset = ClientContext.taskScheduler;
                Runnable messageForPreset = () -> {
                   int messageId = messageCounter.getAndDecrement();
@@ -256,9 +292,7 @@ public final class AutoPresetRegistry implements ClientAccess, JsonConfigurable 
                   MessageSignature signature = ChatUtils.createSignature(messageId);
 
                   Object[] messageArguments = new Object[]{presetName};
-                  String messageFormat = applied
-                     ? "Preset %s has been loaded."
-                     : "Preset %s could not be loaded.";
+                  String messageFormat = "Preset %s has been loaded.";
                   String messageText = messageFormat.formatted(messageArguments);
                   ChatUtils.printChat(Component.literal(messageText), signature);
                };
@@ -305,13 +339,15 @@ public final class AutoPresetRegistry implements ClientAccess, JsonConfigurable 
       return List.copyOf(ordered);
    }
 
-   @EventHandler
-   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
-      this.lastServer = null;
-   }
-
    public boolean removeServer(String server) {
       return server != null && this.serverSettings.remove(normalizeServerKey(server)) != null;
+   }
+
+   private void removeServerIfEmpty(String serverKey, AutoPresetServerEntry settings) {
+      if (settings.getPresets().isEmpty() && !settings.hasKit()
+         && this.serverSettings.get(serverKey) == settings) {
+         this.serverSettings.remove(serverKey);
+      }
    }
 
    public void setKit(String server, String kitName) {

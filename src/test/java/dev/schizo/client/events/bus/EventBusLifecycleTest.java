@@ -149,6 +149,27 @@ class EventBusLifecycleTest {
       assertEquals("IllegalStateException", snapshot.failureType());
    }
 
+   @Test
+   void diagnosticFailureCannotMaskListenerFailure() {
+      EventBus bus = new EventBus(new EventProfiler(() -> 0L), new EventFailureTracker(4));
+      IllegalStateException listenerFailure = new IllegalStateException("listener failed");
+      IllegalArgumentException diagnosticFailure = new IllegalArgumentException("diagnostic failed");
+      EventListener listener = new EventListener() {
+         @Override public boolean isStatic() { return false; }
+         @Override public Class<?> getEventType() { return TickEvent.class; }
+         @Override public int getPriority() { return 0; }
+         @Override public String diagnosticName() { throw diagnosticFailure; }
+         @Override public void call(Object event) { throw listenerFailure; }
+      };
+
+      bus.subscribeListener(listener);
+      RuntimeException thrown = assertThrows(RuntimeException.class, () -> bus.post(new TickEvent()));
+
+      assertSame(listenerFailure, thrown);
+      assertEquals(1, thrown.getSuppressed().length);
+      assertSame(diagnosticFailure, thrown.getSuppressed()[0]);
+   }
+
    private static final class TickEvent {
    }
 

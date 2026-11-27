@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.ModuleToggleEvent;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
@@ -23,6 +25,20 @@ class ModuleLifecycleTest {
 
       ClientAccess.eventBus.post(new ProbeEvent());
       assertEquals(0, module.eventCalls.get());
+   }
+
+   @Test
+   void failedEnablePublishesDisabledRollbackState() {
+      TestModule module = new TestModule();
+      module.failEnable = true;
+      RecordingToggleObserver observer = new RecordingToggleObserver(module);
+      ClientAccess.eventBus.subscribe(observer);
+      try {
+         assertThrows(IllegalStateException.class, module::enable);
+         assertEquals(List.of(true, false), observer.states);
+      } finally {
+         ClientAccess.eventBus.unsubscribe(observer);
+      }
    }
 
    @Test
@@ -89,6 +105,22 @@ class ModuleLifecycleTest {
    }
 
    private static final class ProbeEvent {
+   }
+
+   private static final class RecordingToggleObserver {
+      private final Module target;
+      private final List<Boolean> states = new ArrayList<>();
+
+      private RecordingToggleObserver(Module target) {
+         this.target = target;
+      }
+
+      @EventHandler
+      private void onToggle(ModuleToggleEvent event) {
+         if (event.getModule() == this.target) {
+            this.states.add(event.getModule().isToggled());
+         }
+      }
    }
 
    private static final class FailingToggleObserver {
