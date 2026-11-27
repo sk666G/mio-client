@@ -84,6 +84,7 @@ public class WebhookNotifsModule extends Module {
    private ServerData lastServer;
    @Override
    public void onEnable() {
+      this.previousQueueMessage = null;
       this.lastServer = ClientAccess.schizoMinecraft.level == null
          ? null
          : ClientContext.serverStateManager.getServerData();
@@ -162,6 +163,7 @@ public class WebhookNotifsModule extends Module {
    private void onMinecraftDisconnectEvent(MinecraftDisconnectEvent event) {
       ServerData disconnectedServer = this.lastServer;
       this.lastServer = null;
+      this.previousQueueMessage = null;
       if (this.disconnectSetting.getValue() && disconnectedServer != null) {
          this.enqueueLines(("You have been disconnected from " + disconnectedServer.ip + "!").split("\n"));
       }
@@ -170,6 +172,7 @@ public class WebhookNotifsModule extends Module {
    @Override
    public void onDisable() {
       this.lastServer = null;
+      this.previousQueueMessage = null;
    }
 
    private void enqueueLines(String[] lines) {
