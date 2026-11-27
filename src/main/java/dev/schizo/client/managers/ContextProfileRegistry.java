@@ -90,9 +90,9 @@ public final class ContextProfileRegistry implements ClientAccess, JsonConfigura
          if (restored) {
             this.baseline.clear();
             this.modifiedCategories.clear();
+            this.applyFailure.clear();
          }
          this.lastAppliedContext = null;
-         this.applyFailure.clear();
          this.dirty = true;
          return restored;
       }
