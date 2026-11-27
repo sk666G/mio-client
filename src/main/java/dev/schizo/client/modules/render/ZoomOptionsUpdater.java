@@ -44,13 +44,21 @@ public class ZoomOptionsUpdater implements ClientAccess {
       return overrideApplied && currentValue == lastAppliedValue;
    }
 
+   static boolean shouldRestoreFov(
+      boolean overrideApplied,
+      int currentValue,
+      int lastAppliedValue
+   ) {
+      return overrideApplied && currentValue == lastAppliedValue;
+   }
+
    static boolean shouldContinueFovOverride(
       boolean toggled,
       boolean overrideApplied,
       int currentValue,
       int lastAppliedValue
    ) {
-      return toggled || (overrideApplied && currentValue == lastAppliedValue);
+      return toggled || shouldRestoreFov(overrideApplied, currentValue, lastAppliedValue);
    }
 
    @EventHandler
