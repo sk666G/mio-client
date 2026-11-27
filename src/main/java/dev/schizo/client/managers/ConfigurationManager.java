@@ -210,6 +210,20 @@ public final class ConfigurationManager implements ClientAccess {
          && Files.isDirectory(ROOT_DIRECTORY, LinkOption.NOFOLLOW_LINKS);
    }
 
+   /**
+    * Restore is an on-disk recovery operation: in-memory config remains live until restart.
+    * Prevent pending and future saves from overwriting the recovered file this session.
+    */
+   public void restoreBackup(String configName, String backupFileName) throws IOException {
+      if (!this.isRegisteredConfig(configName)) {
+         throw new IllegalArgumentException("Unknown configuration: " + configName);
+      }
+      this.saveGate.restoreAndProtect(
+         configName,
+         () -> this.backupManager.restoreBackup(configName, backupFileName)
+      );
+   }
+
    public void saveAsyncSnapshot() {
       if (!isSafeRootDirectory()) {
          ClientAccess.logger.error("Skipping configuration save because the data root is not a real directory");
@@ -228,6 +242,9 @@ public final class ConfigurationManager implements ClientAccess {
       Iterator<?> configurableIterator = this.configurables.iterator();
       while (configurableIterator.hasNext()) {
          JsonConfigurable configurable = (JsonConfigurable)configurableIterator.next();
+         if (this.saveGate.isSaveSuspended(configurable.getConfigName())) {
+            continue;
+         }
          if (SafeModeManager.GLOBAL.isActive() && "modules.json".equals(configurable.getConfigName())) {
             ClientAccess.logger.info("Preserving module enablement state while Safe Mode is active");
             continue;
@@ -266,6 +283,9 @@ public final class ConfigurationManager implements ClientAccess {
       }
       Gson gsonSnapshot = ClientAccess.gson;
       for (ConfigSnapshot snapshot : snapshots) {
+         if (this.saveGate.isSaveSuspended(snapshot.name())) {
+            continue;
+         }
          try {
             Path configPath = ConfigPathGuard.resolveForWrite(ROOT_DIRECTORY, snapshot.name());
             try {
@@ -308,6 +328,9 @@ public final class ConfigurationManager implements ClientAccess {
       Iterator<?> configurableIterator = this.configurables.iterator();
       while (configurableIterator.hasNext()) {
          JsonConfigurable configurable = (JsonConfigurable)configurableIterator.next();
+         if (this.saveGate.isSaveSuspended(configurable.getConfigName())) {
+            continue;
+         }
          if (SafeModeManager.GLOBAL.isActive() && "modules.json".equals(configurable.getConfigName())) {
             ClientAccess.logger.info("Preserving module enablement state while Safe Mode is active");
             continue;
