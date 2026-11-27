@@ -9,8 +9,8 @@ class UiStyleChoiceTest {
    void schizoStyleUsesItsOwnHeaderAndPanelDimensions() {
       UIModule.StyleChoice style = UIModule.StyleChoice.SCHIZO;
 
-      assertEquals(15, style.getHeaderHeight());
-      assertEquals(4, style.getHeightPadding());
+      assertEquals(21, style.getHeaderHeight());
+      assertEquals(7, style.getHeightPadding());
       assertEquals(8, style.getWidthPadding());
    }
 
