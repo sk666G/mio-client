@@ -66,6 +66,20 @@ class JsonStateTransactionTest {
    }
 
    @Test
+   void repeatedFailureInstancePreservesOriginalDiagnostic() {
+      IllegalStateException failure = new IllegalStateException("storage unavailable");
+      AtomicInteger attempts = new AtomicInteger();
+      RuntimeException thrown = assertThrows(RuntimeException.class, () ->
+         JsonStateTransaction.apply(() -> json("before"), value -> {
+            attempts.incrementAndGet();
+            throw failure;
+         }, json("after"))
+      );
+      assertSame(failure, thrown);
+      assertEquals(2, attempts.get());
+   }
+
+   @Test
    void desiredPayloadIsDefensivelyCopied() {
       JsonObject desired = json("after");
 
