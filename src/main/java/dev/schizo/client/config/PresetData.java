@@ -55,7 +55,7 @@ public record PresetData(String name, JsonObject contents) implements NamedEntry
    /** Saves a brand-new preset and fails if another writer already created the target. */
    public void saveNewToDirectory(Path directory) throws IOException {
       Path targetPath = this.resolveSafeTarget(directory);
-      FileUtils.writeUtf8AtomicallyCreateNew(targetPath, this.serializeForSave());
+      FileUtils.writeUtf8CreateNew(targetPath, this.serializeForSave());
    }
 
    private Path resolveSafeTarget(Path directory) throws IOException {
