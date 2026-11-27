@@ -1,0 +1,66 @@
+package dev.schizo.client.modules.misc;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+class CoordLoggerModuleTest {
+   private static final DateTimeFormatter FORMATTER =
+      DateTimeFormatter.ofPattern("HH:mm dd-MM-yyyy");
+
+   @TempDir Path temporaryDirectory;
+
+   @Test
+   void malformedUtf8LogIsPreservedWhenRetentionReadFails() throws IOException {
+      Path log = temporaryDirectory.resolve("coordlogger.txt");
+      byte[] invalidUtf8 = new byte[]{(byte)0xC3, (byte)0x28, (byte)'\n'};
+      Files.write(log, invalidUtf8);
+      CoordLoggerModule module = new CoordLoggerModule();
+
+      module.appendRetainedEntry(log, currentEntry("Disconnect"));
+
+      assertArrayEquals(invalidUtf8, Files.readAllBytes(log));
+   }
+
+   @Test
+   void legacyNonblankLinesSurviveRetentionAlongsideNewEntry() throws IOException {
+      Path log = temporaryDirectory.resolve("coordlogger.txt");
+      Files.writeString(log, "legacy coordinate note\n", StandardCharsets.UTF_8);
+      CoordLoggerModule module = new CoordLoggerModule();
+      String entry = currentEntry("Death");
+
+      module.appendRetainedEntry(log, entry);
+
+      String text = Files.readString(log, StandardCharsets.UTF_8);
+      assertTrue(text.contains("legacy coordinate note"));
+      assertTrue(text.contains(entry));
+   }
+
+   @Test
+   void recognizedExpiredEntriesAreStillPruned() throws IOException {
+      Path log = temporaryDirectory.resolve("coordlogger.txt");
+      String expired = "X: 1, Y: 2, Z: 3 in The Overworld | Death | "
+         + LocalDateTime.now().minusDays(8).format(FORMATTER);
+      Files.writeString(log, expired + System.lineSeparator(), StandardCharsets.UTF_8);
+      CoordLoggerModule module = new CoordLoggerModule();
+      String current = currentEntry("Disconnect");
+
+      module.appendRetainedEntry(log, current);
+
+      String text = Files.readString(log, StandardCharsets.UTF_8);
+      assertFalse(text.contains(expired));
+      assertTrue(text.contains(current));
+   }
+
+   private static String currentEntry(String reason) {
+      return "X: 10, Y: 64, Z: 20 in The Overworld | " + reason + " | "
+         + LocalDateTime.now().format(FORMATTER);
+   }
+}

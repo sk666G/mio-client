@@ -24,6 +24,7 @@ import dev.schizo.client.settings.Setting;
 import dev.schizo.client.settings.options.DimensionType;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
@@ -47,8 +48,10 @@ public class CoordLoggerModule extends Module {
 
    private void appendRetainedEntry(String entry) {
       Path directory = ConfigurationManager.ROOT_DIRECTORY;
-      Path logFile = directory.resolve("coordlogger.txt");
+      this.appendRetainedEntry(directory.resolve("coordlogger.txt"), entry);
+   }
 
+   void appendRetainedEntry(Path logFile, String entry) {
       synchronized (this.fileWriteLock) {
          try {
             Stream<String> existingLines;
@@ -74,7 +77,7 @@ public class CoordLoggerModule extends Module {
                retainedText += System.lineSeparator();
             }
             FileUtils.writeUtf8Atomically(logFile, retainedText);
-         } catch (IOException writeFailure) {
+         } catch (IOException | UncheckedIOException writeFailure) {
             ClientAccess.logger.warn("Could not update coordinate log", writeFailure);
          }
       }
@@ -88,7 +91,8 @@ public class CoordLoggerModule extends Module {
       int fieldCount = fields.length;
 
       if (fieldCount != (3)) {
-         return false;
+         // Preserve nonblank legacy or manually edited lines rather than silently destroying them.
+         return true;
       }
 
       try {
@@ -103,7 +107,7 @@ public class CoordLoggerModule extends Module {
 
          return ageDays < 7L;
       } catch (DateTimeParseException invalidTimestamp) {
-         return false;
+         return true;
       }
    }
 
