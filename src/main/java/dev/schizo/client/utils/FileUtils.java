@@ -18,6 +18,7 @@ import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
@@ -137,6 +138,72 @@ public final class FileUtils {
          throw failure;
       } finally {
          cleanupTemporary(temporary, primaryFailure);
+      }
+   }
+
+   /**
+    * Moves a regular file without replacing an existing target.
+    * A hard link publishes the complete file in one create-only operation on supported
+    * filesystems. Otherwise CREATE_NEW retains collision protection, but a reader may
+    * briefly observe the fallback copy in progress.
+    */
+   public static void moveFileNoReplace(Path sourcePath, Path targetPath) throws IOException {
+      Path source = sourcePath.toAbsolutePath().normalize();
+      Path target = targetPath.toAbsolutePath().normalize();
+      if (source.equals(target)) {
+         throw new IOException("Source and target must differ: " + source);
+      }
+      if (!Files.isRegularFile(source, LinkOption.NOFOLLOW_LINKS)) {
+         throw new IOException("Source is not a regular file: " + source);
+      }
+
+      Path parent = target.getParent();
+      if (parent == null) {
+         throw new IOException("Cannot move a file without a target parent: " + target);
+      }
+      Files.createDirectories(parent);
+
+      boolean targetCreated = false;
+      try {
+         try {
+            Files.createLink(target, source);
+            targetCreated = true;
+         } catch (FileAlreadyExistsException existing) {
+            throw existing;
+         } catch (UnsupportedOperationException | java.nio.file.FileSystemException hardLinkUnavailable) {
+            try (var input = Files.newInputStream(source, LinkOption.NOFOLLOW_LINKS);
+                 var output = Files.newOutputStream(
+                    target,
+                    StandardOpenOption.CREATE_NEW,
+                    StandardOpenOption.WRITE
+                 )) {
+               targetCreated = true;
+               input.transferTo(output);
+               output.flush();
+            }
+         }
+      } catch (FileAlreadyExistsException existing) {
+         throw existing;
+      } catch (IOException failure) {
+         if (targetCreated) {
+            try {
+               Files.deleteIfExists(target);
+            } catch (IOException cleanupFailure) {
+               failure.addSuppressed(cleanupFailure);
+            }
+         }
+         throw new IOException("Unable to publish " + source + " as " + target, failure);
+      }
+
+      try {
+         Files.delete(source);
+      } catch (IOException deleteFailure) {
+         try {
+            Files.deleteIfExists(target);
+         } catch (IOException rollbackFailure) {
+            deleteFailure.addSuppressed(rollbackFailure);
+         }
+         throw new IOException("Unable to remove source after moving " + source + " to " + target, deleteFailure);
       }
    }
 
