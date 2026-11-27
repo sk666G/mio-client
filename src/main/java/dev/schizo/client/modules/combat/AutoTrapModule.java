@@ -58,7 +58,7 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 public class AutoTrapModule extends PlacementModule {
-   private static LogoutSpotsModule logoutSpotsModule = (LogoutSpotsModule)ClientContext.getModule(LogoutSpotsModule.class);
+   private static LogoutSpotsModule logoutSpotsModule;
    protected final Setting<Float> rangeSetting;
    private final Setting<Boolean> sequentialSetting;
    protected final Setting<Boolean> targetsSetting;

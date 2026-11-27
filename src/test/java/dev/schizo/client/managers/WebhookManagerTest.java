@@ -18,6 +18,15 @@ import org.junit.jupiter.api.Test;
 
 class WebhookManagerTest {
    @Test
+   void usesAnExplicitJsonConfigurationFile() {
+      WebhookManager manager = new WebhookManager(request ->
+         CompletableFuture.completedFuture(response(204, ""))
+      );
+
+      assertEquals("webhook.json", manager.getConfigName());
+   }
+
+   @Test
    void retriesTransientFailureAndAcknowledgesSuccess() {
       AtomicInteger calls = new AtomicInteger();
       WebhookManager manager = new WebhookManager(request -> {
@@ -46,6 +55,19 @@ class WebhookManagerTest {
    }
 
    @Test
+   void doesNotRetryPermanentHttpFailure() {
+      AtomicInteger calls = new AtomicInteger();
+      WebhookManager manager = new WebhookManager(request -> {
+         calls.incrementAndGet();
+         return CompletableFuture.completedFuture(response(401, ""));
+      });
+      manager.setUrl("https://example.test/webhook");
+
+      assertThrows(CompletionException.class, () -> manager.sendContent("hello").join());
+      assertEquals(1, calls.get());
+   }
+
+   @Test
    void telegramTokenIsRuntimeOnlyAndApiRejectionFailsDelivery() {
       String token = "123456:SecretToken_Value";
       AtomicInteger calls = new AtomicInteger();
@@ -59,7 +81,7 @@ class WebhookManagerTest {
       assertFalse(manager.toJson().toString().contains(token));
       assertEquals("", manager.getUrl());
       assertThrows(CompletionException.class, () -> manager.sendContent("hello").join());
-      assertEquals(3, calls.get());
+      assertEquals(1, calls.get());
 
       WebhookManager restored = new WebhookManager(request -> CompletableFuture.completedFuture(response(200, "{\"ok\":true}")));
       restored.fromJson(manager.toJson());

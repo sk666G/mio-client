@@ -14,7 +14,6 @@ import dev.schizo.client.utils.entity.PlayerStateUtils;
 import dev.schizo.client.utils.world.BlockInteractionUtils;
 
 import dev.schizo.client.ClientAccess;
-import dev.schizo.client.ClientContext;
 import dev.schizo.client.managers.ModuleRegistry;
 import dev.schizo.client.modules.client.AntiCheatModule;
 import dev.schizo.client.modules.combat.AutoMineModule;
@@ -45,10 +44,7 @@ public final class AutoMineHeadProvider extends AutoMineProviderBase {
       super(module);
    }
 
-   static {
-      autoTrap = (AutoTrapModule)ClientContext.getModule(AutoTrapModule.class);
-      antiCheat = (AntiCheatModule)ClientContext.getModule(AntiCheatModule.class);
-   }
+   
 
    @Override
    public void collectCandidates(AutoMineCandidates candidates) {

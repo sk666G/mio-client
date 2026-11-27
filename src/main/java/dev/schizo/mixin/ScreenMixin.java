@@ -10,7 +10,7 @@
 package dev.schizo.mixin;
 
 import dev.schizo.client.modules.render.BlurModule;
-import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.managers.CommandRegistry;
 import dev.schizo.client.modules.render.NoRenderModule;
 import net.minecraft.client.Minecraft;
@@ -27,8 +27,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(Screen.class)
 public abstract class ScreenMixin {
-   private static final NoRenderModule noRenderModule = ClientContext.getModule(NoRenderModule.class);
-   private static final BlurModule blurModule = ClientContext.getModule(BlurModule.class);
    @Shadow
    @Nullable
    protected Minecraft minecraft;
@@ -50,7 +48,7 @@ public abstract class ScreenMixin {
 
    @Inject(method = "renderTransparentBackground", at = @At("HEAD"), cancellable = true)
    private void suppressScreenTint(GuiGraphics graphics, CallbackInfo callback) {
-      if (noRenderModule.shouldHideScreenTint()) {
+      if (MixinModuleRegistry.gameNoRender.shouldHideScreenTint()) {
          callback.cancel();
       }
    }
@@ -63,7 +61,7 @@ public abstract class ScreenMixin {
    private void replaceBlurredScreenBackground(
       GuiGraphics graphics, int mouseX, int mouseY, float partialTick, CallbackInfo callback
    ) {
-      if (blurModule.isToggled()
+      if (MixinModuleRegistry.screenBlur.isToggled()
          && this.minecraft.level != null
          && this.minecraft.player != null) {
          this.renderMenuBackground(graphics);

@@ -20,6 +20,7 @@ import dev.schizo.client.events.PacketEvent;
 import dev.schizo.client.events.ConnectScreenConnectEvent;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.LocalPlayerTickEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.events.bus.EventBus;
 import dev.schizo.client.managers.ModuleRegistry;
 import dev.schizo.client.modules.player.SpeedMineModule;
@@ -27,6 +28,7 @@ import dev.schizo.client.settings.Setting;
 import dev.schizo.client.settings.options.SpeedMineRebreakChoice;
 
 import java.util.ArrayList;
+import java.util.Objects;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -89,16 +91,19 @@ public final class BlockBreakTracker implements ClientAccess {
       });
    }
 
+   private void resetSessionState() {
+      this.sessionGeneration++;
+      this.entries.clear();
+   }
+
+   long sessionGeneration() {
+      return this.sessionGeneration;
+   }
+
    public BlockBreakTracker() {
       EventBus eventBus = ClientAccess.eventBus;
       eventBus.subscribe(this);
    }
-
-   static {
-
-      speedMine = ClientContext.getModule(SpeedMineModule.class);
-   }
-
    @EventHandler
    private void onLocalPlayerTickEvent(LocalPlayerTickEvent event) {
       this.entries.removeIf(BlockBreakEntry::isExpired);
@@ -211,9 +216,13 @@ public final class BlockBreakTracker implements ClientAccess {
    }
 
    @EventHandler
-   private void onConnectScreenConnectEvent(ConnectScreenConnectEvent event) {
-      this.sessionGeneration++;
-      this.entries.clear();
+   void onConnectScreenConnectEvent(ConnectScreenConnectEvent event) {
+      this.resetSessionState();
+   }
+
+   @EventHandler
+   void onMinecraftDisconnectEvent(MinecraftDisconnectEvent event) {
+      this.resetSessionState();
    }
 
    @EventHandler
@@ -270,8 +279,9 @@ public final class BlockBreakTracker implements ClientAccess {
    }
 
    public static void bindModules(ModuleRegistry modules) {
-      speedMine = (SpeedMineModule)modules.getModule(
-         SpeedMineModule.class
+      speedMine = (SpeedMineModule)Objects.requireNonNull(
+         modules.getModule(SpeedMineModule.class),
+         "Required module is not registered: SpeedMineModule"
       );
    }
 }

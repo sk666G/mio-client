@@ -39,7 +39,9 @@ import net.minecraft.network.chat.Style;
 public final class ChatUtils implements ClientAccess {
    private static final org.slf4j.Logger LOGGER = com.mojang.logging.LogUtils.getLogger();
    public static final MessageSignature DEFAULT_SIGNATURE;
-   private static final NotificationsModule NOTIFICATIONS;
+   private static NotificationsModule NOTIFICATIONS() {
+      return ClientContext.getModule(NotificationsModule.class);
+   }
    public static final GuiMessageTag MESSAGE_TAG;
    private static final Pattern ARROW_WHISPER_PATTERN;
    public static final List<Pattern> INCOMING_WHISPER_PATTERNS;
@@ -61,9 +63,9 @@ public final class ChatUtils implements ClientAccess {
 
    public static Component createPrefix() {
       return Component.empty()
-         .append(Component.literal("[").withStyle((UnaryOperator<Style>)style -> withDynamicColor(style, NOTIFICATIONS::getBracketColor)))
-         .append(Component.literal("Schizo").withStyle((UnaryOperator<Style>)style -> withDynamicColor(style, NOTIFICATIONS::getWatermarkColor)))
-         .append(Component.literal("]").withStyle((UnaryOperator<Style>)style -> withDynamicColor(style, NOTIFICATIONS::getBracketColor)));
+         .append(Component.literal("[").withStyle((UnaryOperator<Style>)style -> withDynamicColor(style, NOTIFICATIONS()::getBracketColor)))
+         .append(Component.literal("Schizo").withStyle((UnaryOperator<Style>)style -> withDynamicColor(style, NOTIFICATIONS()::getWatermarkColor)))
+         .append(Component.literal("]").withStyle((UnaryOperator<Style>)style -> withDynamicColor(style, NOTIFICATIONS()::getBracketColor)));
    }
 
    public static Component bracketedText(String text) {
@@ -80,7 +82,6 @@ public final class ChatUtils implements ClientAccess {
 
    static {
       DEFAULT_SIGNATURE = createSignature(-1);
-      NOTIFICATIONS = ClientContext.getModule(NotificationsModule.class);
       MESSAGE_TAG = new GuiMessageTag(-1, null, Component.empty(), "Schizo");
       ARROW_WHISPER_PATTERN = Pattern.compile("^(\\w{3,16}) -> (\\w{3,16}): (.*)");
       INCOMING_WHISPER_PATTERNS = List.of(
@@ -164,7 +165,7 @@ public final class ChatUtils implements ClientAccess {
 
    public static MutableComponent watermarkText(String text) {
       return text == null ? Component.empty() : Component.literal(text).withStyle((UnaryOperator<Style>)style ->
-         withDynamicColor(style, () -> (NOTIFICATIONS.watermarkSetting.getValue()).hashCode()));
+         withDynamicColor(style, () -> (NOTIFICATIONS().watermarkSetting.getValue()).hashCode()));
    }
 
    public static MessageSignature createSignature(int id) {

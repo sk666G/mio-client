@@ -26,8 +26,6 @@ import com.jagrosh.discordipc.entities.DiscordBuild;
 import com.jagrosh.discordipc.entities.RichPresence;
 import com.jagrosh.discordipc.entities.StatusDisplayType;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientPacketListener;
@@ -37,11 +35,6 @@ public class DiscordModule extends Module {
    private static final org.slf4j.Logger LOGGER = com.mojang.logging.LogUtils.getLogger();
    private static final String ICON_URL = "https://cdn.discordapp.com/app-icons/1055222411819241572/22387af3b091639d90c2335d52cf11b7.png";
    private static final long CONNECTION_TIMEOUT_MS = 12_000L;
-   private static final ScheduledExecutorService CONNECTION_TIMEOUTS = Executors.newSingleThreadScheduledExecutor(task -> {
-      Thread thread = new Thread(task, "Schizo-Discord-ConnectionTimeout");
-      thread.setDaemon(true);
-      return thread;
-   });
    private final Setting<Boolean> serverSetting;
    private volatile CompletableFuture<IPCClient> connectionFuture;
    private volatile IPCClient activeClient;
@@ -85,7 +78,7 @@ public class DiscordModule extends Module {
          }
       });
 
-      CONNECTION_TIMEOUTS.schedule(() -> {
+      CompletableFuture.runAsync(() -> {
          if (this.connectionFuture != pending || pending.isDone() || !this.isToggled()) return;
          LOGGER.warn("Discord IPC connection timed out after {} ms; aborting the local transport", CONNECTION_TIMEOUT_MS);
          client.cancelConnect();
@@ -95,7 +88,9 @@ public class DiscordModule extends Module {
                if (this.connectionFuture == pending && this.isToggled()) this.toggle();
             });
          }
-      }, CONNECTION_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+      }, CompletableFuture.delayedExecutor(
+         CONNECTION_TIMEOUT_MS, TimeUnit.MILLISECONDS, ClientAccess.executorService
+      )).exceptionally(failure -> null);
    }
 
    @Override

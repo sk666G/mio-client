@@ -11,14 +11,16 @@ package dev.schizo.mixin;
 
 import com.llamalad7.mixinextras.injector.v2.WrapWithCondition;
 import dev.schizo.client.modules.render.AmbienceModule;
-import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import org.slf4j.Logger;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 
 @Mixin(targets = "net/minecraft/client/Options$2")
 public class Options2Mixin {
-   private static final AmbienceModule ambienceModule = ClientContext.getModule(AmbienceModule.class);
+   private static AmbienceModule ambienceModule() {
+      return MixinModuleRegistry.levelAmbience;
+   }
 
    // Mojang leaves the option parse error lambda unnamed.
    @WrapWithCondition(
@@ -28,7 +30,7 @@ public class Options2Mixin {
    private static boolean shouldLogOptionParseError(
       Logger logger, String message, Object[] arguments
    ) {
-      return ambienceModule.brightnessSetting.getValue()
+      return ambienceModule().brightnessSetting.getValue()
          != AmbienceModule.BrightnessChoice.GAMMA;
    }
 }

@@ -17,9 +17,9 @@ import dev.schizo.client.events.WorldRenderEvent;
 import dev.schizo.client.events.NameTagRenderEvent;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.MinecraftRunTickEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.render.RenderTargetUtils;
 import dev.schizo.client.render.GuiDrawUtils;
-import dev.schizo.client.utils.math.Vec3Utils;
 import dev.schizo.client.utils.combat.TotemPopTracker;
 import dev.schizo.client.managers.RotationManager;
 import dev.schizo.client.render.MeshBuffer;
@@ -163,6 +163,23 @@ public class NameTagsModule extends Module {
    private final ElapsedTimer entityRefreshTimer;
    private boolean hasEquipmentItem;
    private boolean hasDurabilityText;
+   @Override
+   public void onDisable() {
+      this.clearTransientRenderState();
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.clearTransientRenderState();
+   }
+
+   private void clearTransientRenderState() {
+      this.visibleEntities.clear();
+      this.equipmentItems.clear();
+      this.hasEquipmentItem = false;
+      this.hasDurabilityText = false;
+   }
+
    private void collectEquipment(Player player) {
       this.equipmentItems.clear();
       Setting<Boolean> itemsOption = this.itemsSetting;
@@ -218,11 +235,6 @@ public class NameTagsModule extends Module {
    static {
       NAME_TAG_RENDER_TARGET = RenderTargetRegistry.createLazyRenderTarget("nametags_temp");
       ICON_TEXTURE = Identifier.fromNamespaceAndPath("schizo", "textures/schizo.png");
-      animationsModule = (AnimationsModule)ClientContext.getModule(AnimationsModule.class);
-      freecamModule = (FreecamModule)ClientContext.getModule(FreecamModule.class);
-      fontsModule = (FontsModule)ClientContext.getModule(FontsModule.class);
-      shader = (ShaderModule)ClientContext.getModule(ShaderModule.class);
-      colorsModule = (ColorsModule)ClientContext.getModule(ColorsModule.class);
    }
    private Component buildTagText(LivingEntity entity) {
       MutableComponent label = Component.empty();
@@ -600,9 +612,12 @@ public class NameTagsModule extends Module {
    private void onWorldRender(WorldRenderEvent.Overlay event) {
       RenderTarget renderTarget = (RenderTarget)NAME_TAG_RENDER_TARGET.get();
       (RenderUtils.getEntityBuffers()).endBatch();
-      Vec3 cameraPosition = (ClientAccess.schizoMinecraft.gameRenderer.getMainCamera()).position();
+      GameRenderer gameRenderer = ClientAccess.schizoMinecraft.gameRenderer;
+      Vec3 cameraPosition = gameRenderer.getMainCamera().position();
+      float partialTick = RenderUtils.getPartialTick();
+      EntityRenderDispatcher entityDispatcher = ClientAccess.schizoMinecraft.getEntityRenderDispatcher();
+      PoseStack entityPoses = event.getPoseStack();
       for (Entity entity : this.visibleEntities) {
-         float partialTick = RenderUtils.getPartialTick();
          double interpolationPartialTick = partialTick;
          double previousXSnapshot = entity.xo;
          double currentX = entity.getX();
@@ -615,11 +630,9 @@ public class NameTagsModule extends Module {
          double previousZSnapshot = entity.zo;
          double currentZ = entity.getZ();
          double relativeZ = Mth.lerp(interpolationPartialTick, previousZSnapshot, currentZ) - cameraPosition.z;
-         EntityRenderDispatcher entityDispatcherSnapshot = ClientAccess.schizoMinecraft.getEntityRenderDispatcher();
-         EntityRenderer entityRenderer = entityDispatcherSnapshot.getRenderer(entity);
+         EntityRenderer entityRenderer = entityDispatcher.getRenderer(entity);
          EntityRenderState renderState = entityRenderer.createRenderState(entity, partialTick);
          Vec3 renderOffset = entityRenderer.getRenderOffset(renderState);
-         PoseStack entityPoses = event.getPoseStack();
          entityPoses.pushPose();
          try {
             double translatedXSnapshot = relativeX + renderOffset.x();
@@ -666,6 +679,7 @@ public class NameTagsModule extends Module {
    @EventHandler
    private void refreshVisibleEntities(MinecraftRunTickEvent event) {
       if (this.isWorldUnavailable()) {
+         this.visibleEntities.clear();
          return;
       }
       ElapsedTimer refreshTimerSnapshot = this.entityRefreshTimer;
@@ -674,16 +688,17 @@ public class NameTagsModule extends Module {
       }
       this.visibleEntities.clear();
       ClientLevel level = ClientAccess.schizoMinecraft.level;
+      GameRenderer gameRenderer = ClientAccess.schizoMinecraft.gameRenderer;
+      Vec3 cameraPosition = gameRenderer.getMainCamera().position();
+      int maximumRange = this.rangeSetting.getValue();
+      double maximumRangeSquared = (double)maximumRange * maximumRange;
       for (Entity entity : level.entitiesForRendering()) {
          if (!this.shouldRenderEntity(entity)) {
             continue;
          }
-         GameRenderer gameRenderer = ClientAccess.schizoMinecraft.gameRenderer;
-         Vec3 cameraPositionSnapshot = (gameRenderer.getMainCamera()).position();
-         Vec3 entityPositionSnapshot = entity.position();
-         float distance = Vec3Utils.horizontalDistance(cameraPositionSnapshot, entityPositionSnapshot);
-         Integer maximumRange = this.rangeSetting.getValue();
-         if (distance > maximumRange.intValue()) {
+         double deltaX = entity.getX() - cameraPosition.x;
+         double deltaZ = entity.getZ() - cameraPosition.z;
+         if (deltaX * deltaX + deltaZ * deltaZ > maximumRangeSquared) {
             continue;
          }
          AABB boundsSnapshot = entity.getBoundingBox();
@@ -692,9 +707,10 @@ public class NameTagsModule extends Module {
          }
       }
       this.visibleEntities.sort(Comparator.comparingDouble(sortedEntity -> {
-         Vec3 sortCameraPositionSnapshot = (ClientAccess.schizoMinecraft.gameRenderer.getMainCamera()).position();
-         Vec3 sortEntityPosition = sortedEntity.position();
-         return -sortCameraPositionSnapshot.distanceToSqr(sortEntityPosition);
+         double deltaX = sortedEntity.getX() - cameraPosition.x;
+         double deltaY = sortedEntity.getY() - cameraPosition.y;
+         double deltaZ = sortedEntity.getZ() - cameraPosition.z;
+         return -(deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ);
       }));
    }
    private static boolean isEntityRefreshDue(ElapsedTimer timer) {

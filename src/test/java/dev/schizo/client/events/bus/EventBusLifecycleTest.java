@@ -48,6 +48,27 @@ class EventBusLifecycleTest {
    }
 
    @Test
+   void unsubscribeReleasesSubscriberCacheAndResubscribeReusesProfilerHandle() {
+      EventProfiler profiler = new EventProfiler(() -> 0L);
+      EventBus bus = new EventBus(profiler);
+      CountingListener listener = new CountingListener();
+
+      bus.subscribe(listener);
+      assertEquals(1, bus.cachedSubscriberCount());
+      assertEquals(1, profiler.registeredCallbackCount());
+
+      bus.unsubscribe(listener);
+      assertEquals(0, bus.cachedSubscriberCount());
+
+      bus.subscribe(listener);
+      assertEquals(1, bus.cachedSubscriberCount());
+      assertEquals(1, profiler.registeredCallbackCount());
+
+      bus.post(new TickEvent());
+      assertEquals(1, listener.calls.get());
+   }
+
+   @Test
    void directListenerSubscriptionIsAlsoIdempotent() {
       EventBus bus = new EventBus(new EventProfiler(() -> 0L));
       AtomicInteger calls = new AtomicInteger();

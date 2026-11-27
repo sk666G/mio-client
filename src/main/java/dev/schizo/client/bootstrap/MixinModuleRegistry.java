@@ -10,7 +10,9 @@
 package dev.schizo.client.bootstrap;
 
 import dev.schizo.client.managers.ModuleRegistry;
+import dev.schizo.client.modules.Module;
 import dev.schizo.client.modules.client.DiscordModule;
+import dev.schizo.client.modules.client.CapesModule;
 import dev.schizo.client.modules.client.UIModule;
 import dev.schizo.client.modules.client.HUDModule;
 import dev.schizo.client.modules.combat.ArrowsModule;
@@ -23,6 +25,8 @@ import dev.schizo.client.modules.exploit.PingSpoofModule;
 import dev.schizo.client.modules.exploit.ReachModule;
 import dev.schizo.client.modules.exploit.TridentModule;
 import dev.schizo.client.modules.misc.AntiQuitModule;
+import dev.schizo.client.modules.misc.ExtraTabModule;
+import dev.schizo.client.modules.misc.NoNarratorModule;
 import dev.schizo.client.modules.misc.NoPacketKickModule;
 import dev.schizo.client.modules.misc.SwingModule;
 import dev.schizo.client.modules.movement.ElytraFlyModule;
@@ -38,7 +42,11 @@ import dev.schizo.client.modules.movement.VelocityModule;
 import dev.schizo.client.modules.player.AutoEatModule;
 import dev.schizo.client.modules.player.FreecamModule;
 import dev.schizo.client.modules.player.ScaffoldModule;
+import dev.schizo.client.modules.player.NameProtectModule;
 import dev.schizo.client.modules.render.AmbienceModule;
+import dev.schizo.client.modules.render.BlurModule;
+import dev.schizo.client.modules.render.CrosshairModule;
+import dev.schizo.client.modules.render.NameTagsModule;
 import dev.schizo.client.modules.render.ChamsModule;
 import dev.schizo.client.modules.render.FreeLookModule;
 import dev.schizo.client.modules.render.GlintModule;
@@ -54,7 +62,27 @@ import java.util.Objects;
 
 /** Cached module references consumed by mixin hooks without adding synthetic methods to Minecraft classes. */
 public final class MixinModuleRegistry {
+   private static volatile ModuleRegistry moduleRegistry;
+   private static final ClassValue<Module> moduleCache = new ClassValue<>() {
+      @Override
+      protected Module computeValue(Class<?> moduleType) {
+         ModuleRegistry registry = moduleRegistry;
+         if (registry == null) {
+            throw new IllegalStateException("Mixin module registry has not been bound yet: " + moduleType.getSimpleName());
+         }
+         return Objects.requireNonNull(
+            registry.getModule(moduleType),
+            "Required module is not registered: " + moduleType.getSimpleName()
+         );
+      }
+   };
+
    private MixinModuleRegistry() {}
+
+   public static <T extends Module> T getModule(Class<T> moduleType) {
+      Objects.requireNonNull(moduleType, "Module type is required");
+      return moduleType.cast(moduleCache.get(moduleType));
+   }
 
    public static volatile NoSlowModule blockNoslow;
    public static volatile NoPacketKickModule connectionNoPacketKickModule;
@@ -77,6 +105,9 @@ public final class MixinModuleRegistry {
    public static volatile TooltipsModule bundleContentsTooltipsModule;
    public static volatile FastLatencyModule clientPacketFastLatency;
    public static volatile NoRenderModule clientPacketNoRender;
+   public static volatile NoRenderModule clientLevelNoRender;
+   public static volatile NoRenderModule fogNoRender;
+   public static volatile SkyboxModule fogSkybox;
    public static volatile SprintModule localPlayerSprint;
    public static volatile ZoomModule gameZoom;
    public static volatile NoRenderModule gameNoRender;
@@ -114,9 +145,21 @@ public final class MixinModuleRegistry {
    public static volatile SprintModule playerSprintModule;
    public static volatile ReachModule playerReachModule;
    public static volatile NoSlowModule playerNoSlowModule;
+   public static volatile NoNarratorModule gameNarratorNoNarrator;
+   public static volatile ExtraTabModule guiExtraTab;
+   public static volatile CrosshairModule guiCrosshair;
+   public static volatile NameTagsModule entityRendererNameTags;
+   public static volatile NameProtectModule abstractClientPlayerNameProtect;
+   public static volatile CapesModule abstractClientPlayerCapes;
+   public static volatile BlurModule screenBlur;
 
-   public static void bind(ModuleRegistry registry) {
+   // Serialize first-time binders so a second registry cannot pass the identity check concurrently.
+   public static synchronized void bind(ModuleRegistry registry) {
       Objects.requireNonNull(registry, "Module registry is not initialized");
+      ModuleRegistry existingRegistry = moduleRegistry;
+      if (existingRegistry != null && existingRegistry != registry) {
+         throw new IllegalStateException("Mixin module registry cannot be rebound to a different module registry");
+      }
       blockNoslow = (NoSlowModule)Objects.requireNonNull(registry.getModule(NoSlowModule.class), "Required module is not registered: NoSlowModule");
       connectionNoPacketKickModule = (NoPacketKickModule)Objects.requireNonNull(registry.getModule(NoPacketKickModule.class), "Required module is not registered: NoPacketKickModule");
       connectionPingSpoofModule = (PingSpoofModule)Objects.requireNonNull(registry.getModule(PingSpoofModule.class), "Required module is not registered: PingSpoofModule");
@@ -138,6 +181,9 @@ public final class MixinModuleRegistry {
       bundleContentsTooltipsModule = (TooltipsModule)Objects.requireNonNull(registry.getModule(TooltipsModule.class), "Required module is not registered: TooltipsModule");
       clientPacketFastLatency = (FastLatencyModule)Objects.requireNonNull(registry.getModule(FastLatencyModule.class), "Required module is not registered: FastLatencyModule");
       clientPacketNoRender = (NoRenderModule)Objects.requireNonNull(registry.getModule(NoRenderModule.class), "Required module is not registered: NoRenderModule");
+      clientLevelNoRender = (NoRenderModule)Objects.requireNonNull(registry.getModule(NoRenderModule.class), "Required module is not registered: NoRenderModule");
+      fogNoRender = (NoRenderModule)Objects.requireNonNull(registry.getModule(NoRenderModule.class), "Required module is not registered: NoRenderModule");
+      fogSkybox = (SkyboxModule)Objects.requireNonNull(registry.getModule(SkyboxModule.class), "Required module is not registered: SkyboxModule");
       localPlayerSprint = (SprintModule)Objects.requireNonNull(registry.getModule(SprintModule.class), "Required module is not registered: SprintModule");
       gameZoom = (ZoomModule)Objects.requireNonNull(registry.getModule(ZoomModule.class), "Required module is not registered: ZoomModule");
       gameNoRender = (NoRenderModule)Objects.requireNonNull(registry.getModule(NoRenderModule.class), "Required module is not registered: NoRenderModule");
@@ -175,5 +221,13 @@ public final class MixinModuleRegistry {
       playerSprintModule = (SprintModule)Objects.requireNonNull(registry.getModule(SprintModule.class), "Required module is not registered: SprintModule");
       playerReachModule = (ReachModule)Objects.requireNonNull(registry.getModule(ReachModule.class), "Required module is not registered: ReachModule");
       playerNoSlowModule = (NoSlowModule)Objects.requireNonNull(registry.getModule(NoSlowModule.class), "Required module is not registered: NoSlowModule");
+      gameNarratorNoNarrator = (NoNarratorModule)Objects.requireNonNull(registry.getModule(NoNarratorModule.class), "Required module is not registered: NoNarratorModule");
+      guiExtraTab = (ExtraTabModule)Objects.requireNonNull(registry.getModule(ExtraTabModule.class), "Required module is not registered: ExtraTabModule");
+      guiCrosshair = (CrosshairModule)Objects.requireNonNull(registry.getModule(CrosshairModule.class), "Required module is not registered: CrosshairModule");
+      entityRendererNameTags = (NameTagsModule)Objects.requireNonNull(registry.getModule(NameTagsModule.class), "Required module is not registered: NameTagsModule");
+      abstractClientPlayerNameProtect = (NameProtectModule)Objects.requireNonNull(registry.getModule(NameProtectModule.class), "Required module is not registered: NameProtectModule");
+      abstractClientPlayerCapes = (CapesModule)Objects.requireNonNull(registry.getModule(CapesModule.class), "Required module is not registered: CapesModule");
+      screenBlur = (BlurModule)Objects.requireNonNull(registry.getModule(BlurModule.class), "Required module is not registered: BlurModule");
+      moduleRegistry = registry;
    }
 }

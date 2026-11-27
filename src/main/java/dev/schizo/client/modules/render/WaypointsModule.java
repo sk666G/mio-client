@@ -16,6 +16,7 @@ import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.WorldRenderEvent;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.LocalPlayerTickEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.render.LineMeshRenderer;
 import dev.schizo.client.render.WorldBoxRenderer;
 import dev.schizo.client.utils.world.Waypoint;
@@ -41,7 +42,6 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
-import java.util.concurrent.CopyOnWriteArrayList;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.Direction.Axis;
@@ -64,13 +64,23 @@ public class WaypointsModule extends Module {
    private final Setting<Color> colorSetting;
    private final Setting<Color> textSetting;
    private final Setting<Integer> beamAlphaSetting;
-   private final CopyOnWriteArrayList<Waypoint> visibleWaypoints;
+   private volatile List<Waypoint> visibleWaypoints;
 
    private static final int DISTANCE_UNITS_PER_KILOMETER = 1_000;
    private static final double FAR_WAYPOINT_DISTANCE = 120.0D;
    private static final double FAR_WAYPOINT_RADIUS = 100.0D;
    private static final double WAYPOINT_HALF_SIZE = 0.25D;
    private static final int TEXT_BACKGROUND_ALPHA = 100;
+
+   @Override
+   public void onDisable() {
+      this.visibleWaypoints = List.of();
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnectEvent(MinecraftDisconnectEvent event) {
+      this.visibleWaypoints = List.of();
+   }
 
    @EventHandler
    private void onLocalPlayerTickEvent(LocalPlayerTickEvent event) {
@@ -92,7 +102,7 @@ public class WaypointsModule extends Module {
          registry.unregisterWaypoint(invalidWaypoint);
       }
 
-      this.visibleWaypoints.clear();
+      List<Waypoint> nextVisibleWaypoints = new ArrayList<>();
       Minecraft minecraft = ClientAccess.schizoMinecraft;
       String currentServer = minecraft.getCurrentServer() == null
          ? null
@@ -107,13 +117,14 @@ public class WaypointsModule extends Module {
             ? waypointServer.equalsIgnoreCase("singleplayer")
             : waypointServer.equalsIgnoreCase(currentServer);
          if (serverMatches) {
-            this.visibleWaypoints.add(waypoint);
+            nextVisibleWaypoints.add(waypoint);
          }
       }
 
-      this.visibleWaypoints.sort(Comparator.comparingDouble(
+      nextVisibleWaypoints.sort(Comparator.comparingDouble(
          waypoint -> player.distanceToSqr(waypoint.getPosition())
       ));
+      this.visibleWaypoints = List.copyOf(nextVisibleWaypoints);
    }
 
    public static Vec3 getPositionInCurrentDimension(Waypoint waypoint) {
@@ -152,9 +163,11 @@ public class WaypointsModule extends Module {
       }
 
       float maximumDistance = this.distanceSetting.getValue();
-      if (!this.distanceSetting.isAtMaximum()
-         && waypointPosition.distanceTo(cameraPosition) > maximumDistance * DISTANCE_UNITS_PER_KILOMETER) {
-         return;
+      if (!this.distanceSetting.isAtMaximum()) {
+         double maximumBlocks = maximumDistance * DISTANCE_UNITS_PER_KILOMETER;
+         if (waypointPosition.distanceToSqr(cameraPosition) > maximumBlocks * maximumBlocks) {
+            return;
+         }
       }
 
       Vec3 renderPosition = this.getRenderPosition(cameraPosition, waypointPosition);
@@ -215,8 +228,12 @@ public class WaypointsModule extends Module {
 
    private static AABB around(Vec3 position, double halfSize) {
       return new AABB(
-         position.add(-halfSize, -halfSize, -halfSize),
-         position.add(halfSize, halfSize, halfSize)
+         position.x - halfSize,
+         position.y - halfSize,
+         position.z - halfSize,
+         position.x + halfSize,
+         position.y + halfSize,
+         position.z + halfSize
       );
    }
 
@@ -229,7 +246,8 @@ public class WaypointsModule extends Module {
       PoseStack poseStack = event.getPoseStack();
       Vec3 cameraPosition = ClientAccess.schizoMinecraft.gameRenderer.getMainCamera().position();
       LineMeshRenderer.begin(event, this.lineWidthSetting.getValue());
-      for (Waypoint waypoint : this.visibleWaypoints) {
+      List<Waypoint> visibleWaypoints = this.visibleWaypoints;
+      for (Waypoint waypoint : visibleWaypoints) {
          if (waypoint != null && waypoint.getDimension() != null
             && waypoint.getName() != null && waypoint.getServer() != null) {
             this.renderWaypoint(poseStack, cameraPosition, waypoint);
@@ -254,7 +272,7 @@ public class WaypointsModule extends Module {
       this.colorSetting = this.add(new ColorSetting("Color", new Color(-457336321, true)));
       this.textSetting = this.add(new ColorSetting("Text", new Color(-1, true)));
       this.beamAlphaSetting = this.add(new NumberSetting<>("BeamAlpha", 40, 0, 255));
-      this.visibleWaypoints = new CopyOnWriteArrayList<>();
+      this.visibleWaypoints = List.of();
       Setting<Float> distanceSettingForLabel = this.distanceSetting;
 
       SettingLabelCondition unlimitedBoundary = SettingLabelCondition.MAX;

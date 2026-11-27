@@ -51,10 +51,16 @@ public class EventBus implements EventDispatcher {
    public void unsubscribe(Object subscriber) {
       List<EventListener> listeners;
       synchronized (this.instanceListenerCache) {
-         listeners = this.instanceListenerCache.get(subscriber);
+         listeners = this.instanceListenerCache.remove(subscriber);
       }
       if (listeners != null) {
          this.unsubscribeListeners(listeners, false);
+      }
+   }
+
+   int cachedSubscriberCount() {
+      synchronized (this.instanceListenerCache) {
+         return this.instanceListenerCache.size();
       }
    }
 

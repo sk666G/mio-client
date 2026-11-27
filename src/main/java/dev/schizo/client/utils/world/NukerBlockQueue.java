@@ -13,7 +13,6 @@ import dev.schizo.client.utils.combat.BoundingBoxUtils;
 import dev.schizo.client.utils.inventory.ExtraBreakTracker;
 
 import dev.schizo.client.ClientAccess;
-import dev.schizo.client.ClientContext;
 import dev.schizo.client.managers.ModuleRegistry;
 import dev.schizo.client.modules.player.NukerModule;
 import dev.schizo.client.modules.player.SpeedMineModule;
@@ -27,7 +26,7 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 public final class NukerBlockQueue implements ClientAccess {
-   private static SpeedMineModule speedMineModule = ClientContext.getModule(SpeedMineModule.class);
+   private static SpeedMineModule speedMineModule ;
    private final List<BlockPos> positions = new ArrayList<>();
    private final NukerModule nukerModule;
 

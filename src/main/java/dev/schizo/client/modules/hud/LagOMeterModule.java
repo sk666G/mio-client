@@ -91,6 +91,12 @@ public class LagOMeterModule extends HudWidgetModule {
    }
 
    private String getWarningText() {
+      if (this.isWorldUnavailable()) {
+         return this.isInHudEditor()
+            ? "Server is not responding for 2.5s"
+            : null;
+      }
+
       Boolean useEntityPackets = this.foliaSetting.getValue();
       ServerStateManager.PacketActivity packetKind = useEntityPackets || RotationManager.is2b2tMode()
          ? ServerStateManager.PacketActivity.ENTITY

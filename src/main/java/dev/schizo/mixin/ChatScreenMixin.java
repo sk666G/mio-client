@@ -19,7 +19,7 @@ import com.mojang.brigadier.context.ParsedCommandNode;
 import com.mojang.brigadier.suggestion.Suggestions;
 import com.mojang.brigadier.tree.CommandNode;
 import dev.schizo.client.modules.misc.BetterChatModule;
-import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.access.ChatLineAccess;
 import dev.schizo.client.gui.screens.PresetImportScreen;
 import dev.schizo.client.render.FontActiveTextCollector;
@@ -51,9 +51,15 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(ChatScreen.class)
 public abstract class ChatScreenMixin extends Screen {
-   private static final FontsModule fontsModule = ClientContext.getModule(FontsModule.class);
-   private static final BetterChatModule betterChatModule = ClientContext.getModule(BetterChatModule.class);
-   private static final HUDModule hudModule = ClientContext.getModule(HUDModule.class);
+   private static FontsModule fontsModule() {
+      return MixinModuleRegistry.getModule(FontsModule.class);
+   }
+   private static BetterChatModule betterChatModule() {
+      return MixinModuleRegistry.getModule(BetterChatModule.class);
+   }
+   private static HUDModule hudModule() {
+      return MixinModuleRegistry.gameHud;
+   }
    @Shadow
    protected EditBox input;
    @Shadow
@@ -68,8 +74,8 @@ public abstract class ChatScreenMixin extends Screen {
 
    @Inject(method = "init()V", at = @At("HEAD"))
    private void resetChatLineAnimations(CallbackInfo callback) {
-      if (betterChatModule.alwaysSetting.getValue()
-         && betterChatModule.isAnimationEnabled()) {
+      if (betterChatModule().alwaysSetting.getValue()
+         && betterChatModule().isAnimationEnabled()) {
          for (Line line : Minecraft.getInstance().gui.getChat().trimmedMessages) {
             ((ChatLineAccess)(Object)line)
                .getProgress()
@@ -92,7 +98,7 @@ public abstract class ChatScreenMixin extends Screen {
    private boolean allowChatSuperclassRender(
       Screen screen, GuiGraphics graphics, int mouseX, int mouseY, float partialTick
    ) {
-      return hudModule.getChatInputOffset()
+      return hudModule().getChatInputOffset()
             / 12.0F
          > MathConstants.ONE_QUARTER;
    }
@@ -161,8 +167,8 @@ public abstract class ChatScreenMixin extends Screen {
    private Style findCustomFontClickedStyle(
       Style originalStyle, @Local(argsOnly = true) MouseButtonEvent mouseEvent
    ) {
-      if (fontsModule.isToggled()
-         && fontsModule.chatSetting.getValue()) {
+      if (fontsModule().isToggled()
+         && fontsModule().chatSetting.getValue()) {
          int screenHeight = this.minecraft.getWindow().getGuiScaledHeight();
          FontActiveTextCollector.ClickableStyleFinder styleFinder = new FontActiveTextCollector.ClickableStyleFinder(mouseEvent.x(), mouseEvent.y(), this.insertionClickMode());
          this.minecraft.gui.getChat().captureClickableText(styleFinder, screenHeight, this.minecraft.gui.getGuiTicks(), true);

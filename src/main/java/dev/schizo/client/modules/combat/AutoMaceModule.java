@@ -401,15 +401,6 @@ public final class AutoMaceModule extends Module {
 
       return solidBlocks > 3;
    }
-
-   static {
-      aura = (AuraModule)ClientContext.getModule(AuraModule.class);
-      elytraFly = (ElytraFlyModule)ClientContext.getModule(ElytraFlyModule.class);
-      autoArmor = (AutoArmorModule)ClientContext.getModule(AutoArmorModule.class);
-      noSlow = (NoSlowModule)ClientContext.getModule(NoSlowModule.class);
-      fireworks = ClientContext.getModule(FireworksModule.class);
-   }
-
    @Override
    public String getInfo() {
       if (this.target != null

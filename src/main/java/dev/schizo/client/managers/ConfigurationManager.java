@@ -17,6 +17,7 @@ import dev.schizo.client.config.ConfigurationBackupManager;
 import dev.schizo.client.config.ModulePresetCodec;
 import dev.schizo.client.config.JsonStateTransaction;
 import dev.schizo.client.config.ConfigurationSaveGate;
+import dev.schizo.client.config.ConfigPathGuard;
 import dev.schizo.client.config.PresetUndoState;
 import dev.schizo.client.render.BundledResourceInstaller;
 import dev.schizo.client.utils.FileUtils;
@@ -40,6 +41,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.RejectedExecutionException;
 import net.fabricmc.loader.api.FabricLoader;
 
 public final class ConfigurationManager implements ClientAccess {
@@ -111,12 +113,8 @@ public final class ConfigurationManager implements ClientAccess {
          JsonConfigurable configurable = (JsonConfigurable)configurableIterator.next();
 
          try {
-            Path configPath = ROOT_DIRECTORY.resolve(configurable.getConfigName());
+            Path configPath = ConfigPathGuard.resolveForRead(ROOT_DIRECTORY, configurable.getConfigName());
             if (Files.exists(configPath, LinkOption.NOFOLLOW_LINKS)) {
-               if (Files.isSymbolicLink(configPath) || !Files.isRegularFile(configPath, LinkOption.NOFOLLOW_LINKS)) {
-                  ClientAccess.logger.warn("Skipping configuration {} because it is not a regular file", configurable.getConfigName());
-                  continue;
-               }
                String configText = ConfigFileReader.readUtf8(configPath, (int)ConfigurationBackupManager.MAX_CONFIG_BYTES);
                JsonElement configJson = JsonParser.parseString(configText);
                JsonStateTransaction.apply(
@@ -139,27 +137,7 @@ public final class ConfigurationManager implements ClientAccess {
    }
 
    private static void createDirectoryTreeNoFollow(Path root, Path destination) throws IOException {
-      Path normalizedRoot = root.toAbsolutePath().normalize();
-      Path normalizedDestination = destination.toAbsolutePath().normalize();
-      if (!normalizedDestination.startsWith(normalizedRoot)) {
-         throw new IOException("Configuration directory escapes the data root: " + destination);
-      }
-      if (Files.isSymbolicLink(normalizedRoot)
-         || !Files.isDirectory(normalizedRoot, LinkOption.NOFOLLOW_LINKS)) {
-         throw new IOException("Configuration data root is not a real directory: " + normalizedRoot);
-      }
-
-      Path current = normalizedRoot;
-      for (Path component : normalizedRoot.relativize(normalizedDestination)) {
-         current = current.resolve(component);
-         if (!Files.exists(current, LinkOption.NOFOLLOW_LINKS)) {
-            Files.createDirectory(current);
-         }
-         if (Files.isSymbolicLink(current)
-            || !Files.isDirectory(current, LinkOption.NOFOLLOW_LINKS)) {
-            throw new IOException("Configuration directory component is not a real directory: " + current);
-         }
-      }
+      ConfigPathGuard.ensureDirectory(root, destination);
    }
 
    public void prepareDirectories() {
@@ -242,6 +220,10 @@ public final class ConfigurationManager implements ClientAccess {
       }
 
       long saveVersion = this.saveGate.reserveAsyncSave();
+      if (saveVersion == ConfigurationSaveGate.NO_ASYNC_SAVE) {
+         return;
+      }
+
       List<ConfigSnapshot> snapshots = new ArrayList<>();
       Iterator<?> configurableIterator = this.configurables.iterator();
       while (configurableIterator.hasNext()) {
@@ -258,7 +240,16 @@ public final class ConfigurationManager implements ClientAccess {
          }
       }
 
-      ClientAccess.executorService.submit(() -> this.writeSnapshots(snapshots, saveVersion));
+      try {
+         ClientAccess.executorService.submit(() -> this.writeSnapshots(snapshots, saveVersion));
+      } catch (RejectedExecutionException shutdownRace) {
+         ClientAccess.logger.debug("Skipping asynchronous configuration save because the worker executor is shutting down");
+      }
+   }
+
+   /** Stops new asynchronous saves before client shutdown begins. */
+   public void beginShutdown() {
+      this.saveGate.closeAsyncSaves();
    }
 
    private void writeSnapshots(List<ConfigSnapshot> snapshots, long saveVersion) {
@@ -276,16 +267,7 @@ public final class ConfigurationManager implements ClientAccess {
       Gson gsonSnapshot = ClientAccess.gson;
       for (ConfigSnapshot snapshot : snapshots) {
          try {
-            Path configPath = ROOT_DIRECTORY.resolve(snapshot.name());
-            if (Files.exists(configPath, LinkOption.NOFOLLOW_LINKS)
-               && (Files.isSymbolicLink(configPath)
-                  || !Files.isRegularFile(configPath, LinkOption.NOFOLLOW_LINKS))) {
-               ClientAccess.logger.warn(
-                  "Skipping configuration save because {} is not a regular file",
-                  snapshot.name()
-               );
-               continue;
-            }
+            Path configPath = ConfigPathGuard.resolveForWrite(ROOT_DIRECTORY, snapshot.name());
             try {
                this.backupManager.backupBeforeSave(snapshot.name());
             } catch (IOException | IllegalArgumentException backupFailure) {
@@ -332,16 +314,7 @@ public final class ConfigurationManager implements ClientAccess {
          }
 
          try {
-            Path configPath = ROOT_DIRECTORY.resolve(configurable.getConfigName());
-            if (Files.exists(configPath, LinkOption.NOFOLLOW_LINKS)
-               && (Files.isSymbolicLink(configPath)
-                  || !Files.isRegularFile(configPath, LinkOption.NOFOLLOW_LINKS))) {
-               ClientAccess.logger.warn(
-                  "Skipping configuration save because {} is not a regular file",
-                  configurable.getConfigName()
-               );
-               continue;
-            }
+            Path configPath = ConfigPathGuard.resolveForWrite(ROOT_DIRECTORY, configurable.getConfigName());
             try {
                this.backupManager.backupBeforeSave(configurable.getConfigName());
             } catch (IOException | IllegalArgumentException backupFailure) {

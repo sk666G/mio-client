@@ -9,7 +9,7 @@
 
 package dev.schizo.mixin;
 
-import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.modules.render.SkyboxModule;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.HolderSet;
@@ -27,7 +27,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public class DimensionTypeMixin {
    @Inject(method = "timelines", at = @At("HEAD"), cancellable = true)
    private void useOverworldTimelinesForSkybox(CallbackInfoReturnable<HolderSet<Timeline>> callback) {
-      SkyboxModule skybox = ClientContext.getModule(SkyboxModule.class);
+      SkyboxModule skybox = MixinModuleRegistry.levelSkybox;
       if (!skybox.isToggled() || skybox.typeSetting.getValue() != SkyboxModule.SkyType.OVERWORLD) {
          return;
       }

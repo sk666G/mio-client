@@ -38,7 +38,9 @@ import net.minecraft.world.item.equipment.Equippable;
 import net.minecraft.world.level.block.state.BlockState;
 
 public final class InventoryUtils implements ClientAccess {
-   private static final ItemSaverModule itemSaver;
+   private static ItemSaverModule itemSaver() {
+      return ClientContext.getModule(ItemSaverModule.class);
+   }
    private static final Component enderChestScreenTitle;
 
    private InventoryUtils() {
@@ -281,7 +283,7 @@ public final class InventoryUtils implements ClientAccess {
       double bestSpeed = -1.0;
       for (int slot = 0; slot < (includeInventory ? 36 : 9); slot++) {
          ItemStack stack = ClientAccess.schizoMinecraft.player.getInventory().getItem(slot);
-         if (itemSaver.isToggled() && !ItemSaverModule.isSafeToUse(stack)) continue;
+         if (itemSaver().isToggled() && !ItemSaverModule.isSafeToUse(stack)) continue;
          if (ClientAccess.schizoMinecraft.player.isCreative() && stack.is(ItemTags.SWORDS)) continue;
          double speed = stack.getDestroySpeed(state);
          if (speed > bestSpeed || speed == bestSpeed && slot == selected) {
@@ -340,7 +342,6 @@ public final class InventoryUtils implements ClientAccess {
    }
 
    static {
-      itemSaver = (ItemSaverModule)ClientContext.getModule(ItemSaverModule.class);
       enderChestScreenTitle = Component.translatable("container.enderchest");
    }
 

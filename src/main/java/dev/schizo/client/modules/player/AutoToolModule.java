@@ -56,12 +56,6 @@ public class AutoToolModule extends Module {
       Setting<Float> blockDamage = this.blockDamageSetting;
       return !blockDamage.isAtMaximum();
    }
-
-   static {
-      antiCheatModule = (AntiCheatModule)ClientContext.getModule(AntiCheatModule.class);
-      nukerModule = (NukerModule)ClientContext.getModule(NukerModule.class);
-   }
-
    @EventHandler
    private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
       this.clearSwapState();

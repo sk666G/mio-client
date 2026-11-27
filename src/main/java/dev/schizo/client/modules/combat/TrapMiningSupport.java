@@ -68,9 +68,7 @@ public final class TrapMiningSupport {
       this.bodyPartSettings = List.of(headSetting, faceSetting, legsSetting, belowSetting);
    }
 
-   static {
-      speedMineModule = (SpeedMineModule)ClientContext.getModule(SpeedMineModule.class);
-   }
+   
 
    public List collectMiningPositions() {
       SpeedMineModule speedMineSnapshot = speedMineModule;

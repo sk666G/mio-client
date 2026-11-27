@@ -13,6 +13,8 @@ import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.PacketEvent;
 import dev.schizo.client.events.EventHandler;
+import dev.schizo.client.events.LocalPlayerTickEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.utils.collections.IntPair;
 import dev.schizo.client.utils.ElapsedTimer;
 import dev.schizo.client.settings.SettingLabelCondition;
@@ -40,7 +42,9 @@ import net.minecraft.world.entity.PositionMoveRotation;
 import net.minecraft.world.phys.Vec3;
 
 public class PositionModule extends HudWidgetModule {
-   private static FreecamModule freecam;
+   private static FreecamModule freecam() {
+      return ClientContext.getModule(FreecamModule.class);
+   }
    private final Setting<Float> safeRangeSetting;
    private final Setting<Boolean> netherSetting;
    private final Setting<Boolean> prefixSetting;
@@ -65,10 +69,7 @@ public class PositionModule extends HudWidgetModule {
       return true;
    }
 
-   static {
-
-      freecam = ClientContext.getModule(FreecamModule.class);
-   }
+   
 
    private String getCoordinatePrefix() {
       Setting<Boolean> prefixOption = this.prefixSetting;
@@ -78,6 +79,45 @@ public class PositionModule extends HudWidgetModule {
       }
 
       return "XYZ ";
+   }
+
+   @Override
+   public void onDisable() {
+      this.fakeOffset = null;
+   }
+
+   private void refreshFakeOffset() {
+      LocalPlayer player = ClientAccess.schizoMinecraft.player;
+      if (player == null) {
+         this.fakeOffset = null;
+         return;
+      }
+
+      boolean negateX = MathUtils.passesRandomThreshold(50);
+      boolean negateZ = MathUtils.passesRandomThreshold(50);
+      double playerX = player.getX();
+      double playerZ = player.getZ();
+      int fakeX = (int)(-playerX * 2.0D + Math.random() * playerX * 4.0D) + 13;
+      int fakeZ = (int)(-playerZ * 2.0D + Math.random() * playerZ * 4.0D) - 37;
+      if (negateX) {
+         fakeX = -fakeX;
+      }
+      if (negateZ) {
+         fakeZ = -fakeZ;
+      }
+      this.fakeOffset = new IntPair(fakeX, fakeZ);
+   }
+
+   @EventHandler
+   private void onLocalPlayerTickEvent(LocalPlayerTickEvent event) {
+      if (this.fakeSetting.getValue() && this.fakeOffset == null) {
+         this.refreshFakeOffset();
+      }
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnectEvent(MinecraftDisconnectEvent event) {
+      this.fakeOffset = null;
    }
 
    @EventHandler
@@ -132,26 +172,7 @@ public class PositionModule extends HudWidgetModule {
                this.fakeOffset = null;
                return;
             }
-
-            LocalPlayer player = ClientAccess.schizoMinecraft.player;
-            if (player == null) {
-               this.fakeOffset = null;
-               return;
-            }
-
-            boolean negateX = MathUtils.passesRandomThreshold(50);
-            boolean negateZ = MathUtils.passesRandomThreshold(50);
-            double playerX = player.getX();
-            double playerZ = player.getZ();
-            int fakeX = (int)(-playerX * 2.0D + Math.random() * playerX * 4.0D) + 13;
-            int fakeZ = (int)(-playerZ * 2.0D + Math.random() * playerZ * 4.0D) - 37;
-            if (negateX) {
-               fakeX = -fakeX;
-            }
-            if (negateZ) {
-               fakeZ = -fakeZ;
-            }
-            this.fakeOffset = new IntPair(fakeX, fakeZ);
+            this.refreshFakeOffset();
          });
       };
       fakeCallbackOption.setChangeCallback(fakeCallback);
@@ -184,7 +205,7 @@ public class PositionModule extends HudWidgetModule {
 
                boolean inNether = dimensionPath.contains("nether");
                Vec3 displayPosition = ClientAccess.schizoMinecraft.player.position();
-               FreecamModule freecamForEnabledCheck = freecam;
+               FreecamModule freecamForEnabledCheck = freecam();
                if (freecamForEnabledCheck.isToggled()) {
                   Camera camera = ClientAccess.schizoMinecraft.gameRenderer.getMainCamera();
                   Vec3 cameraPosition = camera.position();
@@ -194,18 +215,20 @@ public class PositionModule extends HudWidgetModule {
 
                Setting<Boolean> fakeDisplayOption = this.fakeSetting;
                Boolean useFakeOffset = fakeDisplayOption.getValue();
-               if (useFakeOffset && this.fakeOffset != null) {
-                  IntPair offsetForXCheck = this.fakeOffset;
-                  if (offsetForXCheck.first() == 0) {
-                     IntPair offsetForZCheck = this.fakeOffset;
-                     if (offsetForZCheck.second() == 0) {
-                        this.fakeSetting.runChangeCallback();
-                     }
+               if (useFakeOffset) {
+                  IntPair fakeOffset = this.fakeOffset;
+                  if (fakeOffset == null) {
+                     break coordinateVisibility;
+                  }
+                  if (fakeOffset.first() == 0 && fakeOffset.second() == 0) {
+                     this.fakeOffset = null;
+                     this.fakeSetting.runChangeCallback();
+                     break coordinateVisibility;
                   }
 
-                  double offsetX = this.fakeOffset.first();
-                  double offsetZ = this.fakeOffset.second();
-                  displayPosition = displayPosition.add(offsetX, 0.0D, offsetZ);
+                  displayPosition = displayPosition.add(
+                     fakeOffset.first(), 0.0D, fakeOffset.second()
+                  );
                }
 
                BlockPos currentBlockPosition = BlockPos.containing(displayPosition);

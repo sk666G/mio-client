@@ -51,7 +51,6 @@ import java.awt.Color;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -62,10 +61,8 @@ import org.lwjgl.glfw.GLFW;
 
 public class HudEditorScreen extends ClientScreen implements ClientAccess {
 
-   private static HUDModule hud = (HUDModule)ClientContext.getModule(HUDModule.class);
-   private static final List<HudAnchorGroup> anchorGroups = Collections.synchronizedList(
-      new ArrayList<>()
-   );
+   private final HUDModule hud;
+   private final List<HudAnchorGroup> anchorGroups = new ArrayList<>();
    public static final HudHoverLabel hoverLabel = new HudHoverLabel();
    private final HudMarginController marginController = new HudMarginController();
    private final ClampedInterpolatedFloat hoverLabelOpacity = new ClampedInterpolatedFloat(
@@ -371,11 +368,15 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
    }
 
    public HudEditorScreen() {
+      this.hud = java.util.Objects.requireNonNull(
+         ClientContext.getModule(HUDModule.class),
+         "HUD module must be registered before creating the HUD editor"
+      );
       this.panels
          .add(this.modulePanel);
 
       for (HudAnchor anchor : HudAnchor.values()) {
-         anchorGroups.add(new HudAnchorGroup(anchor));
+         this.anchorGroups.add(new HudAnchorGroup(anchor));
       }
    }
 
@@ -454,7 +455,7 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
 
    private HudAnchorGroup findDropGroup(HudWidgetRenderer dragged) {
       FloatBounds bounds = dragged.getBounds();
-      for (HudAnchorGroup group : anchorGroups) {
+      for (HudAnchorGroup group : this.anchorGroups) {
          for (Object entry : group.getWidgets()) {
             HudWidgetRenderer other = (HudWidgetRenderer)entry;
             if (other != dragged && other.getBounds().intersects(bounds)) {
@@ -672,7 +673,7 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
             GuiDrawUtils.flush();
          }, Color.black);
          MaskShaderRenderer.renderEffect("glowy");
-         RenderUtils.blitToMain(MaskShaderRenderer.MASK_TARGET, ClientRenderPipelines.BLIT_PREMULTIPLIED_ALPHA);
+         RenderUtils.blitToMain(MaskShaderRenderer.maskTarget(), ClientRenderPipelines.BLIT_PREMULTIPLIED_ALPHA);
       } finally {
          RenderTargetUtils.setMainRenderTarget(mainTarget);
       }
@@ -686,7 +687,7 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
       }
 
       if (this.directionsRefreshPending) {
-         for (HudAnchorGroup groupToRefresh : anchorGroups) {
+         for (HudAnchorGroup groupToRefresh : this.anchorGroups) {
             for (Object widgetElement : groupToRefresh.getWidgets()) {
                HudWidgetRenderer widget = (HudWidgetRenderer)widgetElement;
                widget.updateDirections();
@@ -912,8 +913,8 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
    }
 
    private HudWidgetRenderer findHoveredWidget(double x, double y) {
-      for (int groupIndex = anchorGroups.size() - 1; groupIndex >= 0; groupIndex--) {
-         List widgets = anchorGroups.get(groupIndex).getWidgets();
+      for (int groupIndex = this.anchorGroups.size() - 1; groupIndex >= 0; groupIndex--) {
+         List widgets = this.anchorGroups.get(groupIndex).getWidgets();
          for (int index = widgets.size() - 1; index >= 0; index--) {
             HudWidgetRenderer widget = (HudWidgetRenderer)widgets.get(index);
             if (widget.isEnabled() && (widget.isMouseOver(x, y)
@@ -937,7 +938,7 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
    }
 
    public List<HudAnchorGroup> getAnchorGroups() {
-      return anchorGroups;
+      return this.anchorGroups;
    }
 
 }

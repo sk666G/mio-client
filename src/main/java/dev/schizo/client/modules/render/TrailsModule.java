@@ -31,7 +31,7 @@ import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
@@ -48,7 +48,9 @@ import net.minecraft.world.phys.Vec3;
 public class TrailsModule extends Module {
    private static final int MAX_POINTS_PER_TRAIL = 8192;
    private static final int TRAIL_PRUNE_BATCH = 2048;
-   private final HashMap<Integer, List<TrailPoint>> trailsByEntityId = new HashMap<>();
+   private static final int MAX_TRAIL_OWNERS = 64;
+   private final LinkedHashMap<Integer, List<TrailPoint>> trailsByEntityId =
+      new LinkedHashMap<>(16, 0.75F, true);
    private final Setting<Boolean> renderSetting;
    private final Setting<Boolean> bloomSetting;
    private final Setting<Float> delaySetting;
@@ -138,9 +140,8 @@ public class TrailsModule extends Module {
 
                if (this.shouldTrackEntity(entity)) {
                   TrailsModule.TrailPoint point = new TrailsModule.TrailPoint(entity.getPosition(RenderUtils.getPartialTick()));
-                  HashMap<Integer, List<TrailPoint>> trailMap = this.trailsByEntityId;
                   int newEntityId = entity.getId();
-                  List<TrailPoint> entityTrail = trailMap.computeIfAbsent(newEntityId, entityId -> new ArrayList<>());
+                  List<TrailPoint> entityTrail = this.getOrCreateTrail(newEntityId);
                   if (!this.fadeSetting.getValue() && entityTrail.size() >= MAX_POINTS_PER_TRAIL) {
                      entityTrail.subList(0, TRAIL_PRUNE_BATCH).clear();
                   }
@@ -151,19 +152,47 @@ public class TrailsModule extends Module {
       }
    }
 
+   private List<TrailPoint> getOrCreateTrail(int entityId) {
+      List<TrailPoint> existing = this.trailsByEntityId.get(entityId);
+      if (existing != null) {
+         return existing;
+      }
+
+      if (this.trailsByEntityId.size() >= MAX_TRAIL_OWNERS) {
+         var eldest = this.trailsByEntityId.entrySet().iterator();
+         if (eldest.hasNext()) {
+            eldest.next();
+            eldest.remove();
+         }
+      }
+
+      List<TrailPoint> created = new ArrayList<>();
+      this.trailsByEntityId.put(entityId, created);
+      return created;
+   }
+
    private void renderTrail(PoseStack poseStack, List<TrailPoint> points, float lineWidth) {
       LineMeshRenderer.begin(poseStack, lineWidth);
-      Color base = this.colorSetting.getValue();
-      int redValue = base.getRed();
-      int greenValue = base.getGreen();
-      int blueValue = base.getBlue();
-      float[] baseHsb = Color.RGBtoHSB(redValue, greenValue, blueValue, null);
-      long now = System.nanoTime();
+      Color baseColor = this.colorSetting.getValue();
+      float[] baseHsb = Color.RGBtoHSB(
+         baseColor.getRed(), baseColor.getGreen(), baseColor.getBlue(), null
+      );
+      ColorSetting colorMode = (ColorSetting)this.colorSetting;
+      TrailRenderSettings renderSettings = new TrailRenderSettings(
+         baseColor,
+         colorMode.isRainbow(),
+         this.thresholdSetting.getValue(),
+         this.fadeSetting.getValue(),
+         this.getFadeDelayMillis(),
+         this.getFadeDurationMillis(),
+         System.nanoTime()
+      );
+
       TrailPoint previous = points.getFirst();
-      int previousColor = this.getPointColor(baseHsb, previous, now).hashCode();
+      int previousColor = getPointColor(baseHsb, previous, renderSettings).hashCode();
       for (int pointIndex = 1; pointIndex < points.size(); pointIndex++) {
          TrailPoint point = points.get(pointIndex);
-         int pointColor = this.getPointColor(baseHsb, point, now).hashCode();
+         int pointColor = getPointColor(baseHsb, point, renderSettings).hashCode();
          LineMeshRenderer.addVertex(previous.position.x, previous.position.y, previous.position.z,
             previousColor, true, false);
          LineMeshRenderer.addVertex(point.position.x, point.position.y, point.position.z,
@@ -174,51 +203,49 @@ public class TrailsModule extends Module {
       LineMeshRenderer.draw();
    }
 
-   private Color getPointColor(
-      float[] baseHsb, TrailsModule.TrailPoint point, long now
+   private static Color getPointColor(
+      float[] baseHsb, TrailsModule.TrailPoint point, TrailRenderSettings settings
    ) {
-      double pointCreatedAtMillis = point.createdAtMillis;
-      double thresholdFactor = (this.thresholdSetting.getValue());
-
-      double huePeriod = pointCreatedAtMillis / (thresholdFactor * 20.0D);
+      double huePeriod = point.createdAtMillis / (settings.thresholdFactor() * 20.0D);
       float hue = (float)(
          Math.ceil(huePeriod)
             % MathConstants.FULL_TURN_DEGREES
             / MathConstants.FULL_TURN_DEGREES
       );
-      long pointAgeMillis = TimeUnit.NANOSECONDS.toMillis(now - point.createdAtNanos);
+      long pointAgeMillis = TimeUnit.NANOSECONDS.toMillis(
+         settings.nowNanos() - point.createdAtNanos
+      );
 
-      float ageAfterFadeDelay = (float)(pointAgeMillis - this.getFadeDelayMillis());
+      float ageAfterFadeDelay = (float)(pointAgeMillis - settings.fadeDelayMillis());
+      long fadeDuration = settings.fadeDurationMillis();
+      float fadeFraction = fadeDuration == 0L
+         ? 0.0F
+         : 1.0F - ageAfterFadeDelay / fadeDuration;
+      float rawAlpha = fadeFraction * settings.baseColor().getAlpha();
+      float alphaMultiplier = Mth.clamp(rawAlpha, 0.0F, 255.0F) / 255.0F;
 
-      long fadeDuration = this.getFadeDurationMillis();
-      float fadeFraction = fadeDuration == 0L ? 0.0F : 1.0F - ageAfterFadeDelay / fadeDuration;
-      Color alphaColor = this.colorSetting.getValue();
-      float rawAlpha = fadeFraction * alphaColor.getAlpha();
-
-      float clampedAlpha = Mth.clamp(rawAlpha, 0.0F, 255.0F);
-
-      float alphaMultiplier = clampedAlpha / 255.0F;
-      ColorSetting colorSettingForMode = (ColorSetting)this.colorSetting;
-
-      Color selectedColor;
-      if (colorSettingForMode.isRainbow()) {
-         float baseSaturation = baseHsb[1];
-
-         float brightness = baseHsb[2];
-         selectedColor = Color.getHSBColor(hue, baseSaturation, brightness);
+      Color color;
+      if (settings.rainbow()) {
+         color = Color.getHSBColor(hue, baseHsb[1], baseHsb[2]);
       } else {
-         selectedColor = this.colorSetting.getValue();
+         color = settings.baseColor();
       }
 
-      Color color = selectedColor;
-      Boolean fadeEnabled = this.fadeSetting.getValue();
-      if (fadeEnabled) {
-         if (pointAgeMillis >= this.getFadeDelayMillis()) {
-            return ColorUtils.multiplyAlpha(color, alphaMultiplier);
-         }
+      if (settings.fadeEnabled() && pointAgeMillis >= settings.fadeDelayMillis()) {
+         return ColorUtils.multiplyAlpha(color, alphaMultiplier);
       }
-
       return ColorUtils.multiplyAlpha(color, 1.0F);
+   }
+
+   private record TrailRenderSettings(
+      Color baseColor,
+      boolean rainbow,
+      double thresholdFactor,
+      boolean fadeEnabled,
+      long fadeDelayMillis,
+      long fadeDurationMillis,
+      long nowNanos
+   ) {
    }
 
    @EventHandler
@@ -228,16 +255,16 @@ public class TrailsModule extends Module {
          Boolean renderEnabled = this.renderSetting.getValue();
          if (renderEnabled) {
             RenderTarget mainTarget = ClientAccess.schizoMinecraft.getMainRenderTarget();
-            RenderTarget maskTarget = MaskShaderRenderer.MASK_TARGET;
+            RenderTarget maskTarget = MaskShaderRenderer.maskTarget();
             Setting<Color> maskColor = this.colorSetting;
             RenderUtils.clearColor(
                maskTarget, maskColor.getValue()
             );
             RenderUtils.clearDepth(
-               MaskShaderRenderer.MASK_TARGET
+               MaskShaderRenderer.maskTarget()
             );
             RenderTargetUtils.setMainRenderTarget(
-               MaskShaderRenderer.MASK_TARGET
+               MaskShaderRenderer.maskTarget()
             );
             try {
                float width = this.lineWidthSetting.getValue();
@@ -250,7 +277,7 @@ public class TrailsModule extends Module {
                RenderTargetUtils.setMainRenderTarget(mainTarget);
             }
             RenderUtils.blitToMain(
-               MaskShaderRenderer.MASK_TARGET
+               MaskShaderRenderer.maskTarget()
             );
             Boolean bloomEnabled = this.bloomSetting.getValue();
             if (!bloomEnabled) {

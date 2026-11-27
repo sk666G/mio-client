@@ -41,8 +41,12 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
 
 public class ArmorModule extends HudWidgetModule {
-   private static final HUDModule hudModule;
-   private static ColorsModule colorsModule;
+   private static HUDModule hudModule() {
+      return ClientContext.getModule(HUDModule.class);
+   }
+   private static ColorsModule colorsModule() {
+      return ClientContext.getModule(ColorsModule.class);
+   }
    private final Setting<Boolean> barSetting;
    private final Setting<Boolean> durabilitySetting;
    private final Setting<Boolean> percentageSetting;
@@ -54,10 +58,7 @@ public class ArmorModule extends HudWidgetModule {
    private final boolean[] durabilityInitialized = new boolean[4];
    private final List<ItemStack> armorStacks = new ArrayList<>(4);
 
-   static {
-      hudModule = ClientContext.getModule(HUDModule.class);
-      colorsModule = ClientContext.getModule(ColorsModule.class);
-   }
+   
 
    private int getArmorBottomOffset() {
       int bottomOffset;
@@ -123,7 +124,7 @@ public class ArmorModule extends HudWidgetModule {
          java.util.Arrays.fill(this.durabilityInitialized, false);
          return;
       }
-      HUDModule hudForEnabledCheck = hudModule;
+      HUDModule hudForEnabledCheck = hudModule();
       if (hudForEnabledCheck.isToggled() || this.isInHudEditor()) {
          GuiGraphics graphicsForWidth = event.getGuiGraphics();
          int screenWidth = graphicsForWidth.guiWidth();
@@ -132,13 +133,13 @@ public class ArmorModule extends HudWidgetModule {
 
          int xOffset = 15;
          RenderUtils.clearColor(
-            PostProcessShaderPass.POST_TARGET
+            PostProcessShaderPass.postTarget()
          );
          RenderUtils.clearDepth(
-            PostProcessShaderPass.POST_TARGET
+            PostProcessShaderPass.postTarget()
          );
          RenderTargetUtils.overrideRenderTargets(
-            PostProcessShaderPass.POST_TARGET
+            PostProcessShaderPass.postTarget()
          );
          try {
             LocalPlayer playerForArmor = ClientAccess.schizoMinecraft.player;
@@ -180,7 +181,7 @@ public class ArmorModule extends HudWidgetModule {
                         textScale = 1.0F;
                      }
 
-                     Setting<ColorsSchemeChoice> colorSchemeOption = colorsModule.schemeSetting;
+                     Setting<ColorsSchemeChoice> colorSchemeOption = colorsModule().schemeSetting;
                      ColorsSchemeChoice colorScheme = colorSchemeOption.getValue();
                      Color itemBarColor = new Color(stack.getBarColor(), false);
                      Color durabilityColor = colorScheme.transform(itemBarColor);
@@ -231,10 +232,10 @@ public class ArmorModule extends HudWidgetModule {
             RenderTargetUtils.restoreRenderTargets();
          }
          RenderUtils.clearDepth(
-            PostProcessShaderPass.POST_TARGET
+            PostProcessShaderPass.postTarget()
          );
          RenderUtils.blitToMain(
-            PostProcessShaderPass.POST_TARGET
+            PostProcessShaderPass.postTarget()
          );
       }
    }

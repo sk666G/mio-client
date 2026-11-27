@@ -14,6 +14,7 @@ import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.LocalPlayerTickEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.render.GuiDrawUtils;
 import dev.schizo.client.utils.combat.TotemPopTracker;
 import dev.schizo.client.managers.RotationManager;
@@ -70,8 +71,12 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
 public class TextRadarModule extends HudWidgetModule {
-   private static final FontsModule fonts;
-   private static final NameProtectModule nameProtect;
+   private static FontsModule fonts() {
+      return ClientContext.getModule(FontsModule.class);
+   }
+   private static NameProtectModule nameProtect() {
+      return ClientContext.getModule(NameProtectModule.class);
+   }
    private static final Color SNEAKING_COLOR;
    private final Setting<SortMode> sortSetting;
    private final Setting<Boolean> healthSetting;
@@ -95,8 +100,6 @@ public class TextRadarModule extends HudWidgetModule {
 
    static {
 
-      fonts = ClientContext.getModule(FontsModule.class);
-      nameProtect = ClientContext.getModule(NameProtectModule.class);
 
       SNEAKING_COLOR = new Color(
          10945959,
@@ -106,7 +109,23 @@ public class TextRadarModule extends HudWidgetModule {
 
    @Override
    public void onEnable() {
+      this.clearRadarState();
+   }
+
+   @Override
+   public void onDisable() {
+      this.clearRadarState();
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.clearRadarState();
+   }
+
+   private void clearRadarState() {
       this.radarPlayers.clear();
+      this.displayPlayers.clear();
+      this.displayTexts.clear();
    }
 
    private Component buildPlayerText(Player player) {
@@ -124,12 +143,12 @@ public class TextRadarModule extends HudWidgetModule {
       }
       GameProfile profile = player.getGameProfile();
       String playerName = profile.name();
-      NameProtectModule nameProtectForToggle = nameProtect;
+      NameProtectModule nameProtectForToggle = nameProtect();
       if (nameProtectForToggle.isToggled()) {
          boolean previousNameProtectState = NameProtectModule.replacementBypassed;
          try {
             NameProtectModule.replacementBypassed = !previousNameProtectState;
-            playerName = nameProtect.protectNames(playerName);
+            playerName = nameProtect().protectNames(playerName);
          } finally {
             NameProtectModule.replacementBypassed = previousNameProtectState;
          }
@@ -334,7 +353,7 @@ public class TextRadarModule extends HudWidgetModule {
 
    @Override
    public void renderContent(PoseStack poses) {
-      FontsModule fontsForToggle = fonts;
+      FontsModule fontsForToggle = fonts();
       float headSpacing;
       if (fontsForToggle.isToggled()) {
          headSpacing = 0.0F;
@@ -343,7 +362,7 @@ public class TextRadarModule extends HudWidgetModule {
          headSpacing = 1.0F;
       }
 
-      float hudScale = hud.getTextScale();
+      float hudScale = hud().getTextScale();
       float rowY = this.renderer
             .getContentY(
                FontRenderer.INSTANCE

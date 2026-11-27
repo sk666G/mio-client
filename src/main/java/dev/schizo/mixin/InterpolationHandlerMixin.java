@@ -9,7 +9,7 @@
 
 package dev.schizo.mixin;
 
-import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.modules.render.NoRenderModule;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.InterpolationHandler;
@@ -23,7 +23,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(InterpolationHandler.class)
 public abstract class InterpolationHandlerMixin {
-   private static final NoRenderModule noRenderModule = ClientContext.getModule(NoRenderModule.class);
+   private static NoRenderModule noRenderModule() {
+      return MixinModuleRegistry.gameNoRender;
+   }
    @Shadow
    @Final
    private Entity entity;
@@ -35,8 +37,8 @@ public abstract class InterpolationHandlerMixin {
    private void suppressEntityInterpolation(
       Vec3 position, float yaw, float pitch, CallbackInfo callback
    ) {
-      if (noRenderModule.isToggled()
-         && noRenderModule.interpolationSetting.getValue()) {
+      if (noRenderModule().isToggled()
+         && noRenderModule().interpolationSetting.getValue()) {
          this.entity.snapTo(position, yaw, pitch);
          this.cancel();
          callback.cancel();

@@ -47,7 +47,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 
 public class AutoDropModule extends PlacementModule {
-   private static SpeedMineModule speedMineModule = (SpeedMineModule)ClientContext.getModule(SpeedMineModule.class);
+   private static SpeedMineModule speedMineModule;
    private static final MutableBlockPos supportProbePosition = new MutableBlockPos();
    protected final Setting<Float> targetRangeSetting;
    protected final Setting<Boolean> ignoreNakedsSetting;

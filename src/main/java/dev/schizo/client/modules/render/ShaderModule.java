@@ -77,9 +77,9 @@ import org.joml.Quaternionf;
 
 public class ShaderModule extends Module {
 
-   private static NameTagsModule nameTagsModule = (NameTagsModule)ClientContext.getModule(NameTagsModule.class);
-   private static FreecamModule freecamModule = (FreecamModule)ClientContext.getModule(FreecamModule.class);
-   private static NoRenderModule noRenderModule = (NoRenderModule)ClientContext.getModule(NoRenderModule.class);
+   private static NameTagsModule nameTagsModule;
+   private static FreecamModule freecamModule;
+   private static NoRenderModule noRenderModule;
    public final Setting<ShaderChoice> shaderSetting;
    private final Setting<Integer> rangeSetting;
    public final Setting<Float> fadeSetting;

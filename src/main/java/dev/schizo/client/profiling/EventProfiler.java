@@ -55,6 +55,14 @@ public final class EventProfiler {
    ) {
       String owner = nonEmpty(ownerName, "Unknown listener");
       String label = owner + "#" + nonEmpty(methodName, "unknown") + " [" + nonEmpty(eventTypeName, "Unknown event") + "]";
+      for (int index = 0; index < this.callbackCount; index++) {
+         CallbackHandle existing = this.callbacks[index];
+         if (existing.label.equals(label)
+            && java.util.Objects.equals(existing.moduleName, moduleName)) {
+            return existing;
+         }
+      }
+
       int moduleIndex = moduleName == null ? -1 : this.findOrRegisterModule(moduleName);
       if (this.callbackCount >= this.callbacks.length) {
          return new CallbackHandle(this, -1, moduleIndex, label, moduleName);

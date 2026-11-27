@@ -42,7 +42,7 @@ import net.minecraft.world.phys.Vec3;
 
 public class TracersModule extends Module {
 
-   private static ColorsModule colorsModule = (ColorsModule)ClientContext.getModule(ColorsModule.class);
+   private static ColorsModule colorsModule;
    final Setting<TracersModeChoice> modeSetting;
    public final Setting<TracersHitboxChoice> hitboxSetting;
    private final Setting<Float> minDistanceSetting;

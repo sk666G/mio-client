@@ -14,6 +14,7 @@ import dev.schizo.client.ClientContext;
 import dev.schizo.client.commands.FakeplayerCommand;
 import dev.schizo.client.events.PacketEvent;
 import dev.schizo.client.events.HudRenderEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.utils.network.InteractPacketUtils;
 import dev.schizo.client.audio.BuiltinSound;
@@ -106,15 +107,17 @@ public class HitmarkerModule extends Module {
       }
       return TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - this.lastHitNanos);
    }
-
-   static {
-
-      crosshair = (CrosshairModule)ClientContext.getModule(CrosshairModule.class);
-   }
-
    @Override
    public void onToggle() {
+      this.resetTransientState();
+   }
 
+   @EventHandler
+   private void onMinecraftDisconnectEvent(MinecraftDisconnectEvent event) {
+      this.resetTransientState();
+   }
+
+   private void resetTransientState() {
       this.lastHitTime = -1L;
       this.lastHitNanos = -1L;
       this.soundPending = false;

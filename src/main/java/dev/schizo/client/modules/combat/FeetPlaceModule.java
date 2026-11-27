@@ -144,12 +144,6 @@ public class FeetPlaceModule extends PlacementModule {
          return super.findPlacementSwapSlot();
       }
    }
-
-   static {
-      antiCheat = (AntiCheatModule)ClientContext.getModule(AntiCheatModule.class);
-      speedMine = (SpeedMineModule)ClientContext.getModule(SpeedMineModule.class);
-   }
-
    @Override
    public void onEnable() {
       this.nearbyCrystalCount = 0;

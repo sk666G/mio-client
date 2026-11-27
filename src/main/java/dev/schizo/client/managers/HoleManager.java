@@ -18,6 +18,7 @@ import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.LocalPlayerTickEvent;
 import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.settings.options.DimensionType;
+import dev.schizo.client.utils.AdaptiveScanBudget;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -221,7 +222,8 @@ public final class HoleManager implements ClientAccess {
       }
 
       int processed = 0;
-      while (processed < SCAN_BUDGET_PER_TICK && this.scanIndex < TOTAL_SCAN_POSITIONS) {
+      int scanBudget = AdaptiveScanBudget.limit(SCAN_BUDGET_PER_TICK, ClientContext.frameTiming);
+      while (processed < scanBudget && this.scanIndex < TOTAL_SCAN_POSITIONS) {
          int index = this.scanIndex++;
          int xOffset = index / (SCAN_SIZE * SCAN_SIZE) + SCAN_MIN_OFFSET;
          int remainder = index % (SCAN_SIZE * SCAN_SIZE);

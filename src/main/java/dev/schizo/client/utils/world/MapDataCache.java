@@ -10,6 +10,7 @@
 package dev.schizo.client.utils.world;
 
 import dev.schizo.client.managers.ConfigurationManager;
+import dev.schizo.client.config.ConfigPathGuard;
 import dev.schizo.client.managers.TaskScheduler;
 import dev.schizo.client.render.FontRenderer;
 import dev.schizo.client.utils.CompressionUtils;
@@ -31,6 +32,8 @@ import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.component.DataComponents;
@@ -45,7 +48,7 @@ import net.minecraft.world.level.saveddata.maps.MapItemSavedData;
 public final class MapDataCache implements ClientAccess {
    private static final long SAVE_INTERVAL_NANOS = java.util.concurrent.TimeUnit.MINUTES.toNanos(5);
    private final Map<String, MapItemSavedData> mapDataByName = new HashMap<>();
-   private CompletableFuture<Void> pendingSave = CompletableFuture.completedFuture(null);
+   private final Map<String, CompletableFuture<Void>> pendingSavesByAddress = new ConcurrentHashMap<>();
    private long lastSaveNanos;
    private boolean preserveUnreadableFile;
    private String serverAddress;
@@ -57,7 +60,18 @@ public final class MapDataCache implements ClientAccess {
 
    public void load(String address) {
       this.mapDataByName.clear();
-      Path filePath = ConfigurationManager.MAPS_DIRECTORY.resolve(FontRenderer.sanitizeFileName(address) + ".data");
+      Path filePath;
+      try {
+         Path mapsDirectory = ConfigPathGuard.ensureDirectory(
+            ConfigurationManager.ROOT_DIRECTORY,
+            ConfigurationManager.MAPS_DIRECTORY
+         );
+         filePath = mapsDirectory.resolve(FontRenderer.sanitizeFileName(address) + ".data");
+      } catch (IOException unsafeDirectory) {
+         this.preserveUnreadableFile = true;
+         ClientAccess.logger.warn("Could not access map cache directory", unsafeDirectory);
+         return;
+      }
       this.preserveUnreadableFile = false;
       if (Files.notExists(filePath, LinkOption.NOFOLLOW_LINKS)) {
          return;
@@ -77,12 +91,13 @@ public final class MapDataCache implements ClientAccess {
    @EventHandler
    private void onLocalPlayerTickEvent(LocalPlayerTickEvent event) {
       long now = System.nanoTime();
-      if (this.serverAddress != null && now - this.lastSaveNanos >= SAVE_INTERVAL_NANOS && this.pendingSave.isDone()) {
+      if (this.serverAddress != null
+         && now - this.lastSaveNanos >= SAVE_INTERVAL_NANOS
+         && !this.hasPendingSave(this.serverAddress)) {
          this.lastSaveNanos = now;
          byte[] snapshot = this.serializeMaps();
          if (snapshot != null) {
-            String address = this.serverAddress;
-            this.pendingSave = CompletableFuture.runAsync(() -> writeSnapshot(address, snapshot), ClientAccess.executorService);
+            this.queueSave(this.serverAddress, snapshot);
          }
       }
    }
@@ -90,17 +105,21 @@ public final class MapDataCache implements ClientAccess {
    @EventHandler
    private void onConnectScreenConnectEvent(ConnectScreenConnectEvent event) {
       this.session = new Object();
-      this.pendingSave.join();
+      String address = event.getServerAddress();
+      this.awaitPendingSave(address);
       this.lastSaveNanos = System.nanoTime();
-      this.serverAddress = event.getServerAddress();
-      this.load(this.serverAddress);
+      this.serverAddress = address;
+      this.load(address);
    }
 
    @EventHandler
    private void onMinecraftDisconnectEvent(MinecraftDisconnectEvent event) {
       this.session = new Object();
       if (this.serverAddress != null) {
-         this.save(this.serverAddress);
+         byte[] snapshot = this.serializeMaps();
+         if (snapshot != null) {
+            this.queueSave(this.serverAddress, snapshot);
+         }
       }
       this.serverAddress = null;
       this.mapDataByName.clear();
@@ -120,11 +139,48 @@ public final class MapDataCache implements ClientAccess {
    }
 
    public void save(String address) {
-      this.pendingSave.join();
+      this.awaitPendingSave(address);
       byte[] snapshot = this.serializeMaps();
       if (snapshot != null) {
          writeSnapshot(address, snapshot);
       }
+   }
+
+   private boolean hasPendingSave(String address) {
+      CompletableFuture<Void> pending = this.pendingSavesByAddress.get(address);
+      return pending != null && !pending.isDone();
+   }
+
+   private void awaitPendingSave(String address) {
+      CompletableFuture<Void> pending = this.pendingSavesByAddress.get(address);
+      if (pending == null) {
+         return;
+      }
+      try {
+         pending.join();
+      } catch (CompletionException saveFailure) {
+         ClientAccess.logger.warn("Previous map cache save for {} did not complete cleanly", address, saveFailure);
+      }
+   }
+
+   private void queueSave(String address, byte[] snapshot) {
+      CompletableFuture<Void> previous = this.pendingSavesByAddress.get(address);
+      if (previous == null) {
+         previous = CompletableFuture.completedFuture(null);
+      }
+
+      CompletableFuture<Void> queued = previous
+         .handle((ignored, failure) -> null)
+         .thenRunAsync(() -> writeSnapshot(address, snapshot), ClientAccess.executorService)
+         .exceptionally(failure -> {
+            ClientAccess.logger.warn("Could not schedule map cache save for {}", address, failure);
+            return null;
+         });
+
+      this.pendingSavesByAddress.put(address, queued);
+      queued.whenComplete((ignored, failure) ->
+         this.pendingSavesByAddress.remove(address, queued)
+      );
    }
 
    private byte[] serializeMaps() {
@@ -147,11 +203,15 @@ public final class MapDataCache implements ClientAccess {
    }
 
    private static void writeSnapshot(String address, byte[] snapshot) {
-      Path target = ConfigurationManager.MAPS_DIRECTORY.resolve(FontRenderer.sanitizeFileName(address) + ".data");
       try {
+         Path mapsDirectory = ConfigPathGuard.ensureDirectory(
+            ConfigurationManager.ROOT_DIRECTORY,
+            ConfigurationManager.MAPS_DIRECTORY
+         );
+         Path target = mapsDirectory.resolve(FontRenderer.sanitizeFileName(address) + ".data");
          FileUtils.writeBytesAtomically(target, CompressionUtils.deflate(snapshot, 2));
       } catch (IOException | RuntimeException failure) {
-         ClientAccess.logger.warn("Could not save map cache {}", target, failure);
+         ClientAccess.logger.warn("Could not save map cache for {}", address, failure);
       }
    }
 

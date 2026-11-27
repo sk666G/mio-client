@@ -10,7 +10,7 @@
 package dev.schizo.mixin;
 
 import com.llamalad7.mixinextras.sugar.Local;
-import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.access.TooltipComponentCapture;
 import dev.schizo.client.render.FontActiveTextCollector;
 import dev.schizo.client.utils.inventory.ShulkerBoxItemPreview;
@@ -41,7 +41,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public abstract class GuiGraphicsMixin {
    @Unique
    private boolean renderingPreviewItemCount;
-   private static TooltipsModule tooltips = ClientContext.getModule(TooltipsModule.class);
 
    @Shadow
    public abstract void renderItemCount(Font font, ItemStack stack, int x, int y, @Nullable String countText);
@@ -53,14 +52,14 @@ public abstract class GuiGraphicsMixin {
    private void renderContainerItemPreview(
       Font font, ItemStack stack, int x, int y, @Nullable String countText, CallbackInfo callback
    ) {
-      if (!tooltips.isToggled() || !tooltips.majorityItemSetting.getValue()) {
+      if (!MixinModuleRegistry.bundleContentsTooltipsModule.isToggled() || !MixinModuleRegistry.bundleContentsTooltipsModule.majorityItemSetting.getValue()) {
          return;
       }
-      for (ShulkerBoxItemPreview preview : tooltips.inventoryContainerSnapshots) {
+      for (ShulkerBoxItemPreview preview : MixinModuleRegistry.bundleContentsTooltipsModule.inventoryContainerSnapshots) {
          if (preview.containerStack() != stack || preview.previewStack() == null) {
             continue;
          }
-         tooltips.renderItemPreview((GuiGraphics)(Object)this, preview.previewStack(), x, y);
+         MixinModuleRegistry.bundleContentsTooltipsModule.renderItemPreview((GuiGraphics)(Object)this, preview.previewStack(), x, y);
          break;
       }
    }

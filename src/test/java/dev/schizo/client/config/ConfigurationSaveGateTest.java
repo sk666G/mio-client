@@ -44,6 +44,23 @@ class ConfigurationSaveGateTest {
    }
 
    @Test
+   void closingAsyncSavesInvalidatesPendingWorkAndRejectsNewReservations() {
+      ConfigurationSaveGate gate = new ConfigurationSaveGate();
+      long pendingAsync = gate.reserveAsyncSave();
+      AtomicInteger writes = new AtomicInteger();
+
+      gate.closeAsyncSaves();
+      gate.closeAsyncSaves();
+
+      assertEquals(ConfigurationSaveGate.NO_ASYNC_SAVE, gate.reserveAsyncSave());
+      gate.runIfCurrent(pendingAsync, writes::incrementAndGet);
+      assertEquals(0, writes.get());
+
+      gate.invalidatePendingAndRun(writes::incrementAndGet);
+      assertEquals(1, writes.get());
+   }
+
+   @Test
    void rejectsMissingActions() {
       ConfigurationSaveGate gate = new ConfigurationSaveGate();
       long generation = gate.reserveAsyncSave();

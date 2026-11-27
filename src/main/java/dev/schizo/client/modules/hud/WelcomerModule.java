@@ -14,6 +14,7 @@ import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.ScreenChangeEvent;
 import dev.schizo.client.events.ConnectScreenConnectEvent;
 import dev.schizo.client.events.EventHandler;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.managers.ServerStateManager;
 import dev.schizo.client.media.MediaSnapshot;
 import dev.schizo.client.utils.ElapsedTimer;
@@ -49,8 +50,12 @@ public class WelcomerModule extends HudWidgetModule {
    private boolean connectionScreenPending;
 
    private boolean tryAddServerWelcomeNotification() {
+      if (!this.connectionScreenPending) {
+         return false;
+      }
       ElapsedTimer timer = this.connectionScreenTimer;
       if (timer.hasElapsed(50L)) {
+         this.connectionScreenPending = false;
          return false;
       }
       Minecraft minecraft = ClientAccess.schizoMinecraft;
@@ -67,13 +72,14 @@ public class WelcomerModule extends HudWidgetModule {
          3000L,
          this.getHudColor(this.renderer.getY())
       ));
+      this.connectionScreenPending = false;
       return true;
    }
 
    private void updateSmartNotifications() {
       Setting<Boolean> smartOption = this.smartSetting;
       Boolean smartEnabled = smartOption.getValue();
-      if (!smartEnabled || this.isInHudEditor()) {
+      if (!smartEnabled || this.isInHudEditor() || this.isWorldUnavailable()) {
          this.finishLagNotification();
          return;
       }
@@ -141,7 +147,7 @@ public class WelcomerModule extends HudWidgetModule {
    public float[] calculateDimensions() {
       float maximumWidth = 0.0F;
       float accumulatedProgress = 0.0F;
-      float hudScale = hud.getTextScale();
+      float hudScale = hud().getTextScale();
 
       for (int index = this.notifications.size() - 1;
          index >= 0;
@@ -256,7 +262,7 @@ public class WelcomerModule extends HudWidgetModule {
          }
       );
       float[] dimensions = this.calculateDimensions();
-      float hudScale = hud.getTextScale();
+      float hudScale = hud().getTextScale();
       float accumulatedProgress = 0.0F;
 
       for (int index = this.notifications.size() - 1;
@@ -333,7 +339,6 @@ public class WelcomerModule extends HudWidgetModule {
       }
       if (event.getNewScreen() == null
          && this.connectionScreenPending) {
-         this.connectionScreenPending = false;
          this.connectionScreenTimer.reset();
       }
    }
@@ -345,6 +350,14 @@ public class WelcomerModule extends HudWidgetModule {
       Setting<Boolean> smartOption = this.smartSetting;
       Boolean smartEnabled = smartOption.getValue();
       return smartEnabled && this.overlapsWidget(widget) && !this.isInHudEditor();
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnectEvent(MinecraftDisconnectEvent event) {
+      this.connectionScreenPending = false;
+      this.connectionScreenTimer.reset();
+      this.lastMusicNotificationText = null;
+      this.notifications.removeIf(notification -> !(notification instanceof GreetingNotification));
    }
 
    @EventHandler

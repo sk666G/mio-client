@@ -21,9 +21,11 @@ import dev.schizo.client.modules.player.AutoEatModule;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.gui.screens.ConfirmGameCloseScreen;
+import dev.schizo.client.utils.WorkerExecutorShutdown;
 import dev.schizo.client.events.ScreenChangeEvent;
 import dev.schizo.client.events.MinecraftTickEvent;
 import dev.schizo.client.modules.client.DiscordModule;
+import dev.schizo.client.modules.hud.MediaSessionBridge;
 import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.events.MinecraftRunTickEvent;
 import dev.schizo.client.managers.ModuleRegistry;
@@ -71,6 +73,7 @@ public class MinecraftMixin {
          if (ClientContext.taskScheduler != null) {
             ClientContext.taskScheduler.shutdown();
          }
+         ClientContext.configurationManager.beginShutdown();
          try {
             if (ClientContext.contextProfileRegistry != null
                && !ClientContext.contextProfileRegistry.restoreBeforeShutdown()) {
@@ -86,7 +89,9 @@ public class MinecraftMixin {
             }
             ClientContext.configurationManager.save();
          } finally {
-            ClientAccess.executorService.shutdown();
+            if (!WorkerExecutorShutdown.shutdownAndAwait(ClientAccess.executorService)) {
+               ClientAccess.logger.warn("Schizo worker tasks did not finish before the shutdown deadline");
+            }
          }
       }
    }
@@ -206,8 +211,9 @@ public class MinecraftMixin {
    }
 
    @Inject(method = "close", at = @At("HEAD"))
-   public void closeDiscordClient(CallbackInfo callback) {
+   public void closeClientIntegrations(CallbackInfo callback) {
       MixinModuleRegistry.minecraftDiscordModule.closeClient();
+      MediaSessionBridge.stopMediaUpdates();
    }
 
 }

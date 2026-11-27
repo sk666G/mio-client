@@ -111,7 +111,7 @@ import org.joml.Matrix4f;
 import org.joml.Matrix4fc;
 public class ESPModule extends Module {
 
-   private static ColorsModule colorsModule = (ColorsModule)ClientContext.getModule(ColorsModule.class);
+   private static ColorsModule colorsModule;
    protected final Setting<Boolean> entitiesSetting;
    protected final Setting<Boolean> entityDrawSetting;
    final Setting<EntityMode> entityModeSetting;

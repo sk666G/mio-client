@@ -25,11 +25,11 @@ import net.minecraft.world.item.alchemy.Potion;
 
 public final class AutopotCommand extends Command {
 
-   private static final AutoPotModule AUTO_POT;
-
-   static {
-      AUTO_POT = ClientContext.getModule(AutoPotModule.class);
+   private static AutoPotModule AUTO_POT() {
+      return ClientContext.getModule(AutoPotModule.class);
    }
+
+   
 
    public AutopotCommand() {
       super("autopot");
@@ -51,9 +51,9 @@ public final class AutopotCommand extends Command {
       Potion potion = (Potion)context.getArgument("effect", Potion.class);
       TaskScheduler scheduler = ClientContext.taskScheduler;
       Runnable throwTask = () -> {
-         AutoPotModule autoPot = AUTO_POT;
+         AutoPotModule autoPot = AUTO_POT();
          if (!autoPot.hasNearbySplashPotion()) {
-            autoPot = AUTO_POT;
+            autoPot = AUTO_POT();
             Set<Potion> allowedPotions = Collections.singleton(potion);
             autoPot.throwPotion(allowedPotions);
          }

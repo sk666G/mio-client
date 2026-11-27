@@ -53,7 +53,7 @@ import net.minecraft.world.phys.Vec3;
 
 public class HUDModule extends Module {
 
-   private static NoRenderModule noRenderModule = ClientContext.getModule(NoRenderModule.class);
+   private static NoRenderModule noRenderModule;
    private final Predicate hudEditorVisible = ignored -> {
       if (ClientAccess.schizoMinecraft.screen instanceof ClientScreen screen) {
 

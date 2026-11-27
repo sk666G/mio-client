@@ -73,10 +73,10 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 
 public class AnchorAuraModule extends Module {
-   private static AntiCheatModule antiCheat = (AntiCheatModule)ClientContext.getModule(AntiCheatModule.class);
-   private static OffhandModule offhand = (OffhandModule)ClientContext.getModule(OffhandModule.class);
-   private static AutoCrystalModule autoCrystal = (AutoCrystalModule)ClientContext.getModule(AutoCrystalModule.class);
-   private static SpeedMineModule speedMine = (SpeedMineModule)ClientContext.getModule(SpeedMineModule.class);
+   private static AntiCheatModule antiCheat;
+   private static OffhandModule offhand;
+   private static AutoCrystalModule autoCrystal;
+   private static SpeedMineModule speedMine;
    private static final long SCAN_BUDGET_NANOS = TimeUnit.MILLISECONDS.toNanos(2L);
    private static final int MAX_SCAN_CANDIDATES_PER_TICK = 64;
    private final Setting<Integer> delaySetting;

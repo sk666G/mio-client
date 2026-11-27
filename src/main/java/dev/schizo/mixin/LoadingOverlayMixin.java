@@ -14,6 +14,7 @@ import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.systems.CommandEncoder;
 import com.mojang.blaze3d.textures.GpuTexture;
 import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.audio.BuiltinSound;
 import dev.schizo.client.render.LoadingOverlayRenderer;
 import dev.schizo.client.render.LoadingOverlayTheme;
@@ -87,7 +88,7 @@ public abstract class LoadingOverlayMixin extends Overlay {
 
          // Mixins may be initialized before Schizo's module registry and sound
          // manager. Resolve these lazily so world loads/disconnects cannot NPE.
-         SettingsModule settingsModule = ClientContext.getModule(SettingsModule.class);
+         SettingsModule settingsModule = MixinModuleRegistry.getModule(SettingsModule.class);
          if (settingsModule != null && ClientContext.soundManager != null) {
             NamedIdentifier startupSound = settingsModule.getStartupSound();
             Calendar calendar = Calendar.getInstance();

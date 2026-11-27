@@ -67,7 +67,7 @@ class ConfigurationBackupManagerTest {
    @Test
    void rejectsInvalidConfigNamesAndBackupTraversal() throws IOException {
       ConfigurationBackupManager manager = this.manager();
-      for (String name : new String[] {"", "..", "../modules.json", "nested/modules.json", "modules..json", "modules.txt"}) {
+      for (String name : new String[] {"", "..", "../modules.json", "nested/../modules.json", "./modules.json", "nested/modules..json", "modules..json", "modules.txt"}) {
          assertThrows(IllegalArgumentException.class, () -> manager.listBackups(name), name);
       }
 
@@ -75,6 +75,41 @@ class ConfigurationBackupManagerTest {
       var backup = manager.createBackup("modules.json");
       assertThrows(IOException.class, () -> manager.restoreBackup("modules.json", "../" + backup.fileName()));
       assertThrows(IOException.class, () -> manager.restoreBackup("modules.json", "other." + backup.fileName()));
+   }
+
+   @Test
+   void backsUpAndRestoresSafeNestedConfigurations() throws IOException {
+      Path presets = this.temporaryDirectory.resolve("presets");
+      Files.createDirectory(presets);
+      Path config = presets.resolve("auto.json");
+      Files.writeString(config, "{\"server\":{\"combat\":\"old\"}}");
+      ConfigurationBackupManager manager = this.manager();
+
+      var original = manager.createBackup("presets/auto.json");
+      Path nestedBackup = manager.getBackupDirectory().resolve("presets").resolve(original.fileName());
+      assertTrue(Files.isRegularFile(nestedBackup));
+      assertEquals(1, manager.listBackups("presets/auto.json").size());
+
+      Files.writeString(config, "{\"server\":{\"combat\":\"new\"}}");
+      manager.restoreBackup("presets/auto.json", original.fileName());
+
+      assertEquals("{\"server\":{\"combat\":\"old\"}}", Files.readString(config));
+      assertEquals(2, manager.listBackups("presets/auto.json").size());
+   }
+
+   @Test
+   void rejectsSymlinkedNestedConfigurationParents() throws IOException {
+      Path external = this.temporaryDirectory.resolveSibling("external-presets");
+      Files.createDirectories(external);
+      Files.writeString(external.resolve("auto.json"), "{}");
+      Path presets = this.temporaryDirectory.resolve("presets");
+      try {
+         Files.createSymbolicLink(presets, external);
+      } catch (UnsupportedOperationException | SecurityException | IOException unsupported) {
+         Assumptions.assumeTrue(false, "Symbolic links are unavailable on this platform");
+      }
+
+      assertThrows(IOException.class, () -> this.manager().createBackup("presets/auto.json"));
    }
 
    @Test

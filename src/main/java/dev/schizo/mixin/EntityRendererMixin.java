@@ -12,6 +12,7 @@ package dev.schizo.mixin;
 import com.mojang.blaze3d.vertex.PoseStack;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.render.EntityRenderStateAccess;
 import dev.schizo.client.events.NameTagRenderEvent;
 import dev.schizo.client.modules.render.NameTagsModule;
@@ -29,7 +30,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(EntityRenderer.class)
 public abstract class EntityRendererMixin {
-   private static final NameTagsModule nameTagsModule = ClientContext.getModule(NameTagsModule.class);
 
    @Inject(method = "submitNameTag", at = @At("HEAD"), cancellable = true)
    private void postNameTagRenderCheck(
@@ -52,7 +52,7 @@ public abstract class EntityRendererMixin {
    private void suppressVanillaPlayerNameTag(
       Entity entity, double distanceSquared, CallbackInfoReturnable<Boolean> callback
    ) {
-      if (entity instanceof Player && nameTagsModule.isToggled()) {
+      if (entity instanceof Player && MixinModuleRegistry.entityRendererNameTags.isToggled()) {
          callback.cancel();
          callback.setReturnValue(entity.hasCustomName());
       }

@@ -11,7 +11,7 @@ package dev.schizo.mixin;
 
 import com.llamalad7.mixinextras.injector.v2.WrapWithCondition;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
-import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.render.ClientRenderPipelines;
 import dev.schizo.client.modules.render.TooltipsModule;
 import java.awt.Color;
@@ -23,7 +23,9 @@ import org.spongepowered.asm.mixin.injection.At;
 
 @Mixin(TooltipRenderUtil.class)
 public class TooltipRenderUtilMixin {
-   private static final TooltipsModule tooltipsModule = ClientContext.getModule(TooltipsModule.class);
+   private static TooltipsModule tooltipsModule() {
+      return MixinModuleRegistry.bundleContentsTooltipsModule;
+   }
 
    @WrapWithCondition(
       method = "renderTooltipBackground",
@@ -36,8 +38,8 @@ public class TooltipRenderUtilMixin {
    private static boolean renderColoredTooltipSprite(
       GuiGraphics graphics, RenderPipeline pipeline, Identifier sprite, int x, int y, int width, int height
    ) {
-      Color tooltipColor = tooltipsModule.getTooltipColor();
-      if (tooltipsModule.isToggled() && tooltipColor != null) {
+      Color tooltipColor = tooltipsModule().getTooltipColor();
+      if (tooltipsModule().isToggled() && tooltipColor != null) {
          graphics.blitSprite(
             ClientRenderPipelines.POSITION_TEX_COLOR,
             sprite,

@@ -156,12 +156,6 @@ public class AutoLogModule extends Module {
       message.append(componentSnapshot.withStyle(timeColor));
       return message;
    }
-
-   static {
-      illegalDisconnect = (IllegalDisconnectModule)ClientContext.getModule(IllegalDisconnectModule.class);
-      autoReconnect = (AutoReconnectModule)ClientContext.getModule(AutoReconnectModule.class);
-   }
-
    @Override
    public String getInfo() {
       return formatHealthInfo(this);

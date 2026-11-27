@@ -18,6 +18,7 @@ import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.LivingEntityAddEffectEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.render.ColorUtils;
 import dev.schizo.client.render.FontRenderer;
 import dev.schizo.client.render.GuiDrawUtils;
@@ -31,9 +32,7 @@ import dev.schizo.client.settings.NumberSetting;
 import dev.schizo.client.settings.Setting;
 import dev.schizo.client.utils.FloatAnimation;
 import java.awt.Color;
-import java.util.ArrayList;
 import java.util.EnumMap;
-import java.util.List;
 import java.util.Map;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.Holder;
@@ -43,7 +42,10 @@ import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 
 public class IndicatorModule extends HudWidgetModule {
-   private static final WarpModule warp = ClientContext.getModule(WarpModule.class);
+   private static final DisplayMode[] DISPLAY_MODES = DisplayMode.values();
+   private static WarpModule warp() {
+      return ClientContext.getModule(WarpModule.class);
+   }
    private final Setting<Boolean> warpSetting;
    private final Setting<Boolean> resistanceSetting;
    private final Setting<Boolean> strengthSetting;
@@ -73,10 +75,34 @@ public class IndicatorModule extends HudWidgetModule {
       this.warpSetting = this.add(new BooleanSetting("Warp", true).dependsOn(indicators));
       this.resistanceSetting = this.add(new BooleanSetting("Resistance", false).dependsOn(indicators));
       this.strengthSetting = this.add(new BooleanSetting("Strength", false).dependsOn(indicators));
-      for (DisplayMode mode : DisplayMode.values()) {
+      for (DisplayMode mode : DISPLAY_MODES) {
          this.visibilityAnimations.put(mode, new FloatAnimation());
       }
       this.setRenderer(new ResizableHudWidgetRenderer(this));
+   }
+
+   @Override
+   public void onEnable() {
+      this.resetSessionState();
+   }
+
+   @Override
+   public void onDisable() {
+      this.resetSessionState();
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnectEvent(MinecraftDisconnectEvent event) {
+      this.resetSessionState();
+   }
+
+   private void resetSessionState() {
+      this.warpChargeAnimation.setValue(0.0F);
+      this.resistance.reset();
+      this.strength.reset();
+      for (FloatAnimation animation : this.visibilityAnimations.values()) {
+         animation.setValue(0.0F);
+      }
    }
 
    @Override
@@ -89,12 +115,12 @@ public class IndicatorModule extends HudWidgetModule {
          else selected.add(settings.get("Display"));
          JsonObject migratedSettings = migrated.getAsJsonObject("settings");
          migratedSettings.remove("Indicators");
-         for (DisplayMode mode : DisplayMode.values()) {
+         for (DisplayMode mode : DISPLAY_MODES) {
             migratedSettings.addProperty(mode.getName(), false);
          }
          for (JsonElement entry : selected) {
             DisplayMode matched = null;
-            for (DisplayMode mode : DisplayMode.values()) {
+            for (DisplayMode mode : DISPLAY_MODES) {
                if (mode.getName().equalsIgnoreCase(entry.getAsString())) matched = mode;
             }
             if (matched == null) throw new IllegalArgumentException("Unknown indicator: " + entry.getAsString());
@@ -106,12 +132,12 @@ public class IndicatorModule extends HudWidgetModule {
       }
    }
 
-   private List<DisplayMode> selectedIndicators() {
-      List<DisplayMode> selected = new ArrayList<>();
-      if (this.warpSetting.getValue()) selected.add(DisplayMode.WARP);
-      if (this.resistanceSetting.getValue()) selected.add(DisplayMode.RESISTANCE);
-      if (this.strengthSetting.getValue()) selected.add(DisplayMode.STRENGTH);
-      return selected;
+   private boolean isIndicatorSelected(DisplayMode mode) {
+      return switch (mode) {
+         case WARP -> this.warpSetting.getValue();
+         case RESISTANCE -> this.resistanceSetting.getValue();
+         case STRENGTH -> this.strengthSetting.getValue();
+      };
    }
 
    private DisplayData getDisplayData(DisplayMode mode) {
@@ -123,12 +149,12 @@ public class IndicatorModule extends HudWidgetModule {
    }
 
    private DisplayData getWarpData() {
-      int requiredCharge = warp.chargeSetting.getValue();
+      int requiredCharge = warp().chargeSetting.getValue();
       float progress = requiredCharge <= 0 ? 1.0F
          : Mth.clamp(this.warpChargeAnimation.getValue() / requiredCharge, 0.0F, 1.0F);
       float eased = progress < 0.5F ? 2.0F * progress * progress
          : (float)(1.0D - Math.pow(-2.0F * progress + 2.0F, 2.0D) / 2.0D);
-      return new DisplayData("Warp", String.valueOf(warp.getCharge()), eased);
+      return new DisplayData("Warp", String.valueOf(warp().getCharge()), eased);
    }
 
    private float indicatorWidth(DisplayData data) {
@@ -154,7 +180,10 @@ public class IndicatorModule extends HudWidgetModule {
       float height = 0.0F;
       int count = 0;
       boolean horizontal = this.layoutSetting.getValue() == Layout.HORIZONTAL;
-      for (DisplayMode mode : this.selectedIndicators()) {
+      for (DisplayMode mode : DISPLAY_MODES) {
+         if (!this.isIndicatorSelected(mode)) {
+            continue;
+         }
          float itemWidth = this.indicatorWidth(this.getDisplayData(mode));
          float itemHeight = this.indicatorHeight();
          width = horizontal ? width + itemWidth : Math.max(width, itemWidth);
@@ -165,21 +194,24 @@ public class IndicatorModule extends HudWidgetModule {
          if (horizontal) width += (count - 1) * 4.0F;
          else height += (count - 1) * 4.0F;
       }
-      float scale = hud.getTextScale();
+      float scale = hud().getTextScale();
       return this.dimensions(width * scale, height * scale);
    }
 
    @Override
    public void renderContent(PoseStack poses) {
       if (ClientAccess.schizoMinecraft.player == null) return;
-      this.warpChargeAnimation.setTarget(warp.getCharge(), 100L);
+      this.warpChargeAnimation.setTarget(warp().getCharge(), 100L);
       poses.pushPose();
       try {
-         float scale = hud.getTextScale();
+         float scale = hud().getTextScale();
          poses.scale(scale, scale, 1.0F);
          float x = 0.0F;
          float y = 0.0F;
-         for (DisplayMode mode : this.selectedIndicators()) {
+         for (DisplayMode mode : DISPLAY_MODES) {
+            if (!this.isIndicatorSelected(mode)) {
+               continue;
+            }
             DisplayData data = this.getDisplayData(mode);
             FloatAnimation visibility = this.visibilityAnimations.get(mode);
             boolean hidden = this.hideSetting.getValue()
@@ -284,6 +316,11 @@ public class IndicatorModule extends HudWidgetModule {
             this.durationTicks = incoming.getDuration();
             this.animation.setValue(1.0F);
          }
+      }
+
+      void reset() {
+         this.durationTicks = 0;
+         this.animation.setValue(0.0F);
       }
 
       DisplayData getData() {

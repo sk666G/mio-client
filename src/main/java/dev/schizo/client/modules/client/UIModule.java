@@ -193,7 +193,7 @@ public final class UIModule extends Module {
 
    private boolean applyingPalette;
 
-   private void applySelectedPalette() {
+   private void applySelectedPalette(NotificationsModule notifications) {
       if (this.applyingPalette) {
          return;
       }
@@ -212,7 +212,6 @@ public final class UIModule extends Module {
          this.tintSetting.setValue(palette.tint());
          this.gradientColorSetting.setValue(palette.gradient());
 
-         NotificationsModule notifications = ClientContext.getModule(NotificationsModule.class);
          if (notifications != null) {
             Color accent = new Color(
                palette.accent().getRed(),
@@ -341,7 +340,7 @@ public final class UIModule extends Module {
       Predicate<Object> gradientColorVisibility = ignored -> this.colorsSetting.isExpanded();
       this.gradientColorSetting = this.add(new ColorSetting("Gradient", new Color(105, 160, 35, 24), gradientColorVisibility));
 
-      this.paletteSetting.setChangeCallback(this::applySelectedPalette);
+      this.paletteSetting.setChangeCallback(() -> this.applySelectedPalette(ClientContext.getModule(NotificationsModule.class)));
       Runnable customPaletteCallback = this::markPaletteCustom;
       this.colorSetting.setChangeCallback(customPaletteCallback);
       this.backgroundSetting.setChangeCallback(customPaletteCallback);
@@ -349,7 +348,8 @@ public final class UIModule extends Module {
       this.enabledSetting.setChangeCallback(customPaletteCallback);
       this.tintSetting.setChangeCallback(customPaletteCallback);
       this.gradientColorSetting.setChangeCallback(customPaletteCallback);
-      this.applySelectedPalette();
+      // Construction initializes this module's colors before the registry is published.
+      this.applySelectedPalette(null);
 
       Class<UIModule> eventOwner = UIModule.class;
       EventBus eventBus = ClientAccess.eventBus;
@@ -366,19 +366,15 @@ public final class UIModule extends Module {
       Setting<Boolean> gamesCallbackSetting = this.gamesSetting;
       Runnable gamesChangeCallback = () -> {
          ClickGuiScreen screen = ClientContext.clickGui;
+         if (screen == null || screen.isGamePanelUnlocked()) {
+            return;
+         }
 
-         if (!screen.isGamePanelUnlocked()) {
-            screen = ClientContext.clickGui;
-
-            ArrayList gamePanels = screen.getPanels();
-            Predicate<Panel> gamePanelPredicate = panel -> panel.getName().equals("Game");
-            gamePanels.removeIf(gamePanelPredicate);
-            Setting<Boolean> games = this.gamesSetting;
-            if (games.getValue()) {
-               screen = ClientContext.clickGui;
-
-               screen.addGamePanel();
-            }
+         ArrayList gamePanels = screen.getPanels();
+         Predicate<Panel> gamePanelPredicate = panel -> panel.getName().equals("Game");
+         gamePanels.removeIf(gamePanelPredicate);
+         if (this.gamesSetting.getValue()) {
+            screen.addGamePanel();
          }
       };
       gamesCallbackSetting.setChangeCallback(gamesChangeCallback);

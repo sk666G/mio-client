@@ -9,6 +9,7 @@
 
 package dev.schizo.client.managers;
 
+import dev.schizo.client.ClientAccess;
 import dev.schizo.client.utils.network.HttpRequests;
 
 import com.google.gson.JsonElement;
@@ -72,6 +73,11 @@ public final class WebhookManager implements JsonConfigurable {
          }
       }
       this.destination = target;
+   }
+
+   @Override
+   public String getConfigName() {
+      return "webhook.json";
    }
 
    @Override
@@ -235,27 +241,76 @@ public final class WebhookManager implements JsonConfigurable {
       }
       CompletableFuture<Void> checked = responseFuture.thenCompose(response -> {
          if (response.statusCode() < 200 || response.statusCode() >= 300) {
-            return CompletableFuture.failedFuture(new IOException("HTTP " + response.statusCode()));
+            return CompletableFuture.failedFuture(new HttpStatusException(response.statusCode()));
          }
          if ("api.telegram.org".equalsIgnoreCase(request.uri().getHost())) {
             try {
                JsonObject result = JsonParser.parseString(response.body()).getAsJsonObject();
                if (!result.has("ok") || !result.get("ok").getAsBoolean()) {
-                  return CompletableFuture.failedFuture(new IOException("Telegram rejected the notification"));
+                  return CompletableFuture.failedFuture(new PermanentWebhookException("Telegram rejected the notification"));
                }
             } catch (RuntimeException invalidResponse) {
-               return CompletableFuture.failedFuture(new IOException("Invalid Telegram response", invalidResponse));
+               return CompletableFuture.failedFuture(new PermanentWebhookException("Invalid Telegram response", invalidResponse));
             }
          }
          return CompletableFuture.completedFuture(null);
       });
       return checked.exceptionallyCompose(failure -> {
-         if (attempt >= 2) return CompletableFuture.failedFuture(failure);
+         Throwable cause = unwrapCompletionFailure(failure);
+         if (attempt >= 2 || !isRetryableFailure(cause)) {
+            return CompletableFuture.failedFuture(cause);
+         }
          long delayMillis = attempt == 0 ? 250L : 750L;
          return CompletableFuture.runAsync(() -> { },
-            CompletableFuture.delayedExecutor(delayMillis, TimeUnit.MILLISECONDS))
+            CompletableFuture.delayedExecutor(
+               delayMillis, TimeUnit.MILLISECONDS, ClientAccess.executorService
+            ))
             .thenCompose(ignored -> this.sendWithRetry(request, attempt + 1));
       });
+   }
+
+   private static Throwable unwrapCompletionFailure(Throwable failure) {
+      Throwable cause = failure;
+      while (cause.getCause() != null
+         && (cause instanceof java.util.concurrent.CompletionException
+            || cause instanceof java.util.concurrent.ExecutionException)) {
+         cause = cause.getCause();
+      }
+      return cause;
+   }
+
+   private static boolean isRetryableFailure(Throwable failure) {
+      if (failure instanceof PermanentWebhookException) {
+         return false;
+      }
+      if (failure instanceof HttpStatusException statusFailure) {
+         int status = statusFailure.statusCode();
+         return status == 408 || status == 425 || status == 429 || status >= 500 && status <= 599;
+      }
+      return failure instanceof IOException;
+   }
+
+   private static final class PermanentWebhookException extends IOException {
+      private PermanentWebhookException(String message) {
+         super(message);
+      }
+
+      private PermanentWebhookException(String message, Throwable cause) {
+         super(message, cause);
+      }
+   }
+
+   private static final class HttpStatusException extends IOException {
+      private final int statusCode;
+
+      private HttpStatusException(int statusCode) {
+         super("HTTP " + statusCode);
+         this.statusCode = statusCode;
+      }
+
+      private int statusCode() {
+         return this.statusCode;
+      }
    }
 
 }

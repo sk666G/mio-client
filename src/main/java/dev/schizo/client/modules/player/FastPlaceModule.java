@@ -64,8 +64,8 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 
 public class FastPlaceModule extends Module {
-   private static SpeedMineModule speedMine = (SpeedMineModule)ClientContext.getModule(SpeedMineModule.class);
-   private static MultiTaskModule multiTask = (MultiTaskModule)ClientContext.getModule(MultiTaskModule.class);
+   private static SpeedMineModule speedMine;
+   private static MultiTaskModule multiTask;
    public final Setting<Integer> delaySetting;
    private final Setting<Boolean> autoPlaceSetting;
    private final Setting<Boolean> randomBlockSetting;

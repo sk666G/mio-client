@@ -11,6 +11,7 @@ package dev.schizo.client.modules.combat;
 
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
+import dev.schizo.client.managers.ModuleRegistry;
 import dev.schizo.client.utils.entity.EntityUtils;
 import dev.schizo.client.utils.inventory.InventoryUtils;
 import dev.schizo.client.settings.NamedEntry;
@@ -24,7 +25,14 @@ public enum CrystalDamagePolicy implements ClientAccess, NamedEntry {
    PLACE("Place"),
    HIT("Hit");
    private final String displayName;
-   private static final AutoCrystalModule autoCrystal = (AutoCrystalModule)ClientContext.getModule(AutoCrystalModule.class);
+   private static AutoCrystalModule autoCrystal;
+
+   public static void bindModuleRegistry(ModuleRegistry registry) {
+      autoCrystal = AutoCrystalModule.class.cast(java.util.Objects.requireNonNull(
+         registry.getModule(AutoCrystalModule.class),
+         "Required module is not registered: AutoCrystalModule"
+      ));
+   }
    CrystalDamagePolicy(String displayName) {
       this.displayName = displayName;
    }

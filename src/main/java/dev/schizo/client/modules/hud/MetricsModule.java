@@ -13,6 +13,7 @@ import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.LocalPlayerTickEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.managers.ServerStateManager;
 import dev.schizo.client.render.ColorUtils;
 import dev.schizo.client.render.FontRenderer;
@@ -80,6 +81,9 @@ public class MetricsModule extends HudWidgetModule {
 
    private Component getHeldItemDurability() {
       LocalPlayer player = ClientAccess.schizoMinecraft.player;
+      if (player == null) {
+         return this.cachedDurabilityText != null ? this.cachedDurabilityText : Component.empty();
+      }
       ItemStack heldStack = player.getMainHandItem();
 
       Component durabilityText = formatStackDurability(heldStack);
@@ -184,8 +188,11 @@ public class MetricsModule extends HudWidgetModule {
 
          Object[] formatArguments = new Object[2];
          formatArguments[0] = ChatFormatting.WHITE;
-         ClientPacketListener connection = ClientAccess.schizoMinecraft.player.connection;
-         formatArguments[1] = connection.serverBrand();
+         ClientPacketListener connection = ClientAccess.schizoMinecraft.getConnection();
+         String serverBrand = connection == null || connection.serverBrand() == null
+            ? "N/A"
+            : connection.serverBrand();
+         formatArguments[1] = serverBrand;
          String format = "ServerBrand %s%s";
          String text = format.formatted(formatArguments);
          return Component.literal(text);
@@ -199,8 +206,7 @@ public class MetricsModule extends HudWidgetModule {
                return false;
             }
             LocalPlayer player = ClientAccess.schizoMinecraft.player;
-            ItemStack heldStack = player.getMainHandItem();
-            return heldStack.isDamageableItem();
+            return player != null && player.getMainHandItem().isDamageableItem();
          }
       );
       HudTextRow chestRow = new HudTextRow(() -> {
@@ -229,6 +235,22 @@ public class MetricsModule extends HudWidgetModule {
          onePercentLowRow, oneTenthPercentLowRow, frameVarianceRow, hitchesRow, serverBrandRow,
          durabilityRow, chestRow, shulkerRow
       ));
+   }
+
+   @Override
+   public void onDisable() {
+      this.clearSessionState();
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.clearSessionState();
+   }
+
+   private void clearSessionState() {
+      this.cachedDurabilityText = null;
+      this.chestAndBarrelCount = 0;
+      this.shulkerCount = 0;
    }
 
    @EventHandler

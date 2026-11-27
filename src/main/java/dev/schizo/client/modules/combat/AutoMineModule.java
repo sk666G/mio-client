@@ -140,13 +140,6 @@ public final class AutoMineModule extends Module {
    public boolean isMiningActive() {
       return this.miningActive;
    }
-
-   static {
-      speedMine = (SpeedMineModule)ClientContext.getModule(SpeedMineModule.class);
-      antiCheat = (AntiCheatModule)ClientContext.getModule(AntiCheatModule.class);
-      multiTask = (MultiTaskModule)ClientContext.getModule(MultiTaskModule.class);
-   }
-
    private Direction selectMiningDirection(BlockPos position) {
       if (this.strictDirectionSetting.getValue()) {
          List<Direction> directions = BlockInteractionUtils.getStrictDirections(position);

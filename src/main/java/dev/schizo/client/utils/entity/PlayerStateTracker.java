@@ -67,7 +67,11 @@ public final class PlayerStateTracker implements ClientAccess {
    }
 
    public Vec3 getTickDisplacement() {
-      return this.sessionState.tickDisplacement != null ? this.sessionState.tickDisplacement : ClientAccess.schizoMinecraft.player.getDeltaMovement();
+      if (this.sessionState.tickDisplacement != null) {
+         return this.sessionState.tickDisplacement;
+      }
+      LocalPlayer player = ClientAccess.schizoMinecraft.player;
+      return player != null ? player.getDeltaMovement() : Vec3.ZERO;
    }
 
    public Vec3 getPacketPosition() {

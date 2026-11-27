@@ -47,9 +47,12 @@ public class PlayerModelModule extends HudWidgetModule {
 
    @Override
    public void renderContent(PoseStack poses) {
+      LocalPlayer player = ClientAccess.schizoMinecraft.player;
+      if (player == null) {
+         return;
+      }
       Camera camera = ClientAccess.schizoMinecraft.gameRenderer.getMainCamera();
       if (camera.position() != null) {
-         LocalPlayer player = ClientAccess.schizoMinecraft.player;
          Quaternionf quaternion = new Quaternionf();
 
          float rotationZ = 3.1415927F;
@@ -68,14 +71,14 @@ public class PlayerModelModule extends HudWidgetModule {
       PoseStack poses, float x, float y, float scale, Vector3f modelTranslation, Quaternionf rotation, LivingEntity entity
    ) {
       RenderUtils.clearColor(
-         PostProcessShaderPass.POST_TARGET, Color.black
+         PostProcessShaderPass.postTarget(), Color.black
       );
       RenderUtils.clearDepth(
-         PostProcessShaderPass.POST_TARGET
+         PostProcessShaderPass.postTarget()
       );
       Lighting lighting = ClientAccess.schizoMinecraft.gameRenderer.getLighting();
       RenderTargetUtils.overrideRenderTargets(
-         PostProcessShaderPass.POST_TARGET
+         PostProcessShaderPass.postTarget()
       );
       try {
          poses.pushPose();
@@ -110,10 +113,10 @@ public class PlayerModelModule extends HudWidgetModule {
          RenderTargetUtils.restoreRenderTargets();
       }
       RenderUtils.clearDepth(
-         PostProcessShaderPass.POST_TARGET
+         PostProcessShaderPass.postTarget()
       );
       RenderUtils.blitToMain(
-         PostProcessShaderPass.POST_TARGET
+         PostProcessShaderPass.postTarget()
       );
    }
 

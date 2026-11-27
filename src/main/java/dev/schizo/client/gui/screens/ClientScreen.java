@@ -159,6 +159,10 @@ public class ClientScreen extends Screen implements ClientAccess {
       return this.guiScale;
    }
 
+   protected float resolveGuiScale(float preferredScale) {
+      return preferredScale;
+   }
+
    @Override
    public boolean isPauseScreen() {
       return false;
@@ -367,9 +371,9 @@ public class ClientScreen extends Screen implements ClientAccess {
       this.panelDragging = false;
       this.getPanels()
          .forEach(panel -> panel.setDragging(false));
-      this.guiScale = UIModule.INSTANCE
-         .scaleSetting
-         .getValue();
+      this.guiScale = this.resolveGuiScale(
+         UIModule.INSTANCE.scaleSetting.getValue()
+      );
       this.closing = false;
 
       double scale = GuiScaleUtils.calculateScaleMultiplier(this.guiScale);
@@ -565,31 +569,25 @@ public class ClientScreen extends Screen implements ClientAccess {
             }
          }
 
-         float tooltipLeft = hoverX
-            + 9.0F;
-         float tooltipRight = hoverX
-            + tooltipWidth
-            + 10.0F;
-         if (tooltipRight
-            > GuiScaleUtils.getScaledWidth()) {
-            tooltipLeft = hoverX
-               - tooltipWidth
-               - 2.0F;
-            tooltipRight = hoverX
-               - 1.0F;
+         float tooltipExtentX = tooltipWidth + 1.0F;
+         float preferredTooltipLeft = hoverX + 9.0F;
+         if (preferredTooltipLeft + tooltipExtentX > GuiScaleUtils.getScaledWidth()) {
+            preferredTooltipLeft = hoverX - tooltipWidth - 2.0F;
          }
+         float tooltipLeft = ScreenTooltipLayout.clampStart(
+            preferredTooltipLeft, tooltipExtentX, GuiScaleUtils.getScaledWidth()
+         );
+         float tooltipRight = tooltipLeft + tooltipExtentX;
 
+         float lineHeight = FontRenderer.INSTANCE.getHeight() + 1.0F;
+         float tooltipHeight = lineHeight * tooltipLines.length;
+         float tooltipTop = ScreenTooltipLayout.clampStart(
+            hoverY - 1.0F, tooltipHeight, GuiScaleUtils.getScaledHeight()
+         );
+         float tooltipBottom = tooltipTop + tooltipHeight;
          float blurLeft = tooltipLeft;
          float blurRight = tooltipRight;
-         int blurY = (int)hoverY;
-         float tooltipBottom = hoverY
-            - 1.0F
-            + (
-                  FontRenderer.INSTANCE
-                        .getHeight()
-                     + 1.0F
-               )
-               * tooltipLines.length;
+         int blurY = (int)tooltipTop;
          if (blurModule != null && blurModule.isToggled()) {
             MaskShaderRenderer.renderBlur(
                () -> RenderUtils.INSTANCE
@@ -612,8 +610,7 @@ public class ClientScreen extends Screen implements ClientAccess {
                .fillRect(
                   poseStack,
                   tooltipLeft,
-                  hoverY
-                     - 1.0F,
+                  tooltipTop,
                   tooltipRight,
                   tooltipBottom,
                   new Color(10, 10, 10, 80)
@@ -627,13 +624,7 @@ public class ClientScreen extends Screen implements ClientAccess {
                      tooltipLine,
                      tooltipLeft
                         + 1.0F,
-                     hoverY
-                        + (
-                              FontRenderer.INSTANCE
-                                    .getHeight()
-                                 + 1.0F
-                           )
-                           * lineIndex,
+                     tooltipTop + 1.0F + lineHeight * lineIndex,
                      Color.white
                   );
                lineIndex++;

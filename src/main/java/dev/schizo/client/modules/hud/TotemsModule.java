@@ -12,6 +12,7 @@ package dev.schizo.client.modules.hud;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.LocalPlayerTickEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.render.GuiDrawUtils;
 import dev.schizo.client.render.FontRenderer;
 import dev.schizo.client.utils.inventory.InventoryUtils;
@@ -35,6 +36,16 @@ public class TotemsModule extends HudWidgetModule {
    @Override
    public float[] calculateDimensions() {
       return this.dimensions(16.0F, 16.0F);
+   }
+
+   @Override
+   public void onDisable() {
+      this.totemStack = null;
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.totemStack = null;
    }
 
    @EventHandler

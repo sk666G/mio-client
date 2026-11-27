@@ -10,6 +10,7 @@
 package dev.schizo.client.modules.player;
 
 import java.util.Set;
+import java.util.Objects;
 
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
@@ -80,7 +81,7 @@ import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
 public class ScaffoldModule extends Module {
-   private static AntiCheatModule antiCheatModule = (AntiCheatModule)ClientContext.getModule(AntiCheatModule.class);
+   private static AntiCheatModule antiCheatModule;
    private final Setting<ScaffoldMode> modeSetting;
    private final Setting<Integer> sizeSetting;
    private final Setting<Integer> frequencySetting;
@@ -764,8 +765,9 @@ public class ScaffoldModule extends Module {
    }
 
    public static void bindReferencedModules(ModuleRegistry moduleRegistry) {
-      antiCheatModule = (AntiCheatModule)moduleRegistry.getModule(
-         AntiCheatModule.class
+      antiCheatModule = (AntiCheatModule)Objects.requireNonNull(
+         moduleRegistry.getModule(AntiCheatModule.class),
+         "Required module is not registered: AntiCheatModule"
       );
    }
 

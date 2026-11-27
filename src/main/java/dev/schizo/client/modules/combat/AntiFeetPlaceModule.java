@@ -55,8 +55,8 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 
 public class AntiFeetPlaceModule extends Module {
-   private static SpeedMineModule speedMine = (SpeedMineModule)ClientContext.getModule(SpeedMineModule.class);
-   private static MultiTaskModule multiTask = (MultiTaskModule)ClientContext.getModule(MultiTaskModule.class);
+   private static SpeedMineModule speedMine;
+   private static MultiTaskModule multiTask;
    private final Setting<ModeChoice> modeSetting;
    private final Setting<Integer> delaySetting;
    private final Setting<Boolean> airPlaceSetting;
