@@ -64,6 +64,32 @@ class ConfigurationBackupManagerTest {
       ));
    }
 
+
+   @Test
+   void tempCleanupFailureIsSuppressedOntoPrimaryBackupFailure() throws IOException {
+      Path nonEmptyDirectory = Files.createDirectory(this.temporaryDirectory.resolve("backup-temp"));
+      Files.writeString(nonEmptyDirectory.resolve("child"), "keep");
+      IOException primary = new IOException("copy failed");
+
+      assertDoesNotThrow(
+         () -> ConfigurationBackupManager.cleanupTemporary(nonEmptyDirectory, primary)
+      );
+
+      assertEquals(1, primary.getSuppressed().length);
+      assertInstanceOf(java.nio.file.DirectoryNotEmptyException.class, primary.getSuppressed()[0]);
+   }
+
+   @Test
+   void tempCleanupFailureWithoutPrimaryRemainsVisible() throws IOException {
+      Path nonEmptyDirectory = Files.createDirectory(this.temporaryDirectory.resolve("restore-temp"));
+      Files.writeString(nonEmptyDirectory.resolve("child"), "keep");
+
+      assertThrows(
+         IOException.class,
+         () -> ConfigurationBackupManager.cleanupTemporary(nonEmptyDirectory, null)
+      );
+   }
+
    @Test
    void rejectsInvalidConfigNamesAndBackupTraversal() throws IOException {
       ConfigurationBackupManager manager = this.manager();

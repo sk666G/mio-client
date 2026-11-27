@@ -2,6 +2,7 @@ package dev.schizo.client.config;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 
@@ -39,16 +40,29 @@ public final class ConfigPathGuard {
       Path current = normalizedRoot;
       for (Path component : normalizedRoot.relativize(normalizedDirectory)) {
          current = current.resolve(component);
-         if (!Files.exists(current, LinkOption.NOFOLLOW_LINKS)) {
-            Files.createDirectory(current);
-         }
-         if (Files.isSymbolicLink(current)
-            || !Files.isDirectory(current, LinkOption.NOFOLLOW_LINKS)) {
-            throw new IOException("Directory component is not a real directory: " + current);
-         }
+         ensureRealDirectoryComponent(current, true);
       }
 
       return normalizedDirectory;
+   }
+
+   static boolean ensureRealDirectoryComponent(Path directory, boolean createMissing) throws IOException {
+      if (!Files.exists(directory, LinkOption.NOFOLLOW_LINKS)) {
+         if (!createMissing) {
+            return false;
+         }
+         try {
+            Files.createDirectory(directory);
+         } catch (FileAlreadyExistsException racedCreation) {
+            // Another legitimate creator may have won the race. Validate what now exists below.
+         }
+      }
+
+      if (Files.isSymbolicLink(directory)
+         || !Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS)) {
+         throw new IOException("Directory component is not a real directory: " + directory);
+      }
+      return true;
    }
 
    private static Path resolve(Path root, String configName, boolean createParents) throws IOException {
@@ -88,15 +102,8 @@ public final class ConfigPathGuard {
       Path current = normalizedRoot;
       for (Path component : normalizedRoot.relativize(parent)) {
          current = current.resolve(component);
-         if (!Files.exists(current, LinkOption.NOFOLLOW_LINKS)) {
-            if (!createParents) {
-               return target;
-            }
-            Files.createDirectory(current);
-         }
-         if (Files.isSymbolicLink(current)
-            || !Files.isDirectory(current, LinkOption.NOFOLLOW_LINKS)) {
-            throw new IOException("Configuration parent is not a real directory: " + current);
+         if (!ensureRealDirectoryComponent(current, createParents)) {
+            return target;
          }
       }
 
