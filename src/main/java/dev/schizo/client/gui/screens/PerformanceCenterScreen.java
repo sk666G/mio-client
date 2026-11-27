@@ -97,7 +97,7 @@ public final class PerformanceCenterScreen extends ClientScreen {
       Color surface = ui.backgroundSetting.getValue();
       Color accent = ui.colorSetting.getValue();
       Color muted = new Color(155, 160, 170);
-      Color panelEdge = ColorUtils.withAlpha(accent, 190);
+      Color panelEdge = new Color(55, 56, 64, 200);
 
       GuiDrawUtils.fillRect(
          poseStack,
@@ -119,11 +119,13 @@ public final class PerformanceCenterScreen extends ClientScreen {
       FontRenderer font = FontRenderer.INSTANCE;
       font.drawWithShadow(
          poseStack,
-         "SCHIZO / PERFORMANCE CENTER",
+         this.panelWidth < 420 ? "PERFORMANCE" : "SCHIZO / PERFORMANCE CENTER",
          this.panelLeft + 16.0F,
          this.panelTop + 12.0F,
          accent
       );
+      this.drawButton(poseStack, font, this.panelLeft + this.panelWidth - 100.0F, this.panelTop + 5.0F,
+         84.0F, 20.0F, "BENCHMARKS", accent, false);
       String subtitle = this.panelWidth < 590.0F
          ? "Arrow keys navigate tabs and rows"
          : "Frame pacing, module callback cost and HUD render cost  •  LEFT/RIGHT tabs  •  UP/DOWN rows  •  HOME/END";
@@ -330,6 +332,10 @@ public final class PerformanceCenterScreen extends ClientScreen {
       }
       mouseX /= this.fitScale;
       mouseY /= this.fitScale;
+      if (this.contains(mouseX, mouseY, this.panelLeft + this.panelWidth - 100.0F, this.panelTop + 5.0F, 84.0F, 20.0F)) {
+         this.minecraft.setScreen(new BenchmarkCenterScreen(this));
+         return;
+      }
 
       if (this.contains(mouseX, mouseY, this.panelLeft + 16.0F, this.panelTop + 47.0F, 82.0F, 20.0F)) {
          if (EventProfiler.GLOBAL.isEnabled()) {
@@ -343,7 +349,7 @@ public final class PerformanceCenterScreen extends ClientScreen {
       if (this.contains(mouseX, mouseY, this.panelLeft + 105.0F, this.panelTop + 47.0F, 70.0F, 20.0F)) {
          EventProfiler.GLOBAL.reset();
          dev.schizo.client.profiling.ScanWorkTracker.GLOBAL.reset();
-         EventFailureTracker.GLOBAL.reset();
+         // Reset profiling only; health diagnostics have their own explicit reset.
          this.rowOffset = 0;
          this.refreshData(true);
          return;

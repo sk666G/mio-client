@@ -108,7 +108,7 @@ public class EnumSettingComponent<E extends Enum<E> & NamedEntry> extends Settin
 
    @Override
    public void init() {
-      this.setSelectedIndex((this.setting.getValue()).ordinal());
+      this.setSelectedIndex(Math.max(0, EnumJsonConverter.findSelectableIndex(this.setting.getValue())));
    }
 
    public int getY() {
@@ -127,6 +127,11 @@ public class EnumSettingComponent<E extends Enum<E> & NamedEntry> extends Settin
       }
 
       super.render(poseStack, mouseX, mouseY);
+      this.selectedIndex = Math.max(0, EnumJsonConverter.findSelectableIndex(this.setting.getValue()));
+      if (this.panel.isDocked()) {
+         this.renderStudioRow(poseStack, mouseX, mouseY);
+         return;
+      }
       this.fillAnimation
          .setTarget(true);
       if (this.expanded) {
@@ -262,6 +267,36 @@ public class EnumSettingComponent<E extends Enum<E> & NamedEntry> extends Settin
       }
    }
 
+   private void renderStudioRow(PoseStack pose, double mouseX, double mouseY) {
+      float x = this.panel.getX(), y = this.panel.getY() + this.componentYOffset;
+      float w = this.panel.getWidth(), h = this.getBaseHeight();
+      Color accent = this.getUiModule().colorSetting.getValue();
+      float hover = StudioControlGeometry.clampProgress(this.getHoverAnimationValue());
+      StudioControlStyle.softRect(pose, x + 5, y + 1, w - 10, h - 2,
+         dev.schizo.client.render.ColorUtils.withAlpha(Color.WHITE, Math.round(12 + 18 * hover)));
+      FontRenderer font = FontRenderer.INSTANCE;
+      String label = this.setting.getName() + ": " + EnumJsonConverter.getName(this.setting.getValue());
+      font.drawWithoutShadow(pose, StudioControlStyle.fitText(label, w - 33), x + 9,
+         y + this.getTextYOffset(), this.getUiModule().textColorSetting.getValue());
+      String arrow = this.expanded ? "-" : "+";
+      font.drawWithoutShadow(pose, arrow, x + w - 9 - font.getWidth(arrow), y + this.getTextYOffset(), accent);
+      if (this.expanded) {
+         this.selectionOffsetAnimation.setTarget(this.selectedIndex * h);
+         float offset = Math.max(0, Math.min(Math.max(0, this.selectableValueCount - 1) * h, this.selectionOffsetAnimation.updateAndGet()));
+         StudioControlStyle.softRect(pose, x + 7, y + h + offset + 1, w - 14, h - 2,
+            dev.schizo.client.render.ColorUtils.withAlpha(accent, 60));
+         GuiDrawUtils.fillRect(pose, x + 7, y + h + offset + 3, x + 9, y + 2 * h + offset - 3, accent);
+         int rowY = this.getBaseHeight();
+         for (EnumOptionRow<E> row : this.optionRows) {
+            row.setYOffset(rowY);
+            row.render(pose, mouseX, mouseY);
+            rowY += this.getBaseHeight();
+         }
+      } else {
+         this.selectionOffsetAnimation.setValue(this.selectedIndex * h);
+      }
+   }
+
    public boolean isExpanded() {
       return this.expanded;
    }
@@ -280,7 +315,7 @@ public class EnumSettingComponent<E extends Enum<E> & NamedEntry> extends Settin
          && mouseY
             < this.clampYToPanel(
                this.cachedY
-                  + 11
+                  + this.getBaseHeight()
             );
    }
 
@@ -299,10 +334,7 @@ public class EnumSettingComponent<E extends Enum<E> & NamedEntry> extends Settin
                .setValue(
                   this.nextValue()
                );
-            this.selectedIndex = (
-                  this.selectedIndex + 1
-               )
-               % this.selectableValueCount;
+            this.selectedIndex = Math.max(0, EnumJsonConverter.findSelectableIndex(this.setting.getValue()));
          }
 
          if (button == 1) {

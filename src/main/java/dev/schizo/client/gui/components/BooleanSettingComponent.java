@@ -44,6 +44,10 @@ public class BooleanSettingComponent extends SettingComponent<Boolean> {
       float enabledProgress = this.enabledAnimation
          .updateAndGet();
       super.render(poseStack, mouseX, mouseY);
+      if (this.panel.isDocked() && this.panel.getWidth() >= 70 && this.getBaseHeight() >= 12) {
+         renderStudioRow(poseStack, enabledProgress);
+         return;
+      }
       if ((this.setting.getValue() || enabledProgress > 0.01D) && !this.setting.groupOnly) {
          GuiDrawUtils.fillRect(
             poseStack,
@@ -144,6 +148,25 @@ public class BooleanSettingComponent extends SettingComponent<Boolean> {
                   .textColorSetting
                   .getValue()
             );
+      }
+   }
+
+   private void renderStudioRow(PoseStack pose, float progress) {
+      float x = this.panel.getX(), y = this.panel.getY() + this.yOffset;
+      float w = this.panel.getWidth(), h = this.getBaseHeight();
+      Color accent = this.getUiModule().colorSetting.getValue();
+      float hover = StudioControlGeometry.clampProgress(this.getHoverAnimationValue());
+      StudioControlStyle.softRect(pose, x + 5, y + 1, w - 10, h - 2,
+         dev.schizo.client.render.ColorUtils.withAlpha(Color.WHITE, Math.round(9 + 14 * hover)));
+      if (!this.setting.groupOnly) {
+         StudioControlStyle.toggle(pose, x + w - 43, y + (h - 10) / 2, progress, accent);
+      }
+      FontRenderer font = FontRenderer.INSTANCE;
+      String label = StudioControlStyle.fitText(this.setting.getName(), w - 60);
+      font.drawWithoutShadow(pose, label, x + 9, y + this.getTextYOffset(), this.getUiModule().textColorSetting.getValue());
+      if (this.setting.visibilityDependency || this.setting.groupOnly) {
+         String indicator = this.setting.groupOnly ? "..." : this.setting.expanded ? "-" : "+";
+         font.drawWithoutShadow(pose, indicator, x + w - 9 - font.getWidth(indicator), y + this.getTextYOffset(), accent);
       }
    }
 

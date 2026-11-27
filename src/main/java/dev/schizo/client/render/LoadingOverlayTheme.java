@@ -34,7 +34,7 @@ public enum LoadingOverlayTheme {
       @Override
       public List getColors() {
          Color animatedColor = ColorUtils.pulse(
-            new Color(199, 146, 234), new Color(255, 49, 93), 1500.0, 0.0
+            new Color(139, 25, 43), new Color(231, 57, 77), 1500.0, 0.0
          );
          return Collections.singletonList(animatedColor);
       }

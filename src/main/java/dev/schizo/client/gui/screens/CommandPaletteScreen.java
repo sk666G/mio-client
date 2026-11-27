@@ -215,23 +215,7 @@ public final class CommandPaletteScreen extends ClientScreen {
    private void openModuleSettings(Module module) {
       ClickGuiScreen clickGui = ClientContext.getClickGui();
       clickGui.open();
-      EditBox clickGuiSearch = clickGui.getSearchBox();
-      if (clickGuiSearch != null) {
-         clickGuiSearch.setValue(module.getName());
-      }
-
-      for (Panel panel : clickGui.getPanels()) {
-         for (Object child : panel.getChildren()) {
-            if (child instanceof ModuleComponent component && component.getModule() == module) {
-               if (component.isClosed()) {
-                  component.toggleOpen();
-               }
-               component.startSearchHighlight();
-               panel.updateLayout();
-               return;
-            }
-         }
-      }
+      clickGui.revealModule(module);
    }
 
    @Override

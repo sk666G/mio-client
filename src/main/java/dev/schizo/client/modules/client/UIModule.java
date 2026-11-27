@@ -193,6 +193,14 @@ public final class UIModule extends Module {
 
    private boolean applyingPalette;
 
+   /** Snapshot actual colors, including custom edits, without invoking palette callbacks. */
+   public UiPalette snapshotPalette() {
+      return new UiPalette(this.colorSetting.getValue(), this.backgroundSetting.getValue(),
+         this.buttonSetting.getValue(), this.enabledSetting.getValue(), this.tintSetting.getValue(),
+         this.gradientColorSetting.getValue());
+   }
+
+
    private void applySelectedPalette() {
       if (this.applyingPalette) {
          return;
@@ -248,6 +256,10 @@ public final class UIModule extends Module {
          || !configuration.getAsJsonObject("settings").has(this.paletteSetting.getConfigName())) {
          // Older configurations have no palette marker; preserve their saved colors as Custom.
          this.paletteSetting.setValue(PaletteChoice.CUSTOM);
+      } else {
+         UiPaletteMigration.Action action = UiPaletteMigration.resolve(this.paletteSetting.getValue(), this.snapshotPalette());
+         if (action == UiPaletteMigration.Action.MIGRATE_LEGACY) this.applySelectedPalette();
+         else if (action == UiPaletteMigration.Action.PRESERVE_CUSTOM) this.paletteSetting.setValue(PaletteChoice.CUSTOM);
       }
    }
 
@@ -329,17 +341,17 @@ public final class UIModule extends Module {
       colorsOption.markVisibilityDependency();
       this.colorsSetting = this.add(colorsOption);
       Predicate<Object> colorVisibility = ignored -> this.colorsSetting.isExpanded();
-      this.colorSetting = this.add(new ColorSetting("Color", new Color(190, 255, 64, 220), colorVisibility));
+      this.colorSetting = this.add(new ColorSetting("Color", new Color(231, 57, 77, 235), colorVisibility));
       Predicate<Object> backgroundVisibility = ignored -> this.colorsSetting.isExpanded();
-      this.backgroundSetting = this.add(new ColorSetting("Background", new Color(18, 22, 26, 230), backgroundVisibility));
+      this.backgroundSetting = this.add(new ColorSetting("Background", new Color(19, 20, 26, 250), backgroundVisibility));
       Predicate<Object> buttonVisibility = ignored -> this.colorsSetting.isExpanded();
-      this.buttonSetting = this.add(new ColorSetting("Button", new Color(32, 38, 42, 205), buttonVisibility));
+      this.buttonSetting = this.add(new ColorSetting("Button", new Color(33, 34, 42, 220), buttonVisibility));
       Predicate<Object> enabledVisibility = ignored -> this.colorsSetting.isExpanded();
-      this.enabledSetting = this.add(new ColorSetting("Enabled", new Color(190, 255, 64, 120), enabledVisibility));
+      this.enabledSetting = this.add(new ColorSetting("Enabled", new Color(161, 34, 51, 150), enabledVisibility));
       Predicate<Object> tintVisibility = ignored -> this.colorsSetting.isExpanded();
-      this.tintSetting = this.add(new ColorSetting("Tint", new Color(8, 12, 15, 150), tintVisibility));
+      this.tintSetting = this.add(new ColorSetting("Tint", new Color(8, 9, 13, 195), tintVisibility));
       Predicate<Object> gradientColorVisibility = ignored -> this.colorsSetting.isExpanded();
-      this.gradientColorSetting = this.add(new ColorSetting("Gradient", new Color(105, 160, 35, 24), gradientColorVisibility));
+      this.gradientColorSetting = this.add(new ColorSetting("Gradient", new Color(111, 19, 36, 18), gradientColorVisibility));
 
       this.paletteSetting.setChangeCallback(this::applySelectedPalette);
       Runnable customPaletteCallback = this::markPaletteCustom;
@@ -451,12 +463,12 @@ public final class UIModule extends Module {
 
    public enum PaletteChoice implements NamedEntry {
       SCHIZO("Schizo", new UiPalette(
-         new Color(190, 255, 64, 220),
-         new Color(18, 22, 26, 230),
-         new Color(32, 38, 42, 205),
-         new Color(190, 255, 64, 120),
-         new Color(8, 12, 15, 150),
-         new Color(105, 160, 35, 24)
+         new Color(231, 57, 77, 235),
+         new Color(19, 20, 26, 250),
+         new Color(33, 34, 42, 220),
+         new Color(161, 34, 51, 150),
+         new Color(8, 9, 13, 195),
+         new Color(111, 19, 36, 18)
       )),
       MIDNIGHT("Midnight", new UiPalette(
          new Color(93, 168, 255, 220),
@@ -503,7 +515,7 @@ public final class UIModule extends Module {
    }
 
    public enum StyleChoice implements NamedEntry {
-      SCHIZO("Schizo", 15, 4, 8),
+      SCHIZO("Schizo", 21, 7, 8),
       PLAIN("Plain", 14, 4, 7),
       SLIM("Slim", 12, 3, 4);
 

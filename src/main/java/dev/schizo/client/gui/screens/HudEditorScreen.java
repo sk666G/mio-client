@@ -588,11 +588,7 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
          }
       }
 
-      if (horizontal) {
-         widget.setX(snappedPosition, true);
-      } else {
-         widget.setY(snappedPosition, true);
-      }
+      // Guides are visual only. Drag input owns position changes.
    }
 
    private void snapWidget(
@@ -863,10 +859,7 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
          / 2.0F;
       Color guideColor = ColorUtils.withAlpha(
          Color.white,
-         (int)(
-            RenderUtils.getRenderColor()[3]
-               * 0.4F
-         )
+         Math.round(255.0F * Math.max(0.0F, Math.min(1.0F, this.getTransitionOpacity())) * 0.18F)
       );
       GuiDrawUtils.fillRect(
          poseStack,

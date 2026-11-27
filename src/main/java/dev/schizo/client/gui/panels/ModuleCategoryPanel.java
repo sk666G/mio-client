@@ -24,6 +24,7 @@ import java.util.List;
 
 public class ModuleCategoryPanel extends Panel implements ClientAccess {
    public ModuleCategory category;
+   private final QueryMatchCache<GuiElement> searchMatches = new QueryMatchCache<>();
 
    private void populateModules() {
       List<Module> modules = (List<Module>)ClientContext.moduleRegistry.getRegistry();
@@ -44,29 +45,44 @@ public class ModuleCategoryPanel extends Panel implements ClientAccess {
 
    @Override
    public void init() {
+      this.searchMatches.clear();
       this.updateLayout();
       super.init();
+   }
+
+   public boolean hasSearchMatches() {
+      for (GuiElement child : this.children) {
+         if (this.isChildVisible(child)) return true;
+      }
+      return false;
    }
 
    @Override
    protected boolean isChildVisible(GuiElement child) {
       String query = ClientContext.getClickGui().getNormalizedSearchQuery();
-      if (child instanceof ModuleComponent moduleComponent && !query.isEmpty()) {
-         for (String alias : moduleComponent.getModule()
-            .getAliases()) {
+      if (query.isEmpty()) {
+         this.searchMatches.clearIfPresent();
+         return true;
+      }
+      if (child instanceof ModuleComponent moduleComponent) {
+         return this.searchMatches.matches(query, child, (element, text) -> matchesModule(((ModuleComponent)element).getModule(), text));
+      }
+      return true;
+   }
+
+   private static boolean matchesModule(Module module, String query) {
+         if (TextUtils.containsIgnoreCase(module.getName(), query)) return true;
+         for (String alias : module.getAliases()) {
             if (TextUtils.containsIgnoreCase(alias, query)) {
                return true;
             }
          }
 
-         if (TextUtils.containsIgnoreCase(moduleComponent.getModule().getDescription(), query)) return true;
-         for (var setting : moduleComponent.getModule().getSettings()) {
+         if (TextUtils.containsIgnoreCase(module.getDescription(), query)) return true;
+         for (var setting : module.getSettings()) {
             if (TextUtils.containsIgnoreCase(setting.getName(), query)) return true;
          }
          return false;
-      } else {
-         return true;
-      }
    }
 
 }

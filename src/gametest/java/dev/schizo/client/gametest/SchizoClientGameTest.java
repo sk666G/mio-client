@@ -7,6 +7,7 @@ import dev.schizo.client.gui.screens.ExpeditionScreen;
 import dev.schizo.client.gui.screens.HudLayoutPreviewScreen;
 import dev.schizo.client.gui.screens.CommandPaletteScreen;
 import dev.schizo.client.gui.screens.HudEditorScreen;
+import dev.schizo.client.gui.screens.HealthCenterScreen;
 import dev.schizo.client.gui.screens.PerformanceCenterScreen;
 import dev.schizo.client.modules.client.UIModule;
 import dev.schizo.client.modules.misc.StashEntry;
@@ -89,6 +90,124 @@ public final class SchizoClientGameTest implements FabricClientGameTest {
          context.waitTicks(3);
          context.takeScreenshot("schizo-clickgui");
 
+         context.runOnClient(minecraft -> {
+            ClickGuiScreen studio = (ClickGuiScreen)minecraft.screen;
+            if (studio.getSelectedPanelName().isBlank() || studio.getPanels().size() < 7) {
+               throw new IllegalStateException("Studio categories are unavailable");
+            }
+            var panel = studio.getPanels().getFirst();
+            double scale = dev.schizo.client.render.GuiScaleUtils.calculateScaleMultiplier(studio.getGuiScale());
+            // Second navigation row. The workspace bounds are already established by the preceding render.
+            var categoryClick = new MouseButtonEvent((panel.getX() - 16) * scale,
+               (panel.getY() + 36) * scale, new MouseButtonInfo(0, 0));
+            studio.mouseClicked(categoryClick, false);
+            studio.mouseReleased(categoryClick);
+            if (!studio.getSelectedPanelName().equals(studio.getPanels().get(1).getName())) {
+               throw new IllegalStateException("Studio sidebar did not select the second category");
+            }
+            var searchClick = new MouseButtonEvent((panel.getX() + 20) * scale,
+               (panel.getY() - 20) * scale, new MouseButtonInfo(0, 0));
+            studio.mouseClicked(searchClick, false);
+            studio.mouseReleased(searchClick);
+            if (!studio.getSearchBox().isFocused()) {
+               throw new IllegalStateException("Studio search did not focus on click");
+            }
+            studio.getSearchBox().setValue("Crosshair");
+            if (!"Render".equalsIgnoreCase(studio.getSelectedPanelName())) {
+               throw new IllegalStateException("Studio search failed to select the matching category");
+            }
+         });
+         context.waitTicks(3);
+         context.runOnClient(minecraft -> {
+            ClickGuiScreen studio = (ClickGuiScreen)minecraft.screen;
+            var panel = studio.getPanels().stream()
+               .filter(p -> p.getName().equals(studio.getSelectedPanelName())).findFirst().orElseThrow();
+            var component = panel.children.stream()
+               .filter(c -> c instanceof dev.schizo.client.gui.components.ModuleComponent module
+                  && module.getModule().getName().equalsIgnoreCase("Crosshair"))
+               .map(c -> (dev.schizo.client.gui.components.ModuleComponent)c).findFirst().orElseThrow();
+            double x = panel.getX() + 12;
+            double y = panel.getY() + component.getYOffset() + 5;
+            if (panel.findVisibleModuleAt(x, y) != component) {
+               throw new IllegalStateException("Inspector target is not the visible searched module");
+            }
+            double scale = dev.schizo.client.render.GuiScaleUtils.calculateScaleMultiplier(studio.getGuiScale());
+            var click = new MouseButtonEvent(x * scale, y * scale, new MouseButtonInfo(GLFW.GLFW_MOUSE_BUTTON_RIGHT, 0));
+            studio.mouseClicked(click, false);
+            studio.mouseReleased(click);
+            if (!component.isOpen()) throw new IllegalStateException("Module settings did not open");
+         });
+         context.waitTicks(10);
+         context.takeScreenshot("schizo-studio-controls");
+         context.runOnClient(minecraft -> {
+            ClickGuiScreen studio = (ClickGuiScreen)minecraft.screen;
+            var panel = studio.getPanels().stream()
+               .filter(p -> p.getName().equals(studio.getSelectedPanelName())).findFirst().orElseThrow();
+            var component = panel.children.stream()
+               .filter(c -> c instanceof dev.schizo.client.gui.components.ModuleComponent module
+                  && module.getModule().getName().equalsIgnoreCase("Crosshair"))
+               .map(c -> (dev.schizo.client.gui.components.ModuleComponent)c).findFirst().orElseThrow();
+            double x = panel.getX() + 12;
+            double y = panel.getY() + component.getYOffset() + 5;
+            double scale = dev.schizo.client.render.GuiScaleUtils.calculateScaleMultiplier(studio.getGuiScale());
+            var click = new MouseButtonEvent(x * scale, y * scale, new MouseButtonInfo(GLFW.GLFW_MOUSE_BUTTON_MIDDLE, 0));
+            studio.mouseClicked(click, false);
+            if (!(minecraft.screen instanceof dev.schizo.client.gui.screens.ModuleInspectorScreen)) {
+               throw new IllegalStateException("Middle click failed to open inspector");
+            }
+         });
+         context.waitForScreen(dev.schizo.client.gui.screens.ModuleInspectorScreen.class);
+         context.waitTicks(2);
+         context.runOnClient(minecraft -> clickButton(minecraft.screen, "Back"));
+         context.waitForScreen(ClickGuiScreen.class);
+         context.waitTicks(3);
+         context.runOnClient(minecraft -> ((ClickGuiScreen)minecraft.screen).getSearchBox().setValue(""));
+         context.waitTicks(2);
+         // Exercise the actual dock buttons and return path, rather than creating destinations directly.
+         Class<?>[] destinations = {HudEditorScreen.class, PerformanceCenterScreen.class,
+            ExpeditionScreen.class, HealthCenterScreen.class, dev.schizo.client.gui.screens.ThemeStudioScreen.class};
+         for (int index = 0; index < destinations.length; index++) {
+            final int tool = index;
+            context.runOnClient(minecraft -> {
+               ClickGuiScreen studio = (ClickGuiScreen)minecraft.screen;
+               double scale = dev.schizo.client.render.GuiScaleUtils.calculateScaleMultiplier(studio.getGuiScale());
+               var event = new MouseButtonEvent(studio.studioToolX(tool) * scale, studio.studioToolY() * scale,
+                  new MouseButtonInfo(0, 0));
+               studio.mouseClicked(event, false);
+               if (!destinations[tool].isInstance(minecraft.screen)) {
+                  throw new IllegalStateException("Studio tool failed to open: " + tool);
+               }
+            });
+            context.waitTicks(3);
+            if (tool == 3) context.takeScreenshot("schizo-health-center");
+            if (tool == 4) {
+               context.runOnClient(minecraft -> {
+                  var ui = dev.schizo.client.modules.client.UIModule.INSTANCE;
+                  var before = ui.snapshotPalette();
+                  var choice = ui.paletteSetting.getValue();
+                  clickButton(minecraft.screen, "Midnight");
+                  clickButton(minecraft.screen, "Test switch");
+                  if (!before.equals(ui.snapshotPalette()) || choice != ui.paletteSetting.getValue()) {
+                     throw new IllegalStateException("Theme preview mutated live settings");
+                  }
+                  clickButton(minecraft.screen, "Discard preview");
+                  if (!before.equals(ui.snapshotPalette()) || choice != ui.paletteSetting.getValue()) {
+                     throw new IllegalStateException("Discarding preview mutated live settings");
+                  }
+               });
+               context.waitTicks(2);
+            }
+            context.runOnClient(minecraft -> {
+               if (minecraft.screen instanceof dev.schizo.client.gui.screens.ClientScreen child) {
+                  child.closeWithTransition();
+               } else {
+                  minecraft.screen.onClose();
+               }
+            });
+            context.waitForScreen(ClickGuiScreen.class);
+            context.waitTicks(3);
+         }
+
          context.setScreen(() -> null);
          context.waitForScreen(null);
          context.waitTicks(2);
@@ -157,6 +276,23 @@ public final class SchizoClientGameTest implements FabricClientGameTest {
             context.runOnClient(minecraft -> clickButton(minecraft.screen, tab));
             context.waitTicks(2);
             context.takeScreenshot("schizo-expedition-" + tab.toLowerCase(java.util.Locale.ROOT));
+            if ("Profiles".equals(tab)) {
+               context.runOnClient(minecraft -> clickButton(minecraft.screen, "Edit rules"));
+               context.waitForScreen(dev.schizo.client.gui.screens.ContextProfileEditorScreen.class);
+               context.waitTicks(2);
+               context.runOnClient(minecraft -> {
+                  var before = ClientContext.contextProfileRegistry.getRules();
+                  clickButton(minecraft.screen, "New rule");
+                  clickButton(minecraft.screen, "Preview save");
+                  if (!(minecraft.screen instanceof dev.schizo.client.gui.screens.ContextProfileEditorScreen)
+                     || !before.equals(ClientContext.contextProfileRegistry.getRules())) {
+                     throw new IllegalStateException("Invalid editor draft changed the rule list");
+                  }
+                  clickButton(minecraft.screen, "Back");
+               });
+               context.waitForScreen(ExpeditionScreen.class);
+               context.waitTicks(2);
+            }
          }
          context.setScreen(() -> null);
          context.waitForScreen(null);

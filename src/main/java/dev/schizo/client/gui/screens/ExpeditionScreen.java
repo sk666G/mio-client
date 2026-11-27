@@ -43,8 +43,22 @@ public final class ExpeditionScreen extends Screen {
    private String message = "";
    private Button copyButton, waypointButton;
 
+   private final Screen returnScreen;
+
    public ExpeditionScreen() {
+      this(null, 0);
+   }
+
+   public ExpeditionScreen(Screen returnScreen, int initialTab) {
       super(Component.literal("Schizo Expedition"));
+      this.returnScreen = returnScreen;
+      this.tab = Math.max(0, Math.min(TABS.length - 1, initialTab));
+   }
+
+   @Override
+   public void onClose() {
+      if (this.returnScreen != null) this.minecraft.setScreen(this.returnScreen);
+      else super.onClose();
    }
 
    @Override
@@ -93,10 +107,14 @@ public final class ExpeditionScreen extends Screen {
             this.selected = -1;
             this.refresh();
          });
-         this.button("Show / hide coordinates", this.left + half + 2, layout.secondaryY(), half, () -> {
-            this.message = "";
-            this.showCoordinates = !this.showCoordinates;
-            this.refresh();
+         this.button(this.tab == 2 ? "Edit rules" : "Show / hide coordinates", this.left + half + 2, layout.secondaryY(), half, () -> {
+            if (this.tab == 2) {
+               this.minecraft.setScreen(new ContextProfileEditorScreen(this));
+            } else {
+               this.message = "";
+               this.showCoordinates = !this.showCoordinates;
+               this.refresh();
+            }
          });
       }
 
@@ -368,13 +386,13 @@ public final class ExpeditionScreen extends Screen {
    @Override
    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
       if (this.privacyAtRefresh != dev.schizo.client.utils.CoordinatePrivacy.isEnabled()) this.refresh();
-      graphics.fill(0, 0, this.width, this.height, 0xee080c12);
-      graphics.drawString(this.font, this.fit("Schizo Expedition / " + TABS[this.tab], this.panelWidth), this.left, this.titleY, 0xffa4d5ff);
+      graphics.fill(0, 0, this.width, this.height, 0xee08090d);
+      graphics.drawString(this.font, this.fit("Schizo Expedition / " + TABS[this.tab], this.panelWidth), this.left, this.titleY, 0xffe7394d);
       int visible = Math.min(this.visibleRows, this.rows.size() - this.offset);
       for (int i = 0; i < visible; i++) {
          int index = this.offset + i, y = this.rowsTop + i * 34;
          Row row = this.rows.get(index);
-         graphics.fill(this.left, y, this.left + this.panelWidth, y + 32, index == this.selected ? 0xff25435e : 0xff131e2a);
+         graphics.fill(this.left, y, this.left + this.panelWidth, y + 32, index == this.selected ? 0xff48232c : 0xff191a21);
          graphics.drawString(this.font, this.fit(row.title(), this.panelWidth - 8), this.left + 4, y + 4, 0xffffffff);
          graphics.drawString(this.font, this.fit(row.detail(), this.panelWidth - 8), this.left + 4, y + 17, 0xffacb9c9);
       }

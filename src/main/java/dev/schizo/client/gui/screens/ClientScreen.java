@@ -159,6 +159,14 @@ public class ClientScreen extends Screen implements ClientAccess {
       return this.guiScale;
    }
 
+   protected boolean isPanelVisible(Panel panel) {
+      return true;
+   }
+
+   protected boolean canDragPanel(Panel panel) {
+      return true;
+   }
+
    protected float resolveGuiScale(float preferredScale) {
       return preferredScale;
    }
@@ -246,6 +254,7 @@ public class ClientScreen extends Screen implements ClientAccess {
       String characters = event.codepointAsString();
       for (int panelIndex = this.panels.size() - 1; panelIndex >= 0; panelIndex--) {
          Panel panel = this.panels.get(panelIndex);
+         if (!this.isPanelVisible(panel)) continue;
          for (int index = 0; index < characters.length(); index++) {
             panel.charTyped(characters.charAt(index));
          }
@@ -273,10 +282,11 @@ public class ClientScreen extends Screen implements ClientAccess {
       for (int panelIndex = this.panels.size() - 1; panelIndex >= 0; panelIndex--) {
          Panel panel = this.panels
             .get(panelIndex);
-         if (!panel.isMouseOverHeader(event.x(), event.y()) && !panel.isMouseOver(event.x(), event.y())) {
+         if (!this.isPanelVisible(panel)
+            || (!panel.isMouseOverHeader(event.x(), event.y()) && !panel.isMouseOver(event.x(), event.y()))) {
             continue;
          }
-         if (panel.isMouseOverHeader(event.x(), event.y())
+         if (this.canDragPanel(panel) && panel.isMouseOverHeader(event.x(), event.y())
             && event.button() == 0
             && !panel.isDragging()) {
             draggedPanel = panel;
@@ -317,7 +327,7 @@ public class ClientScreen extends Screen implements ClientAccess {
       if (verticalAmount != 0.0) {
          for (int index = this.panels.size() - 1; index >= 0; index--) {
             Panel panel = this.panels.get(index);
-            if (panel.isMouseOver(mouseX, mouseY)) {
+            if (this.isPanelVisible(panel) && panel.isMouseOver(mouseX, mouseY)) {
                if (!panel.isDragging()) {
                   panel.mouseScrolled(mouseX, mouseY, verticalAmount);
                }
@@ -349,8 +359,7 @@ public class ClientScreen extends Screen implements ClientAccess {
    protected void init() {
       int screenWidth = ClientAccess.schizoMinecraft.getWindow().getGuiScaledWidth();
       int screenHeight = ClientAccess.schizoMinecraft.getWindow().getGuiScaledHeight();
-      if (this.getParentScreen()
-         != null) {
+      if (this.getParentScreen() != null && !(this.getParentScreen() instanceof ClientScreen)) {
          this.getParentScreen()
             .init(screenWidth, screenHeight);
       }
@@ -396,7 +405,7 @@ public class ClientScreen extends Screen implements ClientAccess {
       if (editor == null) {
          return null;
       }
-      if (!this.panels.contains(editor.getPanel())) {
+      if (!this.panels.contains(editor.getPanel()) || !this.isPanelVisible(editor.getPanel())) {
          if (ClientAccess.schizoMinecraft.screen == this) {
             clickGui.setEditingSetting(null);
          }
@@ -436,8 +445,8 @@ public class ClientScreen extends Screen implements ClientAccess {
       }
 
       for (int panelIndex = this.panels.size() - 1; panelIndex >= 0; panelIndex--) {
-         this.panels.get(panelIndex)
-            .keyPressed(event.key());
+         Panel panel = this.panels.get(panelIndex);
+         if (this.isPanelVisible(panel)) panel.keyPressed(event.key());
       }
 
       if (event.key() == GLFW.GLFW_KEY_ESCAPE && this.escapeCloseAllowed) {
@@ -520,6 +529,7 @@ public class ClientScreen extends Screen implements ClientAccess {
          MaskShaderRenderer.renderBlur(
             () -> {
                for (Panel blurPanel : this.getPanels()) {
+                  if (!this.isPanelVisible(blurPanel)) continue;
                   float expansion = blurPanel.getExpansionValue();
                   float expandedContentHeight = (
                         blurPanel.getHeight()
@@ -545,13 +555,14 @@ public class ClientScreen extends Screen implements ClientAccess {
          );
       }
 
-      if (this.winterSeason) {
+      if (this.winterSeason && !UiMotionPolicy.isReducedMotion()) {
          for (SnowflakeParticle particle : this.seasonalParticles) {
             particle.render(poseStack);
          }
       }
 
       for (Panel panel : this.panels) {
+         if (!this.isPanelVisible(panel)) continue;
          panel.updateDragPosition(mouseX, mouseY);
          panel.render(poseStack, mouseX, mouseY);
       }
@@ -677,7 +688,7 @@ public class ClientScreen extends Screen implements ClientAccess {
       if (!this.closing) {
          this.panelDragging = false;
          this.transitionStartedNanos = System.nanoTime();
-         if (UIModule.INSTANCE.isToggled()) {
+         if (!(this.parentScreen instanceof ClickGuiScreen) && UIModule.INSTANCE.isToggled()) {
             UIModule.INSTANCE
                .toggle();
          }
@@ -720,6 +731,7 @@ public class ClientScreen extends Screen implements ClientAccess {
       int textureColor = ARGB.color(textureAlpha, -1);
 
       for (Panel panel : this.getPanels()) {
+         if (!this.isPanelVisible(panel)) continue;
          int outlinePadding = uiModule.lineSetting.getValue() ? 2 : 0;
          int panelX = panel.getX();
          int panelY = panel.getY();
