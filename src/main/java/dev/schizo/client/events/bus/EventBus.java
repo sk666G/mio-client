@@ -192,9 +192,8 @@ public class EventBus implements EventDispatcher {
    }
 
    /**
-    * Dispatches a cleanup event to every listener even when an earlier listener throws a RuntimeException.
-    * The first runtime failure is rethrown after dispatch and later runtime failures are suppressed on it.
-    * Errors retain the normal fail-fast semantics.
+    * Dispatches cleanup events to every listener even when an earlier listener throws a RuntimeException.
+    * Errors remain fail-fast. The first runtime failure is rethrown after dispatch with later failures suppressed.
     */
    public Object postCleanup(Object event) {
       EventListener[] listeners = this.listenersByEventClass.get(event.getClass());
@@ -241,7 +240,13 @@ public class EventBus implements EventDispatcher {
             listener.call(event);
          }
       } catch (RuntimeException | Error failure) {
-         this.failureTracker.record(listener, event, failure);
+         try {
+            this.failureTracker.record(listener, event, failure);
+         } catch (RuntimeException | Error diagnosticFailure) {
+            if (diagnosticFailure != failure) {
+               failure.addSuppressed(diagnosticFailure);
+            }
+         }
          throw failure;
       }
    }
