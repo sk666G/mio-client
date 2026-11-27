@@ -513,15 +513,15 @@ public class ElytraFlyModule extends Module {
       if (this.takeoffJumpPhase != null) {
          switch (this.takeoffJumpPhase) {
             case RELEASE -> {
-               ClientContext.inputOverrides.requestJump(false);
+               ClientContext.inputOverrides.requestJump(this, false);
                this.takeoffJumpPhase = TakeoffJumpPhase.PRESS;
             }
             case PRESS -> {
-               ClientContext.inputOverrides.requestJump(true);
+               ClientContext.inputOverrides.requestJump(this, true);
                this.takeoffJumpPhase = TakeoffJumpPhase.FINISH;
             }
             case FINISH -> {
-               ClientContext.inputOverrides.requestJump(false);
+               ClientContext.inputOverrides.requestJump(this, false);
                this.takeoffJumpPhase = null;
             }
          }
