@@ -101,6 +101,8 @@ public final class WorldStateManager implements ClientAccess {
 
    private int chunkRadius;
 
+   private ClientLevel observedLevel;
+
    private volatile long packetGeneration;
 
    public DimensionType getDimension() {
@@ -339,6 +341,36 @@ public final class WorldStateManager implements ClientAccess {
    @EventHandler
    private void onMinecraftDisconnectEvent(MinecraftDisconnectEvent event) {
       this.packetGeneration++;
+      this.observedLevel = null;
+      this.resetWorldTransientState();
+      this.chunkRadius = 0;
+   }
+
+   @EventHandler(priority = 200)
+   private void onLocalPlayerPreTick(LocalPlayerPreTickEvent event) {
+      this.synchronizeLevel(ClientAccess.schizoMinecraft.level);
+      this.currentTickPlacements.clear();
+      this.dimension = WorldUtils.getDimension();
+      this.refreshHandSnapshots();
+   }
+
+   private void synchronizeLevel(ClientLevel currentLevel) {
+      if (this.observedLevel == currentLevel) {
+         return;
+      }
+
+      if (isLevelReplacement(this.observedLevel, currentLevel)) {
+         this.packetGeneration++;
+      }
+      this.observedLevel = currentLevel;
+      this.resetWorldTransientState();
+   }
+
+   static boolean isLevelReplacement(Object observedLevel, Object currentLevel) {
+      return observedLevel != null && observedLevel != currentLevel;
+   }
+
+   private void resetWorldTransientState() {
       this.pendingPlacements.clear();
       this.confirmedPlacements.clear();
       this.blockEntities.clear();
@@ -350,14 +382,6 @@ public final class WorldStateManager implements ClientAccess {
       this.mainHandSnapshot = ItemStack.EMPTY;
       this.offHandSnapshot = ItemStack.EMPTY;
       this.dimension = DimensionType.OVERWORLD;
-      this.chunkRadius = 0;
-   }
-
-   @EventHandler(priority = 200)
-   private void onLocalPlayerPreTick(LocalPlayerPreTickEvent event) {
-      this.currentTickPlacements.clear();
-      this.dimension = WorldUtils.getDimension();
-      this.refreshHandSnapshots();
    }
 
    private void trackGlassUpdate(BlockPos position, BlockState state) {
@@ -394,6 +418,34 @@ public final class WorldStateManager implements ClientAccess {
       });
    }
 
+   private void dispatchWorldPacketUpdate(
+      long expectedGeneration,
+      ClientLevel expectedLevel,
+      Runnable action
+   ) {
+      ClientAccess.schizoMinecraft.executeIfPossible(() -> {
+         if (matchesWorldPacketContext(
+            expectedGeneration,
+            this.packetGeneration,
+            expectedLevel,
+            ClientAccess.schizoMinecraft.level
+         )) {
+            action.run();
+         }
+      });
+   }
+
+   static boolean matchesWorldPacketContext(
+      long expectedGeneration,
+      long currentGeneration,
+      Object expectedLevel,
+      Object currentLevel
+   ) {
+      return expectedGeneration == currentGeneration
+         && expectedLevel != null
+         && expectedLevel == currentLevel;
+   }
+
    private void applyBlockUpdate(BlockPos position, BlockState state) {
       this.rollbackBlocks.remove(position);
       if (state.isAir()) {
@@ -420,10 +472,15 @@ public final class WorldStateManager implements ClientAccess {
       PacketEvent.Receive event
    ) {
       long expectedGeneration = this.packetGeneration;
+      ClientLevel expectedLevel = ClientAccess.schizoMinecraft.level;
       if (event.getPacket() instanceof ClientboundBlockUpdatePacket blockUpdate) {
          BlockPos position = blockUpdate.getPos().immutable();
          BlockState state = blockUpdate.getBlockState();
-         this.dispatchPacketUpdate(expectedGeneration, () -> this.applyBlockUpdate(position, state));
+         this.dispatchWorldPacketUpdate(
+            expectedGeneration,
+            expectedLevel,
+            () -> this.applyBlockUpdate(position, state)
+         );
       }
 
       if (event.getPacket() instanceof ClientboundSectionBlocksUpdatePacket sectionUpdate) {
@@ -433,7 +490,7 @@ public final class WorldStateManager implements ClientAccess {
          );
          if (!updates.isEmpty()) {
             List<PacketBlockUpdate> updateSnapshot = List.copyOf(updates);
-            this.dispatchPacketUpdate(expectedGeneration, () -> {
+            this.dispatchWorldPacketUpdate(expectedGeneration, expectedLevel, () -> {
                for (PacketBlockUpdate update : updateSnapshot) {
                   this.applySectionUpdate(update.position(), update.state());
                }
