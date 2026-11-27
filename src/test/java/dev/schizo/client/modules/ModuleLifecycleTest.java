@@ -16,6 +16,8 @@ class ModuleLifecycleTest {
 
       assertThrows(IllegalStateException.class, module::enable);
       assertFalse(module.isToggled());
+      assertEquals(2, module.toggleCalls.get());
+      assertFalse(module.lastToggleState);
       assertEquals(1, module.disableCalls.get());
       assertFalse(module.toggledDuringDisable);
 
@@ -31,10 +33,10 @@ class ModuleLifecycleTest {
       try {
          assertThrows(IllegalStateException.class, module::enable);
          assertFalse(module.isToggled());
-         assertEquals(1, module.toggleCalls.get());
+         assertEquals(2, module.toggleCalls.get());
+         assertFalse(module.lastToggleState);
          assertEquals(0, module.enableCalls.get());
-         assertEquals(1, module.disableCalls.get());
-         assertFalse(module.toggledDuringDisable);
+         assertEquals(0, module.disableCalls.get());
       } finally {
          ClientAccess.eventBus.unsubscribe(observer);
       }
@@ -48,9 +50,10 @@ class ModuleLifecycleTest {
 
       assertThrows(IllegalStateException.class, module::enable);
       assertFalse(module.isToggled());
-      assertEquals(1, module.toggleCalls.get());
+      assertEquals(2, module.toggleCalls.get());
+      assertFalse(module.lastToggleState);
       assertEquals(0, module.enableCalls.get());
-      assertEquals(1, module.disableCalls.get());
+      assertEquals(0, module.disableCalls.get());
 
       ClientAccess.eventBus.post(new ProbeEvent());
       assertEquals(0, module.eventCalls.get());
@@ -103,6 +106,7 @@ class ModuleLifecycleTest {
       private boolean failToggle;
       private boolean failEnable;
       private boolean failDisable;
+      private boolean lastToggleState;
       private boolean toggledDuringDisable;
 
       private TestModule() {
@@ -112,6 +116,7 @@ class ModuleLifecycleTest {
       @Override
       public void onToggle() {
          this.toggleCalls.incrementAndGet();
+         this.lastToggleState = this.isToggled();
          if (this.failToggle) {
             throw new IllegalStateException("toggle failure");
          }
