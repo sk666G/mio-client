@@ -109,10 +109,11 @@ public final class ThemeStudioScreen extends Screen {
    }
 
    @Override public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-      graphics.fill(0, 0, width, height, 0xee08090d);
-      graphics.fill(left - 4, top, left + panelWidth + 4, Math.min(height, previewTop + previewHeight + 40), 0xff13141a);
-      graphics.fill(left - 4, top, left + panelWidth + 4, top + 2, 0xffe7394d);
-      line(graphics, "SCHIZO / THEME STUDIO", left, top + 8, panelWidth, 0xffe7394d);
+      StudioScreenTheme theme = StudioScreenTheme.current();
+      graphics.fill(0, 0, width, height, theme.backdrop());
+      graphics.fill(left - 4, top, left + panelWidth + 4, Math.min(height, previewTop + previewHeight + 40), theme.panel());
+      graphics.fill(left - 4, top, left + panelWidth + 4, top + 2, theme.accent());
+      line(graphics, "SCHIZO / THEME STUDIO", left, top + 8, panelWidth, theme.accent());
       line(graphics, draft.selected().getName() + "  |  Interactive palette sample", left, top + 19, panelWidth, 0xffb8b9c7);
       UiPalette palette = draft.preview();
       int accent = opaque(palette.accent()), surface = opaque(palette.background()), buttonColor = opaque(palette.button());

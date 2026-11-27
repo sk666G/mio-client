@@ -74,18 +74,19 @@ public final class HealthCenterScreen extends Screen {
    }
 
    @Override public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-      graphics.fill(0, 0, width, height, 0xee08090d);
+      StudioScreenTheme theme = StudioScreenTheme.current();
+      graphics.fill(0, 0, width, height, theme.backdrop());
       int bottom = Math.min(height, top + 68 + rowCount * 17);
-      graphics.fill(left, top, left + panelWidth, bottom, 0xff13141a);
-      graphics.fill(left, top, left + panelWidth, top + 2, 0xffe7394d);
-      graphics.drawString(font, "SCHIZO / HEALTH CENTER", left + 9, top + 10, 0xffe7394d, false);
+      graphics.fill(left, top, left + panelWidth, bottom, theme.panel());
+      graphics.fill(left, top, left + panelWidth, top + 2, theme.accent());
+      graphics.drawString(font, "SCHIZO / HEALTH CENTER", left + 9, top + 10, theme.accent(), false);
       String hint = notice.isEmpty() ? "Local diagnostics  |  Scroll to browse" : notice;
       graphics.drawString(font, font.plainSubstrByWidth(hint, Math.max(0, panelWidth - 18)), left + 9, top + 24, 0xffa1a3af, false);
       if (report != null) {
          var rows = reportRows;
          for (int i = 0; i < rowCount && offset + i < rows.size(); i++) {
             int y = top + 38 + i * 17;
-            graphics.fill(left + 6, y, left + panelWidth - 6, y + 15, 0xff21222a);
+            graphics.fill(left + 6, y, left + panelWidth - 6, y + 15, theme.row());
             graphics.drawString(font, font.plainSubstrByWidth(rows.get(offset + i), Math.max(0, panelWidth - 20)),
                left + 10, y + 3, 0xffeeeeef, false);
          }

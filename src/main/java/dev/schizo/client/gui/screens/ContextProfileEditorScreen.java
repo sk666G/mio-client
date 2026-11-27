@@ -134,10 +134,11 @@ public final class ContextProfileEditorScreen extends Screen {
    void showNotice(String message) { notice = message; }
 
    @Override public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-      graphics.fill(0, 0, width, height, 0xee08090d);
-      graphics.fill(left - 4, top, left + panelWidth + 4, Math.min(height, top + 215), 0xff13141a);
-      graphics.fill(left - 4, top, left + panelWidth + 4, top + 2, 0xffe7394d);
-      draw(graphics, "SCHIZO / CONTEXT RULE EDITOR", left, top + 7, panelWidth, 0xffe7394d);
+      StudioScreenTheme theme = StudioScreenTheme.current();
+      graphics.fill(0, 0, width, height, theme.backdrop());
+      graphics.fill(left - 4, top, left + panelWidth + 4, Math.min(height, top + 215), theme.panel());
+      graphics.fill(left - 4, top, left + panelWidth + 4, top + 2, theme.accent());
+      draw(graphics, "SCHIZO / CONTEXT RULE EDITOR", left, top + 7, panelWidth, theme.accent());
       var registry = ClientContext.contextProfileRegistry;
       draw(graphics, "Profiles " + (registry.isEnabled() ? "enabled" : "disabled") + " | " + registry.getRules().size() + " rules"
          + (registry.getFailedContextDescription() != null ? " | recovery pending" : ""), left, top + 20, panelWidth, 0xffa1a3af);
