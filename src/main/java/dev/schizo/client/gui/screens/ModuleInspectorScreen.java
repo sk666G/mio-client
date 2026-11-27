@@ -11,6 +11,8 @@ import dev.schizo.client.settings.NumberSetting;
 import dev.schizo.client.settings.Setting;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
@@ -22,10 +24,13 @@ public final class ModuleInspectorScreen extends Screen {
    private final Screen parent;
    private final Module module;
    private final SettingEditHistory history = new SettingEditHistory();
-   private final List<Setting<?>> settings = new ArrayList<>();
+   private final List<Setting<?>> allSettings = new ArrayList<>();
+   private List<Setting<?>> settings = List.of();
+   private String filterText = "";
    private final ModuleCompatibility.Assessment assessment;
    private int selected, left, top, panelWidth, rowCount, offset;
-   private EditBox value;
+   private EditBox value, filter;
+   private Button resetDefault;
    private Button apply, undo, redo;
    private JsonElement expected;
    private String notice = "";
@@ -38,16 +43,22 @@ public final class ModuleInspectorScreen extends Screen {
       this.module = module;
       this.assessment = ModuleCompatibility.assess(module.getClass());
       for (Object item : module.getSettings()) {
-         if (item instanceof Setting<?> setting && !setting.isGroupOnly() && !setting.isExcludedFromConfig()) settings.add(setting);
+         if (item instanceof Setting<?> setting && !setting.isGroupOnly() && !setting.isExcludedFromConfig()) allSettings.add(setting);
       }
+      settings = List.copyOf(allSettings);
    }
 
    @Override protected void init() {
       panelWidth = Math.max(1, Math.min(550, width - 16));
       left = (width - panelWidth) / 2;
       top = Math.max(4, (height - 320) / 2);
-      rowCount = Math.max(1, Math.min(9, (height - top - 168) / 13));
-      int controlsY = top + 80 + rowCount * 13;
+      rowCount = Math.max(1, Math.min(9, (height - top - 209) / 13));
+      int controlsY = top + 106 + rowCount * 13;
+      filter = new EditBox(font, left, top + 75, panelWidth, 20, Component.literal("Filter settings"));
+      filter.setMaxLength(64);
+      filter.setValue(filterText);
+      filter.setHint(Component.literal("Filter settings..."));
+      addRenderableWidget(filter);
       int half = Math.max(1, (panelWidth - 4) / 2);
       button("Previous setting", left, controlsY, half, () -> select(-1));
       button("Next setting", left + half + 4, controlsY, half, () -> select(1));
@@ -55,10 +66,12 @@ public final class ModuleInspectorScreen extends Screen {
       value.setMaxLength(48);
       addRenderableWidget(value);
       apply = button("Apply value", left + half + 4, controlsY + 24, half, this::applyValue);
-      int third = Math.max(1, (panelWidth - 8) / 3);
-      undo = button("Undo", left, controlsY + 48, third, () -> replay(true));
-      redo = button("Redo", left + third + 4, controlsY + 48, third, () -> replay(false));
-      button("Back", left + 2 * (third + 4), controlsY + 48, third, this::onClose);
+      int quarter = Math.max(1, (panelWidth - 12) / 4);
+      undo = button("Undo", left, controlsY + 48, quarter, () -> replay(true));
+      redo = button("Redo", left + quarter + 4, controlsY + 48, quarter, () -> replay(false));
+      resetDefault = button("Default", left + 2 * (quarter + 4), controlsY + 48, quarter, this::resetDefault);
+      button("Back", left + 3 * (quarter + 4), controlsY + 48, quarter, this::onClose);
+      filter.setResponder(this::filterSettings);
       refreshSelection();
       refreshBindingNotice();
    }
@@ -87,6 +100,37 @@ public final class ModuleInspectorScreen extends Screen {
          && SettingEditHistory.supports(setting) && setting.isVisible();
    }
 
+   private void filterSettings(String text) {
+      Setting<?> previous = current();
+      filterText = text;
+      String query = text.strip().toLowerCase(Locale.ROOT);
+      settings = allSettings.stream().filter(setting -> setting.getName().toLowerCase(Locale.ROOT).contains(query)
+         || setting.getConfigName().toLowerCase(Locale.ROOT).contains(query)).toList();
+      selected = 0;
+      for (int i = 0; i < settings.size(); i++) if (settings.get(i) == previous) { selected = i; break; }
+      offset = 0;
+      refreshSelection();
+   }
+
+   @Override public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+      int row = InspectorRows.hit(event.x(), event.y(), left, top + 100, panelWidth, rowCount, offset, settings.size());
+      if (event.button() == 0 && row >= 0) {
+         selected = row;
+         refreshSelection();
+         setFocused(null);
+         return true;
+      }
+      return super.mouseClicked(event, doubleClick);
+   }
+
+   @Override public boolean mouseScrolled(double x, double y, double horizontal, double vertical) {
+      if (vertical != 0 && x >= left && x < left + panelWidth && y >= top + 100 && y < top + 100 + rowCount * 13) {
+         offset = Math.max(0, Math.min(Math.max(0, settings.size() - rowCount), offset + (vertical < 0 ? 1 : -1)));
+         return true;
+      }
+      return super.mouseScrolled(x, y, horizontal, vertical);
+   }
+
    private void select(int delta) {
       if (settings.isEmpty()) return;
       selected = Math.floorMod(selected + delta, settings.size());
@@ -94,13 +138,14 @@ public final class ModuleInspectorScreen extends Screen {
    }
 
    private void refreshSelection() {
-      offset = Math.max(0, Math.min(selected, Math.max(0, settings.size() - rowCount)));
+      offset = InspectorRows.reveal(selected, offset, rowCount, settings.size());
       var setting = current();
       boolean supported = editable(setting);
       expected = supported ? setting.toJson().deepCopy() : null;
       value.setEditable(supported);
       value.setValue(supported ? expected.getAsString() : "");
       apply.active = supported;
+      resetDefault.active = supported;
       undo.active = history.canUndo();
       redo.active = history.canRedo();
    }
@@ -129,6 +174,18 @@ public final class ModuleInspectorScreen extends Screen {
       }
    }
 
+   private void resetDefault() {
+      var setting = current();
+      if (!editable(setting) || expected == null) return;
+      Object original = setting.getDefaultValue();
+      JsonPrimitive target;
+      if (original instanceof Boolean flag) target = new JsonPrimitive(flag);
+      else if (original instanceof Number number) target = new JsonPrimitive(number);
+      else return;
+      notice = "Default: " + history.apply(setting, expected, target);
+      refreshSelection();
+   }
+
    private void replay(boolean backward) {
       notice = (backward ? "Undo: " : "Redo: ") + (backward ? history.undo() : history.redo());
       refreshSelection();
@@ -147,19 +204,21 @@ public final class ModuleInspectorScreen extends Screen {
 
    @Override public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
       graphics.fill(0, 0, width, height, 0xee08090d);
-      graphics.fill(left - 4, top, left + panelWidth + 4, Math.min(height, top + 170 + rowCount * 13), 0xff13141a);
+      graphics.fill(left - 4, top, left + panelWidth + 4, Math.min(height, top + 196 + rowCount * 13), 0xff13141a);
       graphics.fill(left - 4, top, left + panelWidth + 4, top + 2, 0xffe7394d);
       line(graphics, "SCHIZO / INSPECTOR / " + module.getName(), top + 8, 0xffe7394d);
       line(graphics, module.getDescription(), top + 21, 0xffeeeeef);
       line(graphics, "Compatibility: " + assessment.classification() + " | individual settings unverified", top + 34, 0xffa1a3af);
       line(graphics, bindingNotice, top + 47, 0xffb8b9c7);
       line(graphics, notice.isEmpty() ? "Local scalar edits only | history lasts for this inspector session" : notice, top + 60, 0xffa1a3af);
-      if (settings.isEmpty()) line(graphics, "No configurable settings.", top + 75, 0xffa1a3af);
+      if (settings.isEmpty()) line(graphics, "No matching settings.", top + 101, 0xffa1a3af);
       for (int i = 0; i < rowCount && offset + i < settings.size(); i++) {
          int index = offset + i;
          Setting<?> setting = settings.get(index);
-         int y = top + 74 + i * 13;
-         graphics.fill(left, y, left + panelWidth, y + 12, index == selected ? 0xff48232c : 0xff21222a);
+         int y = top + 100 + i * 13;
+         boolean hover = mouseX >= left && mouseX < left + panelWidth && mouseY >= y && mouseY < y + 12;
+         graphics.fill(left, y, left + panelWidth, y + 12, index == selected ? 0xff48232c : hover ? 0xff30313b : 0xff21222a);
+         if (index == selected) graphics.fill(left, y, left + 2, y + 12, 0xffe7394d);
          String text = setting.getName() + ": " + displayValue(setting) + (editable(setting) ? "" : " [read-only]");
          line(graphics, text, y + 2, index == selected ? 0xffeeeeef : 0xffb8b9c7);
       }
