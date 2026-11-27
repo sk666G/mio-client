@@ -204,7 +204,18 @@ public class AmbienceModule extends Module {
       }
 
       OptionInstance<Double> gammaOption = minecraft.options.gamma();
-      GameOptionsOverrides.forceSetOptionValue(gammaOption, this.savedGamma);
+      double currentGamma = gammaOption.get();
+      if (shouldRestoreGamma(owned, currentGamma, 1000.0D)) {
+         GameOptionsOverrides.forceSetOptionValue(gammaOption, this.savedGamma);
+      }
+   }
+
+   static boolean shouldRestoreGamma(
+      boolean overrideApplied,
+      double currentGamma,
+      double lastAppliedGamma
+   ) {
+      return overrideApplied && Double.compare(currentGamma, lastAppliedGamma) == 0;
    }
 
    private void removeOwnedNightVision(LocalPlayer player) {
