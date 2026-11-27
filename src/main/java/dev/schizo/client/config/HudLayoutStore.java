@@ -146,8 +146,6 @@ public final class HudLayoutStore {
          throw new IOException("A HUD layout with that name already exists");
       }
 
-      // Do not use ATOMIC_MOVE here: providers may replace a concurrently-created
-      // target under ATOMIC_MOVE even without REPLACE_EXISTING.
       FileUtils.moveFileNoReplace(source, target);
    }
 
@@ -218,12 +216,11 @@ public final class HudLayoutStore {
    }
 
    private void ensureDirectory() throws IOException {
-      if (Files.exists(this.directory, LinkOption.NOFOLLOW_LINKS)) {
-         this.requireRealDirectory();
-         return;
+      Path root = this.directory.getParent();
+      if (root == null) {
+         throw new IOException("HUD layout directory has no parent: " + this.directory);
       }
-      Files.createDirectories(this.directory);
-      this.requireRealDirectory();
+      ConfigPathGuard.ensureDirectory(root, this.directory);
    }
 
    private void requireRealDirectory() throws IOException {
