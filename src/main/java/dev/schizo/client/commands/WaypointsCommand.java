@@ -70,7 +70,13 @@ public final class WaypointsCommand extends Command {
                name, position, dimensionKey, getCurrentServerKey()
             );
             WaypointRegistry waypointRegistry = ClientContext.waypointRegistry;
-            waypointRegistry.registerWaypoint(waypoint);
+            if (!waypointRegistry.registerWaypoint(waypoint)) {
+               ChatUtils.printChat(
+                  Component.literal("Waypoint name already exists on this server"),
+                  -1
+               );
+               return 1;
+            }
 
             String messagePrefix = "Waypoint ";
             MutableComponent message = Component.literal(messagePrefix);
@@ -96,7 +102,13 @@ public final class WaypointsCommand extends Command {
                name, position, dimensionKey, getCurrentServerKey()
             );
             WaypointRegistry waypointRegistry = ClientContext.waypointRegistry;
-            waypointRegistry.registerWaypoint(waypoint);
+            if (!waypointRegistry.registerWaypoint(waypoint)) {
+               ChatUtils.printChat(
+                  Component.literal("Waypoint name already exists on this server"),
+                  -1
+               );
+               return 1;
+            }
 
             String messagePrefix = "Waypoint ";
             MutableComponent message = Component.literal(messagePrefix);
@@ -120,7 +132,13 @@ public final class WaypointsCommand extends Command {
                name, playerPosition, dimensionKey, getCurrentServerKey()
             );
             WaypointRegistry waypointRegistry = ClientContext.waypointRegistry;
-            waypointRegistry.registerWaypoint(waypoint);
+            if (!waypointRegistry.registerWaypoint(waypoint)) {
+               ChatUtils.printChat(
+                  Component.literal("Waypoint name already exists on this server"),
+                  -1
+               );
+               return 1;
+            }
 
             String messagePrefix = "Waypoint ";
             MutableComponent message = Component.literal(messagePrefix);
