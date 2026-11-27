@@ -130,12 +130,17 @@ public final class ShaderRegistry implements ClientAccess {
    }
 
    public static void finishFeatureRendering() {
-
       FeatureRenderDispatcher dispatcher = getFeatureDispatcher();
-      dispatcher.renderAllFeatures();
-
       ColorSubmitNodeStorage nodes = getSubmitNodes();
-      nodes.endFrame();
+      finishFeatureFrame(dispatcher::renderAllFeatures, nodes::endFrame);
+   }
+
+   static void finishFeatureFrame(Runnable renderFeatures, Runnable endFrame) {
+      try {
+         renderFeatures.run();
+      } finally {
+         endFrame.run();
+      }
    }
 
    public static void setRenderColor(int color) {
