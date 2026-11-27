@@ -97,11 +97,16 @@ public final class KitRegistry extends Registry<Kit> implements ClientAccess, Js
          .findFirst();
    }
 
+   @Override
+   public boolean unregisterEntry(NamedEntry entry) {
+      return entry instanceof Kit kit && this.unregisterKit(kit);
+   }
+
    public boolean unregisterKit(Kit kit) {
       if (kit == null) {
          return false;
       }
-      boolean removed = this.entries.removeIf(candidate -> hasSameName(candidate, kit));
+      boolean removed = this.entries.removeIf(candidate -> candidate == kit);
       if (removed && this.currentKitName != null && this.currentKitName.equalsIgnoreCase(kit.getName())) {
          this.currentKitName = null;
       }
@@ -112,7 +117,7 @@ public final class KitRegistry extends Registry<Kit> implements ClientAccess, Js
       if (previous == null
          || replacement == null
          || !isValidName(replacement.getName())
-         || !this.entries.contains(previous)) {
+         || !this.isRegisteredInstance(previous)) {
          return false;
       }
 
@@ -129,17 +134,23 @@ public final class KitRegistry extends Registry<Kit> implements ClientAccess, Js
       if (this.entries instanceof List<?> rawList) {
          @SuppressWarnings("unchecked")
          List<Kit> kits = (List<Kit>)rawList;
-         int previousIndex = kits.indexOf(previous);
+         int previousIndex = -1;
+         for (int index = 0; index < kits.size(); index++) {
+            if (kits.get(index) == previous) {
+               previousIndex = index;
+               break;
+            }
+         }
          if (previousIndex < 0) {
             return false;
          }
          kits.set(previousIndex, replacement);
       } else {
-         if (!this.entries.remove(previous)) {
+         if (!this.entries.removeIf(candidate -> candidate == previous)) {
             return false;
          }
          if (!this.registerEntry(replacement)) {
-            this.entries.add(previous);
+            this.registerEntry(previous);
             return false;
          }
       }
@@ -169,6 +180,15 @@ public final class KitRegistry extends Registry<Kit> implements ClientAccess, Js
       return existing.isPresent()
          ? this.replaceKit(existing.get(), kit)
          : this.registerEntry(kit);
+   }
+
+   private boolean isRegisteredInstance(Kit expected) {
+      for (Kit registered : this.entries) {
+         if (registered == expected) {
+            return true;
+         }
+      }
+      return false;
    }
 
    static boolean hasSameName(Kit first, Kit second) {
