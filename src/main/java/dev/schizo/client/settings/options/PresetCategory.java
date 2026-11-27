@@ -390,10 +390,9 @@ public enum PresetCategory implements JsonConfigurable, NamedEntry {
    };
 
    private final String displayName;
-   private final Path directory;
 
    public Path getDirectory() {
-      return this.directory;
+      return ConfigurationManager.PRESETS_DIRECTORY.resolve(this.displayName.toLowerCase(Locale.ROOT));
    }
 
    @Override
@@ -403,8 +402,6 @@ public enum PresetCategory implements JsonConfigurable, NamedEntry {
 
    PresetCategory(String displayName) {
       this.displayName = displayName;
-      Path presetsDirectory = ConfigurationManager.PRESETS_DIRECTORY;
-      this.directory = presetsDirectory.resolve(displayName.toLowerCase());
    }
 
    @Override
