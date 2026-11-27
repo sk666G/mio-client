@@ -84,6 +84,9 @@ public class WebhookNotifsModule extends Module {
    private ServerData lastServer;
    @Override
    public void onEnable() {
+      this.lastServer = ClientAccess.schizoMinecraft.level == null
+         ? null
+         : ClientContext.serverStateManager.getServerData();
       this.retryDelivery();
       if (ClientContext.webhookManager.isConfigured()) return;
       String prefix = CommandRegistry.getPrefix();
@@ -157,10 +160,16 @@ public class WebhookNotifsModule extends Module {
 
    @EventHandler
    private void onMinecraftDisconnectEvent(MinecraftDisconnectEvent event) {
-      if (this.disconnectSetting.getValue() && this.lastServer != null) {
-         this.enqueueLines(("You have been disconnected from " + this.lastServer.ip + "!").split("\n"));
-         this.lastServer = null;
+      ServerData disconnectedServer = this.lastServer;
+      this.lastServer = null;
+      if (this.disconnectSetting.getValue() && disconnectedServer != null) {
+         this.enqueueLines(("You have been disconnected from " + disconnectedServer.ip + "!").split("\n"));
       }
+   }
+
+   @Override
+   public void onDisable() {
+      this.lastServer = null;
    }
 
    private void enqueueLines(String[] lines) {
