@@ -55,6 +55,51 @@ final class PortableMediaSessionProviderTest {
         assertEquals(1, source.closeCount.get());
     }
 
+
+
+    @Test
+    void windowsStartupFailureIsContainedAndPartialBackendIsClosed() {
+        AtomicInteger closeCount = new AtomicInteger();
+        IllegalStateException startupFailure = new IllegalStateException("native unavailable");
+        PortableMediaSessionProvider provider = new PortableMediaSessionProvider(
+            snapshot -> { },
+            "Windows 11",
+            () -> { throw new IOException("unused"); },
+            sink -> new PortableMediaSessionProvider.WindowsBackend() {
+                @Override public void start() { throw startupFailure; }
+                @Override public String lastFailure() { return null; }
+                @Override public void close() { closeCount.incrementAndGet(); }
+            }
+        );
+
+        assertDoesNotThrow(provider::start);
+        assertEquals(1, closeCount.get());
+        assertEquals(PortableMediaSessionProvider.Availability.UNAVAILABLE, provider.availability());
+        assertEquals(IntegrationHealth.UNAVAILABLE, provider.health());
+        assertTrue(provider.lastFailure().contains("native unavailable"));
+
+        provider.close();
+        assertEquals(1, closeCount.get());
+    }
+
+    @Test
+    void throwingUpdateConsumerIsIsolatedFromProviderLifecycle() {
+        PortableMediaSessionProvider provider = new PortableMediaSessionProvider(
+            snapshot -> { throw new IllegalStateException("hud failed"); },
+            "Plan9",
+            () -> { throw new IOException("unused"); },
+            sink -> new PortableMediaSessionProvider.WindowsBackend() {
+                @Override public void start() { }
+                @Override public String lastFailure() { return null; }
+                @Override public void close() { }
+            }
+        );
+
+        assertDoesNotThrow(() -> provider.deliverUpdate(MediaSnapshot.empty()));
+        assertTrue(provider.lastFailure().contains("Media update callback failed"));
+        provider.close();
+    }
+
     private static final class BlockingSource implements MediaSessionSource {
         private final CountDownLatch readStarted = new CountDownLatch(1);
         private final CountDownLatch releaseRead = new CountDownLatch(1);
