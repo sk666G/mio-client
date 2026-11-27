@@ -15,6 +15,13 @@ class StudioLayoutTest {
          assertEquals(7, l.navIndex(l.navY(7) + 0.5));
          assertEquals(-1, l.navIndex(l.navY(0) - 0.1));
          assertEquals(-1, l.navIndex(l.navY(8)));
+         assertTrue(l.contentY() + l.contentHeight() < l.toolsY());
+         assertTrue(l.toolX(3) + l.toolWidth() <= l.contentX() + l.contentWidth());
+         for (int i = 0; i < 4; i++) {
+            assertEquals(i, l.toolIndex(l.toolX(i) + 0.5, l.toolsY() + 0.5));
+         }
+         assertEquals(-1, l.toolIndex(l.toolX(0) + l.toolWidth() + 0.5, l.toolsY() + 1));
+         assertEquals(-1, l.toolIndex(l.toolX(0), l.toolsY() - 1));
       }
    }
 }

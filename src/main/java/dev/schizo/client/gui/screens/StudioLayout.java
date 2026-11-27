@@ -17,7 +17,17 @@ record StudioLayout(int x, int y, int width, int height, int navWidth, int navRo
    int contentX() { return x + navWidth + 9; }
    int contentY() { return y + 39; }
    int contentWidth() { return Math.max(1, right() - contentX() - 9); }
-   int contentHeight() { return Math.max(1, bottom() - contentY() - 24); }
+   int contentHeight() { return Math.max(1, toolsY() - contentY() - 5); }
+   int toolsY() { return bottom() - 43; }
+   int toolWidth() { return Math.max(1, (contentWidth() - 12) / 4); }
+   int toolX(int index) { return contentX() + index * (toolWidth() + 4); }
+   int toolIndex(double px, double py) {
+      if (py < toolsY() || py >= toolsY() + 21) return -1;
+      for (int i = 0; i < 4; i++) {
+         if (px >= toolX(i) && px < toolX(i) + toolWidth()) return i;
+      }
+      return -1;
+   }
    int navY(int index) { return y + 43 + index * navRowHeight; }
    int navIndex(double pointerY) {
       double offset = pointerY - navY(0);
