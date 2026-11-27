@@ -823,6 +823,8 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
                case GLFW.GLFW_KEY_DOWN -> HudGroupAlignment.Mode.BOTTOM;
                case GLFW.GLFW_KEY_H -> HudGroupAlignment.Mode.CENTER_X;
                case GLFW.GLFW_KEY_V -> HudGroupAlignment.Mode.CENTER_Y;
+               case GLFW.GLFW_KEY_X -> HudGroupAlignment.Mode.DISTRIBUTE_X;
+               case GLFW.GLFW_KEY_D -> HudGroupAlignment.Mode.DISTRIBUTE_Y;
                default -> null;
             };
             if (mode != null) {
@@ -1058,6 +1060,12 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
       String gridHint = this.gridStep == 0 ? "G: grid off" : "G: grid " + this.gridStep + " px | free placement";
       if (!this.selection.isEmpty()) gridHint += " | " + this.selection.size() + " selected";
       if (this.selection.size() >= 2) gridHint += " | Ctrl+Shift+arrows/H/V: align";
+      if (this.selection.size() >= 3 && graphics.guiHeight() >= 36) {
+         String distributionHint = "Ctrl+Shift+X/D: equal horizontal/vertical gaps";
+         if (graphics.guiWidth() >= ClientAccess.schizoMinecraft.font.width(distributionHint) + 16) {
+            graphics.drawString(ClientAccess.schizoMinecraft.font, distributionHint, 8, graphics.guiHeight() - 24, 0xffb8b9c7, true);
+         }
+      }
       if (graphics.guiWidth() >= ClientAccess.schizoMinecraft.font.width(gridHint) + 16 && graphics.guiHeight() >= 24) {
          graphics.drawString(ClientAccess.schizoMinecraft.font, gridHint, 8, graphics.guiHeight() - 12, 0xffb8b9c7, true);
       }
