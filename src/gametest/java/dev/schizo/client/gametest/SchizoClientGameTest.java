@@ -132,6 +132,24 @@ public final class SchizoClientGameTest implements FabricClientGameTest {
                throw new IllegalStateException("Inspector target is not the visible searched module");
             }
             double scale = dev.schizo.client.render.GuiScaleUtils.calculateScaleMultiplier(studio.getGuiScale());
+            var click = new MouseButtonEvent(x * scale, y * scale, new MouseButtonInfo(GLFW.GLFW_MOUSE_BUTTON_RIGHT, 0));
+            studio.mouseClicked(click, false);
+            studio.mouseReleased(click);
+            if (!component.isOpen()) throw new IllegalStateException("Module settings did not open");
+         });
+         context.waitTicks(10);
+         context.takeScreenshot("schizo-studio-controls");
+         context.runOnClient(minecraft -> {
+            ClickGuiScreen studio = (ClickGuiScreen)minecraft.screen;
+            var panel = studio.getPanels().stream()
+               .filter(p -> p.getName().equals(studio.getSelectedPanelName())).findFirst().orElseThrow();
+            var component = panel.children.stream()
+               .filter(c -> c instanceof dev.schizo.client.gui.components.ModuleComponent module
+                  && module.getModule().getName().equalsIgnoreCase("Crosshair"))
+               .map(c -> (dev.schizo.client.gui.components.ModuleComponent)c).findFirst().orElseThrow();
+            double x = panel.getX() + 12;
+            double y = panel.getY() + component.getYOffset() + 5;
+            double scale = dev.schizo.client.render.GuiScaleUtils.calculateScaleMultiplier(studio.getGuiScale());
             var click = new MouseButtonEvent(x * scale, y * scale, new MouseButtonInfo(GLFW.GLFW_MOUSE_BUTTON_MIDDLE, 0));
             studio.mouseClicked(click, false);
             if (!(minecraft.screen instanceof dev.schizo.client.gui.screens.ModuleInspectorScreen)) {

@@ -100,7 +100,7 @@ jobs:
             python3 - "$run_dir/screenshots" <<'PY'
           import pathlib, struct, sys
           root = pathlib.Path(sys.argv[1])
-          names = ["schizo-clickgui","schizo-health-center","schizo-command-palette","schizo-performance-center","schizo-hud-editor","schizo-expedition-discoveries","schizo-expedition-travel","schizo-expedition-profiles","schizo-expedition-compatibility","schizo-hud-layout-preview","schizo-hud-editor-reconnect"]
+          names = ["schizo-clickgui","schizo-studio-controls","schizo-health-center","schizo-command-palette","schizo-performance-center","schizo-hud-editor","schizo-expedition-discoveries","schizo-expedition-travel","schizo-expedition-profiles","schizo-expedition-compatibility","schizo-hud-layout-preview","schizo-hud-editor-reconnect"]
           for name in names:
               matches = list(root.glob(f"[0-9][0-9][0-9][0-9]_{name}.png"))
               if len(matches) != 1:

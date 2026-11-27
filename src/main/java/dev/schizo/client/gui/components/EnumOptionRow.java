@@ -38,6 +38,13 @@ public class EnumOptionRow<E extends Enum<E> & NamedEntry> extends AbstractCompo
    @Override
    public void render(PoseStack poseStack, double mouseX, double mouseY) {
       super.render(poseStack, mouseX, mouseY);
+      if (this.panel.isDocked()) {
+         FontRenderer.INSTANCE.drawWithoutShadow(poseStack,
+            StudioControlStyle.fitText(this.label, this.panel.getWidth() - 28),
+            this.panel.getX() + 16, this.enumComponent.getY() + this.yOffset + this.getTextYOffset(),
+            this.getUiModule().textColorSetting.getValue());
+         return;
+      }
       FontRenderer.INSTANCE
          .drawWithShadow(
             poseStack,
@@ -103,14 +110,9 @@ public class EnumOptionRow<E extends Enum<E> & NamedEntry> extends AbstractCompo
                + this.getPanel()
                   .getWidth()
          && mouseY
-            > this.enumComponent
-                  .getY()
-               + this.yOffset
+            > this.clampYToPanel(this.enumComponent.getY() + this.yOffset)
          && mouseY
-            < this.enumComponent
-                  .getY()
-               + this.getBaseHeight()
-               + this.yOffset;
+            < this.clampYToPanel(this.enumComponent.getY() + this.getBaseHeight() + this.yOffset);
    }
 
 }
