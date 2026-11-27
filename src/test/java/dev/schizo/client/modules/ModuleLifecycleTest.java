@@ -17,6 +17,7 @@ class ModuleLifecycleTest {
       assertThrows(IllegalStateException.class, module::enable);
       assertFalse(module.isToggled());
       assertEquals(1, module.disableCalls.get());
+      assertFalse(module.toggledDuringDisable);
 
       ClientAccess.eventBus.post(new ProbeEvent());
       assertEquals(0, module.eventCalls.get());
@@ -33,6 +34,7 @@ class ModuleLifecycleTest {
          assertEquals(1, module.toggleCalls.get());
          assertEquals(0, module.enableCalls.get());
          assertEquals(1, module.disableCalls.get());
+         assertFalse(module.toggledDuringDisable);
       } finally {
          ClientAccess.eventBus.unsubscribe(observer);
       }
@@ -101,6 +103,7 @@ class ModuleLifecycleTest {
       private boolean failToggle;
       private boolean failEnable;
       private boolean failDisable;
+      private boolean toggledDuringDisable;
 
       private TestModule() {
          super("LifecycleTest", "Lifecycle regression test", ModuleCategory.MISC);
@@ -125,6 +128,7 @@ class ModuleLifecycleTest {
       @Override
       public void onDisable() {
          this.disableCalls.incrementAndGet();
+         this.toggledDuringDisable = this.isToggled();
          if (this.failDisable) {
             throw new IllegalStateException("disable failure");
          }
