@@ -130,6 +130,12 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
       }
 
       if (lifecycleFailure != null) {
+         if (ClientContext.taskScheduler != null) {
+            ClientContext.taskScheduler.cancelOwnedTasks(this);
+         }
+         eventBus.unsubscribe(this);
+         this.enabled = false;
+         this.compatibilityPolicySuppressed = false;
          if (toggleHookStarted || enableHookStarted) {
             try {
                this.onDisable();
@@ -139,12 +145,6 @@ public class Module extends NamedFeature implements Toggleable, ClientAccess, Re
                }
             }
          }
-         if (ClientContext.taskScheduler != null) {
-            ClientContext.taskScheduler.cancelOwnedTasks(this);
-         }
-         eventBus.unsubscribe(this);
-         this.enabled = false;
-         this.compatibilityPolicySuppressed = false;
          ClientAccess.logger.error("Module {} failed while enabling and was rolled back", this.getName(), lifecycleFailure);
          if (lifecycleFailure instanceof RuntimeException runtimeFailure) {
             throw runtimeFailure;
