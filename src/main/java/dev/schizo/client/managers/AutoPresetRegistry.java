@@ -150,7 +150,12 @@ public final class AutoPresetRegistry implements ClientAccess, JsonConfigurable 
       if (server == null) {
          throw new IllegalArgumentException("Server key must not be null");
       }
-      return server.toLowerCase(Locale.ROOT);
+
+      String normalized = server.strip().toLowerCase(Locale.ROOT);
+      if (normalized.isEmpty() || normalized.length() > 255) {
+         throw new IllegalArgumentException("Server key must not be empty or longer than 255 characters");
+      }
+      return normalized;
    }
 
    record ParsedServerEntry(Map<String, String> presets, String kitName) {
