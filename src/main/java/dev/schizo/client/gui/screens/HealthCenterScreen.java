@@ -38,15 +38,13 @@ public final class HealthCenterScreen extends Screen {
       rowCount = Math.max(1, Math.min(12, (height - top - 84) / 17));
       int buttonY = Math.min(height - 23, top + 42 + rowCount * 17);
       int w = Math.max(1, (panelWidth - 8) / 3);
-      addRenderableWidget(Button.builder(Component.literal("Back"), button -> onClose())
-         .bounds(left, buttonY, w, 20).build());
-      addRenderableWidget(Button.builder(Component.literal("Refresh"), button -> refresh())
-         .bounds(left + w + 4, buttonY, w, 20).build());
-      addRenderableWidget(Button.builder(Component.literal("Copy report"), button -> {
+      addRenderableWidget(new StudioButton(left, buttonY, w, 20, Component.literal("Back"), button -> onClose()));
+      addRenderableWidget(new StudioButton(left + w + 4, buttonY, w, 20, Component.literal("Refresh"), button -> refresh()));
+      addRenderableWidget(new StudioButton(left + 2 * (w + 4), buttonY, w, 20, Component.literal("Copy report"), button -> {
          refresh();
          minecraft.keyboardHandler.setClipboard(report.clipboardText());
          notice = "Local diagnostic summary copied";
-      }).bounds(left + 2 * (w + 4), buttonY, w, 20).build());
+      }));
       refresh();
    }
 

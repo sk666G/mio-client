@@ -63,7 +63,7 @@ public final class ContextProfileEditorScreen extends Screen {
    }
 
    private Button button(String text, int x, int y, int w, Runnable action) {
-      return addRenderableWidget(Button.builder(Component.literal(text), ignored -> action.run()).bounds(x, y, w, 20).build());
+      return addRenderableWidget(new StudioButton(x, y, w, 20, Component.literal(text), ignored -> action.run()));
    }
 
    private void browse(int direction) {

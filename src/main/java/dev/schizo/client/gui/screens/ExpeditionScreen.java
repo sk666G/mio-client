@@ -133,8 +133,7 @@ public final class ExpeditionScreen extends Screen {
    }
 
    private Button button(String title, int x, int y, int width, Runnable action) {
-      return this.addRenderableWidget(Button.builder(Component.literal(title), button -> action.run())
-         .bounds(x, y, width, 20).build());
+      return this.addRenderableWidget(new StudioButton(x, y, width, 20, Component.literal(title), button -> action.run()));
    }
 
    private String server() {

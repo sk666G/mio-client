@@ -66,7 +66,7 @@ public final class ThemeStudioScreen extends Screen {
    }
 
    private Button button(String label, int x, int y, int w, Runnable action) {
-      return addRenderableWidget(Button.builder(Component.literal(label), ignored -> action.run()).bounds(x, y, w, 20).build());
+      return addRenderableWidget(new StudioButton(x, y, w, 20, Component.literal(label), ignored -> action.run()));
    }
 
    private void choose(PaletteChoice choice) {
