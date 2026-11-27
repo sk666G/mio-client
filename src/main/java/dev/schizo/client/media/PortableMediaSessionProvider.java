@@ -76,8 +76,24 @@ public final class PortableMediaSessionProvider implements AutoCloseable {
         if (closed || started) return;
         started = true;
         if (backend == Backend.WINDOWS_GSMTC) {
-            windows = windowsFactory.create(this::publish);
-            windows.start();
+            WindowsBackend candidate = null;
+            try {
+                candidate = windowsFactory.create(this::publish);
+                windows = candidate;
+                candidate.start();
+            } catch (RuntimeException | LinkageError startupFailure) {
+                windows = null;
+                if (candidate != null) {
+                    try {
+                        candidate.close();
+                    } catch (RuntimeException cleanupFailure) {
+                        if (cleanupFailure != startupFailure) {
+                            startupFailure.addSuppressed(cleanupFailure);
+                        }
+                    }
+                }
+                publishFailure(startupFailure);
+            }
         } else if (backend == Backend.LINUX_MPRIS || backend == Backend.MACOS_APPLE_EVENTS) {
             worker = new Thread(this::poll, backend == Backend.LINUX_MPRIS ? "schizo-mpris-session" : "schizo-mac-media");
             worker.setDaemon(true); worker.start();
