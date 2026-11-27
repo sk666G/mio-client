@@ -215,6 +215,23 @@ public final class SchizoClientGameTest implements FabricClientGameTest {
             context.runOnClient(minecraft -> clickButton(minecraft.screen, tab));
             context.waitTicks(2);
             context.takeScreenshot("schizo-expedition-" + tab.toLowerCase(java.util.Locale.ROOT));
+            if ("Profiles".equals(tab)) {
+               context.runOnClient(minecraft -> clickButton(minecraft.screen, "Edit rules"));
+               context.waitForScreen(dev.schizo.client.gui.screens.ContextProfileEditorScreen.class);
+               context.waitTicks(2);
+               context.runOnClient(minecraft -> {
+                  var before = ClientContext.contextProfileRegistry.getRules();
+                  clickButton(minecraft.screen, "New rule");
+                  clickButton(minecraft.screen, "Preview save");
+                  if (!(minecraft.screen instanceof dev.schizo.client.gui.screens.ContextProfileEditorScreen)
+                     || !before.equals(ClientContext.contextProfileRegistry.getRules())) {
+                     throw new IllegalStateException("Invalid editor draft changed the rule list");
+                  }
+                  clickButton(minecraft.screen, "Back");
+               });
+               context.waitForScreen(ExpeditionScreen.class);
+               context.waitTicks(2);
+            }
          }
          context.setScreen(() -> null);
          context.waitForScreen(null);
