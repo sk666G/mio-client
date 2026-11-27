@@ -12,7 +12,7 @@ class AmbienceLifecycleTest {
    void disabledBrightnessChangeDoesNotTouchLiveGameOptions() {
       AmbienceModule module = new AmbienceModule();
 
-      if (ClientAccess.schizoMinecraft.options == null) {
+      if (ClientAccess.schizoMinecraft == null || ClientAccess.schizoMinecraft.options == null) {
          assertDoesNotThrow(() ->
             module.brightnessSetting.setValue(AmbienceModule.BrightnessChoice.SCREEN)
          );

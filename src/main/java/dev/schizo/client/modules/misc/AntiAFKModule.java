@@ -34,7 +34,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
-import net.minecraft.client.KeyMapping;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.util.thread.BlockableEventLoop;
@@ -145,17 +144,6 @@ public class AntiAFKModule extends Module {
       if (!this.isIdle()) {
          return;
       }
-      KeyMapping jumpKeySnapshot = ClientAccess.schizoMinecraft.options.keyJump;
-      if (jumpKeySnapshot.isDown()) {
-         Setting<Boolean> jumpSettingSnapshot = this.jumpSetting;
-         Boolean jumpEnabled = jumpSettingSnapshot.getValue();
-         if (jumpEnabled) {
-            boolean jumpPressed = false;
-            KeyMapping jumpKey = ClientAccess.schizoMinecraft.options.keyJump;
-            jumpKey.setDown(jumpPressed);
-         }
-      }
-
       ElapsedTimer timerCapture = this.actionTimer;
       Setting<Float> delaySnapshot = this.delaySetting;
       Float delayValue = delaySnapshot.getValue();

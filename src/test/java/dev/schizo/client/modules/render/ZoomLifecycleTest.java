@@ -20,7 +20,7 @@ class ZoomLifecycleTest {
 
    @Test
    void cleanupBeforeCaptureDoesNotOverwriteCurrentSmoothCameraState() {
-      if (ClientAccess.schizoMinecraft.options == null) {
+      if (ClientAccess.schizoMinecraft == null || ClientAccess.schizoMinecraft.options == null) {
          ZoomModule module = new ZoomModule();
          assertDoesNotThrow(module::onDisable);
          return;

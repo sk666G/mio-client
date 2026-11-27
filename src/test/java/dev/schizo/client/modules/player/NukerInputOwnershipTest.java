@@ -17,7 +17,7 @@ class NukerInputOwnershipTest {
 
    @Test
    void disablingNukerDoesNotReleasePhysicalAttackKey() {
-      if (ClientAccess.schizoMinecraft.options == null) {
+      if (ClientAccess.schizoMinecraft == null || ClientAccess.schizoMinecraft.options == null) {
          return;
       }
 

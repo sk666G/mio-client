@@ -17,6 +17,7 @@ import dev.schizo.client.settings.NamedEntry;
 import java.util.HashSet;
 import java.util.Set;
 import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.OptionInstance;
 import net.minecraft.client.Options;
 
@@ -33,9 +34,12 @@ public final class GameOptionsOverrides implements ClientAccess {
    }
 
    public static void registerCameraOverride(NamedEntry owner) {
+      Minecraft minecraft = ClientAccess.schizoMinecraft;
+      if (minecraft == null || minecraft.options == null) {
+         return;
+      }
       if (CAMERA_OVERRIDE_OWNERS.isEmpty()) {
-         Options gameOptions = ClientAccess.schizoMinecraft.options;
-         savedCameraType = gameOptions.getCameraType();
+         savedCameraType = minecraft.options.getCameraType();
       }
 
       Set<String> owners = CAMERA_OVERRIDE_OWNERS;
@@ -49,9 +53,12 @@ public final class GameOptionsOverrides implements ClientAccess {
       owners.remove(ownerName);
       if (CAMERA_OVERRIDE_OWNERS.isEmpty()
          && savedCameraType != null) {
-         Options gameOptions = ClientAccess.schizoMinecraft.options;
-         CameraType cameraTypeToRestore = savedCameraType;
-         gameOptions.setCameraType(cameraTypeToRestore);
+         Minecraft minecraft = ClientAccess.schizoMinecraft;
+         if (minecraft != null && minecraft.options != null) {
+            Options gameOptions = minecraft.options;
+            CameraType cameraTypeToRestore = savedCameraType;
+            gameOptions.setCameraType(cameraTypeToRestore);
+         }
          savedCameraType = null;
       }
    }

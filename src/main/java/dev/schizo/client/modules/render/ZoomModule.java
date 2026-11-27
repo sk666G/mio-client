@@ -21,6 +21,7 @@ import dev.schizo.client.settings.BooleanSetting;
 import dev.schizo.client.settings.NumberSetting;
 import dev.schizo.client.settings.Setting;
 
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.OptionInstance;
 import net.minecraft.client.Options;
 import net.minecraft.util.Mth;
@@ -89,8 +90,9 @@ public class ZoomModule extends Module {
       FloatAnimation scroll = this.scrollAnimation;
       long scrollDuration = this.getSmoothingDuration(100);
       scroll.setTarget(0.0F, scrollDuration);
-      if (this.smoothCameraCaptured && ClientAccess.schizoMinecraft.options != null) {
-         ClientAccess.schizoMinecraft.options.smoothCamera = this.savedSmoothCamera;
+      Minecraft minecraft = ClientAccess.schizoMinecraft;
+      if (this.smoothCameraCaptured && minecraft != null && minecraft.options != null) {
+         minecraft.options.smoothCamera = this.savedSmoothCamera;
       }
    }
 

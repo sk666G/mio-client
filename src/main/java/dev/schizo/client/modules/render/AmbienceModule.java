@@ -35,6 +35,7 @@ import java.awt.Color;
 import java.util.Calendar;
 import java.util.function.Supplier;
 import net.minecraft.client.OptionInstance;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.Options;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.renderer.LevelRenderer;
@@ -90,22 +91,28 @@ public class AmbienceModule extends Module {
 
    @Override
    public void onDisable() {
-      if (!this.isWorldUnavailable()) {
-         LocalPlayer effectPlayer = ClientAccess.schizoMinecraft.player;
+      Minecraft minecraft = ClientAccess.schizoMinecraft;
+      if (minecraft == null) {
+         return;
+      }
+      if (minecraft.player != null && minecraft.level != null) {
+         LocalPlayer effectPlayer = minecraft.player;
          Holder nightVision = MobEffects.NIGHT_VISION;
          effectPlayer.removeEffect(nightVision);
       }
 
-      if (this.serverTimeSnapshot != null && ClientAccess.schizoMinecraft.level != null) {
-         ClientAccess.schizoMinecraft.level.setTimeFromServer(
+      if (this.serverTimeSnapshot != null && minecraft.level != null) {
+         minecraft.level.setTimeFromServer(
             this.serverTimeSnapshot.gameTime(), this.serverTimeSnapshot.dayTime(), true
          );
       }
 
-      Options options = ClientAccess.schizoMinecraft.options;
-      OptionInstance<Double> gammaOption = options.gamma();
-      double gammaToRestore = this.savedGamma;
-      GameOptionsOverrides.forceSetOptionValue(gammaOption, gammaToRestore);
+      Options options = minecraft.options;
+      if (options != null) {
+         OptionInstance<Double> gammaOption = options.gamma();
+         double gammaToRestore = this.savedGamma;
+         GameOptionsOverrides.forceSetOptionValue(gammaOption, gammaToRestore);
+      }
    }
 
    public void updateServerTimeSnapshot(long gameTime, long dayTime) {
@@ -279,8 +286,9 @@ public class AmbienceModule extends Module {
          if (worldTimeOption.getValue()) {
             return;
          }
-         if (this.serverTimeSnapshot != null && ClientAccess.schizoMinecraft.level != null) {
-            ClientAccess.schizoMinecraft.level.setTimeFromServer(
+         Minecraft minecraft = ClientAccess.schizoMinecraft;
+         if (this.serverTimeSnapshot != null && minecraft != null && minecraft.level != null) {
+            minecraft.level.setTimeFromServer(
                this.serverTimeSnapshot.gameTime(), this.serverTimeSnapshot.dayTime(), false
             );
             this.serverTimeSnapshot = null;

@@ -8,9 +8,6 @@ import org.junit.jupiter.api.Test;
 class ChunkScannerLifecycleTest {
    @Test
    void stoppedOrWorldlessScannerDoesNotEnumerateLoadedChunks() {
-      assertNull(ClientAccess.schizoMinecraft.player);
-      assertNull(ClientAccess.schizoMinecraft.level);
-
       ChunkScanner scanner = new ChunkScanner(
          0,
          (chunkPos, chunk) -> fail("chunk callback must not run without a world"),

@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
+import dev.schizo.client.managers.TickRateController;
 import dev.schizo.client.render.FeatureBoxRenderer;
 import java.lang.reflect.Field;
 import net.minecraft.SharedConstants;
@@ -20,11 +21,12 @@ class ScaffoldLifecycleTest {
 
    @Test
    void worldlessCleanupDiscardsCapturedJumpStrength() throws Exception {
-      assertNull(ClientAccess.schizoMinecraft.player);
-      assertNull(ClientAccess.schizoMinecraft.level);
-
       FeatureBoxRenderer previousRenderer = ClientContext.featureBoxRenderer;
-      ClientContext.featureBoxRenderer = new FeatureBoxRenderer();
+      TickRateController.PlayerTicks previousPlayerTicks = ClientContext.playerTickController;
+      FeatureBoxRenderer renderer = new FeatureBoxRenderer();
+      TickRateController.PlayerTicks playerTicks = new TickRateController.PlayerTicks();
+      ClientContext.featureBoxRenderer = renderer;
+      ClientContext.playerTickController = playerTicks;
       try {
          ScaffoldModule module = new ScaffoldModule();
          Field savedJumpStrength = ScaffoldModule.class.getDeclaredField("savedJumpStrength");
@@ -34,7 +36,10 @@ class ScaffoldLifecycleTest {
          assertDoesNotThrow(module::onDisable);
          assertEquals(-1.0F, savedJumpStrength.getFloat(module));
       } finally {
+         ClientAccess.eventBus.unsubscribe(renderer);
+         ClientAccess.eventBus.unsubscribe(playerTicks);
          ClientContext.featureBoxRenderer = previousRenderer;
+         ClientContext.playerTickController = previousPlayerTicks;
       }
    }
 }

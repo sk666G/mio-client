@@ -3,7 +3,6 @@ package dev.schizo.client.modules.render;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.google.gson.JsonObject;
-import dev.schizo.client.ClientAccess;
 import dev.schizo.client.events.MinecraftDisconnectEvent;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -38,8 +37,6 @@ class SearchModuleConfigTest {
 
    @Test
    void entitySearchSettingLoadsWithoutAnActiveWorld() {
-      assertNull(ClientAccess.schizoMinecraft.level);
-
       SearchModule module = new SearchModule();
       JsonObject settings = new JsonObject();
       settings.addProperty("SearchEntities", true);

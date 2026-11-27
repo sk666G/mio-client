@@ -79,7 +79,11 @@ public class FreeLookModule extends Module {
    @Override
    public void onDisable() {
       GameOptionsOverrides.unregisterCameraOverride(this);
-      LocalPlayer player = ClientAccess.schizoMinecraft.player;
+      Minecraft minecraft = ClientAccess.schizoMinecraft;
+      if (minecraft == null) {
+         return;
+      }
+      LocalPlayer player = minecraft.player;
       if (player == null) {
          return;
       }
@@ -91,11 +95,11 @@ public class FreeLookModule extends Module {
       player.setXRot(pitch);
       player.xBobO = player.xBob = player.xRotO = pitch;
 
-      ClientLevel level = ClientAccess.schizoMinecraft.level;
-      if (level == null || ClientAccess.schizoMinecraft.gameRenderer == null) {
+      ClientLevel level = minecraft.level;
+      if (level == null || minecraft.gameRenderer == null) {
          return;
       }
-      Camera camera = ClientAccess.schizoMinecraft.gameRenderer.getMainCamera();
+      Camera camera = minecraft.gameRenderer.getMainCamera();
       camera.setup(level, player, false, false, 1.0F);
    }
 

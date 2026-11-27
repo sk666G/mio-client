@@ -36,8 +36,8 @@ public interface ClientAccess {
    );
 
    default boolean isWorldUnavailable() {
-      return ClientAccess.schizoMinecraft.player == null
-         || ClientAccess.schizoMinecraft.level == null;
+      Minecraft minecraft = ClientAccess.schizoMinecraft;
+      return minecraft == null || minecraft.player == null || minecraft.level == null;
    }
 
    static String getVersion() {
@@ -45,7 +45,8 @@ public interface ClientAccess {
    }
 
    static boolean isLocalPlayer(Object candidate) {
-      return ClientAccess.schizoMinecraft.player == candidate;
+      Minecraft minecraft = ClientAccess.schizoMinecraft;
+      return minecraft != null && minecraft.player == candidate;
    }
 
 }
