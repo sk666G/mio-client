@@ -35,10 +35,12 @@ public class ZoomOptionsUpdater implements ClientAccess {
       GameOptionsOverrides.forceSetOptionValue(fovOption, fovValue);
       Options cameraOptions = ClientAccess.schizoMinecraft.options;
       ZoomModule toggleModule = this.zoomModule;
-      boolean smoothCamera = false;
+      boolean smoothCamera = this.zoomModule.smoothCameraCaptured
+         ? this.zoomModule.savedSmoothCamera
+         : cameraOptions.smoothCamera;
       if (toggleModule.isToggled()) {
          Setting<Boolean> smoothCameraSetting = this.zoomModule.smoothCameraSetting;
-         smoothCamera = (smoothCameraSetting.getValue());
+         smoothCamera = smoothCameraSetting.getValue();
       }
       cameraOptions.smoothCamera = smoothCamera;
       if (fov >= this.zoomModule.baselineFov) {
@@ -47,6 +49,7 @@ public class ZoomOptionsUpdater implements ClientAccess {
             EventBus bus = ClientAccess.eventBus;
             bus.unsubscribe(this);
             this.zoomModule.fovUpdateActive = false;
+            this.zoomModule.smoothCameraCaptured = false;
             return;
          }
       }
