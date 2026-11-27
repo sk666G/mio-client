@@ -30,6 +30,7 @@ public final class SchizoClientGameTest implements FabricClientGameTest {
       long failuresBefore = EventFailureTracker.GLOBAL.totalFailures();
       AtomicReference<ClientLevel> firstLevel = new AtomicReference<>();
       AtomicReference<LocalPlayer> firstPlayer = new AtomicReference<>();
+      AtomicReference<com.google.gson.JsonElement> originalContextProfiles = new AtomicReference<>();
 
       try (TestSingleplayerContext singleplayer = GameTestWorlds.create(context)) {
          singleplayer.getClientWorld().waitForChunksRender();
@@ -48,6 +49,40 @@ public final class SchizoClientGameTest implements FabricClientGameTest {
             firstLevel.set(minecraft.level);
             firstPlayer.set(minecraft.player);
          });
+
+         context.runOnClient(minecraft -> {
+            var profiles = ClientContext.contextProfileRegistry;
+            if (profiles == null) {
+               throw new IllegalStateException("Context profile registry is unavailable");
+            }
+            originalContextProfiles.set(profiles.toJson().deepCopy());
+            profiles.clearRules();
+            if (!profiles.setEnabled(true) || !profiles.isEnabled()) {
+               throw new IllegalStateException("Context profiles did not enable in an initialized client");
+            }
+         });
+         context.waitTicks(2);
+         context.runOnClient(minecraft -> {
+            var profiles = ClientContext.contextProfileRegistry;
+            if ("No context profile has been applied yet".equals(profiles.getCurrentContextDescription())) {
+               throw new IllegalStateException("Context profiles did not observe the active client context");
+            }
+            if (!profiles.previewCurrentRules().isEmpty()) {
+               throw new IllegalStateException("Cleared context profile registry unexpectedly selected rules");
+            }
+            if (!profiles.setEnabled(false) || profiles.isEnabled()) {
+               throw new IllegalStateException("Context profiles did not restore cleanly on disable");
+            }
+            com.google.gson.JsonElement original = originalContextProfiles.get();
+            if (original == null) {
+               throw new IllegalStateException("Context profile test did not capture the original configuration");
+            }
+            profiles.fromJson(original.deepCopy());
+            if (!profiles.toJson().equals(original)) {
+               throw new IllegalStateException("Context profile configuration was not restored after lifecycle test");
+            }
+         });
+         context.waitTicks(1);
 
          context.getInput().pressKey(GLFW.GLFW_KEY_RIGHT_SHIFT);
          context.waitForScreen(ClickGuiScreen.class);
