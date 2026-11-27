@@ -30,4 +30,18 @@ class ThemePreviewDraftTest {
       draft.select(PaletteChoice.SCHIZO);
       assertEquals(actual, draft.preview());
    }
+
+   @Test void customPreviewIsDetachedAndStaleGuarded() {
+      var original = PaletteChoice.SCHIZO.getPalette();
+      var custom = new UiPalette(Color.ORANGE, original.background(), original.button(), original.enabled(), original.tint(), original.gradient());
+      var draft = new ThemePreviewDraft(PaletteChoice.SCHIZO, original);
+      draft.selectCustom(custom);
+      assertEquals(PaletteChoice.CUSTOM, draft.selected());
+      assertEquals(custom, draft.preview());
+      assertTrue(draft.canApply(PaletteChoice.SCHIZO, original));
+      assertFalse(draft.canApply(PaletteChoice.SCHIZO, custom));
+      draft.select(PaletteChoice.SCHIZO);
+      assertEquals(original, draft.preview());
+      assertFalse(draft.canApply(PaletteChoice.SCHIZO, original));
+   }
 }

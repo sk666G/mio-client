@@ -235,6 +235,35 @@ public final class UIModule extends Module {
       }
    }
 
+   /** Fixed-color editor must not silently replace synced or rainbow color behavior. */
+   public boolean supportsFixedPaletteEditing() {
+      for (Setting<Color> setting : java.util.List.of(this.colorSetting, this.backgroundSetting,
+         this.buttonSetting, this.enabledSetting, this.tintSetting, this.gradientColorSetting)) {
+         if (!(setting instanceof ColorSetting color) || color.isSynced() || color.isRainbow()) return false;
+      }
+      return true;
+   }
+
+   /** Client-thread commit of an explicitly reviewed fixed palette; notification colors remain independent. */
+   public boolean applyCustomPalette(PaletteChoice expectedChoice, UiPalette expectedColors, UiPalette palette) {
+      java.util.Objects.requireNonNull(palette);
+      if (this.applyingPalette || !this.supportsFixedPaletteEditing()
+         || this.paletteSetting.getValue() != expectedChoice || !this.snapshotPalette().equals(expectedColors)) return false;
+      this.applyingPalette = true;
+      try {
+         this.paletteSetting.setValue(PaletteChoice.CUSTOM);
+         this.colorSetting.setValue(palette.accent());
+         this.backgroundSetting.setValue(palette.background());
+         this.buttonSetting.setValue(palette.button());
+         this.enabledSetting.setValue(palette.enabled());
+         this.tintSetting.setValue(palette.tint());
+         this.gradientColorSetting.setValue(palette.gradient());
+         return true;
+      } finally {
+         this.applyingPalette = false;
+      }
+   }
+
    private void markPaletteCustom() {
       if (!this.applyingPalette && this.paletteSetting.getValue() != PaletteChoice.CUSTOM) {
          this.paletteSetting.setValue(PaletteChoice.CUSTOM);
