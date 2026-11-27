@@ -316,7 +316,7 @@ public final class PresetCommand extends Command {
             ChatUtils.DEFAULT_SIGNATURE, ChatUtils.MessagePriority.MID);
          return 0;
       }
-      PresetUndoAction undoAction = PresetUndoAction.beforeLoad(preset.getName());
+      PresetUndoAction undoAction = PresetUndoAction.beforeLoad(category, preset.getName());
       owner.loadMatchingModules(preset, candidate -> ((Module)candidate).getCategory() == moduleCategory);
       configurationManager.getPresetUndoState().push(undoAction);
 
@@ -347,7 +347,7 @@ public final class PresetCommand extends Command {
          return 0;
       }
       Predicate matchesSelectedModule = candidate -> moduleClasses.contains(candidate.getClass());
-      PresetUndoAction undoAction = PresetUndoAction.beforeLoad(preset.getName());
+      PresetUndoAction undoAction = PresetUndoAction.beforeLoad(category, preset.getName());
       owner.loadMatchingModules(preset, matchesSelectedModule);
       configurationManager.getPresetUndoState().push(undoAction);
 
