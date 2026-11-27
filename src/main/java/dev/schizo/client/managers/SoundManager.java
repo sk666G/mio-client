@@ -24,6 +24,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -61,7 +62,7 @@ public final class SoundManager implements ClientAccess {
          try (var paths = Files.list(directory)) {
             var files = paths
                .filter(this::isSafeSoundFile)
-               .filter(path -> path.toString().endsWith(".ogg"))
+               .filter(SoundManager::isOggFile)
                .iterator();
             while (files.hasNext() && !budget.exhausted()) {
                Path file = files.next();
@@ -91,7 +92,7 @@ public final class SoundManager implements ClientAccess {
          try (var files = Files.list(directory)) {
             var soundFiles = files
                .filter(this::isSafeSoundFile)
-               .filter(path -> path.toString().endsWith(".ogg"))
+               .filter(SoundManager::isOggFile)
                .iterator();
             while (soundFiles.hasNext() && !budget.exhausted()) {
                Path file = soundFiles.next();
@@ -125,6 +126,13 @@ public final class SoundManager implements ClientAccess {
    private boolean isSafeSoundFile(Path file) {
       return !Files.isSymbolicLink(file)
          && Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS);
+   }
+
+   static boolean isOggFile(Path file) {
+      if (file == null || file.getFileName() == null) {
+         return false;
+      }
+      return file.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".ogg");
    }
 
    private byte[] readCustomSound(Path file) throws IOException {
