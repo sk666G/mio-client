@@ -33,6 +33,7 @@ public class ZoomModule extends Module {
    private final ZoomOptionsUpdater optionsUpdater;
    protected int baselineFov;
    protected boolean savedSmoothCamera;
+   protected boolean smoothCameraCaptured;
    protected boolean fovUpdateActive;
    private final FloatAnimation zoomAnimation;
    private final FloatAnimation scrollAnimation;
@@ -77,6 +78,7 @@ public class ZoomModule extends Module {
       long duration = this.getSmoothingDuration(200);
       animation.setTarget(1.0F, duration);
       this.savedSmoothCamera = ClientAccess.schizoMinecraft.options.smoothCamera;
+      this.smoothCameraCaptured = true;
    }
 
    @Override
@@ -87,7 +89,9 @@ public class ZoomModule extends Module {
       FloatAnimation scroll = this.scrollAnimation;
       long scrollDuration = this.getSmoothingDuration(100);
       scroll.setTarget(0.0F, scrollDuration);
-      ClientAccess.schizoMinecraft.options.smoothCamera = this.savedSmoothCamera;
+      if (this.smoothCameraCaptured && ClientAccess.schizoMinecraft.options != null) {
+         ClientAccess.schizoMinecraft.options.smoothCamera = this.savedSmoothCamera;
+      }
    }
 
    private int getSmoothingDuration(int duration) {
