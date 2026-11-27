@@ -14,6 +14,7 @@ import dev.schizo.client.utils.FileUtils;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
@@ -60,7 +61,7 @@ public final class OfflineSoundAssets {
                         }
                         continue;
                     }
-                    FileUtils.writeBytesAtomically(destination, inputStream.readAllBytes());
+                    installMissingFile(destination, inputStream.readAllBytes());
                 } finally {
                     inputStream.close();
                 }
@@ -68,6 +69,15 @@ public final class OfflineSoundAssets {
         } catch (IOException | SecurityException exception) {
             System.getLogger("Schizo Offline Sounds").log(System.Logger.Level.WARNING, "Optional killstreak sounds are unavailable: " + exception.getMessage());
         }
+    static boolean installMissingFile(Path destination, byte[] bytes) throws IOException {
+        try {
+            FileUtils.writeBytesCreateNew(destination, bytes);
+            return true;
+        } catch (FileAlreadyExistsException createdConcurrently) {
+            return false;
+        }
+    }
+
     }
 }
 
