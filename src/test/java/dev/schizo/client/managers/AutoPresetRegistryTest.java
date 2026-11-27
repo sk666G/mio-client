@@ -2,6 +2,7 @@ package dev.schizo.client.managers;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.google.gson.JsonObject;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.events.ConnectScreenConnectEvent;
 import dev.schizo.client.events.MinecraftDisconnectEvent;
@@ -27,6 +28,30 @@ class AutoPresetRegistryTest {
          ordered.stream().map(Map.Entry::getKey).toList()
       );
       assertEquals(List.of("base", "modules", "visual"), ordered.stream().map(Map.Entry::getValue).toList());
+   }
+
+   @Test
+   void serverKeysTrimAndNormalizeCase() {
+      assertEquals("example.org", AutoPresetRegistry.normalizeServerKey("  EXAMPLE.ORG  "));
+   }
+
+   @Test
+   void blankServerKeysAreRejected() {
+      assertThrows(IllegalArgumentException.class, () -> AutoPresetRegistry.normalizeServerKey("   "));
+   }
+
+   @Test
+   void parsedSettingsUseCanonicalServerKeys() {
+      JsonObject settings = new JsonObject();
+      settings.addProperty("hud", "default");
+
+      JsonObject root = new JsonObject();
+      root.add("  EXAMPLE.ORG  ", settings);
+
+      var parsed = AutoPresetRegistry.parseSettings(root);
+
+      assertTrue(parsed.containsKey("example.org"));
+      assertFalse(parsed.containsKey("  example.org  "));
    }
 
    @Test
