@@ -25,8 +25,8 @@ public final class LoadingOverlayRenderer {
 
    public static void render(GuiGraphics graphics, float opacity, float backgroundOpacity, float logoScale) {
       float fade = Mth.clamp(opacity, 0.0F, 1.0F);
-      int width = GuiScaleUtils.getScaledWidth();
-      int height = GuiScaleUtils.getScaledHeight();
+      int width = graphics.guiWidth();
+      int height = graphics.guiHeight();
       Font font = Minecraft.getInstance().font;
       int cx = width / 2;
       int cy = height / 2 - 12;
@@ -61,7 +61,7 @@ public final class LoadingOverlayRenderer {
       if (textY + 23 < height) {
          String name = "S C H I Z O";
          graphics.drawString(font, name, cx - font.width(name) / 2, textY, bright, false);
-         String status = "INITIALIZING CLIENT";
+         String status = "LOADING RESOURCES";
          graphics.drawString(font, status, cx - font.width(status) / 2, textY + 14, muted, false);
       }
    }
