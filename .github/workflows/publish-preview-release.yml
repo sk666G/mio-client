@@ -1,0 +1,106 @@
+name: Publish Schizo preview 1
+on:
+  push:
+    branches:
+      - lunyx/preview-release-publisher-v1
+    paths:
+      - .github/workflows/publish-preview-release.yml
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publish-preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: \${{ github.token }}
+      GH_REPO: sk666G/mio-client
+      RC_SHA: be2268932f6a2990c0db49849a6242f7dee67f5c
+      VERIFIED_BUILD_RUN: '46052776168'
+      PREVIEW_TAG: v0.1.0-preview.1
+    steps:
+      - name: Verify exact release target and source CI
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF_NAME" = "lunyx/preview-release-publisher-v1"
+          test "$(gh api "repos/$GH_REPO/actions/runs/$VERIFIED_BUILD_RUN" --jq '.head_sha')" = "$RC_SHA"
+          test "$(gh api "repos/$GH_REPO/actions/runs/$VERIFIED_BUILD_RUN" --jq '.conclusion')" = "success"
+          test "$(gh api "repos/$GH_REPO/commits/$RC_SHA" --jq '.sha')" = "$RC_SHA"
+          if gh release view "$PREVIEW_TAG" --repo "$GH_REPO" >/dev/null 2>&1; then
+            echo "Release already exists; refusing to overwrite it" >&2
+            exit 1
+          fi
+
+      - name: Download the exact verified build artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh run download "$VERIFIED_BUILD_RUN" --repo "$GH_REPO" --name schizo-client --dir release-input
+
+      - name: Verify artifact SHA-256, source and metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s release-input/SHA256SUMS.txt
+          test -s release-input/COMMIT_SHA.txt
+          test -s release-input/BUILD_COMMIT_SHA.txt
+          test -f release-input/NESTED_JARS.txt
+          test "$(tr -d '\r\n' < release-input/COMMIT_SHA.txt)" = "$RC_SHA"
+          test "$(tr -d '\r\n' < release-input/BUILD_COMMIT_SHA.txt)" = "$RC_SHA"
+          (cd release-input && sha256sum -c SHA256SUMS.txt)
+          mapfile -t jars < <(find release-input -maxdepth 1 -type f -name 'schizo-*.jar' ! -name '*-sources.jar' ! -name '*-dev.jar')
+          test "\${#jars[@]}" -eq 1
+          test -s "\${jars[0]}"
+          echo "Verified \${jars[0]}"
+
+      - name: Write release notes
+        shell: bash
+        run: |
+          cat > release-notes.md <<'RELEASE_NOTES'
+          ## Schizo Client 0.1.0 Preview 1
+
+          **EXPERIMENTAL PRERELEASE — for testing, not a stable release.**
+
+          This build is from source commit \`be2268932f6a2990c0db49849a6242f7dee67f5c\` on the draft [release-candidate PR #171](https://github.com/sk666G/mio-client/pull/171). It is **not merged into main**.
+
+          ### System requirements
+
+          - Minecraft Java Edition **1.21.11**
+          - Fabric Loader **0.19.5+** and Fabric API for **1.21.11**
+          - Java **21+**
+          - Install the attached **schizo-0.1.0.jar** into the matching Fabric profile's \`mods\` directory. Do **not** install the GitHub Actions ZIP or a development/source JAR. Back up any existing config and use a separate test profile.
+
+          ### Preview contents
+
+          Consolidated performance tools, customizable GUI/HUD, command palette, context profiles, diagnostics and reviewed module/reliability improvements. The exact release candidate passed push/PR builds, headless client launch, client gametests, clean restart smoke, Windows storage tests and clean upstream reconstruction.
+
+          ### Known limitations and outstanding acceptance
+
+          - Real desktop GUI/input, long-session performance and full packaged-JAR gameplay testing are **not** signed off.
+          - Real multiplayer, reconnect/respawn, server switching and module compatibility testing are **not** signed off. Use singleplayer or a server you own or are authorized to test.
+          - Real Windows Discord/media recovery and target-filesystem backup/restore still need testing.
+          - Open follow-up [PR #248](https://github.com/sk666G/mio-client/pull/248) (AutoRespawn connection ownership) and [PR #249](https://github.com/sk666G/mio-client/pull/249) (one-tick input exception safety) are **not included** in this preview.
+          - For complete caveats see [Known limitations](https://github.com/sk666G/mio-client/blob/be2268932f6a2990c0db49849a6242f7dee67f5c/docs/KNOWN_LIMITATIONS.md) and [Release checklist](https://github.com/sk666G/mio-client/blob/be2268932f6a2990c0db49849a6242f7dee67f5c/docs/RELEASE_CHECKLIST.md).
+
+          The attached \`SHA256SUMS.txt\` verifies the runtime JAR; \`COMMIT_SHA.txt\` records its source commit. No claims of general server compatibility or final release acceptance are made.
+          RELEASE_NOTES
+
+      - name: Create immutable preview release for the verified source commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t jars < <(find release-input -maxdepth 1 -type f -name 'schizo-*.jar' ! -name '*-sources.jar' ! -name '*-dev.jar')
+          test "\${#jars[@]}" -eq 1
+          gh release create "$PREVIEW_TAG" \
+            "\${jars[0]}" \
+            release-input/SHA256SUMS.txt \
+            release-input/COMMIT_SHA.txt \
+            release-input/BUILD_COMMIT_SHA.txt \
+            --repo "$GH_REPO" \
+            --target "$RC_SHA" \
+            --title "Schizo 0.1.0 Preview 1 (Minecraft 1.21.11)" \
+            --notes-file release-notes.md \
+            --prerelease
