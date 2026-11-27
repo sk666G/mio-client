@@ -120,6 +120,20 @@ class MultiplayerCompatibilityPolicyTest {
    }
 
    @Test
+   void rejectsNonMatchingOrMalformedSchemaVersionsWithoutReplacingPolicy() {
+      MultiplayerCompatibilityPolicy policy = new MultiplayerCompatibilityPolicy();
+      policy.setMode(MultiplayerCompatibilityPolicy.Mode.CONSERVATIVE);
+      policy.allowModule("example.Valid");
+
+      for (String version : java.util.List.of("2.5", "4294967298", "2e999999999999", "\"2\"", "null")) {
+         policy.fromJson(JsonParser.parseString(
+            "{\"version\":" + version + ",\"mode\":\"warn_only\",\"allowedModules\":[]}"));
+         assertEquals(MultiplayerCompatibilityPolicy.Mode.CONSERVATIVE, policy.getMode(), version);
+         assertEquals(java.util.List.of("example.Valid"), policy.getAllowedModules(), version);
+      }
+   }
+
+   @Test
    void rejectsInvalidExceptionNamesAndEnforcesTheExceptionLimit() {
       MultiplayerCompatibilityPolicy policy = new MultiplayerCompatibilityPolicy();
       assertThrows(IllegalArgumentException.class, () -> policy.allowModule("../ReachModule"));

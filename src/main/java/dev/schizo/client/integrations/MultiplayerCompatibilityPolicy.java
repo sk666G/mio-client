@@ -15,6 +15,7 @@ import dev.schizo.client.settings.JsonConfigurable;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -128,8 +129,7 @@ public final class MultiplayerCompatibilityPolicy implements JsonConfigurable {
       JsonElement version = root.get("version");
       JsonElement modeElement = root.get("mode");
       JsonElement allowedElement = root.get("allowedModules");
-      if (version == null || !version.isJsonPrimitive() || !version.getAsJsonPrimitive().isNumber()
-         || version.getAsInt() != CURRENT_SCHEMA_VERSION
+      if (!isCurrentSchemaVersion(version)
          || modeElement == null || !modeElement.isJsonPrimitive() || !modeElement.getAsJsonPrimitive().isString()
          || allowedElement == null || !allowedElement.isJsonArray()) {
          return;
@@ -162,6 +162,17 @@ public final class MultiplayerCompatibilityPolicy implements JsonConfigurable {
       this.allowedModules.clear();
       this.allowedModules.addAll(parsedAllowed);
       MultiplayerCompatibilityWarnings.requestInspection();
+   }
+
+   private static boolean isCurrentSchemaVersion(JsonElement version) {
+      if (version == null || !version.isJsonPrimitive() || !version.getAsJsonPrimitive().isNumber()) {
+         return false;
+      }
+      try {
+         return version.getAsBigDecimal().compareTo(BigDecimal.valueOf(CURRENT_SCHEMA_VERSION)) == 0;
+      } catch (NumberFormatException invalidVersion) {
+         return false;
+      }
    }
 
    private static String validateModuleClass(String value) {
