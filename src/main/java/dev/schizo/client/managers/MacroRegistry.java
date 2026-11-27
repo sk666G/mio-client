@@ -73,7 +73,10 @@ public final class MacroRegistry extends Registry<Macro> implements ClientAccess
 
    private void releaseHoldMacros() {
       for (Macro macro : List.copyOf(this.entries)) {
-         releaseMacroState(macro);
+         // A hold-release command may remove or replace a later entry.
+         if (this.isRegisteredInstance(macro)) {
+            releaseMacroState(macro);
+         }
       }
    }
 
