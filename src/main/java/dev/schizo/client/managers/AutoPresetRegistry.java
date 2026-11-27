@@ -19,6 +19,7 @@ import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.ConnectScreenConnectEvent;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.MinecraftDisconnectEvent;
+import dev.schizo.client.events.ScreenChangeEvent;
 import dev.schizo.client.settings.JsonConfigurable;
 import dev.schizo.client.settings.options.PresetCategory;
 
@@ -37,6 +38,7 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import net.minecraft.client.gui.screens.DisconnectedScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MessageSignature;
 
@@ -233,6 +235,13 @@ public final class AutoPresetRegistry implements ClientAccess, JsonConfigurable 
    @EventHandler
    private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
       this.lastServer = null;
+   }
+
+   @EventHandler
+   private void onScreenChangeAfterInit(ScreenChangeEvent.AfterInit event) {
+      if (event.getNewScreen() instanceof DisconnectedScreen) {
+         this.lastServer = null;
+      }
    }
 
    @EventHandler
