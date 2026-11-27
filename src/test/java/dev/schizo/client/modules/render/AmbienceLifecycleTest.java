@@ -66,4 +66,27 @@ class AmbienceLifecycleTest {
       }));
       assertFalse(module.isWeatherOverrideSuppressed());
    }
+
+   @Test
+   void disablingNonGammaAmbiencePreservesCurrentGamma() {
+      if (ClientAccess.schizoMinecraft == null || ClientAccess.schizoMinecraft.options == null) {
+         return;
+      }
+
+      OptionInstance<Double> gamma = ClientAccess.schizoMinecraft.options.gamma();
+      double original = gamma.get();
+      AmbienceModule module = new AmbienceModule();
+      module.brightnessSetting.setValue(AmbienceModule.BrightnessChoice.NONE);
+      module.onEnable();
+
+      double sentinel = original == 0.57D ? 0.64D : 0.57D;
+      GameOptionsOverrides.forceSetOptionValue(gamma, sentinel);
+      try {
+         assertDoesNotThrow(module::onDisable);
+         assertEquals(sentinel, gamma.get());
+      } finally {
+         GameOptionsOverrides.forceSetOptionValue(gamma, original);
+      }
+   }
+
 }
