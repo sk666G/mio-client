@@ -198,8 +198,11 @@ public final class WaypointRegistry extends AbstractRegistry<Waypoint> implement
    static boolean isValidWaypoint(Waypoint waypoint) {
       return waypoint != null
          && waypoint.getName() != null
+         && !waypoint.getName().isBlank()
          && waypoint.getServer() != null
+         && !waypoint.getServer().isBlank()
          && waypoint.getDimension() != null
+         && !waypoint.getDimension().isBlank()
          && Double.isFinite(waypoint.getX())
          && Double.isFinite(waypoint.getY())
          && Double.isFinite(waypoint.getZ());
