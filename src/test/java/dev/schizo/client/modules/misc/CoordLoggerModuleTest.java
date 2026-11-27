@@ -2,6 +2,7 @@ package dev.schizo.client.modules.misc;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import dev.schizo.client.settings.options.DimensionType;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -17,6 +18,35 @@ class CoordLoggerModuleTest {
 
    @TempDir Path temporaryDirectory;
 
+
+   @Test
+   void coordinateSnapshotUsesNumericStateAndCanBeCleared() {
+      CoordLoggerModule module = new CoordLoggerModule();
+      module.cacheCoordinates(12, 64, -34, DimensionType.OVERWORLD);
+
+      CoordLoggerModule.CoordinateSnapshot snapshot = module.snapshotCoordinates();
+
+      assertNotNull(snapshot);
+      assertEquals(12, snapshot.x());
+      assertEquals(64, snapshot.y());
+      assertEquals(-34, snapshot.z());
+      assertEquals(DimensionType.OVERWORLD, snapshot.dimension());
+
+      module.clearCachedCoordinates();
+      assertNull(module.snapshotCoordinates());
+   }
+
+   @Test
+   void moduleLifecycleClearsCachedCoordinates() {
+      CoordLoggerModule module = new CoordLoggerModule();
+      module.cacheCoordinates(1, 2, 3, DimensionType.THE_NETHER);
+      module.onDisable();
+      assertNull(module.snapshotCoordinates());
+
+      module.cacheCoordinates(4, 5, 6, DimensionType.THE_END);
+      module.onEnable();
+      assertNull(module.snapshotCoordinates());
+   }
 
    @Test
    void oversizedLogIsPreservedInsteadOfLoadedOrRewritten() throws IOException {
