@@ -12,9 +12,11 @@ package dev.schizo.client.modules.render;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.MinecraftRunTickEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.events.MouseHandlerOnScrollEvent;
 import dev.schizo.client.events.bus.EventBus;
 import dev.schizo.client.utils.FloatAnimation;
+import dev.schizo.client.render.GameOptionsOverrides;
 import dev.schizo.client.modules.Module;
 import dev.schizo.client.modules.ModuleCategory;
 import dev.schizo.client.settings.BooleanSetting;
@@ -143,6 +145,33 @@ public class ZoomModule extends Module {
       long duration = this.getSmoothingDuration(100);
       targetScroll.setTarget(scrollTarget, duration);
       event.cancel();
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnectEvent(MinecraftDisconnectEvent event) {
+      try {
+         this.disable();
+      } finally {
+         this.releaseTailOnDisconnect();
+      }
+   }
+
+   private void releaseTailOnDisconnect() {
+      Minecraft minecraft = ClientAccess.schizoMinecraft;
+      if (this.fovOverrideApplied && minecraft != null && minecraft.options != null) {
+         OptionInstance<Integer> fovOption = minecraft.options.fov();
+         int currentFov = fovOption.get();
+         if (ZoomOptionsUpdater.shouldRestoreFov(
+            true, currentFov, this.lastAppliedFov
+         )) {
+            GameOptionsOverrides.forceSetOptionValue(fovOption, this.baselineFov);
+         }
+      }
+      ClientAccess.eventBus.unsubscribe(this.optionsUpdater);
+      this.fovUpdateActive = false;
+      this.fovOverrideApplied = false;
+      this.smoothCameraCaptured = false;
+      this.smoothCameraOverrideApplied = false;
    }
 
    @EventHandler
