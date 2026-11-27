@@ -316,41 +316,63 @@ public class ModuleComponent extends AbstractComponent implements CloseState {
          .getValue();
       float enabledProgress = this.enabledAnimation
          .updateAndGet();
-      float hoverOffset = this.getHoverAnimationValue();
+      boolean docked = this.panel.isDocked();
+      float hoverOffset = docked ? 0.0F : this.getHoverAnimationValue();
       int baseHeight = this.getBaseHeight();
-      if (this.module.isToggled()
-         || enabledProgress > 0.01D) {
-         GuiDrawUtils.fillRect(
-            poseStack,
-            this.panel
-                  .getX()
-               + 1.0F,
-            this.panel
-                     .getY()
-                  + this.yOffset
-               + 0.5F,
-            this.panel
-                  .getX()
-               + (
-                     this.panel
-                           .getWidth()
-                        - 1.0F
-                  )
-                  * enabledProgress,
-            this.panel
-                     .getY()
-                  + this.yOffset
-                  + baseHeight
-               - 0.5F,
-            this.getUiModule().enabledSetting.getValue()
-         );
-      }
+      if (docked) {
+         float x = this.panel.getX();
+         float y = this.panel.getY() + this.yOffset;
+         float right = x + this.panel.getWidth();
+         Color accent = this.getUiModule().colorSetting.getValue();
+         float progress = Math.max(0.0F, Math.min(1.0F, enabledProgress));
+         float hover = Math.max(0.0F, Math.min(1.0F, this.getHoverAnimationValue()));
+         int fillAlpha = Math.round(26.0F * hover + 35.0F * progress);
+         if (fillAlpha > 0) {
+            GuiDrawUtils.fillRect(poseStack, x + 2, y + 1, right - 2, y + baseHeight - 1,
+               ColorUtils.withAlpha(progress > 0.01F ? accent : Color.WHITE, fillAlpha));
+         }
+         if (progress > 0.01F) {
+            GuiDrawUtils.fillRect(poseStack, x + 2, y + 3, x + 4, y + baseHeight - 3,
+               ColorUtils.withAlpha(accent, Math.round(220.0F * progress)));
+         }
+         GuiDrawUtils.fillRect(poseStack, x + 8, y + baseHeight - 0.5F, right - 8, y + baseHeight,
+            0x302E3038);
+      } else {
+         if (this.module.isToggled()
+            || enabledProgress > 0.01D) {
+            GuiDrawUtils.fillRect(
+               poseStack,
+               this.panel
+                     .getX()
+                  + 1.0F,
+               this.panel
+                        .getY()
+                     + this.yOffset
+                  + 0.5F,
+               this.panel
+                     .getX()
+                  + (
+                        this.panel
+                              .getWidth()
+                           - 1.0F
+                     )
+                     * enabledProgress,
+               this.panel
+                        .getY()
+                     + this.yOffset
+                     + baseHeight
+                  - 0.5F,
+               this.getUiModule().enabledSetting.getValue()
+            );
+         }
 
-      if (gradientEnabled) {
-         this.renderButtonBackground(poseStack, 1.0F);
-      } else if (enabledProgress
-         < 1.0F) {
-         this.renderButtonBackground(poseStack, enabledProgress);
+         if (gradientEnabled) {
+            this.renderButtonBackground(poseStack, 1.0F);
+         } else if (enabledProgress
+            < 1.0F) {
+            this.renderButtonBackground(poseStack, enabledProgress);
+         }
+
       }
 
       if (this.searchHighlightCycle > 0) {
@@ -375,12 +397,8 @@ public class ModuleComponent extends AbstractComponent implements CloseState {
                   + this.yOffset
                   + baseHeight
                - 0.5F,
-            ColorUtils.packArgb(
-               1.0F,
-               0.0F,
-               0.0F,
-               highlightProgress
-            )
+            ColorUtils.withAlpha(this.getUiModule().colorSetting.getValue(),
+               Math.round(90.0F * Math.max(0.0F, Math.min(1.0F, highlightProgress))))
          );
          if (highlightProgress
                == 1.0F
@@ -410,7 +428,7 @@ public class ModuleComponent extends AbstractComponent implements CloseState {
             this.module.getName(),
             this.panel
                   .getX()
-               + (3),
+               + (docked ? 9 : 3),
             this.panel
                   .getY()
                + this.getTextYOffset()
@@ -477,7 +495,7 @@ public class ModuleComponent extends AbstractComponent implements CloseState {
                      .getWidth(
                         this.module.getName()
                      )
-                  + 3.0F,
+                  + (docked ? 9.0F : 3.0F),
                this.panel
                      .getY()
                   + this.getTextYOffset()

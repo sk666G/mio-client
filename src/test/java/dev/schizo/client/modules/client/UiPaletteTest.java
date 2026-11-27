@@ -30,11 +30,11 @@ class UiPaletteTest {
    }
 
    @Test
-   void schizoPaletteKeepsItsElectricLimeIdentity() {
+   void schizoPaletteUsesCrimsonAndGraphite() {
       UiPalette palette = UIModule.PaletteChoice.SCHIZO.getPalette();
 
-      assertEquals(new Color(190, 255, 64, 220), palette.accent());
-      assertEquals(new Color(18, 22, 26, 230), palette.background());
-      assertEquals(new Color(32, 38, 42, 205), palette.button());
+      assertEquals(new Color(231, 57, 77, 235), palette.accent());
+      assertEquals(new Color(19, 20, 26, 250), palette.background());
+      assertEquals(new Color(33, 34, 42, 220), palette.button());
    }
 }

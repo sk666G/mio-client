@@ -60,6 +60,28 @@ public class Panel implements RegistryContainer, GuiElement, NamedEntry {
    private boolean heightLimitDisabled;
    private int scrollOffset;
    private int scrollRecoveryCounter;
+   private int dockWidth;
+   private int dockHeight;
+
+   public void setDockedGeometry(int x, int y, int width, int height) {
+      if (this.x == x && this.y == y && this.dockWidth == width && this.dockHeight == height) return;
+      this.x = x;
+      this.y = y;
+      this.dockWidth = Math.max(1, width);
+      this.dockHeight = Math.max(this.getHeaderHeight() + 1, height);
+      this.updateLayout();
+   }
+
+   public void resetScroll() {
+      this.scrollOffset = 0;
+      this.scrollAnimation.setValue(0.0F);
+      this.scrollRecoveryCounter = 0;
+      this.updateLayout();
+   }
+
+   public boolean isDocked() {
+      return this.dockWidth > 0;
+   }
 
    private static final float SCROLL_RECOVERY_FPS_BASE = 200.0F;
    private static final float SCROLL_RECOVERY_SPEED = 20.0F;
@@ -89,7 +111,7 @@ public class Panel implements RegistryContainer, GuiElement, NamedEntry {
          ? this.getHeaderHeight()
             + 1
          : nextYOffset - animatedScrollOffset;
-      if (this.heightLimitDisabled) {
+      if (this.heightLimitDisabled && !this.isDocked()) {
          this.height = this.contentHeight;
       } else {
          this.height = Math.min(
@@ -99,7 +121,7 @@ public class Panel implements RegistryContainer, GuiElement, NamedEntry {
    }
 
    private void recoverScrollOffset() {
-      if (!this.heightLimitDisabled) {
+      if (!this.heightLimitDisabled || this.isDocked()) {
          int minimumOffset = Math.min(
             -this.contentHeight
                + this.height,
@@ -142,6 +164,7 @@ public class Panel implements RegistryContainer, GuiElement, NamedEntry {
    }
 
    protected int getHeightLimit() {
+      if (this.isDocked()) return this.dockHeight;
       float guiScale = 1.0F;
       if (ClientAccess.schizoMinecraft.screen instanceof ClientScreen clientScreen
          )
@@ -171,6 +194,7 @@ public class Panel implements RegistryContainer, GuiElement, NamedEntry {
    }
 
    public int getWidth() {
+      if (this.isDocked()) return this.dockWidth;
       return this.baseWidth
          + (UIModule.INSTANCE
                .styleSetting
@@ -353,7 +377,7 @@ public class Panel implements RegistryContainer, GuiElement, NamedEntry {
             200L
          );
       UIModule.StyleChoice style = this.getUiModule().styleSetting.getValue();
-      boolean schizoStyle = style == UIModule.StyleChoice.SCHIZO;
+      boolean schizoStyle = this.isDocked() || style == UIModule.StyleChoice.SCHIZO;
       Color headerSurface = schizoStyle
          ? this.getUiModule().buttonSetting.getValue()
          : uiColor;
@@ -384,7 +408,7 @@ public class Panel implements RegistryContainer, GuiElement, NamedEntry {
             this.y + this.getHeaderHeight() - 1.0F,
             this.x + this.getWidth(),
             this.y + this.getHeaderHeight(),
-            ColorUtils.withAlpha(railColor, 90)
+            ColorUtils.withAlpha(railColor, this.isDocked() ? 35 : 90)
          );
       }
 
@@ -396,7 +420,7 @@ public class Panel implements RegistryContainer, GuiElement, NamedEntry {
             + this.getHeaderHeight() / 2.0F
             - FontRenderer.INSTANCE.getHeight() / 2.0F
             + headerVerticalOffset,
-         this.applyHeaderAlpha(schizoStyle ? uiColor : Color.white)
+         this.applyHeaderAlpha(this.isDocked() ? Color.WHITE : schizoStyle ? uiColor : Color.white)
       );
       if (expansionValue != 0.0F) {
          GuiDrawUtils.flush();
@@ -485,7 +509,7 @@ public class Panel implements RegistryContainer, GuiElement, NamedEntry {
                .getValue(),
             true
          );
-         if (UIModule.INSTANCE.lineSetting.getValue()) {
+         if (!this.isDocked() && UIModule.INSTANCE.lineSetting.getValue()) {
             float outlineHeight = (int)(this.height * expansionValue)
                + 0.5F;
             if (outlineHeight
@@ -546,7 +570,7 @@ public class Panel implements RegistryContainer, GuiElement, NamedEntry {
 
    @Override
    public void mouseClicked(double mouseX, double mouseY, int button) {
-      if (this.isMouseOverHeader(mouseX, mouseY)
+      if (!this.isDocked() && this.isMouseOverHeader(mouseX, mouseY)
          && button == 1) {
          this.setExpanded(
             !this.expanded
@@ -580,7 +604,7 @@ public class Panel implements RegistryContainer, GuiElement, NamedEntry {
    public void mouseScrolled(double mouseX, double mouseY, double scrollAmount) {
       if (this.expanded) {
          if (this.isMouseOver(mouseX, mouseY)
-            && !this.heightLimitDisabled) {
+            && (!this.heightLimitDisabled || this.isDocked())) {
             this.scrollOffset = this.scrollOffset
                + (int)(scrollAmount * 20.0D);
          }
