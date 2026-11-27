@@ -258,7 +258,15 @@ public final class AutoPresetRegistry implements ClientAccess, JsonConfigurable 
             settings.getPresets().forEach((BiConsumer<PresetCategory, String>)(category, presetName) -> {
                ConfigurationManager configurationManager = ClientContext.configurationManager;
                PresetRegistry presetRegistry = configurationManager.getPresetRegistry(category);
-               presetRegistry.applyPreset(presetName);
+               if (presetRegistry == null || !presetRegistry.applyPreset(presetName)) {
+                  ClientAccess.logger.warn(
+                     "Auto preset {} ({}) could not be applied for {}",
+                     presetName,
+                     category.getName(),
+                     this.lastServer
+                  );
+                  return;
+               }
                TaskScheduler schedulerForPreset = ClientContext.taskScheduler;
                Runnable messageForPreset = () -> {
                   int messageId = messageCounter.getAndDecrement();
