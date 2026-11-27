@@ -169,22 +169,17 @@ public class CoordLoggerModule extends Module {
 
    @EventHandler
    private void onPlayerTick(LocalPlayerTickEvent event) {
-
-      Object[] formatArguments = new Object[4];
-      LocalPlayer xPlayer = ClientAccess.schizoMinecraft.player;
-      int blockX = xPlayer.getBlockX();
-      formatArguments[0] = blockX;
-      LocalPlayer yPlayer = ClientAccess.schizoMinecraft.player;
-      int blockY = yPlayer.getBlockY();
-      formatArguments[1] = blockY;
-
-      LocalPlayer zPlayer = ClientAccess.schizoMinecraft.player;
-      int blockZ = zPlayer.getBlockZ();
-      formatArguments[(2)] = blockZ;
+      LocalPlayer player = ClientAccess.schizoMinecraft.player;
+      if (player == null) {
+         this.coordinateText = null;
+         return;
+      }
 
       DimensionType dimension = WorldUtils.getDimension();
-      formatArguments[(3)] = dimension.getDisplayName();
-      this.coordinateText = ("X: %d, Y: %d, Z: %d in The %s").formatted(formatArguments);
+      this.coordinateText = "X: " + player.getBlockX()
+         + ", Y: " + player.getBlockY()
+         + ", Z: " + player.getBlockZ()
+         + " in The " + dimension.getDisplayName();
    }
 
    @EventHandler
