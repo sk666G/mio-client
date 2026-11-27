@@ -39,6 +39,14 @@ public final class InputOverrideManager {
         pendingSneak.set(value);
     }
 
+    public void requestSneak(Object owner, boolean value) {
+        pendingSneak.set(owner, value);
+    }
+
+    public void clearSneakRequest(Object owner) {
+        pendingSneak.clear(owner);
+    }
+
     public void requestJump(boolean value) {
         pendingJump.set(value);
     }
@@ -137,8 +145,14 @@ public final class InputOverrideManager {
 
     private static final class PendingValue<T> extends PendingFlag {
         private T value;
+        private Object owner;
 
         public void set(T value) {
+            this.set(null, value);
+        }
+
+        public void set(Object owner, T value) {
+            this.owner = owner;
             this.value = value;
             markPending();
         }
@@ -146,12 +160,19 @@ public final class InputOverrideManager {
         void consume(Consumer<T> consumer) {
             if (isPending()) {
                 consumer.accept(value);
-                reset();
+                clear();
+            }
+        }
+
+        void clear(Object owner) {
+            if (isPending() && this.owner == owner) {
+                clear();
             }
         }
 
         void clear() {
             value = null;
+            owner = null;
             reset();
         }
     }

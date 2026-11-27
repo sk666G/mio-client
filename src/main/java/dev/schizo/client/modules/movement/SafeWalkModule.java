@@ -44,7 +44,7 @@ public class SafeWalkModule extends Module {
 
     @Override
     public void onDisable() {
-        if (sneakSetting.getValue()) ClientAccess.schizoMinecraft.options.keyShift.setDown(false);
+        ClientContext.inputOverrides.clearSneakRequest(this);
     }
 
     @EventHandler
@@ -56,9 +56,9 @@ public class SafeWalkModule extends Module {
         BlockState block = ClientAccess.schizoMinecraft.level.getBlockState(below);
         if (shouldSneakAtEdge(block)) {
             edgeDelayTimer.reset();
-            ClientContext.inputOverrides.requestSneak(true);
+            ClientContext.inputOverrides.requestSneak(this, true);
         } else if (!edgeDelayTimer.hasElapsed((delaySetting.getValue()).longValue())) {
-            ClientContext.inputOverrides.requestSneak(true);
+            ClientContext.inputOverrides.requestSneak(this, true);
         }
     }
 
