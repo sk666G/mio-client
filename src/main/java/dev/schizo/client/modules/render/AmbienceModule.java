@@ -36,6 +36,7 @@ import java.util.Calendar;
 import java.util.function.Supplier;
 import net.minecraft.client.OptionInstance;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.Options;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.renderer.LevelRenderer;
@@ -65,6 +66,7 @@ public class AmbienceModule extends Module {
    private MobEffectInstance appliedNightVisionEffect;
    private boolean weatherOverrideSuppressed;
    private ServerTimeSnapshot serverTimeSnapshot;
+   private ClientLevel serverTimeOwner;
 
    @Override
    public void onEnable() {
@@ -74,10 +76,12 @@ public class AmbienceModule extends Module {
       OptionInstance<Double> gammaOption = options.gamma();
       this.savedGamma = gammaOption.get();
       if (ClientAccess.schizoMinecraft.level != null) {
+         this.serverTimeOwner = ClientAccess.schizoMinecraft.level;
          this.serverTimeSnapshot = new ServerTimeSnapshot(
-            ClientAccess.schizoMinecraft.level.getGameTime(), ClientAccess.schizoMinecraft.level.getDayTime()
+            this.serverTimeOwner.getGameTime(), this.serverTimeOwner.getDayTime()
          );
       } else {
+         this.serverTimeOwner = null;
          this.serverTimeSnapshot = null;
       }
    }
@@ -96,8 +100,13 @@ public class AmbienceModule extends Module {
    @Override
    public void onDisable() {
       Minecraft minecraft = ClientAccess.schizoMinecraft;
+      ServerTimeSnapshot timeSnapshot = this.serverTimeSnapshot;
+      ClientLevel timeOwner = this.serverTimeOwner;
+      this.serverTimeSnapshot = null;
+      this.serverTimeOwner = null;
       if (minecraft == null) {
          this.appliedNightVisionEffect = null;
+         this.gammaOverrideApplied = false;
          return;
       }
       if (minecraft.player != null) {
@@ -106,9 +115,9 @@ public class AmbienceModule extends Module {
          this.appliedNightVisionEffect = null;
       }
 
-      if (this.serverTimeSnapshot != null && minecraft.level != null) {
+      if (timeSnapshot != null && shouldRestoreServerTime(timeOwner, minecraft.level)) {
          minecraft.level.setTimeFromServer(
-            this.serverTimeSnapshot.gameTime(), this.serverTimeSnapshot.dayTime(), true
+            timeSnapshot.gameTime(), timeSnapshot.dayTime(), true
          );
       }
 
@@ -116,7 +125,12 @@ public class AmbienceModule extends Module {
    }
 
    public void updateServerTimeSnapshot(long gameTime, long dayTime) {
+      this.serverTimeOwner = ClientAccess.schizoMinecraft == null ? null : ClientAccess.schizoMinecraft.level;
       this.serverTimeSnapshot = new ServerTimeSnapshot(gameTime, dayTime);
+   }
+
+   static boolean shouldRestoreServerTime(Object capturedLevel, Object currentLevel) {
+      return capturedLevel != null && capturedLevel == currentLevel;
    }
 
    public long getWorldTime() {
@@ -317,11 +331,16 @@ public class AmbienceModule extends Module {
             return;
          }
          Minecraft minecraft = ClientAccess.schizoMinecraft;
-         if (this.serverTimeSnapshot != null && minecraft != null && minecraft.level != null) {
+         ServerTimeSnapshot timeSnapshot = this.serverTimeSnapshot;
+         ClientLevel timeOwner = this.serverTimeOwner;
+         this.serverTimeSnapshot = null;
+         this.serverTimeOwner = null;
+         if (timeSnapshot != null
+            && minecraft != null
+            && shouldRestoreServerTime(timeOwner, minecraft.level)) {
             minecraft.level.setTimeFromServer(
-               this.serverTimeSnapshot.gameTime(), this.serverTimeSnapshot.dayTime(), false
+               timeSnapshot.gameTime(), timeSnapshot.dayTime(), false
             );
-            this.serverTimeSnapshot = null;
          }
       };
       worldTimeForCallback.setChangeCallback(worldTimeChangeCallback);
