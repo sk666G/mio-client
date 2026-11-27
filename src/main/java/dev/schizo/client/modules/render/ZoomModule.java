@@ -108,6 +108,10 @@ public class ZoomModule extends Module {
       }
       this.smoothCameraCaptured = false;
       this.smoothCameraOverrideApplied = false;
+      if (!this.fovOverrideApplied) {
+         ClientAccess.eventBus.unsubscribe(this.optionsUpdater);
+         this.fovUpdateActive = false;
+      }
    }
 
    private int getSmoothingDuration(int duration) {
