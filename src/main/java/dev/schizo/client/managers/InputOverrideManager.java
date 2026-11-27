@@ -51,6 +51,14 @@ public final class InputOverrideManager {
         pendingJump.set(value);
     }
 
+    public void requestJump(Object owner, boolean value) {
+        pendingJump.set(owner, value);
+    }
+
+    public void clearJumpRequest(Object owner) {
+        pendingJump.clear(owner);
+    }
+
     public void requestForward(boolean value) {
         pendingForward.set(value);
     }
