@@ -65,7 +65,11 @@ public final class LegacySocialMigration implements ClientAccess {
 
       Gson gson = ClientAccess.gson;
       JsonElement socials = registry.toJson();
-      FileUtils.writeUtf8Atomically(socialsPath, gson.toJson(socials));
+      commitMigration(friendsPath, socialsPath, gson.toJson(socials));
+   }
+
+   static void commitMigration(Path friendsPath, Path socialsPath, String serializedSocials) throws IOException {
+      FileUtils.writeUtf8CreateNew(socialsPath, serializedSocials);
       Files.delete(friendsPath);
    }
 
