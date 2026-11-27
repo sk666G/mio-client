@@ -4,6 +4,9 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import dev.schizo.client.ClientAccess;
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.util.function.Consumer;
 import org.junit.jupiter.api.Test;
 
 class InputOverrideManagerOwnershipTest {
@@ -86,6 +89,39 @@ class InputOverrideManagerOwnershipTest {
 
          assertTrue(isPending(manager, "pendingForward"));
          assertTrue(isPending(manager, "pendingJump"));
+      } finally {
+         ClientAccess.eventBus.unsubscribe(manager);
+      }
+   }
+
+   @Test
+   void failedInputWriterCannotReplayOneTickOverride() throws Exception {
+      InputOverrideManager manager = new InputOverrideManager();
+      Object owner = new Object();
+      try {
+         manager.requestForwardMovement(owner, 0.75F);
+         Field pendingField = InputOverrideManager.class.getDeclaredField("pendingForwardMovement");
+         pendingField.setAccessible(true);
+         Object pendingValue = pendingField.get(manager);
+
+         Method consume = pendingValue.getClass().getDeclaredMethod("consume", Consumer.class);
+         consume.setAccessible(true);
+         IllegalStateException failure = new IllegalStateException("input writer failed");
+         Consumer<Float> failingWriter = value -> { throw failure; };
+         InvocationTargetException invoked = assertThrows(
+            InvocationTargetException.class,
+            () -> consume.invoke(pendingValue, failingWriter)
+         );
+
+         assertSame(failure, invoked.getCause());
+         assertFalse(isPending(manager, "pendingForwardMovement"));
+
+         Field valueField = pendingValue.getClass().getDeclaredField("value");
+         valueField.setAccessible(true);
+         Field ownerField = pendingValue.getClass().getDeclaredField("owner");
+         ownerField.setAccessible(true);
+         assertNull(valueField.get(pendingValue));
+         assertNull(ownerField.get(pendingValue));
       } finally {
          ClientAccess.eventBus.unsubscribe(manager);
       }

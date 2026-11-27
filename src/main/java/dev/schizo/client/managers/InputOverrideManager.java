@@ -226,8 +226,12 @@ public final class InputOverrideManager {
 
         void consume(Consumer<T> consumer) {
             if (isPending()) {
-                consumer.accept(value);
-                clear();
+                try {
+                    consumer.accept(value);
+                } finally {
+                    // A failed input writer must not replay an old one-tick request.
+                    clear();
+                }
             }
         }
 
