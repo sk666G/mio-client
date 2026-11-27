@@ -116,8 +116,34 @@ public final class SchizoClientGameTest implements FabricClientGameTest {
             if (!"Render".equalsIgnoreCase(studio.getSelectedPanelName())) {
                throw new IllegalStateException("Studio search failed to select the matching category");
             }
-            studio.getSearchBox().setValue("");
          });
+         context.waitTicks(3);
+         context.runOnClient(minecraft -> {
+            ClickGuiScreen studio = (ClickGuiScreen)minecraft.screen;
+            var panel = studio.getPanels().stream()
+               .filter(p -> p.getName().equals(studio.getSelectedPanelName())).findFirst().orElseThrow();
+            var component = panel.children.stream()
+               .filter(c -> c instanceof dev.schizo.client.gui.components.ModuleComponent module
+                  && module.getModule().getName().equalsIgnoreCase("Crosshair"))
+               .map(c -> (dev.schizo.client.gui.components.ModuleComponent)c).findFirst().orElseThrow();
+            double x = panel.getX() + 12;
+            double y = panel.getY() + component.getYOffset() + 5;
+            if (panel.findVisibleModuleAt(x, y) != component) {
+               throw new IllegalStateException("Inspector target is not the visible searched module");
+            }
+            double scale = dev.schizo.client.render.GuiScaleUtils.calculateScaleMultiplier(studio.getGuiScale());
+            var click = new MouseButtonEvent(x * scale, y * scale, new MouseButtonInfo(GLFW.GLFW_MOUSE_BUTTON_MIDDLE, 0));
+            studio.mouseClicked(click, false);
+            if (!(minecraft.screen instanceof dev.schizo.client.gui.screens.ModuleInspectorScreen)) {
+               throw new IllegalStateException("Middle click failed to open inspector");
+            }
+         });
+         context.waitForScreen(dev.schizo.client.gui.screens.ModuleInspectorScreen.class);
+         context.waitTicks(2);
+         context.runOnClient(minecraft -> clickButton(minecraft.screen, "Back"));
+         context.waitForScreen(ClickGuiScreen.class);
+         context.waitTicks(3);
+         context.runOnClient(minecraft -> ((ClickGuiScreen)minecraft.screen).getSearchBox().setValue(""));
          context.waitTicks(2);
          // Exercise the actual dock buttons and return path, rather than creating destinations directly.
          Class<?>[] destinations = {HudEditorScreen.class, PerformanceCenterScreen.class,

@@ -586,6 +586,16 @@ public class Panel implements RegistryContainer, GuiElement, NamedEntry {
       }
    }
 
+   /** Hit-test only visible module headers in the clipped content area. */
+   public ModuleComponent findVisibleModuleAt(double mouseX, double mouseY) {
+      if (!this.expanded || !this.isMouseOver(mouseX, mouseY) || this.isMouseOverHeader(mouseX, mouseY)) return null;
+      for (GuiElement child : this.children) {
+         if (child instanceof ModuleComponent module && this.isChildVisible(child)
+            && module.isMouseOver(mouseX, mouseY)) return module;
+      }
+      return null;
+   }
+
    public boolean registerChild(GuiElement child) {
       return this.getRegistry()
          .add(child);
