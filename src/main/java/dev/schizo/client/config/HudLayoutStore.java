@@ -218,12 +218,11 @@ public final class HudLayoutStore {
    }
 
    private void ensureDirectory() throws IOException {
-      if (Files.exists(this.directory, LinkOption.NOFOLLOW_LINKS)) {
-         this.requireRealDirectory();
-         return;
+      Path root = this.directory.getParent();
+      if (root == null) {
+         throw new IOException("HUD layout directory has no parent: " + this.directory);
       }
-      Files.createDirectories(this.directory);
-      this.requireRealDirectory();
+      ConfigPathGuard.ensureDirectory(root, this.directory);
    }
 
    private void requireRealDirectory() throws IOException {
