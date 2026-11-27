@@ -18,6 +18,29 @@ class GlintRegistryTest {
    }
 
    @Test
+   void missingLegacyListPreservesExistingSide() {
+      GlintRegistry registry = new GlintRegistry();
+      registry.getItems(GlintRegistry.GlintMode.NEVER).getValue().add(Items.DIAMOND);
+      registry.getItems(GlintRegistry.GlintMode.ALWAYS).getValue().add(Items.NETHER_STAR);
+
+      JsonObject partial = new JsonObject();
+      JsonArray replacementNever = new JsonArray();
+      replacementNever.add("minecraft:stone");
+      partial.add("never", replacementNever);
+
+      registry.fromJson(partial);
+
+      assertEquals(
+         java.util.Set.of(Items.STONE),
+         java.util.Set.copyOf(registry.getItems(GlintRegistry.GlintMode.NEVER).getValue())
+      );
+      assertEquals(
+         java.util.Set.of(Items.NETHER_STAR),
+         java.util.Set.copyOf(registry.getItems(GlintRegistry.GlintMode.ALWAYS).getValue())
+      );
+   }
+
+   @Test
    void malformedSecondListDoesNotPartiallyReplaceExistingState() {
       GlintRegistry registry = new GlintRegistry();
       registry.getItems(GlintRegistry.GlintMode.NEVER).getValue().add(Items.DIAMOND);
