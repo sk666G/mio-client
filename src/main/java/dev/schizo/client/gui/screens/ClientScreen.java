@@ -555,7 +555,7 @@ public class ClientScreen extends Screen implements ClientAccess {
          );
       }
 
-      if (this.winterSeason) {
+      if (this.winterSeason && !UiMotionPolicy.isReducedMotion()) {
          for (SnowflakeParticle particle : this.seasonalParticles) {
             particle.render(poseStack);
          }
