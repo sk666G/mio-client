@@ -444,6 +444,17 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
       }
    }
 
+   /** Workspace coordinates for an actual tool-button pointer interaction. */
+   public double studioToolX(int index) {
+      if (this.studioLayout == null || index < 0 || index >= 4) throw new IllegalStateException("Studio layout unavailable");
+      return this.studioLayout.toolX(index) + this.studioLayout.toolWidth() / 2.0D;
+   }
+
+   public double studioToolY() {
+      if (this.studioLayout == null) throw new IllegalStateException("Studio layout unavailable");
+      return this.studioLayout.toolsY() + 10.0D;
+   }
+
    private void openStudioChild(ClientScreen child) {
       child.setParentScreen(this);
       ClientAccess.schizoMinecraft.setScreen(child);
