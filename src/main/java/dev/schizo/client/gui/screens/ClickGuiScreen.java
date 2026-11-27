@@ -386,8 +386,8 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
          if (font.getWidth(empty) > available) empty = "No matches.";
          font.drawWithoutShadow(poseStack, empty, l.contentX() + 9, l.contentY() + 31, STUDIO_MUTED);
       }
-      String[] toolLabels = {"HUD", "Performance", "Profiles", "Health"};
-      String[] shortLabels = {"HUD", "Perf", "Profiles", "Health"};
+      String[] toolLabels = {"HUD", "Performance", "Profiles", "Health", "Themes"};
+      String[] shortLabels = {"HUD", "Perf", "Rules", "Health", "Theme"};
       for (int i = 0; i < toolLabels.length; i++) {
          int tx = l.toolX(i);
          boolean hover = l.toolIndex(mouseX, mouseY) == i;
@@ -397,6 +397,7 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
             hover ? accent : STUDIO_EDGE);
          GuiDrawUtils.flush();
          String label = font.getWidth(toolLabels[i]) + 6 <= l.toolWidth() ? toolLabels[i] : shortLabels[i];
+         if (font.getWidth(label) > l.toolWidth() - 2) label = label.substring(0, 1);
          font.drawWithoutShadow(poseStack, label, tx + (l.toolWidth() - font.getWidth(label)) / 2,
             l.toolsY() + (21 - font.getHeight()) / 2, Color.WHITE);
       }
@@ -443,6 +444,7 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
             case 1 -> this.openStudioChild(new PerformanceCenterScreen());
             case 2 -> ClientAccess.schizoMinecraft.setScreen(new ExpeditionScreen(this, 2));
             case 3 -> ClientAccess.schizoMinecraft.setScreen(new HealthCenterScreen(this));
+            case 4 -> ClientAccess.schizoMinecraft.setScreen(new ThemeStudioScreen(this));
             default -> throw new IllegalStateException("Unknown Studio destination");
          }
          return;
@@ -462,7 +464,7 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
 
    /** Workspace coordinates for an actual tool-button pointer interaction. */
    public double studioToolX(int index) {
-      if (this.studioLayout == null || index < 0 || index >= 4) throw new IllegalStateException("Studio layout unavailable");
+      if (this.studioLayout == null || index < 0 || index >= StudioLayout.TOOL_COUNT) throw new IllegalStateException("Studio layout unavailable");
       return this.studioLayout.toolX(index) + this.studioLayout.toolWidth() / 2.0D;
    }
 
