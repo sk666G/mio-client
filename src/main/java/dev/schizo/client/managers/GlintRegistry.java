@@ -45,6 +45,9 @@ public class GlintRegistry implements JsonConfigurable {
 
       JsonElement neverValue = object.has("never") ? object.get("never") : new JsonArray();
       JsonElement alwaysValue = object.has("always") ? object.get("always") : new JsonArray();
+      if (!neverValue.isJsonArray() || !alwaysValue.isJsonArray()) {
+         throw new IllegalArgumentException("Glint configuration lists must be JSON arrays");
+      }
       this.neverItems.fromJson(neverValue);
       this.alwaysItems.fromJson(alwaysValue);
    }
