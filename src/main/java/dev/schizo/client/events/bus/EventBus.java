@@ -240,7 +240,13 @@ public class EventBus implements EventDispatcher {
             listener.call(event);
          }
       } catch (RuntimeException | Error failure) {
-         this.failureTracker.record(listener, event, failure);
+         try {
+            this.failureTracker.record(listener, event, failure);
+         } catch (RuntimeException | Error diagnosticFailure) {
+            if (diagnosticFailure != failure) {
+               failure.addSuppressed(diagnosticFailure);
+            }
+         }
          throw failure;
       }
    }
