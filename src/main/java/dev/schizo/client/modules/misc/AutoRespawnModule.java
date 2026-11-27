@@ -14,6 +14,7 @@ import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.PacketEvent;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.LocalPlayerTickEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.managers.TaskScheduler;
 import dev.schizo.client.utils.ElapsedTimer;
 import dev.schizo.client.utils.chat.ChatUtils;
@@ -49,17 +50,24 @@ public class AutoRespawnModule extends Module {
    @EventHandler
    private void onPacketReceive(PacketEvent.Receive event) {
       if (event.getPacket() instanceof ClientboundRespawnPacket) {
+         long expectedGeneration = this.lifecycleGeneration;
          ClientAccess.schizoMinecraft.executeIfPossible(() -> {
-            if (!this.isToggled() || !this.saySetting.getValue()) {
+            if (!ownsQueuedPacketAction(
+               this.isToggled(),
+               expectedGeneration,
+               this.lifecycleGeneration
+            ) || !this.saySetting.getValue()) {
                return;
             }
 
-            long expectedGeneration = this.lifecycleGeneration;
             String message = this.messageSetting.getValue();
             TaskScheduler scheduler = ClientContext.taskScheduler;
-            scheduler.scheduleRotationTask(() -> {
-               if (this.isToggled()
-                  && this.lifecycleGeneration == expectedGeneration
+            scheduler.scheduleRotationTask(this, () -> {
+               if (ownsQueuedPacketAction(
+                     this.isToggled(),
+                     expectedGeneration,
+                     this.lifecycleGeneration
+                  )
                   && this.saySetting.getValue()) {
                   ChatUtils.sendChatOrCommand(message);
                }
@@ -68,8 +76,13 @@ public class AutoRespawnModule extends Module {
       }
 
       if (event.getPacket() instanceof ClientboundPlayerCombatKillPacket) {
+         long expectedGeneration = this.lifecycleGeneration;
          ClientAccess.schizoMinecraft.executeIfPossible(() -> {
-            if (this.isToggled()) {
+            if (ownsQueuedPacketAction(
+               this.isToggled(),
+               expectedGeneration,
+               this.lifecycleGeneration
+            )) {
                this.respawnTimer.reset();
             }
          });
@@ -84,6 +97,20 @@ public class AutoRespawnModule extends Module {
    @Override
    public void onDisable() {
       this.lifecycleGeneration++;
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.lifecycleGeneration++;
+      this.respawnTimer.clear();
+   }
+
+   static boolean ownsQueuedPacketAction(
+      boolean enabled,
+      long expectedGeneration,
+      long currentGeneration
+   ) {
+      return enabled && expectedGeneration == currentGeneration;
    }
 
    public AutoRespawnModule() {
