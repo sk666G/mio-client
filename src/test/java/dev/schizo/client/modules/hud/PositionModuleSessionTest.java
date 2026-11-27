@@ -1,5 +1,6 @@
 package dev.schizo.client.modules.hud;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import dev.schizo.client.events.MinecraftDisconnectEvent;
