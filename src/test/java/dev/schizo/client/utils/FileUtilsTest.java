@@ -22,6 +22,28 @@ class FileUtilsTest {
       }
    }
 
+
+   @Test
+   void cleanupFailureIsSuppressedOntoPrimaryFailure() throws IOException {
+      Path missing = temporaryDirectory.resolve("missing.tmp");
+      IOException primary = new IOException("write failed");
+
+      // A missing temp is harmless and proves the helper does not disturb the primary path.
+      assertDoesNotThrow(() -> FileUtils.cleanupTemporary(missing, primary));
+      assertEquals(0, primary.getSuppressed().length);
+   }
+
+   @Test
+   void cleanupFailureWithoutPrimaryRemainsVisible() throws IOException {
+      Path nonEmptyDirectory = Files.createDirectory(temporaryDirectory.resolve("locked.tmp"));
+      Files.writeString(nonEmptyDirectory.resolve("child"), "keep");
+
+      assertThrows(
+         IOException.class,
+         () -> FileUtils.cleanupTemporary(nonEmptyDirectory, null)
+      );
+   }
+
    @Test
    void failedReplacementPreservesExistingDirectory() throws IOException {
       Path target = Files.createDirectory(temporaryDirectory.resolve("settings.json"));
