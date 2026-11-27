@@ -51,6 +51,11 @@ public class AutoRespawnModule extends Module {
 
    @EventHandler
    private void onPacketReceive(PacketEvent.Receive event) {
+      if (!(event.getPacket() instanceof ClientboundRespawnPacket)
+         && !(event.getPacket() instanceof ClientboundPlayerCombatKillPacket)) {
+         return;
+      }
+
       long expectedGeneration = this.lifecycleGeneration;
       ClientPacketListener expectedConnection = ClientAccess.schizoMinecraft.getConnection();
 
