@@ -6,6 +6,12 @@ import com.google.gson.JsonObject;
 import dev.schizo.client.config.PresetData;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -39,6 +45,50 @@ class PresetRegistryCopyTest {
       String stored = Files.readString(this.directory.resolve("target.json"));
       assertTrue(stored.contains("\"value\": \"target\""));
       assertFalse(stored.contains("\"value\": \"source\""));
+   }
+
+   @Test
+   void concurrentCopiesHaveExactlyOneWinner() throws Exception {
+      new PresetData("source", payload("source")).saveNewToDirectory(this.directory);
+
+      int writers = 16;
+      List<PresetRegistry> registries = new ArrayList<>();
+      for (int index = 0; index < writers; index++) {
+         PresetRegistry registry = new PresetRegistry(this.directory);
+         registry.loadPresets();
+         registries.add(registry);
+      }
+
+      var executor = Executors.newFixedThreadPool(writers);
+      CountDownLatch start = new CountDownLatch(1);
+      AtomicInteger successes = new AtomicInteger();
+      List<Future<?>> futures = new ArrayList<>();
+      try {
+         for (PresetRegistry registry : registries) {
+            futures.add(executor.submit(() -> {
+               start.await();
+               try {
+                  if (registry.copyPreset("source", "race")) {
+                     successes.incrementAndGet();
+                  }
+               } catch (java.nio.file.FileAlreadyExistsException expectedCollision) {
+                  // Another registry won the create-only race.
+               }
+               return null;
+            }));
+         }
+
+         start.countDown();
+         for (Future<?> future : futures) {
+            future.get();
+         }
+
+         assertEquals(1, successes.get());
+         String stored = Files.readString(this.directory.resolve("race.json"));
+         assertTrue(stored.contains("\"value\": \"source\""));
+      } finally {
+         executor.shutdownNow();
+      }
    }
 
    private static JsonObject payload(String value) {
