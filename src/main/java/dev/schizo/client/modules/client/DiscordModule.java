@@ -75,6 +75,17 @@ public class DiscordModule extends Module {
                   if (this.connectionFuture == pending && this.isToggled()) this.toggle();
                });
             }
+            return;
+         }
+
+         if (!ownsCompletedConnection(
+            pending,
+            this.connectionFuture,
+            connectedClient,
+            this.activeClient,
+            this.isToggled()
+         )) {
+            closeObsoleteClient(connectedClient);
          }
       });
 
@@ -91,6 +102,32 @@ public class DiscordModule extends Module {
       }, CompletableFuture.delayedExecutor(
          CONNECTION_TIMEOUT_MS, TimeUnit.MILLISECONDS, ClientAccess.executorService
       )).exceptionally(failure -> null);
+   }
+
+   static boolean ownsCompletedConnection(
+      Object completedFuture,
+      Object currentFuture,
+      Object connectedClient,
+      Object activeClient,
+      boolean enabled
+   ) {
+      return enabled
+         && completedFuture != null
+         && completedFuture == currentFuture
+         && connectedClient != null
+         && connectedClient == activeClient;
+   }
+
+   private static void closeObsoleteClient(IPCClient client) {
+      if (client == null) {
+         return;
+      }
+      try {
+         client.close();
+      } catch (Exception failure) {
+         LOGGER.debug("Could not close obsolete Discord connection", failure);
+         client.cancelConnect();
+      }
    }
 
    @Override
