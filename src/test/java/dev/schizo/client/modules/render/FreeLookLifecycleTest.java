@@ -21,6 +21,8 @@ class FreeLookLifecycleTest {
       assertFalse(FreeLookModule.shouldRestorePlayerRotation(captured, replacement));
       assertFalse(FreeLookModule.shouldRestorePlayerRotation(null, replacement));
       assertFalse(FreeLookModule.shouldRestorePlayerRotation(captured, null));
+      assertTrue(FreeLookModule.ownsCurrentPlayer(captured, captured));
+      assertFalse(FreeLookModule.ownsCurrentPlayer(captured, replacement));
    }
 
 }

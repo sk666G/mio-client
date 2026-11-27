@@ -35,6 +35,8 @@ class FreecamLifecycleTest {
       assertFalse(FreecamModule.shouldRestorePlayerRotation(captured, replacement));
       assertFalse(FreecamModule.shouldRestorePlayerRotation(null, replacement));
       assertFalse(FreecamModule.shouldRestorePlayerRotation(captured, null));
+      assertTrue(FreecamModule.ownsCurrentPlayer(captured, captured));
+      assertFalse(FreecamModule.ownsCurrentPlayer(captured, replacement));
    }
 
 }

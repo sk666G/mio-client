@@ -148,6 +148,10 @@ public class FreecamModule extends Module {
    }
 
    static boolean shouldRestorePlayerRotation(Object capturedPlayer, Object currentPlayer) {
+      return ownsCurrentPlayer(capturedPlayer, currentPlayer);
+   }
+
+   static boolean ownsCurrentPlayer(Object capturedPlayer, Object currentPlayer) {
       return capturedPlayer != null && capturedPlayer == currentPlayer;
    }
 
@@ -238,6 +242,11 @@ public class FreecamModule extends Module {
 
    @EventHandler
    private void onLocalPlayerTickEvent(LocalPlayerTickEvent event) {
+      LocalPlayer currentPlayer = ClientAccess.schizoMinecraft.player;
+      if (!ownsCurrentPlayer(this.savedRotationOwner, currentPlayer)) {
+         this.disable();
+         return;
+      }
       CameraType cameraType = CameraType.FIRST_PERSON;
       GameOptionsOverrides.applyCameraOverride(this, cameraType);
       this.previousCameraPosition = this.cameraPosition;

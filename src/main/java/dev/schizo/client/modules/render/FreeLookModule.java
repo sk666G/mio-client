@@ -110,6 +110,10 @@ public class FreeLookModule extends Module {
    }
 
    static boolean shouldRestorePlayerRotation(Object capturedPlayer, Object currentPlayer) {
+      return ownsCurrentPlayer(capturedPlayer, currentPlayer);
+   }
+
+   static boolean ownsCurrentPlayer(Object capturedPlayer, Object currentPlayer) {
       return capturedPlayer != null && capturedPlayer == currentPlayer;
    }
 
@@ -124,6 +128,11 @@ public class FreeLookModule extends Module {
 
    @EventHandler(priority = -200)
    private void onLocalPlayerPreTick(LocalPlayerPreTickEvent event) {
+      LocalPlayer currentPlayer = ClientAccess.schizoMinecraft.player;
+      if (!ownsCurrentPlayer(this.cameraOwner, currentPlayer)) {
+         this.disable();
+         return;
+      }
       FreecamModule freecam = freecamModule;
       if (freecam.isToggled()) {
          return;
