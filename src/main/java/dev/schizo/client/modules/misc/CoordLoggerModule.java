@@ -24,6 +24,7 @@ import dev.schizo.client.settings.Setting;
 import dev.schizo.client.settings.options.DimensionType;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
@@ -42,7 +43,8 @@ public class CoordLoggerModule extends Module {
    private final Setting<Boolean> disconnectSetting;
    private final Setting<Boolean> deathSetting;
    private final Setting<Boolean> fileSetting;
-   private volatile String coordinateText;
+   private int lastX, lastY, lastZ;
+   private DimensionType lastDimension;
    private final Object fileWriteLock = new Object();
 
    private void appendRetainedEntry(String entry) {
@@ -74,8 +76,8 @@ public class CoordLoggerModule extends Module {
                retainedText += System.lineSeparator();
             }
             FileUtils.writeUtf8Atomically(logFile, retainedText);
-         } catch (IOException writeFailure) {
-            ClientAccess.logger.warn("Could not update coordinate log", writeFailure);
+         } catch (IOException | UncheckedIOException writeFailure) {
+            ClientAccess.logger.warn("Could not read or update coordlogger.txt", writeFailure);
          }
       }
    }
@@ -117,11 +119,11 @@ public class CoordLoggerModule extends Module {
          return;
       }
 
-      String coordinates = this.coordinateText;
-      if (coordinates == null) {
+      if (this.lastDimension == null) {
          return;
       }
 
+      String coordinates = "X: %d, Y: %d, Z: %d in The %s".formatted(this.lastX, this.lastY, this.lastZ, this.lastDimension.getDisplayName());
       StringBuilder entry = new StringBuilder().append(coordinates).append(" | ").append(reason);
       KeyboardHandler keyboard = ClientAccess.schizoMinecraft.keyboardHandler;
       if (!dev.schizo.client.utils.CoordinatePrivacy.isEnabled()) keyboard.setClipboard(entry.toString());
@@ -158,21 +160,11 @@ public class CoordLoggerModule extends Module {
    @EventHandler
    private void onPlayerTick(LocalPlayerTickEvent event) {
 
-      Object[] formatArguments = new Object[4];
-      LocalPlayer xPlayer = ClientAccess.schizoMinecraft.player;
-      int blockX = xPlayer.getBlockX();
-      formatArguments[0] = blockX;
-      LocalPlayer yPlayer = ClientAccess.schizoMinecraft.player;
-      int blockY = yPlayer.getBlockY();
-      formatArguments[1] = blockY;
-
-      LocalPlayer zPlayer = ClientAccess.schizoMinecraft.player;
-      int blockZ = zPlayer.getBlockZ();
-      formatArguments[(2)] = blockZ;
-
-      DimensionType dimension = WorldUtils.getDimension();
-      formatArguments[(3)] = dimension.getDisplayName();
-      this.coordinateText = ("X: %d, Y: %d, Z: %d in The %s").formatted(formatArguments);
+      LocalPlayer player = ClientAccess.schizoMinecraft.player;
+      this.lastX = player.getBlockX();
+      this.lastY = player.getBlockY();
+      this.lastZ = player.getBlockZ();
+      this.lastDimension = WorldUtils.getDimension();
    }
 
    @EventHandler
