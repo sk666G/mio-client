@@ -18,6 +18,7 @@ import dev.schizo.client.events.InputPressEvent;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.LocalPlayerTickEvent;
 import dev.schizo.client.events.MouseHandlerTurnPlayerEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.managers.InputOverrideManager;
 import dev.schizo.client.utils.ElapsedTimer;
 import dev.schizo.client.utils.chat.ChatUtils;
@@ -51,6 +52,7 @@ public class AntiAFKModule extends Module {
    private final ElapsedTimer actionTimer;
    private boolean jumpActionPending;
    private boolean sneakActionPending;
+   private long lifecycleGeneration;
 
    private List<Runnable> createActions() {
       List<Runnable> actions = new ArrayList<>();
@@ -117,6 +119,7 @@ public class AntiAFKModule extends Module {
 
    @Override
    public void onEnable() {
+      this.lifecycleGeneration++;
       this.idleTimer.reset();
       this.actionTimer.reset();
       this.jumpActionPending = false;
@@ -125,6 +128,14 @@ public class AntiAFKModule extends Module {
 
    @Override
    public void onDisable() {
+      this.lifecycleGeneration++;
+      this.jumpActionPending = false;
+      this.sneakActionPending = false;
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.lifecycleGeneration++;
       this.jumpActionPending = false;
       this.sneakActionPending = false;
    }
@@ -197,16 +208,28 @@ public class AntiAFKModule extends Module {
       }
 
       BlockableEventLoop<?> replyClient = ClientAccess.schizoMinecraft;
+      long expectedGeneration = this.lifecycleGeneration;
+      LocalPlayer expectedPlayer = ClientAccess.schizoMinecraft.player;
+      ClientPacketListener expectedConnection = expectedPlayer == null ? null : expectedPlayer.connection;
       Runnable replyAction = () -> {
+         LocalPlayer currentPlayer = ClientAccess.schizoMinecraft.player;
+         ClientPacketListener currentConnection = currentPlayer == null ? null : currentPlayer.connection;
          if (!this.isToggled()
             || !this.autoReplySetting.getValue()
             || !this.isIdle()
-            || ClientAccess.schizoMinecraft.player == null) {
+            || !matchesReplyContext(
+               expectedGeneration,
+               this.lifecycleGeneration,
+               expectedPlayer,
+               currentPlayer,
+               expectedConnection,
+               currentConnection
+            )) {
             return;
          }
 
-         ClientPacketListener replyConnectionCapture = ClientAccess.schizoMinecraft.player.connection;
-         LocalPlayer replyPlayer = ClientAccess.schizoMinecraft.player;
+         ClientPacketListener replyConnectionCapture = expectedConnection;
+         LocalPlayer replyPlayer = expectedPlayer;
          String playerName = replyPlayer.getName().getString();
          double randomSample = Math.random();
          double replySuffixValue = randomSample * 10000.0D;
@@ -218,6 +241,21 @@ public class AntiAFKModule extends Module {
          replyConnectionCapture.sendCommand(replyCommand);
       };
       replyClient.executeIfPossible(replyAction);
+   }
+
+   static boolean matchesReplyContext(
+      long expectedGeneration,
+      long currentGeneration,
+      Object expectedPlayer,
+      Object currentPlayer,
+      Object expectedConnection,
+      Object currentConnection
+   ) {
+      return expectedGeneration == currentGeneration
+         && expectedPlayer != null
+         && expectedPlayer == currentPlayer
+         && expectedConnection != null
+         && expectedConnection == currentConnection;
    }
 
    public AntiAFKModule() {
