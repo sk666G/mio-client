@@ -2,6 +2,7 @@ package dev.schizo.client.render;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import dev.schizo.client.NamedFeature;
 import dev.schizo.client.settings.NamedEntry;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
@@ -9,10 +10,12 @@ import org.junit.jupiter.api.Test;
 class GameOptionsOverridesOwnershipTest {
    @Test
    void cameraOverrideOwnersUseObjectIdentityInsteadOfNameEquality() {
-      NamedEntry first = () -> "FreeLook";
-      NamedEntry second = () -> "FreeLook";
+      NamedEntry first = new NamedFeature("FreeLook");
+      NamedEntry second = new NamedFeature("FreeLook");
       Set<NamedEntry> owners = GameOptionsOverrides.newCameraOwnerSet();
 
+      assertEquals(first, second);
+      assertNotSame(first, second);
       assertTrue(owners.add(first));
       assertTrue(owners.add(second));
       assertEquals(2, owners.size());
