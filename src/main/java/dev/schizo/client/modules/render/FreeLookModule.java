@@ -16,6 +16,7 @@ import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.LocalPlayerPreTickEvent;
 import dev.schizo.client.events.MinecraftRunTickEvent;
 import dev.schizo.client.events.MouseHandlerOnScrollEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.utils.InterpolatedFloat;
 import dev.schizo.client.utils.movement.EntityMotionAccess;
 import dev.schizo.client.render.RenderUtils;
@@ -148,6 +149,11 @@ public class FreeLookModule extends Module {
          this.cameraDistance = Mth.clamp(distance, 1.0F, 2e+02F);
          event.cancel();
       }
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnectEvent(MinecraftDisconnectEvent event) {
+      this.disable();
    }
 
    @EventHandler
