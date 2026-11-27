@@ -1195,9 +1195,26 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
       return HudToolbar.layout(window.getGuiScaledWidth(), window.getGuiScaledHeight(), this.toolbarVisible);
    }
 
+   private ResizableHudWidgetRenderer selectedResizable() {
+      if (this.selection.size() != 1) return null;
+      return this.selection.getFirst() instanceof ResizableHudWidgetRenderer widget
+         && widget.isEnabled() && widget.supportsResizing() ? widget : null;
+   }
+
    private boolean toolbarEnabled(HudToolbar.Action action) {
       if (this.closing || this.focusedSetting() != null || this.layoutHistory.hasPendingEdit()
          || this.draggedWidget != null || this.resizedWidget != null || this.groupDrag != null) return false;
+      if (action.isScaleAction()) {
+         var widget = this.selectedResizable();
+         if (widget == null) return false;
+         float current = widget.getSizeScale();
+         return switch (action) {
+            case SCALE_DOWN -> current > 0.5F;
+            case SCALE_UP -> current < 2.0F;
+            case SCALE_RESET -> Float.compare(current, 1.0F) != 0;
+            default -> false;
+         };
+      }
       return action.enabled(this.selection.size(), this.layoutHistory.canUndo(), this.layoutHistory.canRedo());
    }
 
@@ -1209,10 +1226,25 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
          case UNDO -> this.undoLayoutEdit();
          case REDO -> this.redoLayoutEdit();
          case CLEAR -> this.selection.clear();
+         case SCALE_DOWN, SCALE_RESET, SCALE_UP -> this.adjustSelectedScale(action);
          default -> {
             if (action.mode != null) this.alignSelection(action.mode);
          }
       }
+   }
+
+   private void adjustSelectedScale(HudToolbar.Action action) {
+      var widget = this.selectedResizable();
+      if (widget == null) return;
+      float current = widget.getSizeScale();
+      int points = KeyUtils.isShiftDown() ? 10 : 1;
+      float next = action == HudToolbar.Action.SCALE_RESET ? 1.0F
+         : dev.schizo.client.render.HudWidgetResize.adjustPercent(current, action == HudToolbar.Action.SCALE_UP ? points : -points);
+      if (Float.compare(next, current) == 0) return;
+      this.beginLayoutEdit();
+      widget.setSizeScale(next);
+      this.requestDirectionRefresh();
+      this.finishLayoutEdit();
    }
 
    private void renderToolbar(GuiGraphics graphics, int mouseX, int mouseY) {
@@ -1227,7 +1259,10 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
       StudioScreenTheme theme = StudioScreenTheme.current();
       graphics.fill(layout.x(), layout.y(), layout.x() + layout.width(), layout.y() + layout.height(), theme.panel());
       graphics.fill(layout.x(), layout.y(), layout.x() + layout.width(), layout.y() + 1, theme.accent());
-      String title = "HUD TOOLS  |  " + this.selection.size() + " selected  |  T: hide";
+      String title = "HUD TOOLS  |  " + this.selection.size() + " selected";
+      var resizable = this.selectedResizable();
+      if (resizable != null) title += " | " + Math.round(resizable.getSizeScale() * 100) + "% (Shift: 10%)";
+      title += " | T: hide";
       graphics.drawString(font, font.plainSubstrByWidth(title, layout.width() - 12), layout.x() + 6, layout.y() + 6, 0xffeeeeef, false);
       for (HudToolbar.Action action : HudToolbar.ACTIONS) {
          HudToolbar.Cell cell = layout.cell(action);
