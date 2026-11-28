@@ -16,6 +16,7 @@ import dev.schizo.client.gui.panels.GamePanel;
 import dev.schizo.client.gui.panels.ModuleCategoryPanel;
 import dev.schizo.client.render.GuiDrawUtils;
 import dev.schizo.client.gui.components.SettingComponent;
+import dev.schizo.client.gui.components.KeybindComponent;
 import dev.schizo.client.config.ModulePresetCodec;
 import dev.schizo.client.render.TextUtils;
 import dev.schizo.client.utils.FloatAnimation;
@@ -69,6 +70,7 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
    };
 
    private SettingComponent<?> editingSetting = null;
+   private KeybindComponent keybindCapture;
    private int secretSequenceIndex = 0;
    private boolean gamePanelUnlocked;
    private boolean searchCursorVisible;
@@ -312,7 +314,24 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
       PresetImportScreen.openForDroppedFiles(this, paths);
    }
 
+   public KeybindComponent getKeybindCapture() { return keybindCapture; }
+
+   public void clearKeybindCapture(KeybindComponent owner) {
+      if(keybindCapture==owner) keybindCapture=null;
+   }
+
+   public void setKeybindCapture(KeybindComponent owner) {
+      if(keybindCapture==owner) return;
+      setEditingSetting(null);
+      keybindCapture=owner;
+   }
+
    public void setEditingSetting(SettingComponent<?> component) {
+      if(keybindCapture!=null) {
+         var previous=keybindCapture;
+         keybindCapture=null;
+         previous.cancelInput();
+      }
       if (this.editingSetting != null && this.editingSetting != component) {
          this.editingSetting.editing = false;
       }
