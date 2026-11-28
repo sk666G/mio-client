@@ -315,6 +315,7 @@ public class TradeItemsComponent extends AbstractComponent {
 
    public void closeSelector() {
       if (this.activeSelector != null) {
+         this.activeSelector.cancelInput();
          this.screen.getPanels().remove(this.activeSelector);
       }
       this.activeSelector = null;
