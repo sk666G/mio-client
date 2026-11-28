@@ -65,4 +65,34 @@ class SettingEditHistoryTest {
       assertFalse(first.getValue());
       assertFalse(second.getValue());
    }
+
+   private enum Choice implements dev.schizo.client.settings.NamedEntry {
+      FIRST("First option"), SECOND("Second option");
+      private final String label;
+      Choice(String label) {this.label=label;}
+      @Override public String getName(){return label;}
+   }
+
+   @Test void enumEditsRejectUnknownValuesWithoutFallingBackAndRemainReversible() {
+      var setting=new dev.schizo.client.settings.EnumSetting<>("Choice",Choice.SECOND);
+      var history=new SettingEditHistory();
+      assertEquals(SettingEditHistory.Result.REJECTED,history.apply(setting,setting.toJson(),new JsonPrimitive("not a choice")));
+      assertEquals(Choice.SECOND,setting.getValue());
+      assertFalse(history.canUndo());
+      assertEquals(SettingEditHistory.Result.APPLIED,history.apply(setting,setting.toJson(),new JsonPrimitive("first OPTION")));
+      assertEquals(Choice.FIRST,setting.getValue());
+      assertEquals(SettingEditHistory.Result.APPLIED,history.undo());
+      assertEquals(Choice.SECOND,setting.getValue());
+      assertEquals(SettingEditHistory.Result.APPLIED,history.redo());
+      assertEquals(Choice.FIRST,setting.getValue());
+      setting.setChangeCallback(()->fail("must not run"));
+      assertEquals(SettingEditHistory.Result.UNSUPPORTED,history.undo());
+   }
+
+   @Test void canonicalEnumChoiceRejectsAmbiguityAndUnavailableNames() {
+      assertEquals("Second option",InspectorEnumOptions.canonical(java.util.List.of("First option","Second option"),"SECOND OPTION"));
+      assertNull(InspectorEnumOptions.canonical(java.util.List.of("First option"),"Second option"));
+      assertNull(InspectorEnumOptions.canonical(java.util.List.of("Same","same"),"same"));
+      assertNull(InspectorEnumOptions.canonical(java.util.List.of("First option")," "));
+   }
 }
