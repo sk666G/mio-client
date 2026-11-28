@@ -139,6 +139,6 @@ final class PalettePickerScreen extends StudioScreen {
       super.render(graphics, mouseX, mouseY, partialTick);
    }
 
-   @Override public void onClose() { dragging = -1; minecraft.setScreen(parent); }
+   @Override public void onClose() { dragging = -1; returnToParent(parent); }
    @Override public boolean isPauseScreen() { return false; }
 }
