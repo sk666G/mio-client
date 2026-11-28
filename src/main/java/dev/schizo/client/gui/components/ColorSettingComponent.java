@@ -285,6 +285,7 @@ public class ColorSettingComponent extends SettingComponent<Color> implements Cl
       }
       if (button == 1 && this.isHeaderHovered(mouseX, mouseY)) {
          this.expanded = !this.expanded;
+         if(!this.expanded) this.cancelInput();
       }
       if (!this.expanded) {
          super.mouseClicked(mouseX, mouseY, button);
@@ -326,8 +327,18 @@ public class ColorSettingComponent extends SettingComponent<Color> implements Cl
    }
 
    @Override
+   public void cancelInput() {
+      super.cancelInput();
+      this.draggingSaturationBrightness=false;
+      this.draggingHue=false;
+      this.draggingAlpha=false;
+      this.controls.forEach(GuiElement::cancelInput);
+   }
+
+   @Override
    public void mouseReleased(double mouseX, double mouseY, int button) {
       if (this.isUnavailable()) {
+         this.cancelInput();
          return;
       }
       this.controls.forEach(control -> control.mouseReleased(mouseX, mouseY, button));
