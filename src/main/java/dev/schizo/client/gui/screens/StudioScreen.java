@@ -2,11 +2,13 @@ package dev.schizo.client.gui.screens;
 
 import dev.schizo.client.gui.UiMotionPolicy;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
 /** Shared entry treatment. Input geometry and screen lifecycle stay native. */
 abstract class StudioScreen extends Screen {
+   private final StudioResizeFocus<AbstractWidget> resizeFocus = new StudioResizeFocus<>();
    private boolean entryStarted;
    private long entryNanos;
 
@@ -16,7 +18,21 @@ abstract class StudioScreen extends Screen {
 
    @Override protected void init() {
       super.init();
+      resizeFocus.clear();
       entryStarted = false;
+   }
+
+   /** Register a stable control role, independent of label changes and widget position. */
+   protected final <T extends AbstractWidget> T trackResizeFocus(String id, T widget) {
+      resizeFocus.register(id, widget);
+      return widget;
+   }
+
+   @Override public void resize(int width, int height) {
+      String role = resizeFocus.roleOf(getFocused());
+      super.resize(width, height);
+      AbstractWidget restored = resizeFocus.resolve(role, widget -> widget.active && widget.visible);
+      if (restored != null) setInitialFocus(restored);
    }
 
    @Override public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
