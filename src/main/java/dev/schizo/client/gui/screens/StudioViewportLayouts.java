@@ -97,4 +97,21 @@ final class StudioViewportLayouts {
          top+(condensed?95:115), top+(condensed?118:144),
          top+(condensed?130:156), top+body);
    }
+
+   record Picker(int left, int top, int width, boolean compact, boolean condensed,
+                 int railLeft, int railWidth, int sampleY, int sampleHeight,
+                 int firstRowY, int rowStep, int footerY, int panelBottom) {
+      int rowY(int channel) { return firstRowY + channel * rowStep; }
+   }
+
+   static Picker picker(int width, int height) {
+      int w = Math.max(1, Math.min(340, width - 16));
+      boolean compact = w < 218 || height < 158;
+      boolean condensed = height < 202;
+      int body = condensed ? 150 : 194;
+      int top = Math.max(4, (height - body) / 2), left = (width - w) / 2;
+      return new Picker(left, top, w, compact, condensed, left+62, Math.max(1,w-116),
+         top+(condensed?20:22), condensed?16:22, top+(condensed?40:53),
+         condensed?22:27, top+(condensed?128:169), top+body);
+   }
 }
