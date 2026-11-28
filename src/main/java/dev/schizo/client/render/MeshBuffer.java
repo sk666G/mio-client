@@ -113,12 +113,7 @@ public class MeshBuffer implements VertexConsumer {
    }
 
    public static void draw(MeshBuffer buffer) {
-      if (buffer.isBuilding()) {
-         draw(
-            buffer.builder
-         );
-         buffer.builder = null;
-      }
+      buffer.draw();
    }
 
    public BufferBuilder begin(Mode mode, VertexFormat format) {
@@ -130,8 +125,7 @@ public class MeshBuffer implements VertexConsumer {
 
    public void draw(RenderType renderType) {
       if (this.builder != null) {
-         MeshData mesh = this.builder.build();
-         this.builder = null;
+         MeshData mesh = this.build();
          if (mesh != null) {
             renderType.draw(mesh);
          }
@@ -155,10 +149,12 @@ public class MeshBuffer implements VertexConsumer {
 
    public void draw() {
       if (this.builder != null) {
-         draw(
-            this.builder
-         );
-         this.builder = null;
+         // Detach a successfully built batch before drawing it; a failed draw
+         // must not leave a completed BufferBuilder queued for a later frame.
+         MeshData mesh = this.build();
+         if (mesh != null) {
+            MeshDrawContext.draw(mesh);
+         }
       }
    }
 

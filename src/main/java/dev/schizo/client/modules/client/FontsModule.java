@@ -203,7 +203,7 @@ public class FontsModule extends Module {
       this.transformedPosition = new Vector2f();
       this.queuedDraws = new ArrayList<>();
       this.styleSetting.setChangeCallback(RELOAD_RENDERER);
-      this.antiAliasSetting.setChangeCallback(RELOAD_RENDERER);
+      // Filtering is selected by ClientRenderTypes at draw time; atlas pixels are unchanged.
       this.japaneseSetting.setChangeCallback(() -> this.validateFont(true));
       this.simplifiedChineseSetting.setChangeCallback(() -> this.validateFont(true));
       this.sizeSetting.setChangeCallback(() -> reloadRequested.set(true));
