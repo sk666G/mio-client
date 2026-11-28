@@ -28,7 +28,8 @@ public final class ModuleInspectorScreen extends StudioScreen {
    private List<Setting<?>> settings = List.of();
    private String filterText = "";
    private final ModuleCompatibility.Assessment assessment;
-   private int selected, left, top, panelWidth, rowCount, offset;
+   private int selected, left, top, panelWidth, rowCount, offset, rowsY, controlsY;
+   private boolean compact, condensed;
    private EditBox value, filter;
    private Button resetDefault;
    private Button apply, undo, redo;
@@ -69,12 +70,15 @@ public final class ModuleInspectorScreen extends StudioScreen {
 
    @Override protected void init() {
       super.init();
-      panelWidth = Math.max(1, Math.min(550, width - 16));
-      left = (width - panelWidth) / 2;
-      top = Math.max(4, (height - 320) / 2);
-      rowCount = Math.max(1, Math.min(9, (height - top - 209) / 13));
-      int controlsY = top + 106 + rowCount * 13;
-      filter = new StudioEditBox(font, left, top + 75, panelWidth, 20, Component.literal("Filter settings"));
+      var layout = StudioViewportLayouts.inspector(width,height);
+      panelWidth=layout.width(); left=layout.left(); top=layout.top();
+      compact=layout.compact(); condensed=layout.condensed();
+      rowsY=layout.rowsY(); controlsY=layout.controlsY(); rowCount=layout.rows();
+      if (compact) {
+         button("Back",left,Math.max(0,height-24),panelWidth,this::onClose);
+         return;
+      }
+      filter = new StudioEditBox(font, left, rowsY - 25, panelWidth, 20, Component.literal("Filter settings"));
       filter.setMaxLength(64);
       filter.setValue(filterText);
       filter.setHint(Component.literal("Filter settings..."));
@@ -106,7 +110,7 @@ public final class ModuleInspectorScreen extends StudioScreen {
    }
 
    @Override public void tick() {
-      if (System.nanoTime() - bindingRefresh >= 500_000_000L) refreshBindingNotice();
+      if (!compact && !condensed && System.nanoTime() - bindingRefresh >= 500_000_000L) refreshBindingNotice();
    }
 
    private Button button(String label, int x, int y, int w, Runnable action) {
@@ -133,7 +137,8 @@ public final class ModuleInspectorScreen extends StudioScreen {
    }
 
    @Override public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
-      int row = InspectorRows.hit(event.x(), event.y(), left, top + 100, panelWidth, rowCount, offset, settings.size());
+      if (compact) return super.mouseClicked(event, doubleClick);
+      int row = InspectorRows.hit(event.x(), event.y(), left, rowsY, panelWidth, rowCount, offset, settings.size());
       if (event.button() == 0 && row >= 0) {
          selected = row;
          RecentSettingsScreen.record(module, current());
@@ -145,7 +150,7 @@ public final class ModuleInspectorScreen extends StudioScreen {
    }
 
    @Override public boolean mouseScrolled(double x, double y, double horizontal, double vertical) {
-      if (vertical != 0 && x >= left && x < left + panelWidth && y >= top + 100 && y < top + 100 + rowCount * 13) {
+      if (!compact && vertical != 0 && x >= left && x < left + panelWidth && y >= rowsY && y < rowsY + rowCount * 13) {
          offset = Math.max(0, Math.min(Math.max(0, settings.size() - rowCount), offset + (vertical < 0 ? 1 : -1)));
          return true;
       }
@@ -232,18 +237,28 @@ public final class ModuleInspectorScreen extends StudioScreen {
    @Override public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
       StudioScreenTheme theme = StudioScreenTheme.current();
       graphics.fill(0, 0, width, height, theme.backdrop());
-      graphics.fill(left - 4, top, left + panelWidth + 4, Math.min(height, top + 196 + rowCount * 13), theme.panel());
+      if (compact) {
+         line(graphics, "Reduce GUI scale to use the inspector", top, 0xffeeeeef);
+         super.render(graphics, mouseX, mouseY, partialTick);
+         return;
+      }
+      graphics.fill(left - 4, top, left + panelWidth + 4, Math.min(height, controlsY + 72), theme.panel());
       graphics.fill(left - 4, top, left + panelWidth + 4, top + 2, theme.accent());
       line(graphics, "SCHIZO / INSPECTOR / " + module.getName(), top + 8, theme.accent());
-      line(graphics, module.getDescription(), top + 21, 0xffeeeeef);
-      line(graphics, "Compatibility: " + assessment.classification() + " | individual settings unverified", top + 34, 0xffa1a3af);
-      line(graphics, bindingNotice, top + 47, 0xffb8b9c7);
-      line(graphics, notice.isEmpty() ? "Local scalar edits | cross-module history in Quick Access" : notice, top + 60, 0xffa1a3af);
-      if (settings.isEmpty()) line(graphics, "No matching settings.", top + 101, 0xffa1a3af);
+      if (condensed) {
+         line(graphics, "Compatibility: " + assessment.classification() + " | settings unverified", top + 19, 0xffa1a3af);
+         line(graphics, notice.isEmpty() ? "Local scalar edits | Quick Access history" : notice, top + 30, 0xffa1a3af);
+      } else {
+         line(graphics, module.getDescription(), top + 21, 0xffeeeeef);
+         line(graphics, "Compatibility: " + assessment.classification() + " | individual settings unverified", top + 34, 0xffa1a3af);
+         line(graphics, bindingNotice, top + 47, 0xffb8b9c7);
+         line(graphics, notice.isEmpty() ? "Local scalar edits | cross-module history in Quick Access" : notice, top + 60, 0xffa1a3af);
+      }
+      if (settings.isEmpty()) line(graphics, "No matching settings.", rowsY + 1, 0xffa1a3af);
       for (int i = 0; i < rowCount && offset + i < settings.size(); i++) {
          int index = offset + i;
          Setting<?> setting = settings.get(index);
-         int y = top + 100 + i * 13;
+         int y = rowsY + i * 13;
          boolean hover = mouseX >= left && mouseX < left + panelWidth && mouseY >= y && mouseY < y + 12;
          graphics.fill(left, y, left + panelWidth, y + 12, index == selected ? theme.selected() : hover ? theme.hover() : theme.row());
          if (index == selected) graphics.fill(left, y, left + 2, y + 12, theme.accent());
