@@ -14,6 +14,7 @@ import dev.schizo.client.modules.client.FontsModule;
 
 import dev.schizo.mixin.GuiGraphicsAccessor;
 import java.util.function.Consumer;
+import java.util.function.IntToDoubleFunction;
 import net.minecraft.client.gui.ActiveTextCollector;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.GuiGraphics.HoveredTextEffects;
@@ -104,22 +105,22 @@ public class FontActiveTextCollector implements Consumer<Style>, ActiveTextColle
       if (relativeY < 0.0F || relativeY >= height) {
          return;
       }
-      float[] advance = new float[]{0.0F};
-      text.accept(
-         (index, style, codePoint) -> {
-            float glyphWidth = FontRenderer.INSTANCE
-               .getWidth(
-                  FormattedCharSequence.codepoint(codePoint, Style.EMPTY)
-               );
-            if (relativeX >= advance[0] && relativeX < advance[0] + glyphWidth) {
-               styleConsumer.accept(style);
-               return false;
-            } else {
-               advance[0] += glyphWidth;
-               return true;
-            }
+      visitGlyphStyleAt(text, relativeX, FontRenderer.INSTANCE.getRenderer()::getCharacterWidth, styleConsumer);
+   }
+
+   // Use the same unrounded advances as the formatted glyph renderer.
+   static void visitGlyphStyleAt(FormattedCharSequence text, float relativeX,
+      IntToDoubleFunction glyphAdvance, Consumer<Style> styleConsumer) {
+      double[] advance = {0.0D};
+      text.accept((index, style, codePoint) -> {
+         double next = advance[0] + glyphAdvance.applyAsDouble(codePoint);
+         if (relativeX >= advance[0] && relativeX < next) {
+            styleConsumer.accept(style);
+            return false;
          }
-      );
+         advance[0] = next;
+         return true;
+      });
    }
 
    private static float alignedX(
