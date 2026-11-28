@@ -364,6 +364,7 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
    }
 
    private boolean cancelPendingLayoutGesture() {
+      peerGuideX=peerGuideY=null;
       if (!this.layoutHistory.hasPendingEdit()) {
          return false;
       }
@@ -371,7 +372,6 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
       if (this.draggedWidget != null) {
          this.draggedWidget.setSelected(false);
          this.draggedWidget = null;
-         peerGuideX=peerGuideY=null;
       }
 
       this.resizedWidget = null;
