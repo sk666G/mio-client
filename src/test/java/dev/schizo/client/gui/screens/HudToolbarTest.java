@@ -36,4 +36,14 @@ class HudToolbarTest {
       assertTrue(HudToolbar.Action.DISTRIBUTE_Y.enabled(3,false,false));
       assertFalse(HudToolbar.Action.BACKGROUND.enabled(3,true,true));
    }
+
+   @Test void keyboardTraversalSkipsDisabledAndWraps() {
+      java.util.function.IntPredicate allowed=i -> i==0 || i==4;
+      assertEquals(0,HudToolbar.nextEnabled(-1,1,6,allowed));
+      assertEquals(4,HudToolbar.nextEnabled(0,1,6,allowed));
+      assertEquals(0,HudToolbar.nextEnabled(4,1,6,allowed));
+      assertEquals(4,HudToolbar.nextEnabled(0,-1,6,allowed));
+      assertEquals(-1,HudToolbar.nextEnabled(2,1,6,i->false));
+      assertEquals(-1,HudToolbar.nextEnabled(-1,1,0,allowed));
+   }
 }
