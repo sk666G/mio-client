@@ -250,7 +250,7 @@ public final class PerformanceCenterScreen extends ClientScreen {
       float maximumRight = tableLeft + tableWidth * 0.88F;
       float totalRight = tableRight - 7.0F;
       float nameRight=tableLeft+tableWidth*0.43F;
-      font.drawWithShadow(poseStack, "NAME", tableLeft + 7.0F, tableTop + 5.0F, muted);
+      drawFitted(font,poseStack,"NAME",tableLeft+7,tableTop+5,nameRight-tableLeft-7,muted);
       drawRightFitted(font,poseStack,selectedTab==3?"CELLS":"CALLS",callsRight,tableTop+5,callsRight-nameRight-4,muted);
       drawRightFitted(font,poseStack,"AVG",averageRight,tableTop+5,averageRight-callsRight-4,muted);
       drawRightFitted(font,poseStack,"MAX",maximumRight,tableTop+5,maximumRight-averageRight-4,muted);
@@ -510,17 +510,12 @@ public final class PerformanceCenterScreen extends ClientScreen {
 
       String label = "RECENT FRAME HISTORY";
       String scaleLabel = "50 ms SCALE";
-      font.drawWithShadow(poseStack, label, left + 8.0F, top + 5.0F, muted);
-      this.drawRightAligned(font, poseStack, scaleLabel, left + width - 8.0F, top + 5.0F, muted);
+      float scaleWidth=(width-20)*0.4F;
+      drawFitted(font,poseStack,label,left+8,top+5,width-24-scaleWidth,muted);
+      drawRightFitted(font,poseStack,scaleLabel,left+width-8,top+5,scaleWidth,muted);
 
       if (this.frameHistorySamples.length < 2) {
-         font.drawWithShadow(
-            poseStack,
-            "Waiting for frame samples...",
-            left + 8.0F,
-            top + 29.0F,
-            Color.GRAY
-         );
+         drawFitted(font,poseStack,"Waiting for frame samples...",left+8,top+29,width-16,Color.GRAY);
          return;
       }
 
@@ -635,12 +630,6 @@ public final class PerformanceCenterScreen extends ClientScreen {
    private void drawRightFitted(FontRenderer font,PoseStack poses,String text,float right,float y,float available,Color color) {
       var fitted=fittedText.fit(text,available,PerformanceCenterScreen::measureText);
       font.drawWithShadow(poses,fitted.text(),right-fitted.width(),y,color);
-   }
-
-   private void drawRightAligned(
-      FontRenderer font, PoseStack poseStack, String text, float right, float y, Color color
-   ) {
-      font.drawWithShadow(poseStack, text, right - font.getWidth(text), y, color);
    }
 
    private static List<ProfilerDisplayRow> moduleRows(List<EventProfiler.ModuleSnapshot> snapshots) {
