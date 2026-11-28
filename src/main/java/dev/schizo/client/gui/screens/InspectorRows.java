@@ -18,4 +18,11 @@ final class InspectorRows {
       if (selected >= offset + rows) offset = selected - rows + 1;
       return Math.max(0, Math.min(offset, Math.max(0, size - rows)));
    }
+
+   /** Bounded keyboard selection, including empty lists and stale indices. */
+   static int step(int selected, int delta, int size) {
+      if (size <= 0) return -1;
+      int current = Math.max(0, Math.min(selected, size - 1));
+      return (int)Math.max(0L, Math.min(size - 1L, (long)current + delta));
+   }
 }

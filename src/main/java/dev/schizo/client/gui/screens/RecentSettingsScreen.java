@@ -7,6 +7,9 @@ import dev.schizo.client.settings.Setting;
 import java.util.List;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.input.KeyEvent;
+import org.lwjgl.glfw.GLFW;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
@@ -19,6 +22,7 @@ public final class RecentSettingsScreen extends StudioScreen {
    private int selected,offset,rowCount,left,top,panelWidth;
    private boolean compact,confirming;
    private Button open,previous,next,clear;
+   private EditBox search;
    private String query="";
 
    public RecentSettingsScreen(Screen parent) {
@@ -47,14 +51,14 @@ public final class RecentSettingsScreen extends StudioScreen {
 
    @Override protected void init() {
       super.init();
-      open=null; confirming=false;
+      open=previous=next=clear=null; search=null; confirming=false;
       panelWidth=Math.max(1,Math.min(480,width-16));
       left=(width-panelWidth)/2;
       top=Math.max(4,(height-250)/2);
       compact=panelWidth<220 || height<170;
       if(compact) {button("Back",left,Math.max(1,height-25),panelWidth,this::onClose);return;}
       rowCount=Math.max(1,Math.min(10,(height-top-100)/13));
-      var search=addRenderableWidget(new StudioEditBox(font,left,top+30,panelWidth,20,Component.literal("Search visited settings")));
+      search=addRenderableWidget(new StudioEditBox(font,left,top+30,panelWidth,20,Component.literal("Search visited settings")));
       search.setMaxLength(64); search.setValue(query);
       search.setResponder(text -> {query=text;selected=0;offset=0;confirming=false;reload();});
       int y=top+57+rowCount*13, w=(panelWidth-16)/5;
@@ -67,6 +71,7 @@ public final class RecentSettingsScreen extends StudioScreen {
       });
       button("Back",left+4*(w+4),y,w,this::onClose);
       reload();
+      setInitialFocus(search);
    }
 
    private Button button(String label,int x,int y,int w,Runnable action) {
@@ -91,7 +96,9 @@ public final class RecentSettingsScreen extends StudioScreen {
    }
 
    private void move(int delta) {
-      selected=Math.max(0,Math.min(rows.size()-1,selected+delta));
+      int index=InspectorRows.step(selected,delta,rows.size());
+      if(index<0)return;
+      selected=index;
       confirming=false;refresh();
    }
 
@@ -100,6 +107,19 @@ public final class RecentSettingsScreen extends StudioScreen {
       var visit=rows.get(selected);
       if(!registered(visit)) {reload();return;}
       minecraft.setScreen(new ModuleInspectorScreen(this,visit.owner(),visit.item()));
+   }
+
+   @Override public boolean keyPressed(KeyEvent event) {
+      if(!compact && (getFocused()==null || getFocused()==search)) {
+         switch(event.key()) {
+            case GLFW.GLFW_KEY_UP -> {move(-1);return true;}
+            case GLFW.GLFW_KEY_DOWN -> {move(1);return true;}
+            case GLFW.GLFW_KEY_PAGE_UP -> {move(-rowCount);return true;}
+            case GLFW.GLFW_KEY_PAGE_DOWN -> {move(rowCount);return true;}
+            case GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_KP_ENTER -> {confirming=false;refresh();open();return true;}
+         }
+      }
+      return super.keyPressed(event);
    }
 
    @Override public boolean mouseClicked(MouseButtonEvent event,boolean doubleClick) {

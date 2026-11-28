@@ -12,6 +12,8 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.client.input.KeyEvent;
+import org.lwjgl.glfw.GLFW;
 import net.minecraft.network.chat.Component;
 
 /** Local navigation and preference management; opening a module never toggles it. */
@@ -24,6 +26,7 @@ public final class QuickAccessScreen extends StudioScreen {
    private Module selected;
    private int offset, rowCount, left, top, panelWidth, rowsY, footerY;
    private Button favorite, inspect, reveal, previous, next;
+   private EditBox search;
    private boolean compact;
 
    public QuickAccessScreen(ClickGuiScreen parent) {
@@ -36,6 +39,7 @@ public final class QuickAccessScreen extends StudioScreen {
    @Override protected void init() {
       super.init();
       favorite = inspect = reveal = previous = next = null;
+      search = null;
       var layout = StudioViewportLayouts.quickAccess(width, height);
       panelWidth = layout.width(); left = layout.left(); top = layout.top();
       compact = layout.compact(); rowCount = layout.rows();
@@ -54,7 +58,7 @@ public final class QuickAccessScreen extends StudioScreen {
       int historyY = top+(layout.stacked()?47:24);
       button("Visited",historyX,historyY,historyWidth,() -> minecraft.setScreen(new RecentSettingsScreen(this)));
       button("Edit history",historyX+historyWidth+4,historyY,historyWidth,() -> minecraft.setScreen(new ScalarHistoryScreen(this)));
-      EditBox search = addRenderableWidget(new StudioEditBox(font,left,layout.searchY(),panelWidth,20,Component.literal("Search quick access")));
+      search = addRenderableWidget(new StudioEditBox(font,left,layout.searchY(),panelWidth,20,Component.literal("Search quick access")));
       search.setMaxLength(64);
       search.setValue(query);
       search.setHint(Component.literal("Search modules..."));
@@ -63,9 +67,7 @@ public final class QuickAccessScreen extends StudioScreen {
       previous=button("Previous",left,y,w,() -> select(-1));
       next=button("Next",left+w+4,y,w,() -> select(1));
       favorite=button("Favorite",left+2*(w+4),y,w,this::toggleFavorite);
-      inspect=button("Inspect",left,y+23,w,() -> {
-         if (selected != null) minecraft.setScreen(new ModuleInspectorScreen(this,selected));
-      });
+      inspect=button("Inspect",left,y+23,w,this::inspectSelected);
       reveal=button("Open module",left+w+4,y+23,w,() -> {
          Module target=selected;
          if (target==null) return;
@@ -74,6 +76,7 @@ public final class QuickAccessScreen extends StudioScreen {
       });
       button("Back",left+2*(w+4),y+23,w,this::onClose);
       rebuild();
+      setInitialFocus(search);
    }
 
    private Button button(String label,int x,int y,int w,Runnable action) {
@@ -115,9 +118,27 @@ public final class QuickAccessScreen extends StudioScreen {
    }
 
    private void select(int step) {
-      if(rows.isEmpty()) return;
-      selected=rows.get(Math.max(0,Math.min(rows.size()-1,selectedIndex()+step)));
+      int index = InspectorRows.step(selectedIndex(), step, rows.size());
+      if (index < 0) return;
+      selected=rows.get(index);
       refresh();
+   }
+
+   private void inspectSelected() {
+      if (selected != null) minecraft.setScreen(new ModuleInspectorScreen(this, selected));
+   }
+
+   @Override public boolean keyPressed(KeyEvent event) {
+      if (!compact && (getFocused() == null || getFocused() == search)) {
+         switch (event.key()) {
+            case GLFW.GLFW_KEY_UP -> { select(-1); return true; }
+            case GLFW.GLFW_KEY_DOWN -> { select(1); return true; }
+            case GLFW.GLFW_KEY_PAGE_UP -> { select(-rowCount); return true; }
+            case GLFW.GLFW_KEY_PAGE_DOWN -> { select(rowCount); return true; }
+            case GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_KP_ENTER -> { inspectSelected(); return true; }
+         }
+      }
+      return super.keyPressed(event);
    }
 
    private void refresh() {
