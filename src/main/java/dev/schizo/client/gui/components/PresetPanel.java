@@ -1,3 +1,12 @@
+/*
+ * ─────────────────────────────────────────────
+ * Licensed under the MIT License.
+ *
+ * Zio is not affiliated with or endorsed by Mio.
+ * Provided "as is", without warranty of any kind.
+ * ─────────────────────────────────────────────
+ */
+
 package dev.schizo.client.gui.components;
 
 import dev.schizo.client.ClientAccess;
@@ -32,6 +41,7 @@ public class PresetPanel extends Panel {
    public PresetPanel(PresetScreen screen) {
       super("Preset");
       this.screen=screen;
+      destination.setChangeCallback(confirmation::clear);
       categorySetting.setChangeCallback(()->{
          screen.setSelectedCategory(categorySetting.getValue());
          confirmation.clear();
