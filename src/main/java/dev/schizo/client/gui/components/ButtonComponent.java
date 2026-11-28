@@ -23,6 +23,7 @@ import java.util.function.Supplier;
 public class ButtonComponent extends AbstractComponent {
    private final Supplier<String> labelSupplier;
    private boolean hoverOffsetEnabled;
+   private final ButtonLabelLines labelLines=new ButtonLabelLines();
 
    public ButtonComponent(Panel parentPanel, Supplier<String> labelSupplier) {
       super(parentPanel, 0);
@@ -36,17 +37,15 @@ public class ButtonComponent extends AbstractComponent {
 
    @Override
    public void render(PoseStack poseStack, double mouseX, double mouseY) {
-      String[] lines = this.getLabel().split("\n");
+      var lines = labelLines.resolve(this.getLabel());
 
-      for (int lineIndex = 0; lineIndex < lines.length; lineIndex++) {
-         float hoverOffset = this.hoverOffsetEnabled
-               && this.isMouseOver(mouseX, mouseY)
-            ? 1.0F
-            : 0.0F;
+      float hoverOffset=this.hoverOffsetEnabled && this.isMouseOver(mouseX,mouseY)?1F:0F;
+      int lineHeight=FontRenderer.INSTANCE.getHeight();
+      for (int lineIndex = 0; lineIndex < lines.size(); lineIndex++) {
          FontRenderer.INSTANCE
             .drawWithShadow(
                poseStack,
-               lines[lineIndex],
+               lines.get(lineIndex),
                this.panel
                      .getX()
                   + (3),
@@ -54,9 +53,7 @@ public class ButtonComponent extends AbstractComponent {
                         .getY()
                      + this.yOffset
                   + this.getTextYOffset()
-                  + lineIndex
-                     * FontRenderer.INSTANCE
-                        .getHeight()
+                  + lineIndex * lineHeight
                   + 1.0F
                   - hoverOffset,
                Color.white
@@ -71,7 +68,7 @@ public class ButtonComponent extends AbstractComponent {
       return super.getHeight()
          + FontRenderer.INSTANCE
                .getHeight()
-            * (this.getLabel().split("\n").length - 1)
+            * (labelLines.resolve(this.getLabel()).size() - 1)
          + 1;
    }
 
