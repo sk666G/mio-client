@@ -217,6 +217,12 @@ public final class QuickAccessScreen extends StudioScreen {
          }
          line(graphics,notice.isEmpty()?"Recent = most recently enabled. Opening does not toggle.":notice,left,footerY+47,panelWidth,0xffb8b9c7);
       }
+      int hoverIndex=compact?-1:InspectorRows.hit(mouseX,mouseY,left,rowsY,panelWidth,rowCount,offset,rows.size());
+      if (rowHelpReady(hoverIndex<0?null:rows.get(hoverIndex))) {
+         Module hovered=rows.get(hoverIndex);
+         showRowHelp(graphics, hovered.getName()+" / "+hovered.getCategory().getName()+"\n"+hovered.getDescription()
+            +"\nEnter: open inspector. Opening never toggles the module.",mouseX,mouseY);
+      }
       super.render(graphics,mouseX,mouseY,partialTick);
    }
 
