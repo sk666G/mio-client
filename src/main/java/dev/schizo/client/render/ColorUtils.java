@@ -255,6 +255,12 @@ public final class ColorUtils {
       );
    }
 
+   /** Replace formatting RGB without discarding the caller's opacity or shadow pass. */
+   static int fontFormattingColor(int baseArgb, int rgb, boolean shadowPass) {
+      int formatted = shadowPass ? (rgb & 0x00FCFCFC) >>> 2 : rgb & 0x00FFFFFF;
+      return (baseArgb & 0xFF000000) | formatted;
+   }
+
    public static int modulateRgb(
       int argb, int redMultiplier, int greenMultiplier, int blueMultiplier
    ) {

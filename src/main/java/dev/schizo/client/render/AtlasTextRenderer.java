@@ -58,6 +58,10 @@ public final class AtlasTextRenderer {
    }
 
    public void flush() {
+      flushPending();
+   }
+
+   static void flushPending() {
       if (glyphMesh.isBuilding()) {
          boolean antiAlias = fonts().antiAliasSetting.getValue();
          MeshDrawContext.setRenderType(ClientRenderTypes.font(FontAtlas.ATLAS_TEXTURE, antiAlias));
@@ -67,6 +71,10 @@ public final class AtlasTextRenderer {
    }
 
    public MultiBufferSource getBufferSource() {
+      return sharedBufferSource();
+   }
+
+   static MultiBufferSource sharedBufferSource() {
       return bufferSource;
    }
 
@@ -83,8 +91,11 @@ public final class AtlasTextRenderer {
    }
 
    public static void finishBuffers() {
-      immediateBuffers.endBatch();
-      lastRenderType = null;
+      try {
+         immediateBuffers.endBatch();
+      } finally {
+         lastRenderType = null;
+      }
    }
 
    public int draw(PoseStack poses, String text, float x, float y, int argb) {
@@ -134,7 +145,7 @@ public final class AtlasTextRenderer {
       return new AtlasTextRenderer(atlas);
    }
 
-   private void renderString(PoseStack poses, String text, int baseColor) {
+   private void renderString(PoseStack poses, String text, int baseColor, boolean shadowPass) {
       int color = baseColor;
       poses.pushPose();
       try {
@@ -153,7 +164,7 @@ public final class AtlasTextRenderer {
                if (format == null || format == ChatFormatting.RESET) {
                   color = baseColor;
                } else if (format.getColor() != null) {
-                  color = format.getColor();
+                  color = ColorUtils.fontFormattingColor(baseColor, format.getColor(), shadowPass);
                }
             } else if (character == '\u00a7') {
                formattingCode = true;
@@ -187,7 +198,7 @@ public final class AtlasTextRenderer {
       }
       this.cursorX = x / ATLAS_SCALE;
       this.cursorY = y / ATLAS_SCALE;
-      this.renderString(poses, text, argb);
+      this.renderString(poses, text, argb, shadowPass);
       return (int)(this.cursorX * ATLAS_SCALE);
    }
 

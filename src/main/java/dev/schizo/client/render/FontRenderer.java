@@ -54,7 +54,12 @@ public final class FontRenderer implements ClientAccess {
    }
 
    public void flush() {
-      this.getRenderer().flush();
+      // Keep the custom-font initialization path when enabled, but vanilla
+      // buffering does not require constructing or uploading an atlas.
+      if (this.renderer == null && FontsModule.INSTANCE.isToggled()) {
+         this.getRenderer();
+      }
+      AtlasTextRenderer.flushPending();
    }
 
    public boolean isFontLoading() {
@@ -175,8 +180,7 @@ public final class FontRenderer implements ClientAccess {
                argb,
                true,
                poses.last().pose(),
-               this.getRenderer()
-                  .getBufferSource(),
+               AtlasTextRenderer.sharedBufferSource(),
                displayMode,
                0,
                15728880
@@ -216,8 +220,7 @@ public final class FontRenderer implements ClientAccess {
                argb,
                false,
                poses.last().pose(),
-               this.getRenderer()
-                  .getBufferSource(),
+               AtlasTextRenderer.sharedBufferSource(),
                displayMode,
                0,
                15728880
