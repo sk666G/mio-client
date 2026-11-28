@@ -11,6 +11,8 @@ import net.minecraft.network.chat.Component;
 /** Shared entry treatment. Input geometry and screen lifecycle stay native. */
 abstract class StudioScreen extends Screen {
    private final StudioResizeFocus<AbstractWidget> resizeFocus = new StudioResizeFocus<>();
+   private record FocusSnapshot(String role, StudioTextSelection selection) {}
+   private final StudioReturnFocus<Screen,FocusSnapshot> returnFocus = new StudioReturnFocus<>();
    private boolean entryStarted;
    private long entryNanos;
 
@@ -30,21 +32,45 @@ abstract class StudioScreen extends Screen {
       return widget;
    }
 
-   @Override public void resize(int width, int height) {
+   private FocusSnapshot captureFocus() {
       var focused = getFocused();
       String role = resizeFocus.roleOf(focused);
       StudioTextSelection selection = role != null && focused instanceof EditBox box
          ? new StudioTextSelection(box.getValue(), box.getCursorPosition(),
             ((EditBoxSelectionAccessor)box).schizo$getSelectionAnchor())
          : null;
-      super.resize(width, height);
-      AbstractWidget restored = resizeFocus.resolve(role, widget -> widget.active && widget.visible);
+      return new FocusSnapshot(role, selection);
+   }
+
+   private void restoreFocus(FocusSnapshot snapshot) {
+      if (snapshot == null) return;
+      StudioTextSelection selection = snapshot.selection();
+      AbstractWidget restored = resizeFocus.resolve(snapshot.role(), widget -> widget.active && widget.visible);
       if (restored != null) {
          setInitialFocus(restored);
          if (selection != null && restored instanceof EditBox box && selection.matches(box.getValue())) {
             box.setCursorPosition(selection.caret());
             box.setHighlightPos(selection.anchor());
          }
+      }
+   }
+
+   @Override public void resize(int width, int height) {
+      FocusSnapshot snapshot = captureFocus();
+      super.resize(width, height);
+      restoreFocus(snapshot);
+   }
+
+   protected final void openStudioChild(StudioScreen child) {
+      child.returnFocus.remember(this, captureFocus());
+      minecraft.setScreen(child);
+   }
+
+   protected final void returnToParent(Screen parent) {
+      FocusSnapshot snapshot = returnFocus.take(parent);
+      minecraft.setScreen(parent);
+      if (parent instanceof StudioScreen studio && minecraft.screen == parent) {
+         studio.restoreFocus(snapshot);
       }
    }
 
