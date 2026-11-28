@@ -19,7 +19,8 @@ final class HudPositionScreen extends StudioScreen {
    private final String bounds;
    private EditBox xField,yField,scaleField;
    private int left,top,panelWidth;
-   private boolean compact;
+   private boolean compact,condensed;
+   private int body,fieldY,positionY,scaleY,backY;
 
    HudPositionScreen(Screen parent,String widgetName,float x,float y,float maxX,float maxY,
                      List<String> metadata,Float scale,Function<HudPositionInput,String> apply,
@@ -42,23 +43,29 @@ final class HudPositionScreen extends StudioScreen {
       xField=yField=scaleField=null;
       panelWidth=Math.max(1,Math.min(420,width-16));
       left=(width-panelWidth)/2;
-      top=Math.max(4,(height-204)/2);
-      compact=panelWidth<240 || height<212;
+      condensed=height<212;
+      body=condensed?130:204;
+      top=Math.max(4,(height-body)/2);
+      compact=panelWidth<220 || height<138;
+      fieldY=top+(condensed?39:76);
+      positionY=top+(condensed?62:100);
+      scaleY=top+(condensed?85:136);
+      backY=top+(condensed?108:179);
       if(compact) {
          button("Back",left,Math.max(1,height-25),panelWidth,this::onClose);
          return;
       }
       int half=(panelWidth-4)/2;
-      xField=field("x","X coordinate",xDraft,left,top+76,half,text->xDraft=text);
-      yField=field("y","Y coordinate",yDraft,left+half+4,top+76,half,text->yDraft=text);
-      button("Apply position",left,top+100,panelWidth,this::commit).help("Apply only X/Y. The scale draft is not applied.");
+      xField=field("x","X coordinate",xDraft,left,fieldY,half,text->xDraft=text);
+      yField=field("y","Y coordinate",yDraft,left+half+4,fieldY,half,text->yDraft=text);
+      button("Apply position",left,positionY,panelWidth,this::commit).help("Apply only X/Y. The scale draft is not applied.");
       if(applyScale!=null) {
          int small=(panelWidth-8)/3;
-         scaleField=field("scale","Scale percent",scaleDraft,left,top+136,small,text->scaleDraft=text);
-         button("100%",left+small+4,top+136,small,()->scaleField.setValue("100")).help("Reset the draft to 100%. Apply scale to commit.");
-         button("Apply scale",left+2*(small+4),top+136,small,this::commitScale).help("Apply only scale (50–200%). Preserve the current anchor.");
+         scaleField=field("scale","Scale percent",scaleDraft,left,scaleY,small,text->scaleDraft=text);
+         button("100%",left+small+4,scaleY,small,()->scaleField.setValue("100")).help("Reset the draft to 100%. Apply scale to commit.");
+         button("Apply scale",left+2*(small+4),scaleY,small,this::commitScale).help("Apply only scale (50–200%). Preserve the current anchor.");
       }
-      button("Back",left,top+179,panelWidth,this::onClose).help("Discard uncommitted drafts.");
+      button("Back",left,backY,panelWidth,this::onClose).help("Discard uncommitted drafts.");
       setInitialFocus(xField);
    }
 
@@ -99,17 +106,21 @@ final class HudPositionScreen extends StudioScreen {
       graphics.fill(0,0,width,height,theme.backdrop());
       if(compact) line(graphics,"Reduce GUI scale to inspect HUD properties",left,top,panelWidth,0xffeeeeef);
       else {
-         graphics.fill(left-4,top,left+panelWidth+4,top+204,theme.panel());
+         graphics.fill(left-4,top,left+panelWidth+4,top+body,theme.panel());
          graphics.fill(left-4,top,left+panelWidth+4,top+1,theme.accent());
          line(graphics,"HUD PROPERTIES / "+widgetName,left,top+6,panelWidth,theme.accent());
-         for(int i=0;i<Math.min(3,metadata.size());i++)
-            line(graphics,metadata.get(i),left,top+18+i*11,panelWidth,0xffb8b9c7);
-         line(graphics,bounds,left,top+51,panelWidth,0xffb8b9c7);
+         if(!condensed) {
+            for(int i=0;i<Math.min(3,metadata.size());i++)
+               line(graphics,metadata.get(i),left,top+18+i*11,panelWidth,0xffb8b9c7);
+            line(graphics,bounds,left,top+51,panelWidth,0xffb8b9c7);
+         }
          int half=(panelWidth-4)/2;
-         line(graphics,"X coordinate",left,top+65,half,0xffeeeeef);
-         line(graphics,"Y coordinate",left+half+4,top+65,half,0xffeeeeef);
-         line(graphics,applyScale==null?"Scale: read-only (widget has no size control)":"Scale percent (50–200)",left,top+125,panelWidth,0xffeeeeef);
-         line(graphics,notice,left,top+165,panelWidth,0xffb8b9c7);
+         line(graphics,"X coordinate",left,fieldY-11,half,0xffeeeeef);
+         line(graphics,"Y coordinate",left+half+4,fieldY-11,half,0xffeeeeef);
+         if(!condensed || applyScale==null) line(graphics,applyScale==null?"Scale: read-only":"Scale percent (50–200)",left,condensed?scaleY+5:scaleY-11,panelWidth,0xffeeeeef);
+         line(graphics,notice,left,top+(condensed?17:165),panelWidth,0xffb8b9c7);
+         if(condensed && rowHelpReady(mouseX>=left&&mouseX<left+panelWidth&&mouseY>=top&&mouseY<top+16?metadata:null))
+            showRowHelp(graphics,String.join("\n",metadata)+"\n"+bounds,mouseX,mouseY);
       }
       super.render(graphics,mouseX,mouseY,partialTick);
    }
