@@ -36,4 +36,17 @@ class ScissorBoundsTest {
       ScissorBounds second = new ScissorBounds(Integer.MAX_VALUE - 2, 0, 10, 10);
       assertEquals(new ScissorBounds(Integer.MAX_VALUE - 2, 0, 7, 10), first.intersect(second));
    }
+
+   @Test void framebufferConversionKeepsOnePixelAndFlipsY() {
+      assertEquals(new ScissorBounds(2,6,1,1),new ScissorBounds(2,3,1,1).toFramebuffer(1,10,10));
+      assertEquals(new ScissorBounds(1,4,2,2),new ScissorBounds(1,1,1,1).toFramebuffer(1.5,8,7));
+   }
+
+   @Test void clipsOutOfRangeAndKeepsEmptyBoundsEmpty() {
+      assertEquals(new ScissorBounds(0,8,2,2),new ScissorBounds(-2,-2,4,4).toFramebuffer(1,10,10));
+      assertEquals(0,new ScissorBounds(1,1,0,3).toFramebuffer(1.5,10,10).width());
+      assertEquals(0,new ScissorBounds(1,1,3,0).toFramebuffer(1.5,10,10).height());
+      assertEquals(new ScissorBounds(0,0,0,0),new ScissorBounds(0,0,2,2).toFramebuffer(Double.NaN,10,10));
+      assertEquals(new ScissorBounds(10,0,0,0),new ScissorBounds(Integer.MAX_VALUE,Integer.MAX_VALUE,10,10).toFramebuffer(2,10,10));
+   }
 }
