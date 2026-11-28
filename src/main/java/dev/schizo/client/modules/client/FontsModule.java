@@ -109,11 +109,11 @@ public class FontsModule extends Module {
    private void flushQueuedDraws(PoseStack poseStack) {
       if (!this.queuedDraws.isEmpty()) {
          GuiDrawUtils.flush(true);
-         for (QueuedDraw draw : this.queuedDraws) {
-            draw.render(poseStack);
+         try {
+            for (QueuedDraw draw : this.queuedDraws) draw.render(poseStack);
+         } finally {
+            this.queuedDraws.clear();
          }
-
-         this.queuedDraws.clear();
          GuiDrawUtils.flush(true);
       }
    }
@@ -162,13 +162,8 @@ public class FontsModule extends Module {
       Window window = minecraft.getWindow();
       long windowHandle = (long)(window.handle());
       if (GLFW.glfwGetMouseButton(windowHandle, 0) != 1) {
-         AtomicBoolean requestedReloadFlag = reloadRequested;
-         if (requestedReloadFlag.get()) {
+         if (reloadRequested.getAndSet(false)) {
             FontRenderer.INSTANCE.setRenderer(FontRenderer.INSTANCE.createRenderer());
-            boolean clearRequest = false;
-            AtomicBoolean reloadFlag = reloadRequested;
-            reloadFlag.set(clearRequest);
-
             reloadCooldownTicks = 3;
          }
       }
@@ -271,11 +266,13 @@ public class FontsModule extends Module {
          float chatScale = ((Double)ClientAccess.schizoMinecraft.options.chatScale().get()).floatValue();
          poseStack.pushPose();
 
-         poseStack.scale(chatScale, chatScale, 1.0F);
-         AtlasTextRenderer renderer = FontRenderer.INSTANCE
-            .getRenderer();
-         renderer.draw(poseStack, this.text, this.x / chatScale, this.y / chatScale, this.color, this.shadow);
-         poseStack.popPose();
+         try {
+            poseStack.scale(chatScale, chatScale, 1.0F);
+            AtlasTextRenderer renderer=FontRenderer.INSTANCE.getRenderer();
+            renderer.draw(poseStack,this.text,this.x/chatScale,this.y/chatScale,this.color,this.shadow);
+         } finally {
+            poseStack.popPose();
+         }
       }
 
    }
