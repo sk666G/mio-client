@@ -13,6 +13,7 @@ final class ThemeGalleryScreen extends StudioScreen {
    private boolean light,chrome;
    private List<ThemeContrastReport.Pair> pairs=List.of();
    private List<String> scores=List.of();
+   private boolean[] meets=new boolean[0];
    private int left,top,panelWidth;
    private boolean compact;
    private StudioButton mode,backdrop;
@@ -36,7 +37,7 @@ final class ThemeGalleryScreen extends StudioScreen {
       int half=(panelWidth-4)/2;
       mode=button("mode","",left,top+24,half,()->{chrome=!chrome;refresh();});
       backdrop=button("backdrop","",left+half+4,top+24,half,()->{light=!light;refresh();});
-      button("back","Back",left,top+184,panelWidth,this::onClose);
+      button("back","Back",left,top+186,panelWidth,this::onClose);
       refresh();
    }
 
@@ -46,7 +47,15 @@ final class ThemeGalleryScreen extends StudioScreen {
 
    private void refresh() {
       pairs=chrome?ThemeContrastReport.chrome(palette):ThemeContrastReport.preview(palette,light);
-      scores=pairs.stream().map(p->String.format(Locale.ROOT,"%.2f:1 / %.1f %s",p.ratio(),p.target(),p.meetsTarget()?"OK":"LOW")).toList();
+      var labels=new java.util.ArrayList<String>(pairs.size());
+      meets=new boolean[pairs.size()];
+      for(int i=0;i<pairs.size();i++) {
+         var p=pairs.get(i);
+         double ratio=p.ratio();
+         meets[i]=ratio>=p.target();
+         labels.add(String.format(Locale.ROOT,"%.2f:1 / %.1f %s",ratio,p.target(),meets[i]?"OK":"LOW"));
+      }
+      scores=List.copyOf(labels);
       mode.setMessage(Component.literal(chrome?"Show palette samples":"Show Studio chrome"));
       backdrop.setMessage(Component.literal(light?"Light backdrop":"Dark backdrop"));
       backdrop.active=!chrome;
@@ -80,7 +89,7 @@ final class ThemeGalleryScreen extends StudioScreen {
             graphics.fill(sampleX+3,y+3,sampleRight-3,y+5,p.foreground());
             graphics.fill(sampleX+3,y+11,sampleRight-3,y+13,p.foreground());
          } else line(graphics,"Aa",sampleX+4,y+4,sampleRight-sampleX-8,p.foreground());
-         line(graphics,scores.get(i),sampleRight+4,y+4,scoreWidth,p.meetsTarget()?0xffb8b9c7:0xffffa66b);
+         line(graphics,scores.get(i),sampleRight+4,y+4,scoreWidth,meets[i]?0xffb8b9c7:0xffffa66b);
       }
       int index=mouseX>=left&&mouseX<left+panelWidth&&mouseY>=top+49?(mouseY-top-49)/18:-1;
       var hovered=index>=0&&index<pairs.size()?pairs.get(index):null;
