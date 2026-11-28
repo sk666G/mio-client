@@ -44,4 +44,36 @@ class ThemePreviewDraftTest {
       assertEquals(original, draft.preview());
       assertFalse(draft.canApply(PaletteChoice.SCHIZO, original));
    }
+
+   @Test void historyRestoresCustomAndNamedStatesWithoutChangingBaseline() {
+      var original = PaletteChoice.SCHIZO.getPalette();
+      var custom = new UiPalette(Color.ORANGE, original.background(), original.button(), original.enabled(), original.tint(), original.gradient());
+      var draft = new ThemePreviewDraft(PaletteChoice.SCHIZO, original);
+      assertFalse(draft.undo());
+      draft.selectCustom(custom);
+      draft.select(PaletteChoice.FROST);
+      assertTrue(draft.undo());
+      assertEquals(PaletteChoice.CUSTOM, draft.selected());
+      assertEquals(custom, draft.preview());
+      assertTrue(draft.undo());
+      assertEquals(original, draft.preview());
+      assertFalse(draft.canApply(PaletteChoice.SCHIZO, original));
+      assertTrue(draft.redo());
+      assertEquals(custom, draft.preview());
+      assertFalse(draft.canApply(PaletteChoice.MIDNIGHT, original));
+      draft.select(PaletteChoice.AMETHYST);
+      assertFalse(draft.canRedo());
+   }
+
+   @Test void historyIsBoundedAndNoOpsDoNotDiscardRedo() {
+      var original = PaletteChoice.SCHIZO.getPalette();
+      var draft = new ThemePreviewDraft(PaletteChoice.SCHIZO, original);
+      for (int i = 0; i < 40; i++) draft.select(i % 2 == 0 ? PaletteChoice.FROST : PaletteChoice.MIDNIGHT);
+      int count = 0;
+      while (draft.undo()) count++;
+      assertEquals(32, count);
+      draft.select(draft.selected());
+      assertTrue(draft.canRedo());
+      assertTrue(draft.redo());
+   }
 }
