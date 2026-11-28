@@ -1236,7 +1236,7 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
          case GLFW.GLFW_KEY_RIGHT, GLFW.GLFW_KEY_DOWN -> this.moveToolbarFocus(1);
          case GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_KP_ENTER, GLFW.GLFW_KEY_SPACE -> {
             this.runToolbarAction(this.keyboardToolbarAction);
-            if(!this.toolbarEnabled(this.keyboardToolbarAction)) this.moveToolbarFocus(1);
+            if(this.keyboardToolbarAction!=null && !this.toolbarEnabled(this.keyboardToolbarAction)) this.moveToolbarFocus(1);
          }
       }
       // Do not let toolbar navigation also move or delete HUD widgets.
@@ -1253,6 +1253,7 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
    private boolean toolbarEnabled(HudToolbar.Action action) {
       if (this.closing || this.focusedSetting() != null || this.layoutHistory.hasPendingEdit()
          || this.draggedWidget != null || this.resizedWidget != null || this.groupDrag != null) return false;
+      if (action==HudToolbar.Action.POSITION) return this.selection.size()==1 && this.selection.getFirst().isEnabled();
       if (action.isScaleAction()) {
          var widget = this.selectedResizable();
          if (widget == null) return false;
@@ -1276,9 +1277,60 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
          case REDO -> this.redoLayoutEdit();
          case CLEAR -> this.selection.clear();
          case SCALE_DOWN, SCALE_RESET, SCALE_UP -> this.adjustSelectedScale(action);
+         case POSITION -> this.openPositionEditor();
          default -> {
             if (action.mode != null) this.alignSelection(action.mode);
          }
+      }
+   }
+
+   private void openPositionEditor() {
+      if(this.selection.size()!=1) return;
+      HudWidgetRenderer widget=this.selection.getFirst();
+      if(!widget.isEnabled()) return;
+      var window=ClientAccess.schizoMinecraft.getWindow();
+      int viewportWidth=window.getGuiScaledWidth(),viewportHeight=window.getGuiScaledHeight();
+      float[] dimensions=widget.getDimensions();
+      LayoutSnapshot expected=this.captureLayout();
+      ClientAccess.schizoMinecraft.setScreen(new HudPositionScreen(this,widget.getWidgetModule().getName(),
+         widget.getX(),widget.getY(),Math.max(0,viewportWidth-dimensions[0]),Math.max(0,viewportHeight-dimensions[1]),
+         position->this.applyExactPosition(widget,expected,viewportWidth,viewportHeight,position),
+         ()->{
+            if(widget.isEnabled() && this.getAnchorGroups().stream().anyMatch(group->group.getWidgets().contains(widget)))
+               this.selection.add(widget);
+         }));
+   }
+
+   private String applyExactPosition(HudWidgetRenderer widget,LayoutSnapshot expected,
+                                     int viewportWidth,int viewportHeight,HudPositionInput position) {
+      var window=ClientAccess.schizoMinecraft.getWindow();
+      if(this.layoutHistory.hasPendingEdit() || !widget.isEnabled()
+         || window.getGuiScaledWidth()!=viewportWidth || window.getGuiScaledHeight()!=viewportHeight
+         || !expected.equals(this.captureLayout())) return "Layout or viewport changed. Close and reopen Position.";
+      var group=this.getAnchorGroup(widget.getAnchor());
+      if(group==null || !group.getWidgets().contains(widget) || this.getAnchorGroup(HudAnchor.NONE)==null)
+         return "Widget placement is unavailable.";
+      float[] size=widget.getDimensions();
+      if(!position.fits(viewportWidth,viewportHeight,size[0],size[1]))
+         return "Position is outside the current widget bounds.";
+      if(Float.compare(position.x(),widget.getX())==0 && Float.compare(position.y(),widget.getY())==0) return null;
+      this.beginLayoutEdit();
+      try {
+         if(widget.getAnchor()!=HudAnchor.NONE) {
+            group.getWidgets().remove(widget);
+            this.addWidget(HudAnchor.NONE,widget);
+            widget.setAnchor(HudAnchor.NONE);
+         }
+         widget.resetSnapping();
+         widget.setX(position.x(),true);
+         widget.setY(position.y(),true);
+         widget.updateDirections();
+         this.requestDirectionRefresh();
+         this.finishLayoutEdit();
+         return null;
+      } catch(RuntimeException failure) {
+         this.cancelLayoutEdit();
+         return "Position rejected; original layout restored.";
       }
    }
 
