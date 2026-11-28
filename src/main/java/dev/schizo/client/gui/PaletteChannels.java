@@ -31,4 +31,18 @@ public final class PaletteChannels {
          default -> throw new IllegalArgumentException("Invalid channel");
       };
    }
+
+   /** Allocation-free gradient sample with the same channel values as replace(). */
+   public static int gradientArgb(int argb, int channel, int value) {
+      int shift = switch (channel) {
+         case 0 -> 16;
+         case 1 -> 8;
+         case 2 -> 0;
+         case 3 -> 24;
+         default -> throw new IllegalArgumentException("Invalid channel");
+      };
+      int v = Math.max(0, Math.min(255, value));
+      int sample = (argb & ~(255 << shift)) | (v << shift);
+      return channel == 3 ? sample : sample | 0xff000000;
+   }
 }

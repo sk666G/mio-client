@@ -133,4 +133,25 @@ class StudioViewportLayoutsTest {
       assertFalse(StudioViewportLayouts.savedThemes(256,186).condensed());
       assertTrue(StudioViewportLayouts.savedThemes(255,500).compact());
    }
+
+   @Test void pickerKeepsSampleRailsAndActionsInsideCompactViewport() {
+      for (int width : new int[]{180,233,234,320,340,825}) {
+         for (int height=120;height<=500;height++) {
+            var l=StudioViewportLayouts.picker(width,height);
+            if(l.compact()) continue;
+            assertTrue(l.left()>=0 && l.left()+l.width()<=width);
+            assertTrue(l.sampleY()+l.sampleHeight()<=l.rowY(0));
+            assertTrue(l.railWidth()>=102);
+            assertTrue(l.railLeft()+l.railWidth()<=l.left()+l.width()-50);
+            for(int i=1;i<4;i++) assertTrue(l.rowY(i)>=l.rowY(i-1)+18);
+            assertTrue(l.rowY(3)+18<=l.footerY());
+            assertTrue(l.footerY()+18<=l.panelBottom());
+            assertTrue(l.panelBottom()<=height-4);
+         }
+      }
+      assertTrue(StudioViewportLayouts.picker(234,157).compact());
+      assertFalse(StudioViewportLayouts.picker(234,158).compact());
+      assertTrue(StudioViewportLayouts.picker(234,201).condensed());
+      assertFalse(StudioViewportLayouts.picker(234,202).condensed());
+   }
 }

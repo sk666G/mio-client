@@ -20,6 +20,7 @@ final class PalettePickerScreen extends StudioScreen {
    private int left, top, panelWidth, railLeft, railWidth;
    private int dragging = -1;
    private boolean compact;
+   private StudioViewportLayouts.Picker layout;
 
    PalettePickerScreen(Screen parent, String label, Color initial, Consumer<Color> accepted) {
       super(Component.literal("Pick " + label));
@@ -32,16 +33,13 @@ final class PalettePickerScreen extends StudioScreen {
    @Override protected void init() {
       super.init();
       dragging = -1;
-      panelWidth = Math.max(1, Math.min(340, width - 16));
-      left = (width - panelWidth) / 2;
-      top = Math.max(4, (height - 194) / 2);
-      compact = panelWidth < 218 || height < 202;
+      layout = StudioViewportLayouts.picker(width,height);
+      panelWidth=layout.width(); left=layout.left(); top=layout.top(); compact=layout.compact();
+      railLeft=layout.railLeft(); railWidth=layout.railWidth();
       if (compact) {
          button("Back", left, Math.max(1, height - 25), panelWidth, this::onClose);
          return;
       }
-      railLeft = left + 62;
-      railWidth = panelWidth - 116;
       for (int i = 0; i < 4; i++) {
          int channel = i;
          int y = rowY(i);
@@ -49,18 +47,18 @@ final class PalettePickerScreen extends StudioScreen {
          button(CHANNELS[i].substring(0, 1) + "+", left + panelWidth - 24, y, 23, () -> step(channel, 1));
       }
       int half = (panelWidth - 4) / 2;
-      button("Use color", left, top + 169, half, () -> {
+      button("Use color", left, layout.footerY(), half, () -> {
          accepted.accept(color);
          onClose();
       });
-      button("Cancel", left + half + 4, top + 169, half, this::onClose);
+      button("Cancel", left + half + 4, layout.footerY(), half, this::onClose);
    }
 
    private void button(String name, int x, int y, int w, Runnable action) {
-      addRenderableWidget(new StudioButton(x, y, w, 18, Component.literal(name), button -> action.run()));
+      trackResizeFocus("button:"+name, addRenderableWidget(new StudioButton(x, y, w, 18, Component.literal(name), button -> action.run())));
    }
 
-   private int rowY(int channel) { return top + 53 + channel * 27; }
+   private int rowY(int channel) { return layout.rowY(channel); }
 
    private void step(int channel, int direction) {
       int amount = dev.schizo.client.utils.KeyUtils.isShiftDown() ? 16 : 1;
@@ -117,20 +115,20 @@ final class PalettePickerScreen extends StudioScreen {
       if (compact) {
          graphics.drawString(font, font.plainSubstrByWidth("Reduce GUI scale to use picker", panelWidth), left, top, 0xffeeeeef, false);
       } else {
-         graphics.fill(left - 4, top, left + panelWidth + 4, top + 194, theme.panel());
+         graphics.fill(left - 4, top, left + panelWidth + 4, layout.panelBottom(), theme.panel());
          graphics.fill(left - 4, top, left + panelWidth + 4, top + 1, theme.accent());
          graphics.drawString(font, "PICK / " + label, left, top + 7, theme.accent(), false);
-         checker(graphics, left, top + 22, 48, 22);
-         graphics.fill(left, top + 22, left + 48, top + 44, color.getRGB());
-         graphics.drawString(font, PaletteHex.format(color), left + 56, top + 26, 0xffeeeeef, false);
+         int sampleY=layout.sampleY(), sampleHeight=layout.sampleHeight(), packed=color.getRGB();
+         if (color.getAlpha()<255) checker(graphics, left, sampleY, 48, sampleHeight);
+         graphics.fill(left, sampleY, left + 48, sampleY + sampleHeight, packed);
+         graphics.drawString(font, PaletteHex.format(color), left + 56, sampleY + (sampleHeight-font.lineHeight)/2, 0xffeeeeef, false);
          for (int i = 0; i < 4; i++) {
             int y = rowY(i), value = PaletteChannels.get(color, i);
             graphics.drawString(font, CHANNELS[i] + " " + value, left, y + 5, 0xffeeeeef, false);
-            checker(graphics, railLeft, y + 3, railWidth, 12);
+            if (i == 3) checker(graphics, railLeft, y + 3, railWidth, 12);
             for (int segment = 0; segment < 32; segment++) {
                int start = railLeft + segment * railWidth / 32, end = railLeft + (segment + 1) * railWidth / 32;
-               Color sample = PaletteChannels.replace(color, i, Math.round(segment * 255.0F / 31));
-               int argb = i == 3 ? sample.getRGB() : sample.getRGB() | 0xff000000;
+               int argb = PaletteChannels.gradientArgb(packed, i, Math.round(segment * 255.0F / 31));
                graphics.fill(start, y + 3, end, y + 15, argb);
             }
             int marker = railLeft + Math.round(value * (railWidth - 1) / 255.0F);
