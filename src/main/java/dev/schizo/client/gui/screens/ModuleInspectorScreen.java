@@ -33,7 +33,18 @@ public final class ModuleInspectorScreen extends StudioScreen {
    private EditBox value, filter;
    private Button resetDefault;
    private Button apply, undo, redo;
-   private JsonElement expected;
+   private EditDraft draft = EditDraft.empty();
+
+   /** A widget-independent draft; keep the original comparison value across resize. */
+   record EditDraft(JsonElement expected, String text) {
+      static EditDraft empty() { return new EditDraft(null, ""); }
+      EditDraft withText(String text) { return new EditDraft(expected, text); }
+      EditDraft refresh(JsonElement live, boolean preserve) {
+         if (live == null) return empty();
+         if (preserve && expected != null && !text.equals(expected.getAsString())) return this;
+         return new EditDraft(live.deepCopy(), live.getAsString());
+      }
+   }
    private String notice = "";
    private String bindingNotice = "";
    private long bindingRefresh;
@@ -75,6 +86,8 @@ public final class ModuleInspectorScreen extends StudioScreen {
       compact=layout.compact(); condensed=layout.condensed();
       rowsY=layout.rowsY(); controlsY=layout.controlsY(); rowCount=layout.rows();
       if (compact) {
+         value = filter = null;
+         apply = undo = redo = resetDefault = null;
          button("Back",left,Math.max(0,height-24),panelWidth,this::onClose);
          return;
       }
@@ -96,7 +109,8 @@ public final class ModuleInspectorScreen extends StudioScreen {
       resetDefault = button("Default", left + 2 * (quarter + 4), controlsY + 48, quarter, this::resetDefault);
       button("Back", left + 3 * (quarter + 4), controlsY + 48, quarter, this::onClose);
       filter.setResponder(this::filterSettings);
-      refreshSelection();
+      refreshSelection(true);
+      value.setResponder(text -> draft = draft.withText(text));
       refreshBindingNotice();
    }
 
@@ -164,13 +178,15 @@ public final class ModuleInspectorScreen extends StudioScreen {
       refreshSelection();
    }
 
-   private void refreshSelection() {
+   private void refreshSelection() { refreshSelection(false); }
+
+   private void refreshSelection(boolean preserveDraft) {
       offset = InspectorRows.reveal(selected, offset, rowCount, settings.size());
       var setting = current();
       boolean supported = editable(setting);
-      expected = supported ? setting.toJson().deepCopy() : null;
+      draft = draft.refresh(supported ? setting.toJson() : null, preserveDraft);
       value.setEditable(supported);
-      value.setValue(supported ? expected.getAsString() : "");
+      value.setValue(draft.text());
       apply.active = supported;
       resetDefault.active = supported;
       undo.active = setting != null && history.undoTarget() == setting;
@@ -179,6 +195,7 @@ public final class ModuleInspectorScreen extends StudioScreen {
 
    private void applyValue() {
       Setting<?> setting = current();
+      JsonElement expected = draft.expected();
       if (!editable(setting) || expected == null) { notice = "Read-only setting."; return; }
       try {
          String raw = value.getValue().strip();
@@ -203,6 +220,7 @@ public final class ModuleInspectorScreen extends StudioScreen {
 
    private void resetDefault() {
       var setting = current();
+      JsonElement expected = draft.expected();
       if (!editable(setting) || expected == null) return;
       Object original = setting.getDefaultValue();
       JsonPrimitive target;
