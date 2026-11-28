@@ -294,6 +294,9 @@ public final class SchizoClientGameTest implements FabricClientGameTest {
                .filter(setting -> setting.getName().equalsIgnoreCase("Length")).findFirst().orElseThrow();
             if (inspector.selectedSetting() != target)
                throw new IllegalStateException("Search did not reveal the exact registered setting");
+            if (!dev.schizo.client.gui.screens.RecentSettingsScreen.wasVisited(
+               ClientContext.getModule(dev.schizo.client.modules.render.CrosshairModule.class), target))
+               throw new IllegalStateException("Explicit setting navigation was not recorded");
             inspector.onClose();
          });
          context.waitForScreen(CommandPaletteScreen.class);

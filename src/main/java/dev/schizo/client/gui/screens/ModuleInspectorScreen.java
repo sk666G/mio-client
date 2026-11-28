@@ -56,6 +56,7 @@ public final class ModuleInspectorScreen extends StudioScreen {
             if (settings.get(index) == target) {
                selected = index;
                found = true;
+               RecentSettingsScreen.record(module, target);
                break;
             }
          }
@@ -135,6 +136,7 @@ public final class ModuleInspectorScreen extends StudioScreen {
       int row = InspectorRows.hit(event.x(), event.y(), left, top + 100, panelWidth, rowCount, offset, settings.size());
       if (event.button() == 0 && row >= 0) {
          selected = row;
+         RecentSettingsScreen.record(module, current());
          refreshSelection();
          setFocused(null);
          return true;
@@ -153,6 +155,7 @@ public final class ModuleInspectorScreen extends StudioScreen {
    private void select(int delta) {
       if (settings.isEmpty()) return;
       selected = Math.floorMod(selected + delta, settings.size());
+      RecentSettingsScreen.record(module, current());
       refreshSelection();
    }
 

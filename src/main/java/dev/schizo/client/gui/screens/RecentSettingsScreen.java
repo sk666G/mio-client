@@ -1,0 +1,148 @@
+package dev.schizo.client.gui.screens;
+
+import dev.schizo.client.ClientContext;
+import dev.schizo.client.gui.RecentVisits;
+import dev.schizo.client.modules.Module;
+import dev.schizo.client.settings.Setting;
+import java.util.List;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.network.chat.Component;
+
+/** Explicitly visited inspector settings, retained only during the current client process. */
+public final class RecentSettingsScreen extends StudioScreen {
+   private static final RecentVisits<Module,Setting<?>> HISTORY = new RecentVisits<>(32);
+   private final Screen parent;
+   private List<RecentVisits.Visit<Module,Setting<?>>> rows=List.of();
+   private int selected,offset,rowCount,left,top,panelWidth;
+   private boolean compact,confirming;
+   private Button open,previous,next,clear;
+   private String query="";
+
+   public RecentSettingsScreen(Screen parent) {
+      super(Component.literal("Visited settings"));
+      this.parent=parent;
+   }
+
+   static void record(Module module,Setting<?> setting) {
+      if (module!=null && setting!=null && !setting.isGroupOnly() && !setting.isExcludedFromConfig()) HISTORY.record(module,setting);
+   }
+
+   public static boolean wasVisited(Module module,Setting<?> setting) {
+      return HISTORY.snapshot().stream().anyMatch(v -> v.owner()==module && v.item()==setting);
+   }
+
+   private static boolean registered(RecentVisits.Visit<Module,Setting<?>> visit) {
+      if (ClientContext.moduleRegistry==null) return false;
+      for (Object entry : ClientContext.moduleRegistry.getRegistry()) {
+         if (entry==visit.owner()) {
+            return visit.owner().getSettings().stream().anyMatch(setting -> setting==visit.item())
+               && !visit.item().isGroupOnly() && !visit.item().isExcludedFromConfig();
+         }
+      }
+      return false;
+   }
+
+   @Override protected void init() {
+      super.init();
+      open=null; confirming=false;
+      panelWidth=Math.max(1,Math.min(480,width-16));
+      left=(width-panelWidth)/2;
+      top=Math.max(4,(height-250)/2);
+      compact=panelWidth<220 || height<170;
+      if(compact) {button("Back",left,Math.max(1,height-25),panelWidth,this::onClose);return;}
+      rowCount=Math.max(1,Math.min(10,(height-top-100)/13));
+      var search=addRenderableWidget(new StudioEditBox(font,left,top+30,panelWidth,20,Component.literal("Search visited settings")));
+      search.setMaxLength(64); search.setValue(query);
+      search.setResponder(text -> {query=text;selected=0;offset=0;confirming=false;reload();});
+      int y=top+57+rowCount*13, w=(panelWidth-16)/5;
+      previous=button("Previous",left,y,w,() -> move(-1));
+      next=button("Next",left+w+4,y,w,() -> move(1));
+      open=button("Open",left+2*(w+4),y,w,this::open);
+      clear=button("Clear",left+3*(w+4),y,w,() -> {
+         if(confirming) { HISTORY.clear(); confirming=false; reload(); }
+         else {confirming=true;refresh();}
+      });
+      button("Back",left+4*(w+4),y,w,this::onClose);
+      reload();
+   }
+
+   private Button button(String label,int x,int y,int w,Runnable action) {
+      return addRenderableWidget(new StudioButton(x,y,w,20,Component.literal(label),ignored -> action.run()));
+   }
+
+   private void reload() {
+      rows=HISTORY.snapshot().stream().filter(RecentSettingsScreen::registered)
+         .filter(v -> PaletteMatcher.score(v.item().getName(),v.owner().getName()+" "+v.item().getConfigName(),query)>=0).toList();
+      selected=Math.max(0,Math.min(selected,rows.size()-1));
+      refresh();
+   }
+
+   private void refresh() {
+      if(open==null)return;
+      offset=InspectorRows.reveal(selected,offset,rowCount,rows.size());
+      open.active=!rows.isEmpty();
+      previous.active=open.active && selected>0;
+      next.active=open.active && selected+1<rows.size();
+      clear.active=!HISTORY.snapshot().isEmpty();
+      clear.setMessage(Component.literal(confirming?"Confirm":"Clear"));
+   }
+
+   private void move(int delta) {
+      selected=Math.max(0,Math.min(rows.size()-1,selected+delta));
+      confirming=false;refresh();
+   }
+
+   private void open() {
+      if(rows.isEmpty())return;
+      var visit=rows.get(selected);
+      if(!registered(visit)) {reload();return;}
+      minecraft.setScreen(new ModuleInspectorScreen(this,visit.owner(),visit.item()));
+   }
+
+   @Override public boolean mouseClicked(MouseButtonEvent event,boolean doubleClick) {
+      if(!compact && event.button()==0) {
+         int row=InspectorRows.hit(event.x(),event.y(),left,top+57,panelWidth,rowCount,offset,rows.size());
+         if(row>=0) {selected=row;confirming=false;refresh();setFocused(null);return true;}
+      }
+      return super.mouseClicked(event,doubleClick);
+   }
+
+   @Override public boolean mouseScrolled(double x,double y,double horizontal,double vertical) {
+      if(!compact && vertical!=0 && x>=left && x<left+panelWidth && y>=top+57 && y<top+57+rowCount*13) {
+         offset=Math.max(0,Math.min(Math.max(0,rows.size()-rowCount),offset+(vertical<0?1:-1)));return true;
+      }
+      return super.mouseScrolled(x,y,horizontal,vertical);
+   }
+
+   private void line(GuiGraphics graphics,String text,int y,int color) {
+      graphics.drawString(font,font.plainSubstrByWidth(text,panelWidth-4),left+2,y,color,false);
+   }
+
+   @Override public void render(GuiGraphics graphics,int mouseX,int mouseY,float partialTick) {
+      StudioScreenTheme theme=StudioScreenTheme.current();
+      graphics.fill(0,0,width,height,theme.backdrop());
+      if(compact) line(graphics,"Reduce GUI scale to browse visited settings",top,0xffeeeeef);
+      else {
+         graphics.fill(left-4,top,left+panelWidth+4,Math.min(height,top+95+rowCount*13),theme.panel());
+         graphics.fill(left-4,top,left+panelWidth+4,top+1,theme.accent());
+         line(graphics,"SCHIZO / VISITED SETTINGS",top+6,theme.accent());
+         line(graphics,"Session only | Explicit inspector selections",top+18,0xffb8b9c7);
+         if(rows.isEmpty())line(graphics,"No matching visited settings.",top+59,0xffb8b9c7);
+         for(int i=0;i<rowCount && offset+i<rows.size();i++) {
+            int index=offset+i,y=top+57+i*13;
+            var v=rows.get(index);
+            graphics.fill(left,y,left+panelWidth,y+12,index==selected?theme.selected():theme.row());
+            if(index==selected)graphics.fill(left,y,left+2,y+12,theme.accent());
+            line(graphics,v.owner().getName()+" / "+v.item().getName(),y+2,0xffeeeeef);
+         }
+         line(graphics,confirming?"Confirm clearing all visited settings.":"Opening a setting never changes its value.",top+80+rowCount*13,0xffb8b9c7);
+      }
+      super.render(graphics,mouseX,mouseY,partialTick);
+   }
+
+   @Override public void onClose(){minecraft.setScreen(parent);}
+   @Override public boolean isPauseScreen(){return false;}
+}

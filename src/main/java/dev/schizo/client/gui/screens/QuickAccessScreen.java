@@ -46,9 +46,11 @@ public final class QuickAccessScreen extends StudioScreen {
       }
       rowCount = Math.max(1, Math.min(10, (height - top - 150) / 13));
       int w = (panelWidth-8)/3;
-      button("Favorites",left,top+24,w,() -> switchView(View.FAVORITES));
-      button("Recent",left+w+4,top+24,w,() -> switchView(View.RECENT));
-      button("All modules",left+2*(w+4),top+24,w,() -> switchView(View.ALL));
+      int tab = (panelWidth-12)/4;
+      button("Favorites",left,top+24,tab,() -> switchView(View.FAVORITES));
+      button("Recent",left+tab+4,top+24,tab,() -> switchView(View.RECENT));
+      button("All modules",left+2*(tab+4),top+24,tab,() -> switchView(View.ALL));
+      button("Visited settings",left+3*(tab+4),top+24,tab,() -> minecraft.setScreen(new RecentSettingsScreen(this)));
       EditBox search = addRenderableWidget(new StudioEditBox(font,left,top+48,panelWidth,20,Component.literal("Search quick access")));
       search.setMaxLength(64);
       search.setValue(query);
