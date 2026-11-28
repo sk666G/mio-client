@@ -118,7 +118,8 @@ final class RegistryEntryCatalog {
       }
 
       public static EntryList of(List<?> entries) {
-         return new EntryList(entries, Set.copyOf(entries));
+         var unique=List.copyOf(new java.util.LinkedHashSet<>(entries));
+         return new EntryList(unique, Set.copyOf(unique));
       }
 
       public boolean contains(Object entry) {
