@@ -21,4 +21,17 @@ class PaletteChannelsTest {
       assertEquals(new Color(12,34,56,0), PaletteChannels.replace(c,3,0));
       assertEquals(78, PaletteChannels.get(c,3));
    }
+
+   @Test void packedGradientMatchesColorReferenceForAllChannelValues() {
+      for (Color base : new Color[]{new Color(12,34,56,78),new Color(255,0,128,0),Color.WHITE,Color.BLACK}) {
+         for (int channel=0;channel<4;channel++) {
+            for (int value=-1;value<=256;value++) {
+               int expected=PaletteChannels.replace(base,channel,value).getRGB();
+               if(channel!=3) expected |= 0xff000000;
+               assertEquals(expected,PaletteChannels.gradientArgb(base.getRGB(),channel,value));
+            }
+         }
+      }
+      assertThrows(IllegalArgumentException.class,() -> PaletteChannels.gradientArgb(0,4,0));
+   }
 }
