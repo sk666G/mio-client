@@ -543,6 +543,10 @@ public class Panel implements RegistryContainer, GuiElement, NamedEntry {
       GuiDrawUtils.flush();
    }
 
+   public boolean acceptsModuleInput(ModuleComponent module) {
+      return this.expanded && module.isOpen() && this.children.contains(module) && this.isChildVisible(module);
+   }
+
    public boolean acceptsSettingInput(SettingComponent<?> setting) {
       if (!this.expanded || !setting.getParentCloseState().isOpen()) {
          return false;
