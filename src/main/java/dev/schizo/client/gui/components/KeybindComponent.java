@@ -28,14 +28,20 @@ public class KeybindComponent extends AbstractComponent {
 
    @Override
    public void keyPressed(int keyCode) {
+      if (!this.moduleRow.isOpen() || (this.bindingSetting!=null && !this.bindingSetting.isVisible())) {
+         this.cancelInput();
+         return;
+      }
       if (!this.listening) {
          return;
       }
 
-      boolean clearBinding = keyCode
-            == 261
-         || keyCode
-            == 256;
+      if(keyCode==256) {
+         this.cancelInput();
+         ClientContext.getClickGui().suppressEscapeClose();
+         return;
+      }
+      boolean clearBinding = keyCode==261;
       this.modifyKeybind(
          binding -> binding.withCode(clearBinding ? -1 : keyCode).withMouse(false)
       );
@@ -43,6 +49,8 @@ public class KeybindComponent extends AbstractComponent {
       ClientContext.getClickGui()
          .suppressEscapeClose();
    }
+
+   @Override public void cancelInput() { this.listening=false; }
 
    public KeybindComponent(int index, ModuleComponent moduleRow) {
       super(moduleRow.getPanel(), index);
@@ -99,7 +107,7 @@ public class KeybindComponent extends AbstractComponent {
       String keyLabel = this.getKeybind()
          .getDisplayName();
       if (this.listening) {
-         keyLabel = "...";
+         keyLabel = "... (Esc cancel)";
       }
 
       FontRenderer.INSTANCE
@@ -120,7 +128,8 @@ public class KeybindComponent extends AbstractComponent {
 
    @Override
    public void mouseClicked(double mouseX, double mouseY, int button) {
-      if (!this.moduleRow.isOpen()) {
+      if (!this.moduleRow.isOpen() || (this.bindingSetting!=null && !this.bindingSetting.isVisible())) {
+         this.cancelInput();
          return;
       }
 
