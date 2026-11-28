@@ -167,6 +167,12 @@ public final class RecentSettingsScreen extends StudioScreen {
          }
          line(graphics,confirming?"Confirm clearing all visited settings.":"Opening a setting never changes its value.",statusY,0xffb8b9c7);
       }
+      int hoverIndex=compact?-1:InspectorRows.hit(mouseX,mouseY,left,rowsY,panelWidth,rowCount,offset,rows.size());
+      if (rowHelpReady(hoverIndex<0?null:rows.get(hoverIndex))) {
+         var hovered=rows.get(hoverIndex);
+         showRowHelp(graphics,hovered.owner().getName()+" / "+hovered.item().getName()
+            +"\nEnter: open the exact setting in the inspector.",mouseX,mouseY);
+      }
       super.render(graphics,mouseX,mouseY,partialTick);
    }
 
