@@ -11,7 +11,6 @@ package dev.schizo.client.gui.components;
 
 import dev.schizo.client.gui.CursorType;
 import dev.schizo.client.gui.ScissorStack;
-import java.util.Objects;
 import dev.schizo.client.render.FontRenderer;
 import dev.schizo.client.render.GuiDrawUtils;
 
@@ -31,10 +30,8 @@ import org.lwjgl.glfw.GLFW;
 public class StringSettingComponent extends SettingComponent<String> {
    private final ElapsedTimer cursorBlinkTimer = new ElapsedTimer();
    private boolean cursorVisible = false;
-   private String editingText;
-   private String originalValue;
+   private LegacyTextDraft draft;
    private String editError="";
-   private int cursorIndex = 0;
 
    public String getCursorMarker() {
       if (this.cursorBlinkTimer
@@ -66,48 +63,29 @@ public class StringSettingComponent extends SettingComponent<String> {
             this.cancelInput();
          }
          case GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_KP_ENTER -> {
-            if(!Objects.equals(originalValue,setting.getValue())) {
+            if(!draft.matchesLive(setting.getValue())) {
                editError="Value changed externally. Escape and reopen to edit the current value.";
                return;
             }
             try {
-               if(!Objects.equals(originalValue,editingText)) setting.setValue(editingText);
+               if(draft.changed()) setting.setValue(draft.text());
                this.cancelInput();
             } catch(IllegalArgumentException rejected) {
                editError="Setting rejected this value.";
             }
          }
-         case GLFW.GLFW_KEY_BACKSPACE -> {
-            if (this.cursorIndex > 0) {
-               int previous = this.editingText.offsetByCodePoints(this.cursorIndex, -1);
-               this.editingText = new StringBuilder(this.editingText).delete(previous, this.cursorIndex).toString();
-               this.cursorIndex = previous;
-            }
-         }
-         case GLFW.GLFW_KEY_DELETE -> {
-            if (this.cursorIndex < this.editingText.length()) {
-               int next = this.editingText.offsetByCodePoints(this.cursorIndex, 1);
-               this.editingText = new StringBuilder(this.editingText).delete(this.cursorIndex, next).toString();
-            }
-         }
-         case GLFW.GLFW_KEY_HOME -> this.cursorIndex = 0;
-         case GLFW.GLFW_KEY_END -> this.cursorIndex = this.editingText.length();
-         case GLFW.GLFW_KEY_RIGHT -> {
-            if (this.cursorIndex < this.editingText.length()) {
-               this.cursorIndex = this.editingText.offsetByCodePoints(this.cursorIndex, 1);
-            }
-         }
-         case GLFW.GLFW_KEY_LEFT -> {
-            if (this.cursorIndex > 0) {
-               this.cursorIndex = this.editingText.offsetByCodePoints(this.cursorIndex, -1);
-            }
-         }
+         case GLFW.GLFW_KEY_BACKSPACE -> {draft.backspace();editError="";}
+         case GLFW.GLFW_KEY_DELETE -> {draft.delete();editError="";}
+         case GLFW.GLFW_KEY_HOME -> draft.home();
+         case GLFW.GLFW_KEY_END -> draft.end();
+         case GLFW.GLFW_KEY_RIGHT -> draft.right();
+         case GLFW.GLFW_KEY_LEFT -> draft.left();
       }
    }
 
    public String getText() {
       return this.editing
-         ? this.editingText
+         ? this.draft.text()
          : this.setting.getValue();
    }
 
@@ -119,10 +97,8 @@ public class StringSettingComponent extends SettingComponent<String> {
       if (!this.editing) {
          this.getClickGui().setEditingSetting(this);
          this.editing = true;
-         this.originalValue=this.setting.getValue();
-         this.editingText = this.originalValue;
+         this.draft=new LegacyTextDraft(this.setting.getValue());
          this.editError="";
-         this.cursorIndex = this.editingText.length();
       }
    }
 
@@ -175,7 +151,7 @@ public class StringSettingComponent extends SettingComponent<String> {
          poseStack.pushPose();
          try {
             String cursorMarker = this.getCursorMarker();
-            String prefix = this.editingText.substring(0, this.cursorIndex);
+            String prefix = draft.text().substring(0,draft.caret());
             float caretWidth = FontRenderer.INSTANCE
                .getWidth(
                   prefix + "_"
@@ -200,11 +176,11 @@ public class StringSettingComponent extends SettingComponent<String> {
                );
             }
 
-            if (!this.editingText.isEmpty()) {
+            if (!draft.text().isEmpty()) {
                FontRenderer.INSTANCE
                   .drawWithShadow(
                      poseStack,
-                     this.editingText,
+                     draft.text(),
                      this.panel
                            .getX()
                         + (
@@ -299,16 +275,13 @@ public class StringSettingComponent extends SettingComponent<String> {
 
    @Override public void cancelInput() {
       super.cancelInput();
-      editingText=null;
-      originalValue=null;
-      cursorIndex=0;
+      draft=null;
       editError="";
    }
 
    private void insertText(String text) {
       if(text==null || text.isEmpty()) return;
-      editingText=new StringBuilder(editingText).insert(cursorIndex,text).toString();
-      cursorIndex+=text.length();
+      draft.insert(text);
       editError="";
    }
 
