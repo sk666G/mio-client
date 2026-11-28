@@ -56,6 +56,7 @@ public final class PerformanceCenterScreen extends ClientScreen {
    private List<ProfilerDisplayRow> rows = List.of();
    private MetricsSnapshot metrics = MetricsSnapshot.EMPTY;
    private float[] frameHistorySamples = new float[0];
+   private String profilerStatus="PROFILER IDLE";
 
    private float fitScale = 1.0F;
    private float panelLeft;
@@ -92,9 +93,25 @@ public final class PerformanceCenterScreen extends ClientScreen {
       }
    }
 
-   private void renderDashboard(PoseStack poseStack) {
-      this.refreshData(false);
+   @Override protected void prepareTooltip(int mouseX,int mouseY) {
+      refreshData(false);
+      if(closing) return;
+      double x=mouseX/fitScale,y=mouseY/fitScale;
+      if(contains(x,y,panelLeft+183,panelTop+47,panelWidth-199,20)) {
+         setTooltipText(profilerStatus);
+         return;
+      }
+      float tableTop=panelTop+254,tableLeft=panelLeft+16,tableWidth=panelWidth-32;
+      if(!contains(x,y,tableLeft,tableTop+18,tableWidth,visibleRowCount()*20)) return;
+      int index=rowOffset+(int)((y-tableTop-18)/20);
+      if(index<0 || index>=rows.size()) return;
+      var row=rows.get(index);
+      var values=row.values();
+      setTooltipText(row.name()+"\n"+(selectedTab==3?"Cells: ":"Calls: ")+values.calls()
+         +" | Avg: "+values.average()+" ms\nMax: "+values.maximum()+" ms | Total: "+values.total()+" ms");
+   }
 
+   private void renderDashboard(PoseStack poseStack) {
       UIModule ui = UIModule.INSTANCE;
       Color surface = ui.backgroundSetting.getValue();
       Color accent = ui.colorSetting.getValue();
@@ -150,13 +167,7 @@ public final class PerformanceCenterScreen extends ClientScreen {
          muted,
          false
       );
-      TaskScheduler.Snapshot schedulerSnapshot = ClientContext.taskScheduler == null
-         ? new TaskScheduler.Snapshot(0, 0, 0, 0)
-         : ClientContext.taskScheduler.snapshot();
-      String profilerStatus = (EventProfiler.GLOBAL.isEnabled() ? "SAMPLING ON" : "PROFILER IDLE")
-         + "  •  ERR " + EventFailureTracker.GLOBAL.totalFailures()
-         + "  •  TASKS " + schedulerSnapshot.totalQueued() + "/" + schedulerSnapshot.totalOutstanding();
-      drawRightFitted(font,poseStack,profilerStatus,panelLeft+panelWidth-16,panelTop+53,
+       drawRightFitted(font,poseStack,profilerStatus,panelLeft+panelWidth-16,panelTop+53,
          panelWidth-199,EventProfiler.GLOBAL.isEnabled()?accent:muted);
 
       float cardGap = 7.0F;
@@ -310,6 +321,7 @@ public final class PerformanceCenterScreen extends ClientScreen {
          } else {
             EventProfiler.GLOBAL.start();
          }
+         this.refreshData(true);
          return;
       }
 
@@ -419,6 +431,8 @@ public final class PerformanceCenterScreen extends ClientScreen {
          return;
       }
 
+      TaskScheduler.Snapshot tasks=ClientContext.taskScheduler==null?new TaskScheduler.Snapshot(0,0,0,0):ClientContext.taskScheduler.snapshot();
+      profilerStatus=(EventProfiler.GLOBAL.isEnabled()?"SAMPLING ON":"PROFILER IDLE")+" • ERR "+EventFailureTracker.GLOBAL.totalFailures()+" • TASKS "+tasks.totalQueued()+"/"+tasks.totalOutstanding();
       FrameTiming timing = ClientContext.frameTiming;
       if (timing == null) {
          this.metrics = MetricsSnapshot.EMPTY;
