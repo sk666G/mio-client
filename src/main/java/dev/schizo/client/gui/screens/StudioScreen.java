@@ -1,6 +1,8 @@
 package dev.schizo.client.gui.screens;
 
 import dev.schizo.client.gui.UiMotionPolicy;
+import dev.schizo.mixin.EditBoxSelectionAccessor;
+import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.screens.Screen;
@@ -29,10 +31,21 @@ abstract class StudioScreen extends Screen {
    }
 
    @Override public void resize(int width, int height) {
-      String role = resizeFocus.roleOf(getFocused());
+      var focused = getFocused();
+      String role = resizeFocus.roleOf(focused);
+      StudioTextSelection selection = role != null && focused instanceof EditBox box
+         ? new StudioTextSelection(box.getValue(), box.getCursorPosition(),
+            ((EditBoxSelectionAccessor)box).schizo$getSelectionAnchor())
+         : null;
       super.resize(width, height);
       AbstractWidget restored = resizeFocus.resolve(role, widget -> widget.active && widget.visible);
-      if (restored != null) setInitialFocus(restored);
+      if (restored != null) {
+         setInitialFocus(restored);
+         if (selection != null && restored instanceof EditBox box && selection.matches(box.getValue())) {
+            box.setCursorPosition(selection.caret());
+            box.setHighlightPos(selection.anchor());
+         }
+      }
    }
 
    @Override public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
