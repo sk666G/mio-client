@@ -46,8 +46,10 @@ import org.lwjgl.glfw.GLFW;
 public final class PerformanceCenterScreen extends ClientScreen {
    private static final int VISIBLE_ROWS = 7;
    private static final int MAX_STORED_ROWS = 64;
+   private static final Color BACKDROP=new Color(4,6,10,188), MUTED=new Color(155,160,170), PANEL_EDGE=new Color(55,56,64,200);
    private static final String[] TAB_NAMES = {"MODULES", "CALLBACKS", "HUD WIDGETS", "SCANS"};
 
+   private final DashboardText fittedText=new DashboardText();
    private int selectedTab;
    private int rowOffset;
    private final MonotonicRefreshGate refreshGate = new MonotonicRefreshGate(250_000_000L);
@@ -73,7 +75,7 @@ public final class PerformanceCenterScreen extends ClientScreen {
          0.0F,
          GuiScaleUtils.getScaledWidth(),
          GuiScaleUtils.getScaledHeight(),
-         new Color(4, 6, 10, 188)
+         BACKDROP
       );
    }
 
@@ -96,8 +98,7 @@ public final class PerformanceCenterScreen extends ClientScreen {
       UIModule ui = UIModule.INSTANCE;
       Color surface = ui.backgroundSetting.getValue();
       Color accent = ui.colorSetting.getValue();
-      Color muted = new Color(155, 160, 170);
-      Color panelEdge = new Color(55, 56, 64, 200);
+      Color muted=MUTED,panelEdge=PANEL_EDGE;
 
       GuiDrawUtils.fillRect(
          poseStack,
@@ -117,25 +118,15 @@ public final class PerformanceCenterScreen extends ClientScreen {
       );
 
       FontRenderer font = FontRenderer.INSTANCE;
-      font.drawWithShadow(
-         poseStack,
-         this.panelWidth < 420 ? "PERFORMANCE" : "SCHIZO / PERFORMANCE CENTER",
-         this.panelLeft + 16.0F,
-         this.panelTop + 12.0F,
-         accent
-      );
+      fittedText.begin(font.measurementIdentity(),System.nanoTime());
+      drawFitted(font,poseStack,this.panelWidth<420?"PERFORMANCE":"SCHIZO / PERFORMANCE CENTER",
+         panelLeft+16,panelTop+12,panelWidth-122,accent);
       this.drawButton(poseStack, font, this.panelLeft + this.panelWidth - 100.0F, this.panelTop + 5.0F,
          84.0F, 20.0F, "BENCHMARKS", accent, false);
       String subtitle = this.panelWidth < 590.0F
          ? "Arrow keys navigate tabs and rows"
          : "Frame pacing, module callback cost and HUD render cost  •  LEFT/RIGHT tabs  •  UP/DOWN rows  •  HOME/END";
-      font.drawWithShadow(
-         poseStack,
-         subtitle,
-         this.panelLeft + 16.0F,
-         this.panelTop + 29.0F,
-         muted
-      );
+      drawFitted(font,poseStack,subtitle,panelLeft+16,panelTop+29,panelWidth-32,muted);
 
       this.drawButton(
          poseStack,
@@ -165,13 +156,8 @@ public final class PerformanceCenterScreen extends ClientScreen {
       String profilerStatus = (EventProfiler.GLOBAL.isEnabled() ? "SAMPLING ON" : "PROFILER IDLE")
          + "  •  ERR " + EventFailureTracker.GLOBAL.totalFailures()
          + "  •  TASKS " + schedulerSnapshot.totalQueued() + "/" + schedulerSnapshot.totalOutstanding();
-      font.drawWithShadow(
-         poseStack,
-         profilerStatus,
-         this.panelLeft + this.panelWidth - font.getWidth(profilerStatus) - 16.0F,
-         this.panelTop + 53.0F,
-         EventProfiler.GLOBAL.isEnabled() ? accent : muted
-      );
+      drawRightFitted(font,poseStack,profilerStatus,panelLeft+panelWidth-16,panelTop+53,
+         panelWidth-199,EventProfiler.GLOBAL.isEnabled()?accent:muted);
 
       float cardGap = 7.0F;
       float cardWidth = (this.panelWidth - 32.0F - cardGap * 2.0F) / 3.0F;
@@ -233,13 +219,7 @@ public final class PerformanceCenterScreen extends ClientScreen {
             tabsTop + 21.0F,
             ColorUtils.withAlpha(active ? accent : muted, active ? 180 : 60)
          );
-         font.drawWithShadow(
-            poseStack,
-            TAB_NAMES[tab],
-            tabLeft + 9.0F,
-            tabsTop + 7.0F,
-            active ? Color.WHITE : muted
-         );
+         drawFitted(font,poseStack,TAB_NAMES[tab],tabLeft+5,tabsTop+7,tabWidth-10,active?Color.WHITE:muted);
       }
 
       float tableTop = this.panelTop + 254.0F;
@@ -258,18 +238,18 @@ public final class PerformanceCenterScreen extends ClientScreen {
       float averageRight = tableLeft + tableWidth * 0.78F;
       float maximumRight = tableLeft + tableWidth * 0.88F;
       float totalRight = tableRight - 7.0F;
-      int nameLimit = Math.max(10, (int)(tableWidth * 0.075F));
+      float nameRight=tableLeft+tableWidth*0.43F;
       font.drawWithShadow(poseStack, "NAME", tableLeft + 7.0F, tableTop + 5.0F, muted);
-      this.drawRightAligned(font, poseStack, this.selectedTab == 3 ? "CELLS" : "CALLS", callsRight, tableTop + 5.0F, muted);
-      this.drawRightAligned(font, poseStack, "AVG", averageRight, tableTop + 5.0F, muted);
-      this.drawRightAligned(font, poseStack, "MAX", maximumRight, tableTop + 5.0F, muted);
-      this.drawRightAligned(font, poseStack, "TOTAL", totalRight, tableTop + 5.0F, muted);
+      drawRightFitted(font,poseStack,selectedTab==3?"CELLS":"CALLS",callsRight,tableTop+5,callsRight-nameRight-4,muted);
+      drawRightFitted(font,poseStack,"AVG",averageRight,tableTop+5,averageRight-callsRight-4,muted);
+      drawRightFitted(font,poseStack,"MAX",maximumRight,tableTop+5,maximumRight-averageRight-4,muted);
+      drawRightFitted(font,poseStack,"TOTAL",totalRight,tableTop+5,totalRight-maximumRight-4,muted);
 
       if (this.rows.isEmpty()) {
          String hint = EventProfiler.GLOBAL.isEnabled()
             ? "Waiting for profiled callbacks..."
             : "Start the profiler, play normally, then review the captured cost.";
-         font.drawWithShadow(poseStack, hint, tableLeft + 8.0F, tableTop + 34.0F, muted);
+         drawFitted(font,poseStack,hint,tableLeft+8,tableTop+25,tableWidth-16,muted);
       } else {
          int visible = Math.min(this.visibleRowCount(), this.rows.size() - this.rowOffset);
          for (int index = 0; index < visible; index++) {
@@ -286,17 +266,11 @@ public final class PerformanceCenterScreen extends ClientScreen {
                   ColorUtils.withAlpha(surface, 90)
                );
             }
-            font.drawWithShadow(
-               poseStack,
-               row.displayName(nameLimit),
-               tableLeft + 7.0F,
-               rowTop + 3.0F,
-               Color.WHITE
-            );
-            this.drawRightAligned(font, poseStack, values.calls(), callsRight, rowTop + 3.0F, muted);
-            this.drawRightAligned(font, poseStack, values.average(), averageRight, rowTop + 3.0F, muted);
-            this.drawRightAligned(font, poseStack, values.maximum(), maximumRight, rowTop + 3.0F, muted);
-            this.drawRightAligned(font, poseStack, values.total(), totalRight, rowTop + 3.0F, accent);
+            drawFitted(font,poseStack,row.name(),tableLeft+7,rowTop+3,nameRight-tableLeft-7,Color.WHITE);
+            drawRightFitted(font,poseStack,values.calls(),callsRight,rowTop+3,callsRight-nameRight-4,muted);
+            drawRightFitted(font,poseStack,values.average(),averageRight,rowTop+3,averageRight-callsRight-4,muted);
+            drawRightFitted(font,poseStack,values.maximum(),maximumRight,rowTop+3,maximumRight-averageRight-4,muted);
+            drawRightFitted(font,poseStack,values.total(),totalRight,rowTop+3,totalRight-maximumRight-4,accent);
          }
       }
 
@@ -308,21 +282,14 @@ public final class PerformanceCenterScreen extends ClientScreen {
             ? "HUD timings cover direct widget renders. Use frame metrics for total frame duration."
             : "Callback / module timings are inclusive and overlap; do not add them to frame time.");
       if (this.selectedTab == 3) footer = "Scan ms per slice; CELLS counts examined positions.";
-      font.drawWithShadow(
-         poseStack,
-         footer,
-         this.panelLeft + 16.0F,
-         this.panelTop + this.panelHeight - 23.0F,
-         muted
-      );
-      if (this.rows.size() > this.visibleRowCount() && this.panelWidth >= 590.0F) {
-         String page = (this.rowOffset + 1) + "-" + Math.min(this.rows.size(), this.rowOffset + this.visibleRowCount())
-            + " / " + this.rows.size() + "  ·  scroll to browse";
-         this.drawRightAligned(
-            font, poseStack, page, this.panelLeft + this.panelWidth - 16.0F,
-            this.panelTop + this.panelHeight - 23.0F, muted
-         );
+      float footerWidth=panelWidth-32;
+      if(rows.size()>visibleRowCount() && panelWidth>=590) {
+         String page=(rowOffset+1)+"-"+Math.min(rows.size(),rowOffset+visibleRowCount())+" / "+rows.size()+" · scroll";
+         float pageWidth=Math.min(footerWidth*0.33F,140F);
+         drawRightFitted(font,poseStack,page,panelLeft+panelWidth-16,panelTop+panelHeight-23,pageWidth,muted);
+         footerWidth-=pageWidth+8;
       }
+      drawFitted(font,poseStack,footer,panelLeft+16,panelTop+panelHeight-23,footerWidth,muted);
    }
 
    @Override
@@ -618,8 +585,8 @@ public final class PerformanceCenterScreen extends ClientScreen {
          poseStack, x, y, x + width, y + height,
          ColorUtils.withAlpha(accent, 72)
       );
-      font.drawWithShadow(poseStack, label, x + 8.0F, y + 5.0F, Color.GRAY);
-      font.drawWithShadow(poseStack, value, x + 8.0F, y + 20.0F, Color.WHITE);
+      drawFitted(font,poseStack,label,x+8,y+5,width-16,Color.GRAY);
+      drawFitted(font,poseStack,value,x+8,y+20,width-16,Color.WHITE);
    }
 
    private void drawButton(
@@ -640,12 +607,20 @@ public final class PerformanceCenterScreen extends ClientScreen {
       GuiDrawUtils.drawRectOutline(
          poseStack, x, y, x + width, y + height, ColorUtils.withAlpha(accent, 145)
       );
-      font.drawWithShadow(
-         poseStack, label,
-         x + (width - font.getWidth(label)) / 2.0F,
-         y + 7.0F,
-         Color.WHITE
-      );
+      var fitted=fittedText.fit(label,width-8,PerformanceCenterScreen::measureText);
+      font.drawWithShadow(poseStack,fitted.text(),x+(width-fitted.width())/2,y+7,Color.WHITE);
+   }
+
+   private static double measureText(String text) { return FontRenderer.INSTANCE.getWidth(text); }
+
+   private void drawFitted(FontRenderer font,PoseStack poses,String text,float x,float y,float available,Color color) {
+      var fitted=fittedText.fit(text,available,PerformanceCenterScreen::measureText);
+      font.drawWithShadow(poses,fitted.text(),x,y,color);
+   }
+
+   private void drawRightFitted(FontRenderer font,PoseStack poses,String text,float right,float y,float available,Color color) {
+      var fitted=fittedText.fit(text,available,PerformanceCenterScreen::measureText);
+      font.drawWithShadow(poses,fitted.text(),right-fitted.width(),y,color);
    }
 
    private void drawRightAligned(
