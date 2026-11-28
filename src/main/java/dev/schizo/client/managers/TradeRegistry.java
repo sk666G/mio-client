@@ -113,6 +113,24 @@ public final class TradeRegistry extends Registry<TradeDefinition> implements Cl
       return this.entries.add(trade);
    }
 
+   /** GUI edit: validate before replacing the exact reviewed object in its existing slot. */
+   public boolean replaceReviewedTrade(TradeDefinition expected,TradeDefinition replacement) {
+      if(expected==null || !hasSameName(expected,replacement) || !isValidTrade(replacement)) return false;
+      synchronized(entries) {
+         // Registry constructs entries as an ObjectArrayList.
+         var list=(java.util.List<TradeDefinition>)entries;
+         int selected=-1;
+         for(int i=0;i<list.size();i++) {
+            TradeDefinition current=list.get(i);
+            if(current==expected) selected=i;
+            else if(hasSameName(current,replacement)) return false;
+         }
+         if(selected<0) return false;
+         list.set(selected,replacement);
+         return true;
+      }
+   }
+
    static boolean isValidTrade(TradeDefinition trade) {
       return trade != null
          && trade.getName() != null
