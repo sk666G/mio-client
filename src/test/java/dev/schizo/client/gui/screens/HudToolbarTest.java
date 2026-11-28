@@ -35,6 +35,9 @@ class HudToolbarTest {
       assertFalse(HudToolbar.Action.DISTRIBUTE_X.enabled(2,true,true));
       assertTrue(HudToolbar.Action.DISTRIBUTE_Y.enabled(3,false,false));
       assertFalse(HudToolbar.Action.BACKGROUND.enabled(3,true,true));
+      assertFalse(HudToolbar.Action.POSITION.enabled(0,true,true));
+      assertTrue(HudToolbar.Action.POSITION.enabled(1,false,false));
+      assertFalse(HudToolbar.Action.POSITION.enabled(2,true,true));
    }
 
    @Test void keyboardTraversalSkipsDisabledAndWraps() {
