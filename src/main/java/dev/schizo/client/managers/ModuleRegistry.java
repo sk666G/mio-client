@@ -197,6 +197,7 @@ public final class ModuleRegistry extends Registry<Module> implements ClientAcce
       if (!this.registerModule(new dev.schizo.client.modules.render.ParticlesModule())) throw new IllegalStateException("Registration rejected ParticlesModule");
       if (!this.registerModule(new dev.schizo.client.modules.exploit.PhaseModule())) throw new IllegalStateException("Registration rejected PhaseModule");
       if (!this.registerModule(new dev.schizo.client.modules.render.PhaseESPModule())) throw new IllegalStateException("Registration rejected PhaseESPModule");
+      if (!this.registerModule(new dev.schizo.client.modules.client.PingBypassModule())) throw new IllegalStateException("Registration rejected PingBypassModule");
       if (!this.registerModule(new dev.schizo.client.modules.exploit.PingSpoofModule())) throw new IllegalStateException("Registration rejected PingSpoofModule");
       if (!this.registerModule(new dev.schizo.client.modules.exploit.PortalGodModeModule())) throw new IllegalStateException("Registration rejected PortalGodModeModule");
       if (!this.registerModule(new dev.schizo.client.modules.combat.PistonCrystalModule())) throw new IllegalStateException("Registration rejected PistonCrystalModule");
