@@ -162,13 +162,13 @@ final class StudioViewportLayouts {
 
    static ContextEditor contextEditor(int width,int height) {
       int w=Math.max(1,Math.min(520,width-16));
-      boolean compact=w<240 || height<200;
+      boolean compact=w<240 || height<202;
       boolean condensed=height<224;
-      int body=condensed?192:216;
+      int body=condensed?194:216;
       int top=Math.max(4,(height-body)/2);
       return new ContextEditor((width-w)/2,top,w,compact,condensed,
-         top+(condensed?34:41),top+(condensed?60:72),top+(condensed?80:94),
-         top+(condensed?102:118),top+(condensed?124:142),top+(condensed?146:166),
-         top+(condensed?169:190),top+(condensed?181:202),top+body);
+         top+(condensed?34:41),top+(condensed?61:72),top+(condensed?81:94),
+         top+(condensed?103:118),top+(condensed?125:142),top+(condensed?147:166),
+         top+(condensed?170:190),top+(condensed?182:202),top+body);
    }
 }
