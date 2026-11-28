@@ -246,12 +246,19 @@ public final class UIModule extends Module {
 
    /** Client-thread commit of an explicitly reviewed fixed palette; notification colors remain independent. */
    public boolean applyCustomPalette(PaletteChoice expectedChoice, UiPalette expectedColors, UiPalette palette) {
+      return restoreFixedPalette(expectedChoice, expectedColors, PaletteChoice.CUSTOM, palette);
+   }
+
+   /** Restore the exact reviewed marker and colors, without named-palette notification callbacks. */
+   public boolean restoreFixedPalette(PaletteChoice expectedChoice, UiPalette expectedColors,
+                                      PaletteChoice targetChoice, UiPalette palette) {
       java.util.Objects.requireNonNull(palette);
+      java.util.Objects.requireNonNull(targetChoice);
       if (this.applyingPalette || !this.supportsFixedPaletteEditing()
          || this.paletteSetting.getValue() != expectedChoice || !this.snapshotPalette().equals(expectedColors)) return false;
       this.applyingPalette = true;
       try {
-         this.paletteSetting.setValue(PaletteChoice.CUSTOM);
+         this.paletteSetting.setValue(targetChoice);
          this.colorSetting.setValue(palette.accent());
          this.backgroundSetting.setValue(palette.background());
          this.buttonSetting.setValue(palette.button());

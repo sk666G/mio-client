@@ -1,6 +1,7 @@
 package dev.schizo.client.gui.screens;
 
 import dev.schizo.client.gui.ThemePreviewDraft;
+import dev.schizo.client.gui.AppliedPaletteHistory;
 import dev.schizo.client.gui.ThemeShareCode;
 import dev.schizo.client.modules.client.UIModule;
 import dev.schizo.client.modules.client.UIModule.PaletteChoice;
@@ -22,7 +23,8 @@ public final class ThemeStudioScreen extends StudioScreen {
    private UiPalette cachedPalette;
    private ThemeSampleColors cachedSample;
    private boolean cachedLight;
-   private Button apply, undoPreview, redoPreview;
+   private Button apply, undoPreview, redoPreview, undoApplied, redoApplied;
+   private final AppliedPaletteHistory appliedHistory = new AppliedPaletteHistory();
    private int left, top, panelWidth, previewTop, previewHeight;
    private String notice = "Preview only. No settings changed.";
 
@@ -42,7 +44,9 @@ public final class ThemeStudioScreen extends StudioScreen {
       super.init();
       panelWidth = Math.max(1, Math.min(520, width - 16));
       left = (width - panelWidth) / 2;
-      top = Math.max(4, (height - 250) / 2);
+      top = Math.max(4, (height - 273) / 2);
+      undoApplied = null;
+      redoApplied = null;
       int w = Math.max(1, (panelWidth - 8) / 3);
       int presetWidth = Math.max(1, (panelWidth - 12) / 4);
       PaletteChoice[] choices = {PaletteChoice.SCHIZO, PaletteChoice.MIDNIGHT, PaletteChoice.FROST, PaletteChoice.AMETHYST};
@@ -75,8 +79,13 @@ public final class ThemeStudioScreen extends StudioScreen {
       });
       button("Copy theme", left + w + 4, top + 75, w, this::copyTheme);
       button("Paste theme", left + 2 * (w + 4), top + 75, w, this::pasteTheme);
-      previewTop = top + 103;
-      int bottom = Math.min(height - 25, top + 226);
+      boolean showApplied = height >= 180;
+      if (showApplied) {
+         undoApplied = button("Undo applied", left, top + 98, w, () -> changeApplied(false));
+         redoApplied = button("Redo applied", left + w + 4, top + 98, w, () -> changeApplied(true));
+      }
+      previewTop = top + (showApplied ? 126 : 103);
+      int bottom = Math.min(height - 25, top + (showApplied ? 249 : 226));
       previewHeight = Math.max(1, bottom - previewTop - 27);
       int small = Math.max(1, (panelWidth - 16) / 5);
       button("Back", left, bottom, small, this::onClose);
@@ -143,13 +152,47 @@ public final class ThemeStudioScreen extends StudioScreen {
       return super.keyPressed(event);
    }
 
+   private AppliedPaletteHistory.State liveState(UIModule ui) {
+      return new AppliedPaletteHistory.State(ui.paletteSetting.getValue(), ui.snapshotPalette());
+   }
+
+   private boolean canChangeApplied(UIModule ui, AppliedPaletteHistory.State live) {
+      return ui.supportsFixedPaletteEditing() && !draft.isStale(live.choice(), live.colors())
+         && !draft.canApply(live.choice(), live.colors());
+   }
+
+   private void changeApplied(boolean redo) {
+      UIModule ui = UIModule.INSTANCE;
+      var live = liveState(ui);
+      if (!canChangeApplied(ui, live)) {
+         notice = "Discard or reload the preview before restoring an applied palette.";
+         refreshApply();
+         return;
+      }
+      boolean restored = appliedHistory.move(live, redo, target ->
+         ui.restoreFixedPalette(live.choice(), live.colors(), target.choice(), target.colors()));
+      if (restored) {
+         reload();
+         notice = redo ? "Applied palette redone." : "Applied palette undone.";
+      } else notice = "Applied history unavailable or live colors changed.";
+      refreshApply();
+   }
+
    private void refreshApply() {
       if (apply == null) return;
       undoPreview.active = draft.canUndo();
       redoPreview.active = draft.canRedo();
       UIModule ui = UIModule.INSTANCE;
-      apply.active = draft.canApply(ui.paletteSetting.getValue(), ui.snapshotPalette())
+      var live = liveState(ui);
+      apply.active = draft.canApply(live.choice(), live.colors())
          && (draft.selected() != PaletteChoice.CUSTOM || ui.supportsFixedPaletteEditing());
+      if (!ui.supportsFixedPaletteEditing()) appliedHistory.clear();
+      else appliedHistory.invalidateIfStale(live);
+      if (undoApplied != null) {
+         boolean clean = canChangeApplied(ui, live);
+         undoApplied.active = clean && appliedHistory.canMove(live, false);
+         redoApplied.active = clean && appliedHistory.canMove(live, true);
+      }
    }
 
    private void commit() {
@@ -160,14 +203,17 @@ public final class ThemeStudioScreen extends StudioScreen {
          return;
       }
       if (draft.selected() == PaletteChoice.CUSTOM) {
+         var before = liveState(ui);
          if (!draft.applyCustom(ui)) {
             notice = "Custom apply blocked: live colors or dynamic modes changed.";
             refreshApply();
             return;
          }
+         appliedHistory.record(before, liveState(ui));
          notice = "Custom palette applied. Notification colors unchanged.";
       } else {
          ui.paletteSetting.setValue(draft.selected());
+         appliedHistory.clear();
          notice = "Palette applied, including notification accents. Normal save lifecycle follows.";
       }
       reload();
