@@ -277,4 +277,60 @@ class PresetRegistryTest {
       Files.delete(directory.resolve("reviewed.json"));
       assertFalse(registry.matchesReviewedPreset(current));
    }
+
+   @Test void undoDuplicateRejectsExternalEditAndRetainsRetry() throws IOException {
+      var original=preset("source");
+      original.saveToDirectory(directory);
+      var registry=new PresetRegistry(directory);
+      registry.loadPresets();
+      var history=new dev.schizo.client.config.PresetUndoState();
+      var undo=dev.schizo.client.config.PresetUndoAction.beforeSave(registry,"copy");
+      assertTrue(registry.copyPreset("source","copy"));
+      var copied=registry.getPreset("copy");
+      history.push(undo);
+      var changed=copied.copyContents();changed.addProperty("external",true);
+      new PresetData("copy",changed).saveToDirectory(directory);
+      assertThrows(IOException.class,history::undo);
+      assertTrue(Files.exists(directory.resolve("copy.json")));
+      copied.saveToDirectory(directory);
+      assertSame(undo,history.undo());
+      assertFalse(Files.exists(directory.resolve("copy.json")));
+   }
+
+   @Test void undoDeleteDoesNotReplaceRecreatedName() throws IOException {
+      var original=preset("source");
+      original.saveToDirectory(directory);
+      var registry=new PresetRegistry(directory);
+      registry.loadPresets();
+      var history=new dev.schizo.client.config.PresetUndoState();
+      var undo=dev.schizo.client.config.PresetUndoAction.beforeDelete(registry,"source");
+      assertTrue(registry.deletePreset("source"));
+      history.push(undo);
+      var replacement=original.copyContents();replacement.addProperty("new",true);
+      new PresetData("SOURCE",replacement).saveNewToDirectory(directory);
+      assertThrows(IOException.class,history::undo);
+      assertTrue(Files.exists(directory.resolve("SOURCE.json")));
+      Files.delete(directory.resolve("SOURCE.json"));
+      assertSame(undo,history.undo());
+      assertEquals(original,registry.getPreset("source"));
+   }
+
+   @Test void undoRenameRejectsChangedDestination() throws IOException {
+      var original=preset("before");
+      original.saveToDirectory(directory);
+      var registry=new PresetRegistry(directory);
+      registry.loadPresets();
+      var history=new dev.schizo.client.config.PresetUndoState();
+      var undo=dev.schizo.client.config.PresetUndoAction.beforeRename(registry,"before","after");
+      assertTrue(registry.renamePreset("before","after"));
+      history.push(undo);
+      var renamed=registry.getPreset("after");
+      var changed=renamed.copyContents();changed.addProperty("new",true);
+      new PresetData("after",changed).saveToDirectory(directory);
+      assertThrows(IOException.class,history::undo);
+      assertFalse(Files.exists(directory.resolve("before.json")));
+      renamed.saveToDirectory(directory);
+      assertSame(undo,history.undo());
+      assertEquals(original,registry.getPreset("before"));
+   }
 }
