@@ -25,4 +25,15 @@ public final class RecentVisits<M,S> {
 
    public List<Visit<M,S>> snapshot() { return List.copyOf(visits); }
    public void clear() { visits.clear(); }
+
+   /** Restore the exact owner/item identity after recency order or availability changes. */
+   public static <M,S> int restoreSelection(List<Visit<M,S>> rows, Visit<M,S> previous, int fallback) {
+      if (previous != null) {
+         for (int index=0; index<rows.size(); index++) {
+            Visit<M,S> candidate=rows.get(index);
+            if (candidate.owner()==previous.owner() && candidate.item()==previous.item()) return index;
+         }
+      }
+      return Math.max(0, Math.min(fallback, rows.size()-1));
+   }
 }
