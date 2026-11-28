@@ -64,6 +64,9 @@ public interface GuiElement {
    default void mouseReleased(double mouseX, double mouseY, int button) {
    }
 
+   /** Discard transient input capture without changing committed settings. */
+   default void cancelInput() {}
+
    default void charTyped(char character) {
    }
 }
