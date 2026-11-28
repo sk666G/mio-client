@@ -58,6 +58,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.network.chat.Component;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import org.lwjgl.glfw.GLFW;
@@ -83,7 +84,8 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
    private boolean directionsRefreshPending;
    private final List<HudWidgetRenderer> selection = new ArrayList<>();
    private boolean toolbarVisible = true;
-   private HudToolbar.Action pressedToolbarAction;
+   private HudToolbar.Action pressedToolbarAction, keyboardToolbarAction;
+   private final StudioRowHover toolbarHover = new StudioRowHover();
    private int gridStep;
    private int dragGridStep;
    private double dragOffsetX;
@@ -580,6 +582,7 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
       if (this.closing || this.draggedWidget != null || this.resizedWidget != null || this.groupDrag != null) {
          return true;
       }
+      this.keyboardToolbarAction = null;
       HudToolbar.Layout toolbar = this.toolbarLayout();
       if (toolbar.contains(event.x(), event.y())) {
          if (event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
@@ -829,6 +832,8 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
    @Override
    protected void init() {
       this.pressedToolbarAction = null;
+      this.keyboardToolbarAction = null;
+      this.toolbarHover.clear();
       this.selection.clear();
       this.cancelPendingLayoutGesture();
       this.marginController.mouseReleased(GLFW.GLFW_MOUSE_BUTTON_LEFT);
@@ -843,11 +848,14 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
          return true;
       }
       if (this.focusedSetting() != null) {
+         this.keyboardToolbarAction = null;
          return super.keyPressed(event);
       }
+      if (this.handleToolbarKeyboard(event)) return true;
       if (event.key() == GLFW.GLFW_KEY_T && !KeyUtils.isControlDown() && !KeyUtils.isShiftDown()
          && !this.layoutHistory.hasPendingEdit() && this.pressedToolbarAction == null) {
          this.toolbarVisible = !this.toolbarVisible;
+         this.keyboardToolbarAction = null;
          return true;
       }
       if (!this.pointerOverPanel(this.mouseX, this.mouseY)) {
@@ -1057,6 +1065,8 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
    public void removed() {
       try {
          this.pressedToolbarAction = null;
+         this.keyboardToolbarAction = null;
+         this.toolbarHover.clear();
          this.selection.clear();
          this.cancelPendingLayoutGesture();
          this.marginController.mouseReleased(GLFW.GLFW_MOUSE_BUTTON_LEFT);
@@ -1201,6 +1211,45 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
          && widget.isEnabled() && widget.supportsResizing() ? widget : null;
    }
 
+   private boolean handleToolbarKeyboard(KeyEvent event) {
+      if (!this.toolbarLayout().visible() || this.closing || this.layoutHistory.hasPendingEdit()
+         || this.draggedWidget != null || this.resizedWidget != null || this.groupDrag != null) {
+         this.keyboardToolbarAction = null;
+         return false;
+      }
+      int key=event.key();
+      if (key==GLFW.GLFW_KEY_F6 && !KeyUtils.isControlDown() && !KeyUtils.isShiftDown()) {
+         this.pruneSelection();
+         if(this.keyboardToolbarAction!=null) this.keyboardToolbarAction=null;
+         else this.moveToolbarFocus(1);
+         return true;
+      }
+      if (this.keyboardToolbarAction==null) return false;
+      if (key==GLFW.GLFW_KEY_ESCAPE) {
+         this.keyboardToolbarAction=null;
+         return true;
+      }
+      this.pruneSelection();
+      switch(key) {
+         case GLFW.GLFW_KEY_TAB -> this.moveToolbarFocus(KeyUtils.isShiftDown()?-1:1);
+         case GLFW.GLFW_KEY_LEFT, GLFW.GLFW_KEY_UP -> this.moveToolbarFocus(-1);
+         case GLFW.GLFW_KEY_RIGHT, GLFW.GLFW_KEY_DOWN -> this.moveToolbarFocus(1);
+         case GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_KP_ENTER, GLFW.GLFW_KEY_SPACE -> {
+            this.runToolbarAction(this.keyboardToolbarAction);
+            if(!this.toolbarEnabled(this.keyboardToolbarAction)) this.moveToolbarFocus(1);
+         }
+      }
+      // Do not let toolbar navigation also move or delete HUD widgets.
+      return true;
+   }
+
+   private void moveToolbarFocus(int direction) {
+      int current=this.keyboardToolbarAction==null?-1:this.keyboardToolbarAction.ordinal();
+      int next=HudToolbar.nextEnabled(current,direction,HudToolbar.ACTIONS.length,
+         index -> this.toolbarEnabled(HudToolbar.ACTIONS[index]));
+      this.keyboardToolbarAction=next<0?null:HudToolbar.ACTIONS[next];
+   }
+
    private boolean toolbarEnabled(HudToolbar.Action action) {
       if (this.closing || this.focusedSetting() != null || this.layoutHistory.hasPendingEdit()
          || this.draggedWidget != null || this.resizedWidget != null || this.groupDrag != null) return false;
@@ -1251,6 +1300,8 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
       HudToolbar.Layout layout = HudToolbar.layout(graphics.guiWidth(), graphics.guiHeight(), this.toolbarVisible);
       var font = ClientAccess.schizoMinecraft.font;
       if (!layout.visible()) {
+         this.keyboardToolbarAction=null;
+         this.toolbarHover.clear();
          String hint = "T: HUD tools | G: grid | Ctrl-click: select";
          if (graphics.guiWidth() >= font.width(hint) + 16 && graphics.guiHeight() >= 20)
             graphics.drawString(font, hint, 8, graphics.guiHeight() - 12, 0xffb8b9c7, true);
@@ -1262,20 +1313,32 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
       String title = "HUD TOOLS  |  " + this.selection.size() + " selected";
       var resizable = this.selectedResizable();
       if (resizable != null) title += " | " + Math.round(resizable.getSizeScale() * 100) + "% (Shift: 10%)";
-      title += " | T: hide";
+      title += this.keyboardToolbarAction==null?" | F6: tools | T: hide":" | Enter: run | Esc: leave";
       graphics.drawString(font, font.plainSubstrByWidth(title, layout.width() - 12), layout.x() + 6, layout.y() + 6, 0xffeeeeef, false);
+      HudToolbar.Action hoveredAction=layout.hit(mouseX,mouseY);
+      boolean showHelp=this.toolbarHover.ready(hoveredAction,System.nanoTime());
       for (HudToolbar.Action action : HudToolbar.ACTIONS) {
          HudToolbar.Cell cell = layout.cell(action);
          boolean enabled = this.toolbarEnabled(action);
          boolean hovered = enabled && cell.contains(mouseX, mouseY);
+         boolean keyboardFocused = enabled && action==this.keyboardToolbarAction;
          int surface = !enabled ? theme.panel() : hovered ? theme.hover() : theme.row();
          if (enabled && this.pressedToolbarAction == action && hovered) surface = theme.selected();
-         graphics.fill(cell.x(), cell.y(), cell.x() + cell.width(), cell.y() + cell.height(), enabled && hovered ? theme.accent() : 0xff444651);
+         graphics.fill(cell.x(), cell.y(), cell.x() + cell.width(), cell.y() + cell.height(), enabled && (hovered || keyboardFocused) ? theme.accent() : 0xff444651);
          graphics.fill(cell.x() + 1, cell.y() + 1, cell.x() + cell.width() - 1, cell.y() + cell.height() - 1, surface);
          String label = action == HudToolbar.Action.GRID ? "Grid " + (this.gridStep == 0 ? "off" : this.gridStep) : action.label;
          label = font.plainSubstrByWidth(label, cell.width() - 6);
          graphics.drawString(font, label, cell.x() + (cell.width() - font.width(label)) / 2,
             cell.y() + (cell.height() - font.lineHeight) / 2, enabled ? 0xffeeeeef : 0xff898a96, false);
+         if(keyboardFocused) graphics.fill(cell.x()+2,cell.y()+cell.height()-2,
+            cell.x()+cell.width()-2,cell.y()+cell.height()-1,theme.accent());
+      }
+      HudToolbar.Action helpAction=showHelp?hoveredAction:this.keyboardToolbarAction;
+      if(helpAction!=null && helpAction!=HudToolbar.Action.BACKGROUND) {
+         var cell=layout.cell(helpAction);
+         String help=helpAction.help()+(this.toolbarEnabled(helpAction)?"":"\nUnavailable for the current selection or edit state.");
+         var lines=font.split(Component.literal(help),Math.min(250,graphics.guiWidth()-24));
+         graphics.setTooltipForNextFrame(font,lines,showHelp?mouseX:cell.x()+cell.width()/2,showHelp?mouseY:cell.y());
       }
    }
 
