@@ -66,6 +66,7 @@ public final class CommandPaletteScreen extends ClientScreen {
    private final List<PaletteEntry> index = new ArrayList<>();
    private final List<PaletteResult> results = new ArrayList<>();
    private EditBox searchBox;
+   private String normalizedQuery = "";
    private int selectedIndex;
    private int firstVisibleIndex;
    private float panelLeft;
@@ -153,6 +154,7 @@ public final class CommandPaletteScreen extends ClientScreen {
          ? ""
          : PaletteMatcher.normalizeQuery(this.searchBox.getValue());
 
+      this.normalizedQuery = query;
       this.results.clear();
       ModulePreferencesRegistry preferences = ClientContext.modulePreferencesRegistry;
       var quickAccessRanks = preferences == null
@@ -383,7 +385,7 @@ public final class CommandPaletteScreen extends ClientScreen {
          : searchValue + (this.searchBox.isFocused() ? "|" : "");
       font.drawWithShadow(
          poseStack,
-         searchDisplay,
+         SearchFeedback.fit(searchDisplay, this.panelWidth - 28, font::getWidth),
          this.panelLeft + 14.0F,
          this.panelTop + 34.0F,
          searchValue.isEmpty() ? Color.GRAY : Color.WHITE
@@ -413,7 +415,8 @@ public final class CommandPaletteScreen extends ClientScreen {
             break;
          }
 
-         PaletteEntry entry = this.results.get(resultIndex).entry();
+         PaletteResult result = this.results.get(resultIndex);
+         PaletteEntry entry = result.entry();
          float rowTop = this.resultsTop + row * CommandPaletteLayout.RESULT_ROW_HEIGHT;
          if (resultIndex == this.selectedIndex) {
             GuiDrawUtils.fillRect(
@@ -434,29 +437,31 @@ public final class CommandPaletteScreen extends ClientScreen {
          };
          font.drawWithShadow(
             poseStack,
-            kindLabel,
+            SearchFeedback.fit(kindLabel, Math.min(68, this.panelWidth - 28), font::getWidth),
             this.panelLeft + 14.0F,
             rowTop + 3.0F,
             ColorUtils.withAlpha(accent, 220)
          );
-         font.drawWithShadow(
-            poseStack,
-            entry.title(),
-            this.panelLeft + 88.0F,
-            rowTop + 3.0F,
-            Color.WHITE
-         );
-         font.drawWithShadow(
-            poseStack,
-            entry.subtitle(),
-            this.panelLeft + 88.0F,
-            rowTop + 12.0F,
-            new Color(155, 165, 170)
-         );
+         float textX = this.panelLeft + 88.0F;
+         float textWidth = Math.max(0, this.panelWidth - 102.0F);
+         String title = SearchFeedback.fit(entry.title(), textWidth, font::getWidth);
+         String hint = SearchFeedback.hint(result.score(), this.normalizedQuery);
+         String subtitle = SearchFeedback.fit(hint.isEmpty() ? entry.subtitle() : hint + " | " + entry.subtitle(), textWidth, font::getWidth);
+         font.drawWithShadow(poseStack, title, textX, rowTop + 3.0F, Color.WHITE);
+         font.drawWithShadow(poseStack, subtitle, textX, rowTop + 12.0F, new Color(155, 165, 170));
+         SearchFeedback.Span span = SearchFeedback.literalSpan(entry.title(), this.normalizedQuery);
+         // Never underline an ellipsis or a match that extends beyond the visible original prefix.
+         int visibleEnd = title.equals(entry.title()) ? title.length() : Math.max(0, title.length() - 3);
+         if (span != null && span.end() <= visibleEnd) {
+            float start = textX + font.getWidth(entry.title().substring(0, span.start()));
+            float end = textX + font.getWidth(entry.title().substring(0, span.end()));
+            if (end > start) GuiDrawUtils.fillRect(poseStack, start, rowTop + 11,
+               Math.min(textX + textWidth, end), rowTop + 12, ColorUtils.withAlpha(accent, 220));
+         }
       }
 
       float footerY = this.resultsTop + resultCount * CommandPaletteLayout.RESULT_ROW_HEIGHT + 7.0F;
-      String footer = "↑ ↓ Select    Enter Open    Esc Close";
+      String footer = SearchFeedback.fit("↑ ↓ Select    Enter Open    Esc Close", this.panelWidth - 28, font::getWidth);
       font.drawWithShadow(
          poseStack,
          footer,
