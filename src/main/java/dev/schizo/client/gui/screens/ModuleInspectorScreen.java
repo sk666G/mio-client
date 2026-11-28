@@ -23,7 +23,7 @@ import net.minecraft.network.chat.Component;
 public final class ModuleInspectorScreen extends StudioScreen {
    private final Screen parent;
    private final Module module;
-   private final SettingEditHistory history = new SettingEditHistory();
+   private final SettingEditHistory history = ScalarHistoryScreen.history();
    private final List<Setting<?>> allSettings = new ArrayList<>();
    private List<Setting<?>> settings = List.of();
    private String filterText = "";
@@ -168,8 +168,8 @@ public final class ModuleInspectorScreen extends StudioScreen {
       value.setValue(supported ? expected.getAsString() : "");
       apply.active = supported;
       resetDefault.active = supported;
-      undo.active = history.canUndo();
-      redo.active = history.canRedo();
+      undo.active = setting != null && history.undoTarget() == setting;
+      redo.active = setting != null && history.redoTarget() == setting;
    }
 
    private void applyValue() {
@@ -209,6 +209,11 @@ public final class ModuleInspectorScreen extends StudioScreen {
    }
 
    private void replay(boolean backward) {
+      Setting<?> target = backward ? history.undoTarget() : history.redoTarget();
+      if (target != current()) {
+         notice = "Use Quick Access / Edit history for other settings.";
+         return;
+      }
       notice = (backward ? "Undo: " : "Redo: ") + (backward ? history.undo() : history.redo());
       refreshSelection();
    }
@@ -233,7 +238,7 @@ public final class ModuleInspectorScreen extends StudioScreen {
       line(graphics, module.getDescription(), top + 21, 0xffeeeeef);
       line(graphics, "Compatibility: " + assessment.classification() + " | individual settings unverified", top + 34, 0xffa1a3af);
       line(graphics, bindingNotice, top + 47, 0xffb8b9c7);
-      line(graphics, notice.isEmpty() ? "Local scalar edits only | history lasts for this inspector session" : notice, top + 60, 0xffa1a3af);
+      line(graphics, notice.isEmpty() ? "Local scalar edits | cross-module history in Quick Access" : notice, top + 60, 0xffa1a3af);
       if (settings.isEmpty()) line(graphics, "No matching settings.", top + 101, 0xffa1a3af);
       for (int i = 0; i < rowCount && offset + i < settings.size(); i++) {
          int index = offset + i;
@@ -249,7 +254,6 @@ public final class ModuleInspectorScreen extends StudioScreen {
    }
 
    @Override public void onClose() {
-      history.clear();
       minecraft.setScreen(parent);
    }
 
