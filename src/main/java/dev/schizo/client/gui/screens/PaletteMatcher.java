@@ -12,7 +12,7 @@ package dev.schizo.client.gui.screens;
 import java.util.Locale;
 
 /** Pure search ranking shared by the command palette and its tests. */
-final class PaletteMatcher {
+public final class PaletteMatcher {
    private PaletteMatcher() {
    }
 
@@ -22,8 +22,15 @@ final class PaletteMatcher {
          : requestedQuery.strip().toLowerCase(Locale.ROOT);
    }
 
-   static int score(String title, String subtitle, String requestedQuery) {
+   public static int score(String title, String subtitle, String requestedQuery) {
       return scoreNormalized(title, subtitle, normalizeQuery(requestedQuery));
+   }
+
+   /** Module filtering keeps short queries literal and allows longer fuzzy name matches. */
+   public static boolean matchesModule(String title, String metadata, String requestedQuery) {
+      String query = normalizeQuery(requestedQuery);
+      int score = scoreNormalized(title, metadata, query);
+      return score >= 0 && (score < 4 || query.length() >= 4);
    }
 
    static int scoreNormalized(String title, String subtitle, String query) {
