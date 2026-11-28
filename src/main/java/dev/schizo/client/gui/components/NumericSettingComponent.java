@@ -314,6 +314,13 @@ public class NumericSettingComponent<N extends Number> extends SettingComponent<
    }
 
    @Override
+   public void cancelInput() {
+      super.cancelInput();
+      this.dragging=false;
+      this.inputError="";
+   }
+
+   @Override
    public void mouseReleased(double mouseX, double mouseY, int button) {
       if (button == 0) {
          this.dragging = false;
