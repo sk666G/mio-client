@@ -23,6 +23,8 @@ public final class ThemeStudioScreen extends StudioScreen {
    private UiPalette cachedPalette;
    private ThemeSampleColors cachedSample;
    private boolean cachedLight;
+   private String cachedDiagnostic;
+   private double cachedContrast;
    private Button apply, undoPreview, redoPreview, undoApplied, redoApplied;
    private final AppliedPaletteHistory appliedHistory = new AppliedPaletteHistory();
    private int left, top, panelWidth, previewTop, previewHeight, bottom;
@@ -48,7 +50,7 @@ public final class ThemeStudioScreen extends StudioScreen {
       compact=layout.compact(); previewTop=layout.previewTop(); previewHeight=layout.previewHeight(); bottom=layout.bottom();
       undoApplied = null;
       redoApplied = null;
-      apply = null;
+      apply = undoPreview = redoPreview = null;
       if (compact) {
          button("Back",left,Math.max(0,height-24),panelWidth,this::onClose);
          return;
@@ -60,11 +62,8 @@ public final class ThemeStudioScreen extends StudioScreen {
          PaletteChoice choice = choices[i];
          button(choice.getName(), left + i * (presetWidth + 4), top + 29, presetWidth, () -> choose(choice));
       }
-      button("Current", left, top + 52, w, () -> {
-         reload();
-         notice = "Current colors loaded.";
-         refreshApply();
-      });
+      button("Gallery",left,top+52,w,()->openStudioChild(new ThemeGalleryScreen(this,draft.preview(),lightBackdrop)))
+         .help("Inspect detached palette and Studio component color samples with contrast diagnostics.");
       int half = Math.max(1, (w - 4) / 2);
       button("Test switch", left + w + 4, top + 52, half, () -> {
          sampleEnabled = !sampleEnabled;
@@ -95,11 +94,11 @@ public final class ThemeStudioScreen extends StudioScreen {
       undoPreview = button("Undo", left + small + 4, bottom, small, () -> changeHistory(false));
       redoPreview = button("Redo", left + 2 * (small + 4), bottom, small, () -> changeHistory(true));
       apply = button("Apply palette", left + 3 * (small + 4), bottom, small, this::commit).help("Apply the preview palette to the live interface.");
-      button("Discard preview", left + 4 * (small + 4), bottom, small, () -> {
+      button("Reload current", left + 4 * (small + 4), bottom, small, () -> {
          reload();
-         notice = "Preview discarded. Current colors preserved.";
+         notice = "Preview discarded. Current colors loaded.";
          refreshApply();
-      });
+      }).help("Discard the detached preview and reload the current live palette.");
       refreshApply();
    }
 
@@ -237,6 +236,9 @@ public final class ThemeStudioScreen extends StudioScreen {
          cachedSample = ThemeSampleColors.from(palette, lightBackdrop);
          cachedPalette = palette;
          cachedLight = lightBackdrop;
+         cachedContrast=cachedSample.minimumTextContrast();
+         cachedDiagnostic=String.format(Locale.ROOT,"%s backdrop | sample contrast %.2f:1 | %s",
+            lightBackdrop?"Light":"Dark",cachedContrast,cachedContrast>=4.5?"readable target met":"low contrast");
       }
       return cachedSample;
    }
@@ -288,10 +290,7 @@ public final class ThemeStudioScreen extends StudioScreen {
          }
       }
       line(graphics, notice, left, previewTop + previewHeight + 3, panelWidth, 0xffa1a3af);
-      double contrast = sample.minimumTextContrast();
-      String diagnostic = String.format(Locale.ROOT, "%s backdrop | sample contrast %.2f:1 | %s",
-         lightBackdrop ? "Light" : "Dark", contrast, contrast >= 4.5 ? "readable target met" : "low contrast");
-      line(graphics, diagnostic, left, previewTop + previewHeight + 14, panelWidth, contrast >= 4.5 ? 0xffb8b9c7 : 0xffffa66b);
+      line(graphics,cachedDiagnostic,left,previewTop+previewHeight+14,panelWidth,cachedContrast>=4.5?0xffb8b9c7:0xffffa66b);
       super.render(graphics, mouseX, mouseY, partialTick);
    }
 
