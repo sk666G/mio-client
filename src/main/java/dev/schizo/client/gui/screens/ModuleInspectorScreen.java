@@ -95,13 +95,13 @@ public final class ModuleInspectorScreen extends StudioScreen {
       filter.setMaxLength(64);
       filter.setValue(filterText);
       filter.setHint(Component.literal("Filter settings..."));
-      addRenderableWidget(filter);
+      trackResizeFocus("filter", addRenderableWidget(filter));
       int half = Math.max(1, (panelWidth - 4) / 2);
       button("Previous setting", left, controlsY, half, () -> select(-1));
       button("Next setting", left + half + 4, controlsY, half, () -> select(1));
       value = new StudioEditBox(font, left, controlsY + 24, half, 20, Component.literal("Proposed value"));
       value.setMaxLength(48);
-      addRenderableWidget(value);
+      trackResizeFocus("value", addRenderableWidget(value));
       apply = button("Apply value", left + half + 4, controlsY + 24, half, this::applyValue);
       int quarter = Math.max(1, (panelWidth - 12) / 4);
       undo = button("Undo", left, controlsY + 48, quarter, () -> replay(true));
@@ -128,7 +128,7 @@ public final class ModuleInspectorScreen extends StudioScreen {
    }
 
    private Button button(String label, int x, int y, int w, Runnable action) {
-      return addRenderableWidget(new StudioButton(x, y, w, 20, Component.literal(label), ignored -> action.run()));
+      return trackResizeFocus("button:" + label, addRenderableWidget(new StudioButton(x, y, w, 20, Component.literal(label), ignored -> action.run())));
    }
 
    private Setting<?> current() { return settings.isEmpty() ? null : settings.get(selected); }

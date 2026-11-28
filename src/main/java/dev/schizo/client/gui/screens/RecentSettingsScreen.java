@@ -58,7 +58,7 @@ public final class RecentSettingsScreen extends StudioScreen {
       compact=panelWidth<220 || height<170;
       if(compact) {button("Back",left,Math.max(1,height-25),panelWidth,this::onClose);return;}
       rowCount=Math.max(1,Math.min(10,(height-top-100)/13));
-      search=addRenderableWidget(new StudioEditBox(font,left,top+30,panelWidth,20,Component.literal("Search visited settings")));
+      search = trackResizeFocus("search", addRenderableWidget(new StudioEditBox(font,left,top+30,panelWidth,20,Component.literal("Search visited settings"))));
       search.setMaxLength(64); search.setValue(query);
       search.setResponder(text -> {query=text;selected=0;offset=0;confirming=false;reload(false);});
       int y=top+57+rowCount*13, w=(panelWidth-16)/5;
@@ -75,7 +75,7 @@ public final class RecentSettingsScreen extends StudioScreen {
    }
 
    private Button button(String label,int x,int y,int w,Runnable action) {
-      return addRenderableWidget(new StudioButton(x,y,w,20,Component.literal(label),ignored -> action.run()));
+      return trackResizeFocus("button:" + label, addRenderableWidget(new StudioButton(x,y,w,20,Component.literal(label),ignored -> action.run())));
    }
 
    private void reload() { reload(true); }

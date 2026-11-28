@@ -58,7 +58,7 @@ public final class QuickAccessScreen extends StudioScreen {
       int historyY = top+(layout.stacked()?47:24);
       button("Visited",historyX,historyY,historyWidth,() -> minecraft.setScreen(new RecentSettingsScreen(this)));
       button("Edit history",historyX+historyWidth+4,historyY,historyWidth,() -> minecraft.setScreen(new ScalarHistoryScreen(this)));
-      search = addRenderableWidget(new StudioEditBox(font,left,layout.searchY(),panelWidth,20,Component.literal("Search quick access")));
+      search = trackResizeFocus("search", addRenderableWidget(new StudioEditBox(font,left,layout.searchY(),panelWidth,20,Component.literal("Search quick access"))));
       search.setMaxLength(64);
       search.setValue(query);
       search.setHint(Component.literal("Search modules..."));
@@ -80,7 +80,7 @@ public final class QuickAccessScreen extends StudioScreen {
    }
 
    private Button button(String label,int x,int y,int w,Runnable action) {
-      return addRenderableWidget(new StudioButton(x,y,w,20,Component.literal(label),ignored -> action.run()));
+      return trackResizeFocus("button:" + label, addRenderableWidget(new StudioButton(x,y,w,20,Component.literal(label),ignored -> action.run())));
    }
 
    private void switchView(View nextView) {
