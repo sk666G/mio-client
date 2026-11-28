@@ -2,6 +2,7 @@ package dev.schizo.client.gui.screens;
 
 import com.google.gson.JsonObject;
 import dev.schizo.client.ClientContext;
+import dev.schizo.client.ClientAccess;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
@@ -11,6 +12,7 @@ public final class HudLayoutPreviewScreen extends Screen {
    private final JsonObject layout;
    private HudEditorScreen.LayoutPreview preview;
    private boolean attempted;
+   private StudioViewportLayouts.HudPreview geometry;
    private String status = "Preview HUD layout";
 
    public HudLayoutPreviewScreen(JsonObject layout) {
@@ -25,18 +27,28 @@ public final class HudLayoutPreviewScreen extends Screen {
          try {
             this.preview = ClientContext.getHudEditor().beginLayoutPreview(this.layout);
          } catch (IllegalArgumentException invalidLayout) {
-            this.status = "Invalid HUD layout; previous layout retained.";
+            this.status=invalidLayout.getSuppressed().length==0?"Invalid HUD layout.":"Invalid layout; rollback incomplete.";
+            if(invalidLayout.getSuppressed().length>0) ClientAccess.logger.warn("HUD preview rollback failed",invalidLayout);
+         } catch(RuntimeException failure) {
+            this.status="Preview failed; inspect HUD layout.";
+            ClientAccess.logger.warn("HUD preview failed",failure);
          }
       }
-      int width = Math.max(1, Math.min(100, (this.width - 24) / 2));
-      Button keep = this.addRenderableWidget(Button.builder(Component.literal("Keep layout"), button -> {
-         boolean committed = this.preview.commit();
-         if (committed) this.minecraft.setScreen(null);
-         else this.status = "Another layout replaced this preview. Close to continue.";
-      }).bounds(this.width / 2 - width - 2, 30, width, 20).build());
-      keep.active = this.preview != null;
-      this.addRenderableWidget(Button.builder(Component.literal("Cancel"), button -> this.onClose())
-         .bounds(this.width / 2 + 2, 30, width, 20).build());
+      geometry=StudioViewportLayouts.hudPreview(width,height);
+      if(!geometry.compact()) {
+         Button keep=addRenderableWidget(Button.builder(Component.literal("Keep layout"),button->{
+            boolean committed=preview.commit();
+            if(committed) minecraft.setScreen(null);
+            else {
+               status="Another layout replaced this preview. Close to continue.";
+               button.active=false;
+            }
+         }).bounds(geometry.left(),geometry.buttonY(),geometry.buttonWidth(),20).build());
+         keep.active=preview!=null;
+      }
+      int cancelX=geometry.compact()?geometry.left():width/2+2;
+      addRenderableWidget(Button.builder(Component.literal("Cancel"),button->onClose())
+         .bounds(cancelX,geometry.buttonY(),geometry.buttonWidth(),20).build());
    }
 
    @Override
@@ -55,8 +67,11 @@ public final class HudLayoutPreviewScreen extends Screen {
 
    @Override
    public void render(GuiGraphics graphics, int x, int y, float partialTick) {
-      graphics.fill(0, 0, this.width, 55, 0xb0080c12);
-      graphics.drawString(this.font, this.font.plainSubstrByWidth(this.status, Math.max(0, this.width - 16)), 8, 10, 0xffffffff);
+      graphics.fill(0,0,width,geometry.stripBottom(),0xb0080c12);
+      if(geometry.buttonY()>=font.lineHeight+8) {
+         String message=geometry.compact()?"Resize to keep layout | Cancel to exit":status;
+         graphics.drawString(font,font.plainSubstrByWidth(message,Math.max(0,width-16)),8,8,0xffffffff);
+      }
       super.render(graphics, x, y, partialTick);
    }
 
