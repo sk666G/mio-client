@@ -3,6 +3,7 @@ package dev.schizo.client.gui.screens;
 import dev.schizo.client.gui.PaletteChannels;
 import dev.schizo.client.gui.PaletteHex;
 import dev.schizo.client.gui.PaletteHsv;
+import dev.schizo.client.gui.PaletteRecentColors;
 import java.awt.Color;
 import java.util.function.Consumer;
 import net.minecraft.client.gui.GuiGraphics;
@@ -16,6 +17,7 @@ final class PalettePickerScreen extends StudioScreen {
    private static final String[] RGB = {"Red", "Green", "Blue", "Alpha"};
    private static final String[] HSV = {"Hue", "Sat", "Value", "Alpha"};
    private static final int SEGMENTS=32;
+   private static final PaletteRecentColors RECENT=new PaletteRecentColors();
    private final StudioButton[][] steps=new StudioButton[4][2];
    private final int[][] samples=new int[4][SEGMENTS];
    private final int[] channelValues=new int[4];
@@ -63,12 +65,19 @@ final class PalettePickerScreen extends StudioScreen {
       modeButton=button("mode",left+panelWidth-52,layout.sampleY(),52,this::toggleMode)
          .help("Switch between RGB and HSV editing. The color is unchanged until you adjust a channel.");
       refreshModeLabels();
-      int half = (panelWidth - 4) / 2;
-      button("Use color", left, layout.footerY(), half, () -> {
+      int third=(panelWidth-8)/3;
+      button("Recent",left,layout.footerY(),third,() ->
+         openStudioChild(new RecentColorsScreen(this,RECENT.snapshot(),picked -> {
+            color=picked;
+            hsv=PaletteHsv.from(picked);
+            samplesDirty=true;
+         }))).help("Browse recently accepted colors. Selection changes only this draft.");
+      button("Use color",left+third+4,layout.footerY(),third,() -> {
          accepted.accept(color);
+         RECENT.record(color);
          onClose();
       });
-      button("Cancel", left + half + 4, layout.footerY(), half, this::onClose);
+      button("Cancel",left+2*(third+4),layout.footerY(),third,this::onClose);
    }
 
    private StudioButton button(String name, int x, int y, int w, Runnable action) {
