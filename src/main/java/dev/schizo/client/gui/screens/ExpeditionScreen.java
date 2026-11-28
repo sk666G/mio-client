@@ -57,7 +57,7 @@ public final class ExpeditionScreen extends StudioScreen {
 
    @Override
    public void onClose() {
-      if (this.returnScreen != null) this.minecraft.setScreen(this.returnScreen);
+      if (this.returnScreen != null) this.returnToParent(this.returnScreen);
       else super.onClose();
    }
 
@@ -83,12 +83,12 @@ public final class ExpeditionScreen extends StudioScreen {
          this.selected = -1;
          this.refresh();
       });
-      this.addRenderableWidget(this.search);
+      trackResizeFocus("search",this.addRenderableWidget(this.search));
 
       int width = Math.max(1, (this.panelWidth - 6) / TABS.length);
       for (int index = 0; index < TABS.length; index++) {
          int target = index;
-         this.button(this.fit(TABS[index], width - 6), this.left + index * (width + 2), layout.tabsY(), width, () -> {
+         this.button("tab:"+index,TABS[index], this.left + index * (width + 2), layout.tabsY(), width, () -> {
             this.tab = target;
             this.message = "";
             this.profileSnapshot = null;
@@ -110,7 +110,7 @@ public final class ExpeditionScreen extends StudioScreen {
          });
          this.button(this.tab == 2 ? "Edit rules" : "Show / hide coordinates", this.left + half + 2, layout.secondaryY(), half, () -> {
             if (this.tab == 2) {
-               this.minecraft.setScreen(new ContextProfileEditorScreen(this));
+               this.openStudioChild(new ContextProfileEditorScreen(this));
             } else {
                this.message = "";
                this.showCoordinates = !this.showCoordinates;
@@ -133,8 +133,12 @@ public final class ExpeditionScreen extends StudioScreen {
       this.setInitialFocus(this.search);
    }
 
-   private Button button(String title, int x, int y, int width, Runnable action) {
-      return this.addRenderableWidget(new StudioButton(x, y, width, 20, Component.literal(title), button -> action.run()));
+   private Button button(String title,int x,int y,int width,Runnable action) {
+      return button(title,title,x,y,width,action);
+   }
+
+   private Button button(String role,String title,int x,int y,int width,Runnable action) {
+      return trackResizeFocus("button:"+role,this.addRenderableWidget(new StudioButton(x,y,width,20,Component.literal(title),button->action.run())));
    }
 
    private String server() {
