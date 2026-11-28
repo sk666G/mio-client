@@ -7,8 +7,12 @@ public final class PaletteChannels {
    private PaletteChannels() {}
 
    public static int fromPointer(double pointer, int left, int width) {
-      if (!Double.isFinite(pointer) || width <= 1) return 0;
-      return (int)Math.round(255 * Math.max(0.0, Math.min(1.0, (pointer - left) / (width - 1))));
+      return fromPointer(pointer,left,width,255);
+   }
+
+   public static int fromPointer(double pointer, int left, int width, int maximum) {
+      if (!Double.isFinite(pointer) || width <= 1 || maximum <= 0) return 0;
+      return (int)Math.round(maximum * Math.max(0.0, Math.min(1.0, (pointer - left) / (width - 1))));
    }
 
    public static Color replace(Color color, int channel, int value) {
