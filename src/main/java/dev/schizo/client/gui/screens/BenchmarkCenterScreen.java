@@ -23,6 +23,10 @@ public final class BenchmarkCenterScreen extends StudioScreen {
    private String notice = "";
    private int left, top, panelWidth, graphY, graphHeight;
    private Button start, stop, saveA, saveB;
+   private StudioViewportLayouts.Benchmark layout;
+   private String detailA="A | Empty",detailB="B | Empty",memoryText="JVM heap: unavailable",graphLabel="";
+   private String captureText="";
+   private double graphMax=50;
 
    public BenchmarkCenterScreen(Screen parent) {
       super(Component.literal("Schizo Benchmarks"));
@@ -31,23 +35,26 @@ public final class BenchmarkCenterScreen extends StudioScreen {
 
    @Override protected void init() {
       super.init();
-      panelWidth = Math.max(1, Math.min(560, width - 16));
-      left = (width - panelWidth) / 2;
-      top = Math.max(4, (height - 270) / 2);
-      graphY = top + 99;
-      int buttonsY = Math.max(graphY + 12, height - top - 46);
-      graphHeight = Math.max(1, buttonsY - graphY - 8);
+      layout=StudioViewportLayouts.benchmark(width,height);
+      panelWidth=layout.width();left=layout.left();top=layout.top();
+      graphY=layout.graphY();graphHeight=layout.graphHeight();
+      start=stop=saveA=saveB=null;
+      if(layout.compact()) {
+         button("Back",left,Math.max(0,height-23),panelWidth,this::onClose);
+         return;
+      }
+      int buttonsY=layout.footerY();
       int w = Math.max(1, (panelWidth - 8) / 3);
       start = button("Capture 30s", left, buttonsY, w, () -> {
          if (minecraft.player == null) { notice = "Join a world to record gameplay."; return; }
          capture.start(System.nanoTime());
          minecraft.setScreen(null);
-      });
+      }).help("Record frame intervals during gameplay, then reopen this workspace.");
       stop = button("Finish", left + w + 4, buttonsY, w, () -> {
          BenchmarkSession session = capture.finish();
          notice = session == null ? "No complete frame intervals recorded." : "Capture ready: " + session.frames() + " frames. Save A or B.";
          refreshControls();
-      });
+      }).help("Finish the current capture without overwriting a saved slot.");
       button("Back", left + (w + 4) * 2, buttonsY, w, this::onClose);
       saveA = button("Save A", left, buttonsY + 22, w, () -> save(BenchmarkStore.Slot.A));
       saveB = button("Save B", left + w + 4, buttonsY + 22, w, () -> save(BenchmarkStore.Slot.B));
@@ -61,8 +68,8 @@ public final class BenchmarkCenterScreen extends StudioScreen {
       refreshControls();
    }
 
-   private Button button(String label, int x, int y, int w, Runnable action) {
-      return addRenderableWidget(new StudioButton(x, y, w, 20, Component.literal(label), ignored -> action.run()));
+   private StudioButton button(String label, int x, int y, int w, Runnable action) {
+      return trackResizeFocus("button:"+label,addRenderableWidget(new StudioButton(x,y,w,20,Component.literal(label),ignored->action.run())));
    }
 
    private void loadSlots() {
@@ -70,6 +77,7 @@ public final class BenchmarkCenterScreen extends StudioScreen {
       catch (IOException failure) { notice = "Slot A could not be read; file preserved."; }
       try { b = store.load(BenchmarkStore.Slot.B); }
       catch (IOException failure) { notice = "Slot B could not be read; file preserved."; }
+      refreshComparison();
    }
 
    private void save(BenchmarkStore.Slot slot) {
@@ -79,6 +87,7 @@ public final class BenchmarkCenterScreen extends StudioScreen {
       try {
          store.save(slot, session);
          if (slot == BenchmarkStore.Slot.A) a = session; else b = session;
+         refreshComparison();
          notice = "Saved slot " + slot + " (previous file backed up).";
       } catch (IOException failure) {
          notice = "Could not save slot " + slot + "; check local storage.";
@@ -86,7 +95,9 @@ public final class BenchmarkCenterScreen extends StudioScreen {
    }
 
    private void refreshControls() {
+      if(start==null) return;
       boolean active = capture.isActive();
+      captureText=active?"Recording gameplay | "+capture.frameCount()+" frames":capture.hasCapture()?"Capture ready to finish or save":"Record in-world, then reopen Benchmarks to save.";
       start.active = !active && minecraft.player != null;
       stop.active = capture.hasCapture();
       saveA.active = !active && capture.hasCapture();
@@ -95,10 +106,12 @@ public final class BenchmarkCenterScreen extends StudioScreen {
 
    private void refreshMemory() {
       memory = JvmMemorySnapshot.capture();
+      memoryText=memoryLine();
       refreshed = System.nanoTime();
    }
 
    @Override public void tick() {
+      if(layout.compact()) return;
       refreshControls();
       if (System.nanoTime() - refreshed >= 1_000_000_000L) refreshMemory();
    }
@@ -117,6 +130,14 @@ public final class BenchmarkCenterScreen extends StudioScreen {
          slot, session.averageFps(), session.p99Millis(), session.maxMillis(), session.hitches(), session.frames(), session.seconds());
    }
 
+   private void refreshComparison() {
+      detailA=detail("A",a);detailB=detail("B",b);
+      graphMax=50;
+      if(a!=null) for(double sample:a.timeline()) graphMax=Math.max(graphMax,sample);
+      if(b!=null) for(double sample:b.timeline()) graphMax=Math.max(graphMax,sample);
+      graphLabel=String.format(Locale.ROOT,"30s timeline | mean ms / second | scale %.0f ms",graphMax);
+   }
+
    private void line(GuiGraphics graphics, String value, int y, int color) {
       graphics.drawString(font, font.plainSubstrByWidth(value, Math.max(0, panelWidth - 16)), left + 8, y, color, false);
    }
@@ -124,28 +145,29 @@ public final class BenchmarkCenterScreen extends StudioScreen {
    @Override public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
       StudioScreenTheme theme = StudioScreenTheme.current();
       graphics.fill(0, 0, width, height, theme.backdrop());
-      graphics.fill(left, top, left + panelWidth, Math.min(height, graphY + graphHeight + 52), theme.panel());
+      if(layout.compact()) {
+         line(graphics,"Reduce GUI scale to view benchmarks",top,0xffeeeeef);
+         super.render(graphics,mouseX,mouseY,partialTick);
+         return;
+      }
+      graphics.fill(left,top,left+panelWidth,layout.bottom(),theme.panel());
       graphics.fill(left, top, left + panelWidth, top + 2, theme.accent());
       line(graphics, "SCHIZO / BENCHMARK LAB", top + 8, theme.accent());
-      line(graphics, capture.isActive() ? "Recording gameplay | " + capture.frameCount() + " frames"
-         : capture.hasCapture() ? "Capture ready to finish or save" : "Record in-world, then reopen Benchmarks to save.", top + 22, 0xffa1a3af);
-      line(graphics, detail("A", a), top + 37, theme.accent());
-      line(graphics, detail("B", b), top + 50, 0xffb8b9c7);
-      line(graphics, memoryLine(), top + 63, 0xffa1a3af);
+      line(graphics,captureText,top+22,0xffa1a3af);
+      line(graphics,detailA,top+37,theme.accent());
+      line(graphics,detailB,top+50,0xffb8b9c7);
+      line(graphics,memoryText,top+63,0xffa1a3af);
       line(graphics, notice.isEmpty() ? "Compare matching workloads. 50 ms+ = hitch." : notice, top + 76, 0xffa1a3af);
-      drawGraph(graphics, theme);
+      if(graphHeight>0) drawGraph(graphics,theme);
       super.render(graphics, mouseX, mouseY, partialTick);
    }
 
    private void drawGraph(GuiGraphics graphics, StudioScreenTheme theme) {
       int gx = left + 8, gw = Math.max(1, panelWidth - 16);
       graphics.fill(gx, graphY, gx + gw, graphY + graphHeight, theme.row());
-      double max = 50;
-      if (a != null) for (double sample : a.timeline()) max = Math.max(max, sample);
-      if (b != null) for (double sample : b.timeline()) max = Math.max(max, sample);
-      drawSeries(graphics, a, 0, max, gx, gw, theme.accent());
-      drawSeries(graphics, b, 1, max, gx, gw, 0xffa8a9b7);
-      if (graphHeight >= 14) line(graphics, String.format(Locale.ROOT, "30s timeline | mean ms / second | scale %.0f ms", max), graphY + 2, 0xffeeeeef);
+      drawSeries(graphics,a,0,graphMax,gx,gw,theme.accent());
+      drawSeries(graphics,b,1,graphMax,gx,gw,0xffa8a9b7);
+      line(graphics,graphLabel,graphY+2,0xffeeeeef);
    }
 
    private void drawSeries(GuiGraphics graphics, BenchmarkSession session, int series, double max, int x, int w, int color) {
@@ -163,7 +185,7 @@ public final class BenchmarkCenterScreen extends StudioScreen {
    }
 
    @Override public void onClose() {
-      if (returnScreen != null) minecraft.setScreen(returnScreen);
+      if (returnScreen != null) returnToParent(returnScreen);
       else super.onClose();
    }
 
