@@ -90,6 +90,13 @@ public final class FontRenderer implements ClientAccess {
    private FontRenderer() {
    }
 
+   /** Width-cache identity, or null when dynamic name substitution can affect metrics. */
+   public Object measurementIdentity() {
+      var protect=nameProtect();
+      if(protect!=null && protect.isToggled() && !this.isWorldUnavailable()) return null;
+      return FontsModule.INSTANCE.isToggled() && renderer!=null ? renderer : ClientAccess.schizoMinecraft.font;
+   }
+
    public float getWidth(String text) {
       if (nameProtect().isToggled()
          && !this.isWorldUnavailable()) {
