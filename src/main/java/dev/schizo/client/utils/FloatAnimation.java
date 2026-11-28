@@ -33,6 +33,7 @@ public class FloatAnimation {
    }
 
    public float getValue() {
+      if (this.settleIfIdleOrReduced()) return this.targetValue;
       return this.valueAt(this.nanoTime.getAsLong());
    }
 
@@ -48,9 +49,11 @@ public class FloatAnimation {
    }
 
    public float getValue(Function easing) {
+      if (this.settleIfIdleOrReduced()) return this.targetValue;
       long nowNanos = this.nanoTime.getAsLong();
       float progress = this.progressAt(nowNanos);
       if (progress >= 1.0F) {
+         this.setValue(this.targetValue);
          return this.targetValue;
       }
 
@@ -72,8 +75,21 @@ public class FloatAnimation {
       }
    }
 
+   private boolean settleIfIdleOrReduced() {
+      if(this.durationNanos<=0L) return true;
+      if(UiMotionPolicy.isReducedMotion()) {
+         this.setValue(this.targetValue);
+         return true;
+      }
+      return false;
+   }
+
    private float valueAt(long nowNanos) {
       float progress = this.progressAt(nowNanos);
+      if(progress>=1.0F) {
+         this.setValue(this.targetValue);
+         return this.targetValue;
+      }
       return progress * (this.targetValue - this.startValue) + this.startValue;
    }
 
