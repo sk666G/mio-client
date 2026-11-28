@@ -6,8 +6,8 @@ import dev.schizo.client.config.JsonChangePreview;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.KeyEvent;
+import org.lwjgl.glfw.GLFW;
 import net.minecraft.network.chat.Component;
 
 /** Read-only simulation; saving registers the rule for the normal lifecycle, not direct preset application. */
@@ -17,6 +17,7 @@ final class ContextRuleReviewScreen extends StudioScreen {
    private List<String> rows = List.of();
    private int offset, left, panelWidth, top, rowCount;
    private String notice = "";
+   private StudioViewportLayouts.Review layout;
 
    ContextRuleReviewScreen(ContextProfileEditorScreen parent, ContextRulePreview.Result preview) {
       super(Component.literal("Review context rule"));
@@ -26,16 +27,22 @@ final class ContextRuleReviewScreen extends StudioScreen {
 
    @Override protected void init() {
       super.init();
-      panelWidth = Math.max(1, Math.min(560, width - 16));
-      left = (width - panelWidth) / 2;
-      top = Math.max(6, (height - 320) / 2);
-      rowCount = Math.max(1, Math.min(17, (height - top - 72) / 13));
-      int y = top + 34 + rowCount * 13 + 5;
-      int half = Math.max(1, (panelWidth - 4) / 2);
-      addRenderableWidget(new StudioButton(left, y, half, 20, Component.literal("Cancel / edit"), button -> onClose()));
-      addRenderableWidget(new StudioButton(left + half + 4, y, half, 20, Component.literal(preview.replaces() ? "Confirm replacement" : "Confirm new rule"), button -> commit()));
+      layout=StudioViewportLayouts.contextReview(width,height);
+      panelWidth=layout.width();left=layout.left();top=layout.top();rowCount=layout.rows();
+      if(layout.compact()) {
+         button("cancel","Back",left,Math.max(0,height-23),panelWidth,this::onClose);
+         return;
+      }
+      int y=layout.footerY(),half=(panelWidth-4)/2;
+      button("cancel","Cancel / edit",left,y,half,this::onClose);
+      button("confirm",preview.replaces()?"Confirm replacement":"Confirm new rule",left+half+4,y,half,this::commit)
+         .help("Register the reviewed rule only if the original rule snapshot is unchanged.");
       rows = buildRows();
-      offset = Math.min(offset, Math.max(0, rows.size() - rowCount));
+      offset=StudioViewportLayouts.scrollOffset(offset,0,rows.size(),rowCount);
+   }
+
+   private StudioButton button(String role,String label,int x,int y,int w,Runnable action) {
+      return trackResizeFocus("button:"+role,addRenderableWidget(new StudioButton(x,y,w,20,Component.literal(label),ignored->action.run())));
    }
 
    private List<String> buildRows() {
@@ -83,22 +90,29 @@ final class ContextRuleReviewScreen extends StudioScreen {
          return;
       }
       parent.showNotice("Rule registered. Normal profile refresh/persistence will follow.");
-      minecraft.setScreen(parent);
+      returnToParent(parent);
    }
 
    @Override public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
       StudioScreenTheme theme = StudioScreenTheme.current();
       graphics.fill(0, 0, width, height, theme.backdrop());
-      graphics.fill(left - 4, top, left + panelWidth + 4, top + 62 + rowCount * 13, theme.panel());
+      if(layout.compact()) {
+         draw(graphics,"Reduce GUI scale to review this rule",top,0xffeeeeef);
+         super.render(graphics,mouseX,mouseY,partialTick);
+         return;
+      }
+      graphics.fill(left-4,top,left+panelWidth+4,layout.bottom(),theme.panel());
       graphics.fill(left - 4, top, left + panelWidth + 4, top + 2, theme.accent());
       draw(graphics, "SCHIZO / REVIEW RULE", top + 8, theme.accent());
-      draw(graphics, notice.isEmpty() ? "No settings applied | Scroll for full preview" : notice, top + 21, 0xffa1a3af);
+      draw(graphics, notice.isEmpty() ? "No settings applied | Scroll / PgUp / PgDn" : notice, top + 21, 0xffa1a3af);
       for (int i = 0; i < rowCount && offset + i < rows.size(); i++) {
-         int y = top + 34 + i * 13;
+         int y=layout.rowsY()+i*layout.rowHeight();
          graphics.fill(left, y, left + panelWidth, y + 12, theme.row());
          draw(graphics, rows.get(offset + i), y + 2, 0xffeeeeef);
       }
-      super.render(graphics, mouseX, mouseY, partialTick);
+      int hovered=layout.rowIndex(mouseX,mouseY,offset,rows.size());
+      if(rowHelpReady(hovered<0?null:rows.get(hovered))) showRowHelp(graphics,rows.get(hovered),mouseX,mouseY);
+      super.render(graphics,mouseX,mouseY,partialTick);
    }
 
    private void draw(GuiGraphics graphics, String text, int y, int color) {
@@ -106,13 +120,30 @@ final class ContextRuleReviewScreen extends StudioScreen {
    }
 
    @Override public boolean mouseScrolled(double x, double y, double horizontal, double vertical) {
-      if (vertical != 0) {
-         offset = Math.max(0, Math.min(Math.max(0, rows.size() - rowCount), offset + (vertical < 0 ? 1 : -1)));
+      if(!layout.compact() && vertical!=0 && x>=left && x<left+panelWidth && y>=layout.rowsY() && y<layout.rowsY()+rowCount*layout.rowHeight()) {
+         offset=StudioViewportLayouts.scrollOffset(offset,vertical<0?1:-1,rows.size(),rowCount);
          return true;
       }
       return super.mouseScrolled(x, y, horizontal, vertical);
    }
 
-   @Override public void onClose() { minecraft.setScreen(parent); }
+   @Override public boolean keyPressed(KeyEvent event) {
+      if(!layout.compact()) {
+         int delta=switch(event.key()) {
+            case GLFW.GLFW_KEY_PAGE_UP -> -rowCount;
+            case GLFW.GLFW_KEY_PAGE_DOWN -> rowCount;
+            case GLFW.GLFW_KEY_HOME -> Integer.MIN_VALUE;
+            case GLFW.GLFW_KEY_END -> Integer.MAX_VALUE;
+            default -> 0;
+         };
+         if(delta!=0) {
+            offset=StudioViewportLayouts.scrollOffset(offset,delta,rows.size(),rowCount);
+            return true;
+         }
+      }
+      return super.keyPressed(event);
+   }
+
+   @Override public void onClose() { returnToParent(parent); }
    @Override public boolean isPauseScreen() { return false; }
 }
