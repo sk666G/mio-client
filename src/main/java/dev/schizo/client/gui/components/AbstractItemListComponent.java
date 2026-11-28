@@ -102,7 +102,7 @@ public abstract class AbstractItemListComponent<T> extends AbstractComponent {
    }
 
    public T getSelectedEntry() {
-      return this.selection;
+      return this.selection!=null && this.entries.contains(this.selection)?this.selection:null;
    }
 
    @Override
