@@ -219,4 +219,21 @@ class StudioViewportLayoutsTest {
       assertEquals(0,StudioViewportLayouts.scrollOffset(4,1,2,5));
       assertEquals(5,StudioViewportLayouts.scrollOffset(4,1,20,5));
    }
+
+   @Test void hudPreviewKeepsCancelInsideShortAndNarrowViewports() {
+      for(int w=8;w<=500;w++) for(int h=20;h<=150;h++) {
+         var l=StudioViewportLayouts.hudPreview(w,h);
+         assertTrue(l.buttonWidth()>0);
+         assertTrue(l.left()>=0&&l.left()+l.buttonWidth()<=w);
+         assertTrue(l.buttonY()>=0&&l.buttonY()+20<=h);
+         assertTrue(l.stripBottom()<=h);
+         if(!l.compact()) {
+            assertTrue(w/2+2+l.buttonWidth()<=w);
+            assertTrue(l.left()+l.buttonWidth()<w/2+2);
+         }
+      }
+      assertTrue(StudioViewportLayouts.hudPreview(159,100).compact());
+      assertTrue(StudioViewportLayouts.hudPreview(300,57).compact());
+      assertFalse(StudioViewportLayouts.hudPreview(160,58).compact());
+   }
 }
