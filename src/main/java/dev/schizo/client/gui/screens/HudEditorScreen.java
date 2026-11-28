@@ -1292,9 +1292,16 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
       int viewportWidth=window.getGuiScaledWidth(),viewportHeight=window.getGuiScaledHeight();
       float[] dimensions=widget.getDimensions();
       LayoutSnapshot expected=this.captureLayout();
+      var resizable=widget instanceof ResizableHudWidgetRenderer candidate && candidate.supportsResizing()?candidate:null;
+      List<String> metadata=List.of(
+         "Enabled | Anchor: "+widget.getAnchor().name(),
+         "Rendered: "+dimensions[0]+" × "+dimensions[1]+" GUI pixels | Read-only",
+         "Relative: "+widget.getRelativeX()+", "+widget.getRelativeY()+" | "+widget.getHorizontalAlignment()+"/"+widget.getVerticalAlignment());
       ClientAccess.schizoMinecraft.setScreen(new HudPositionScreen(this,widget.getWidgetModule().getName(),
          widget.getX(),widget.getY(),Math.max(0,viewportWidth-dimensions[0]),Math.max(0,viewportHeight-dimensions[1]),
+         metadata,resizable==null?null:resizable.getSizeScale(),
          position->this.applyExactPosition(widget,expected,viewportWidth,viewportHeight,position),
+         resizable==null?null:scale->this.applyExactScale(resizable,expected,viewportWidth,viewportHeight,scale),
          ()->{
             if(widget.isEnabled() && this.getAnchorGroups().stream().anyMatch(group->group.getWidgets().contains(widget)))
                this.selection.add(widget);
@@ -1329,8 +1336,43 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
          this.finishLayoutEdit();
          return null;
       } catch(RuntimeException failure) {
+         return this.rollbackPropertyEdit("Position",failure);
+      }
+   }
+
+   private String rollbackPropertyEdit(String operation,RuntimeException failure) {
+      try {
          this.cancelLayoutEdit();
-         return "Position rejected; original layout restored.";
+         return operation+" rejected; layout restored.";
+      } catch(RuntimeException rollbackFailure) {
+         failure.addSuppressed(rollbackFailure);
+         return operation+" failed and rollback was incomplete. Close and inspect the layout.";
+      }
+   }
+
+   private String applyExactScale(ResizableHudWidgetRenderer widget,LayoutSnapshot expected,
+                                  int viewportWidth,int viewportHeight,float proposed) {
+      var window=ClientAccess.schizoMinecraft.getWindow();
+      if(this.layoutHistory.hasPendingEdit() || !widget.isEnabled() || !widget.supportsResizing()
+         || window.getGuiScaledWidth()!=viewportWidth || window.getGuiScaledHeight()!=viewportHeight
+         || !expected.equals(this.captureLayout())) return "Layout or viewport changed. Close and reopen Properties.";
+      float current=widget.getSizeScale();
+      if(Float.compare(current,proposed)==0) return null;
+      var group=this.getAnchorGroup(widget.getAnchor());
+      if(group==null || !group.getWidgets().contains(widget)) return "Widget placement is unavailable.";
+      float[] size=widget.getDimensions();
+      if(!HudPositionInput.scaleFits(current,proposed,widget.getX(),widget.getY(),size[0],size[1],
+         viewportWidth,viewportHeight,widget.getAnchor()!=HudAnchor.NONE))
+         return "Scale exceeds the current viewport bounds.";
+      this.beginLayoutEdit();
+      try {
+         widget.setSizeScale(proposed);
+         if(Float.compare(widget.getSizeScale(),proposed)!=0) throw new IllegalStateException("Scale was not accepted");
+         this.requestDirectionRefresh();
+         this.finishLayoutEdit();
+         return null;
+      } catch(RuntimeException failure) {
+         return this.rollbackPropertyEdit("Scale",failure);
       }
    }
 
