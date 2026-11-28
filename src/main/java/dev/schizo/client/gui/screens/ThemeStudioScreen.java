@@ -83,8 +83,8 @@ public final class ThemeStudioScreen extends StudioScreen {
             notice = "Saved theme preview. Apply to change live colors.";
          }));
       });
-      button("Copy theme", left + w + 4, top + 75, w, this::copyTheme);
-      button("Paste theme", left + 2 * (w + 4), top + 75, w, this::pasteTheme);
+      button("Copy theme", left + w + 4, top + 75, w, this::copyTheme).help("Copy the detached preview palette to the clipboard.");
+      button("Paste theme", left + 2 * (w + 4), top + 75, w, this::pasteTheme).help("Import a palette into the preview without applying live colors.");
       boolean showApplied = layout.appliedControls();
       if (showApplied) {
          undoApplied = button("Undo applied", left, top + 98, w, () -> changeApplied(false));
@@ -94,7 +94,7 @@ public final class ThemeStudioScreen extends StudioScreen {
       button("Back", left, bottom, small, this::onClose);
       undoPreview = button("Undo", left + small + 4, bottom, small, () -> changeHistory(false));
       redoPreview = button("Redo", left + 2 * (small + 4), bottom, small, () -> changeHistory(true));
-      apply = button("Apply palette", left + 3 * (small + 4), bottom, small, this::commit);
+      apply = button("Apply palette", left + 3 * (small + 4), bottom, small, this::commit).help("Apply the preview palette to the live interface.");
       button("Discard preview", left + 4 * (small + 4), bottom, small, () -> {
          reload();
          notice = "Preview discarded. Current colors preserved.";
@@ -103,7 +103,7 @@ public final class ThemeStudioScreen extends StudioScreen {
       refreshApply();
    }
 
-   private Button button(String label, int x, int y, int w, Runnable action) {
+   private StudioButton button(String label, int x, int y, int w, Runnable action) {
       return addRenderableWidget(new StudioButton(x, y, w, 20, Component.literal(label), ignored -> action.run()));
    }
 

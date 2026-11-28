@@ -62,9 +62,9 @@ final class SavedThemesScreen extends StudioScreen {
       name.setMaxLength(64);
       name.setValue(nameDraft);
       name.setResponder(value -> { nameDraft=value; confirming=false; refresh(); });
-      save = button("Save preview",left,layout.actionsY(),w,() -> mutate(0));
-      duplicate = button("Duplicate",left+w+4,layout.actionsY(),w,() -> mutate(1));
-      rename = button("Rename",left+2*(w+4),layout.actionsY(),w,() -> mutate(2));
+      save = button("Save preview",left,layout.actionsY(),w,() -> mutate(0)).help("Save the current detached preview under the entered name.");
+      duplicate = button("Duplicate",left+w+4,layout.actionsY(),w,() -> mutate(1)).help("Copy the selected saved theme under a new name.");
+      rename = button("Rename",left+2*(w+4),layout.actionsY(),w,() -> mutate(2)).help("Rename the selected saved theme without changing its colors.");
       delete = button("Delete",left,layout.secondaryY(),w,() -> {
          if (!confirming) { confirming=true; refresh(); }
          else mutate(3);
@@ -74,7 +74,7 @@ final class SavedThemesScreen extends StudioScreen {
       refresh();
    }
 
-   private Button button(String title,int x,int y,int w,Runnable action) {
+   private StudioButton button(String title,int x,int y,int w,Runnable action) {
       return trackResizeFocus("button:"+title,addRenderableWidget(new StudioButton(x,y,w,20,Component.literal(title),ignored -> action.run())));
    }
 

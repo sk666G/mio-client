@@ -102,11 +102,11 @@ public final class ModuleInspectorScreen extends StudioScreen {
       value = new StudioEditBox(font, left, controlsY + 24, half, 20, Component.literal("Proposed value"));
       value.setMaxLength(48);
       trackResizeFocus("value", addRenderableWidget(value));
-      apply = button("Apply value", left + half + 4, controlsY + 24, half, this::applyValue);
+      apply = button("Apply value", left + half + 4, controlsY + 24, half, this::applyValue).help("Validate and apply the proposed scalar value.");
       int quarter = Math.max(1, (panelWidth - 12) / 4);
       undo = button("Undo", left, controlsY + 48, quarter, () -> replay(true));
       redo = button("Redo", left + quarter + 4, controlsY + 48, quarter, () -> replay(false));
-      resetDefault = button("Default", left + 2 * (quarter + 4), controlsY + 48, quarter, this::resetDefault);
+      resetDefault = button("Default", left + 2 * (quarter + 4), controlsY + 48, quarter, this::resetDefault).help("Restore the selected setting default through guarded edit history.");
       button("Back", left + 3 * (quarter + 4), controlsY + 48, quarter, this::onClose);
       filter.setResponder(this::filterSettings);
       refreshSelection(true);
@@ -127,7 +127,7 @@ public final class ModuleInspectorScreen extends StudioScreen {
       if (!compact && !condensed && System.nanoTime() - bindingRefresh >= 500_000_000L) refreshBindingNotice();
    }
 
-   private Button button(String label, int x, int y, int w, Runnable action) {
+   private StudioButton button(String label, int x, int y, int w, Runnable action) {
       return trackResizeFocus("button:" + label, addRenderableWidget(new StudioButton(x, y, w, 20, Component.literal(label), ignored -> action.run())));
    }
 
