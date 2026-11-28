@@ -171,4 +171,15 @@ final class StudioViewportLayouts {
          top+(condensed?103:118),top+(condensed?125:142),top+(condensed?147:166),
          top+(condensed?170:190),top+(condensed?182:202),top+body);
    }
+
+   /** HUD preview preserves a cancellation route even when the ordinary action row cannot fit. */
+   record HudPreview(int left,int buttonWidth,int buttonY,int stripBottom,boolean compact) {}
+
+   static HudPreview hudPreview(int width,int height) {
+      boolean compact=width<160 || height<58;
+      int buttonWidth=Math.max(1,Math.min(100,compact?width-8:(width-24)/2));
+      int left=compact?(width-buttonWidth)/2:width/2-buttonWidth-2;
+      int y=compact?Math.max(0,Math.min(30,height-20)):30;
+      return new HudPreview(left,buttonWidth,y,Math.max(0,Math.min(height,y+25)),compact);
+   }
 }
