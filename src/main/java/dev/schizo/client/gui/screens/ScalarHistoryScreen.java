@@ -47,7 +47,7 @@ final class ScalarHistoryScreen extends StudioScreen {
 
    @Override protected void init() {
       super.init();
-      undo=null; confirming=false;
+      undo=redo=clear=null; confirming=false;
       panelWidth=Math.max(1,Math.min(440,width-16));
       left=(width-panelWidth)/2;
       top=Math.max(4,(height-142)/2);
@@ -58,7 +58,7 @@ final class ScalarHistoryScreen extends StudioScreen {
       redo=button("Redo edit",left+half+4,top+40,half,() -> replay(false));
       clear=button("Clear history",left,top+93,half,() -> {
          if(confirming) {HISTORY.clear();confirming=false;notice="History cleared. Values unchanged.";}
-         else {confirming=true;notice="Confirm clearing all recorded scalar edits.";}
+         else {confirming=true;}
          refresh();
       });
       button("Back",left+half+4,top+93,half,this::onClose);
@@ -66,7 +66,7 @@ final class ScalarHistoryScreen extends StudioScreen {
    }
 
    private Button button(String label,int x,int y,int w,Runnable action) {
-      return addRenderableWidget(new StudioButton(x,y,w,20,Component.literal(label),ignored -> action.run()));
+      return trackResizeFocus("button:"+label,addRenderableWidget(new StudioButton(x,y,w,20,Component.literal(label),ignored -> action.run())));
    }
 
    private void replay(boolean backward) {
@@ -97,7 +97,7 @@ final class ScalarHistoryScreen extends StudioScreen {
          line(graphics,"SCHIZO / EDIT HISTORY",top+6,theme.accent());
          line(graphics,"Undo target: "+label(HISTORY.undoTarget()),top+17,0xffeeeeef);
          line(graphics,"Redo target: "+label(HISTORY.redoTarget()),top+28,0xffeeeeef);
-         line(graphics,notice,top+66,0xffb8b9c7);
+         line(graphics,confirming?"Confirm clearing all recorded scalar edits.":notice,top+66,0xffb8b9c7);
          line(graphics,"Session only | Theme and HUD history remain separate.",top+78,0xffb8b9c7);
          line(graphics,"Stale, hidden or unsupported edits are refused.",top+120,0xffb8b9c7);
       }
