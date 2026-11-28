@@ -67,7 +67,8 @@ class SettingEditHistoryTest {
    }
 
    private enum Choice implements dev.schizo.client.settings.NamedEntry {
-      FIRST("First option"), SECOND("Second option");
+      FIRST("First option"), SECOND("Second option"),
+      @dev.schizo.client.utils.Experimental HIDDEN("Hidden option");
       private final String label;
       Choice(String label) {this.label=label;}
       @Override public String getName(){return label;}
@@ -94,5 +95,15 @@ class SettingEditHistoryTest {
       assertNull(InspectorEnumOptions.canonical(java.util.List.of("First option"),"Second option"));
       assertNull(InspectorEnumOptions.canonical(java.util.List.of("Same","same"),"same"));
       assertNull(InspectorEnumOptions.canonical(java.util.List.of("First option")," "));
+   }
+
+   @Test void experimentalChoicesRemainHiddenBeforeFabricProviderInitialization() {
+      var setting=new dev.schizo.client.settings.EnumSetting<>("Choice",Choice.SECOND);
+      assertTrue(dev.schizo.client.utils.ExperimentalFeatures.isExperimentalDisabled());
+      assertEquals(java.util.List.of("First option","Second option"),InspectorEnumOptions.selectable(setting));
+      var history=new SettingEditHistory();
+      assertEquals(SettingEditHistory.Result.REJECTED,history.apply(setting,setting.toJson(),new JsonPrimitive("Hidden option")));
+      assertEquals(Choice.SECOND,setting.getValue());
+      assertFalse(history.canUndo());
    }
 }
