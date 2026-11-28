@@ -6,14 +6,26 @@ import dev.schizo.client.settings.NumberSetting;
 import dev.schizo.client.settings.Setting;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.Objects;
+import java.util.function.Predicate;
 
-/** Inspector-local history for scalar values without registered change callbacks. */
+/** Bounded history for scalar values without registered change callbacks. */
 public final class SettingEditHistory {
    public static final int LIMIT = 64;
    public enum Result { APPLIED, UNCHANGED, STALE, UNSUPPORTED, EMPTY, REJECTED }
    private record Edit(Setting<?> setting, JsonElement before, JsonElement after) {}
    private final Deque<Edit> undo = new ArrayDeque<>();
    private final Deque<Edit> redo = new ArrayDeque<>();
+   private final Predicate<Setting<?>> allowed;
+
+   public SettingEditHistory() { this(setting -> true); }
+
+   public SettingEditHistory(Predicate<Setting<?>> allowed) {
+      this.allowed = Objects.requireNonNull(allowed);
+   }
+
+   public Setting<?> undoTarget() { return undo.isEmpty() ? null : undo.peekLast().setting(); }
+   public Setting<?> redoTarget() { return redo.isEmpty() ? null : redo.peekLast().setting(); }
 
    public static boolean supports(Setting<?> setting) {
       return (setting instanceof BooleanSetting || setting instanceof NumberSetting<?>)
@@ -22,7 +34,7 @@ public final class SettingEditHistory {
    }
 
    public Result apply(Setting<?> setting, JsonElement expected, JsonElement desired) {
-      if (!supports(setting)) return Result.UNSUPPORTED;
+      if (!supports(setting) || !allowed.test(setting)) return Result.UNSUPPORTED;
       try {
          if (!setting.isVisible() || !setting.toJson().equals(expected)) return Result.STALE;
          if (!desired.isJsonPrimitive()) return Result.REJECTED;
@@ -49,7 +61,7 @@ public final class SettingEditHistory {
    private Result move(Deque<Edit> source, Deque<Edit> destination, boolean backward) {
       Edit edit = source.peekLast();
       if (edit == null) return Result.EMPTY;
-      if (!supports(edit.setting())) return Result.UNSUPPORTED;
+      if (!supports(edit.setting()) || !allowed.test(edit.setting())) return Result.UNSUPPORTED;
       JsonElement expected = backward ? edit.after() : edit.before();
       JsonElement target = backward ? edit.before() : edit.after();
       try {

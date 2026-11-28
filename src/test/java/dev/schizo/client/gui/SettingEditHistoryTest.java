@@ -44,4 +44,25 @@ class SettingEditHistoryTest {
       for (int i = 0; i < SettingEditHistory.LIMIT; i++) assertEquals(SettingEditHistory.Result.APPLIED, history.undo());
       assertEquals(SettingEditHistory.Result.EMPTY, history.undo());
    }
+
+   @Test void sharedHistoryRevalidatesTargetsAndRefusesUnregisteredEdits() {
+      var first = new BooleanSetting("First",false);
+      var second = new BooleanSetting("Second",false);
+      var allowed = new java.util.concurrent.atomic.AtomicBoolean(true);
+      var history = new SettingEditHistory(setting -> setting == first || (setting == second && allowed.get()));
+      assertEquals(SettingEditHistory.Result.APPLIED,history.apply(first,first.toJson(),new JsonPrimitive(true)));
+      assertEquals(SettingEditHistory.Result.APPLIED,history.apply(second,second.toJson(),new JsonPrimitive(true)));
+      assertSame(second,history.undoTarget());
+      allowed.set(false);
+      assertEquals(SettingEditHistory.Result.UNSUPPORTED,history.undo());
+      assertTrue(second.getValue());
+      assertSame(second,history.undoTarget());
+      allowed.set(true);
+      assertEquals(SettingEditHistory.Result.APPLIED,history.undo());
+      assertSame(first,history.undoTarget());
+      assertSame(second,history.redoTarget());
+      assertEquals(SettingEditHistory.Result.APPLIED,history.undo());
+      assertFalse(first.getValue());
+      assertFalse(second.getValue());
+   }
 }
