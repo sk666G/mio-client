@@ -114,4 +114,61 @@ final class StudioViewportLayouts {
          top+(condensed?20:22), condensed?16:22, top+(condensed?40:53),
          condensed?22:27, top+(condensed?128:169), top+body);
    }
+
+   /** Shared geometry for read-only review lists with a single footer row. */
+   record Review(int left,int top,int width,boolean compact,int rowsY,int rowHeight,
+                 int rows,int footerY,int bottom) {
+      int rowIndex(double x,double y,int offset,int total) {
+         if(compact || !Double.isFinite(x) || !Double.isFinite(y) || x<left || x>=left+width
+            || y<rowsY || y>=rowsY+rows*rowHeight) return -1;
+         long index=(long)offset+(int)((y-rowsY)/rowHeight);
+         return index>=0 && index<total?(int)index:-1;
+      }
+   }
+
+   static Review health(int width,int height) { return review(width,height,440,38,17,12,210); }
+   static Review contextReview(int width,int height) { return review(width,height,560,34,13,17,220); }
+
+   private static Review review(int width,int height,int maxWidth,int header,int rowHeight,int maxRows,int minWidth) {
+      int w=Math.max(1,Math.min(maxWidth,width-16));
+      boolean compact=w<minWidth || height<header+rowHeight+36;
+      int top=Math.max(4,(height-(header+maxRows*rowHeight+32))/2);
+      int rows=compact?0:Math.max(1,Math.min(maxRows,(height-top-header-32)/rowHeight));
+      int rowsY=top+header, footerY=rowsY+rows*rowHeight+4;
+      return new Review((width-w)/2,top,w,compact,rowsY,rowHeight,rows,footerY,footerY+24);
+   }
+
+   static int scrollOffset(int offset,int delta,int total,int visible) {
+      long maximum=Math.max(0L,(long)total-Math.max(0,visible));
+      return (int)Math.max(0L,Math.min(maximum,(long)offset+delta));
+   }
+
+   record Benchmark(int left,int top,int width,boolean compact,int graphY,int graphHeight,int footerY,int bottom) {}
+
+   static Benchmark benchmark(int width,int height) {
+      int w=Math.max(1,Math.min(560,width-16));
+      boolean compact=w<240 || height<146;
+      int top=Math.max(4,(height-270)/2);
+      int graphY=top+99;
+      int graphHeight=height-top-graphY-54;
+      if(graphHeight<24) graphHeight=0;
+      int footer=graphHeight==0?top+90:graphY+graphHeight+6;
+      return new Benchmark((width-w)/2,top,w,compact,graphY,graphHeight,footer,footer+46);
+   }
+
+   record ContextEditor(int left,int top,int width,boolean compact,boolean condensed,
+                        int firstFieldY,int secondFieldY,int categoryY,int browseY,
+                        int previewY,int backY,int noticeY,int noteY,int bottom) {}
+
+   static ContextEditor contextEditor(int width,int height) {
+      int w=Math.max(1,Math.min(520,width-16));
+      boolean compact=w<240 || height<200;
+      boolean condensed=height<224;
+      int body=condensed?192:216;
+      int top=Math.max(4,(height-body)/2);
+      return new ContextEditor((width-w)/2,top,w,compact,condensed,
+         top+(condensed?34:41),top+(condensed?60:72),top+(condensed?80:94),
+         top+(condensed?102:118),top+(condensed?124:142),top+(condensed?146:166),
+         top+(condensed?169:190),top+(condensed?181:202),top+body);
+   }
 }
