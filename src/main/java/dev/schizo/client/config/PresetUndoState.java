@@ -15,24 +15,25 @@ import java.util.Deque;
 
 public final class PresetUndoState {
    private static final int HISTORY_LIMIT = 5;
-   private final Deque<PresetUndoAction> actions = new ArrayDeque<>();
+   private record Entry(PresetUndoAction action,PresetUndoAction.Guard guard) {}
+   private final Deque<Entry> actions = new ArrayDeque<>();
 
    public void push(PresetUndoAction action) {
       if (action == null) {
          return;
       }
-      this.actions.addLast(action);
+      this.actions.addLast(new Entry(action,action.guardAfterSuccess()));
       while (this.actions.size() > HISTORY_LIMIT) {
          this.actions.removeFirst();
       }
    }
 
    public PresetUndoAction undo() throws IOException {
-      PresetUndoAction action = this.actions.peekLast();
-      if (action != null) {
-         action.undo();
-         this.actions.removeLast();
-      }
-      return action;
+      Entry entry=this.actions.peekLast();
+      if(entry==null) return null;
+      entry.guard().verify();
+      entry.action().undo();
+      this.actions.removeLast();
+      return entry.action();
    }
 }
