@@ -31,6 +31,7 @@ import dev.schizo.client.gui.components.ModuleComponent;
 import dev.schizo.client.render.HudWidgetRenderer;
 import dev.schizo.client.render.HudWidgetDrag;
 import dev.schizo.client.render.HudWidgetSnap;
+import dev.schizo.client.render.HudPeerSnap;
 import dev.schizo.client.render.HudEditorGrid;
 import dev.schizo.client.render.HudGroupAlignment;
 import dev.schizo.client.render.HudGroupMove;
@@ -74,6 +75,8 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
    );
    private final HudModulePanel modulePanel = new HudModulePanel();
    private HudWidgetRenderer draggedWidget;
+   private PeerGuide peerGuideX,peerGuideY;
+   private record PeerGuide(HudWidgetRenderer peer,HudPeerSnap.Match match,float viewport) {}
    private GroupDrag groupDrag;
    private boolean groupDragMoved;
 
@@ -368,6 +371,7 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
       if (this.draggedWidget != null) {
          this.draggedWidget.setSelected(false);
          this.draggedWidget = null;
+         peerGuideX=peerGuideY=null;
       }
 
       this.resizedWidget = null;
@@ -443,14 +447,49 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
 
    private void applyDragSnapping(HudWidgetRenderer widget, float[] size, float screenWidth, float screenHeight) {
       if (this.dragGridStep > 0) {
+         peerGuideX=peerGuideY=null;
          widget.setX(HudEditorGrid.snap(widget.getX(), screenWidth, size[0], this.dragGridStep), true);
          widget.setY(HudEditorGrid.snap(widget.getY(), screenHeight, size[1], this.dragGridStep), true);
          return;
       }
-      float snappedX = HudWidgetSnap.snap(widget.getX(), size[0], screenWidth, hud.getSafeX(), 5.0F);
-      float snappedY = HudWidgetSnap.snap(widget.getY(), size[1], screenHeight, hud.getSafeY(), 5.0F);
-      widget.setX(snappedX, true);
-      widget.setY(snappedY, true);
+      peerGuideX=peerGuideY=null;
+      float x=widget.getX(),y=widget.getY();
+      var screenX=HudWidgetSnap.resolve(x,size[0],screenWidth,hud.getSafeX(),5F);
+      var screenY=HudWidgetSnap.resolve(y,size[1],screenHeight,hud.getSafeY(),5F);
+      float snappedX=HudWidgetSnap.position(screenX,size[0],screenWidth,hud.getSafeX());
+      float snappedY=HudWidgetSnap.position(screenY,size[1],screenHeight,hud.getSafeY());
+      boolean screenFitX=Float.isFinite(snappedX)&&snappedX>=0&&(double)snappedX+size[0]<=screenWidth;
+      boolean screenFitY=Float.isFinite(snappedY)&&snappedY>=0&&(double)snappedY+size[1]<=screenHeight;
+      if(!screenFitX) peerGuideX=nearestPeer(widget,x,size[0],screenWidth,true);
+      if(!screenFitY) peerGuideY=nearestPeer(widget,y,size[1],screenHeight,false);
+      widget.setX(screenFitX?snappedX:peerGuideX==null?x:peerGuideX.match().position(),true);
+      widget.setY(screenFitY?snappedY:peerGuideY==null?y:peerGuideY.match().position(),true);
+   }
+
+   private PeerGuide nearestPeer(HudWidgetRenderer widget,float position,float extent,float viewport,boolean horizontal) {
+      PeerGuide best=null;
+      for(HudAnchorGroup group:anchorGroups) {
+         for(Object item:group.getWidgets()) {
+            HudWidgetRenderer peer=(HudWidgetRenderer)item;
+            if(peer==widget||!peer.isEnabled()) continue;
+            float[] size=peer.getDimensions();
+            var match=HudPeerSnap.nearest(position,extent,viewport,horizontal?peer.getX():peer.getY(),size[horizontal?0:1],5F);
+            if(match!=null && (best==null || HudPeerSnap.better(best.match(),match)==match))
+               best=new PeerGuide(peer,match,viewport);
+         }
+      }
+      return best;
+   }
+
+   private boolean renderPeerGuide(PoseStack poses,HudWidgetRenderer widget,PeerGuide guide,float viewport,boolean horizontal) {
+      if(guide==null||viewport!=guide.viewport()||!guide.peer().isEnabled()) return false;
+      var group=getAnchorGroup(guide.peer().getAnchor());
+      if(group==null||!group.getWidgets().contains(guide.peer())) return false;
+      int axis=horizontal?0:1;
+      if(!HudPeerSnap.aligned(guide.match(),horizontal?widget.getX():widget.getY(),widget.getDimensions()[axis],
+         horizontal?guide.peer().getX():guide.peer().getY(),guide.peer().getDimensions()[axis])) return false;
+      renderSnapGuide(poses,guide.match().line(),horizontal);
+      return true;
    }
 
    @Override
@@ -541,6 +580,7 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
          widget.setAnchor(destination.getAnchor());
          widget.setSelected(false);
          this.draggedWidget = null;
+         peerGuideX=peerGuideY=null;
          this.finishLayoutEdit();
          return true;
       }
@@ -631,6 +671,7 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
             widget.setAnchor(HudAnchor.NONE);
             widget.setSelected(true);
             widget.resetSnapping();
+            peerGuideX=peerGuideY=null;
             this.draggedWidget = widget;
          } else {
             ModuleComponent row = this.findModuleRow(widget);
@@ -655,6 +696,7 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
       }
 
       float snappedPosition = HudWidgetSnap.position(target, widgetSize, screenSize, margin);
+      if(!Float.isFinite(snappedPosition)||Math.abs(position-snappedPosition)>0.01F) return;
       switch (target) {
          case CENTER -> {
             this.renderSnapGuide(poseStack, snappedPosition - 0.5F, horizontal);
@@ -674,22 +716,10 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
    ) {
       float screenWidth = graphics.guiWidth();
       float screenHeight = graphics.guiHeight();
-      this.snapWidgetAxis(
-         poseStack,
-         widget,
-         size[0],
-         screenWidth,
-         hud.getSafeX(),
-         true
-      );
-      this.snapWidgetAxis(
-         poseStack,
-         widget,
-         size[1],
-         screenHeight,
-         hud.getSafeY(),
-         false
-      );
+      if(!renderPeerGuide(poseStack,widget,peerGuideX,screenWidth,true))
+         this.snapWidgetAxis(poseStack,widget,size[0],screenWidth,hud.getSafeX(),true);
+      if(!renderPeerGuide(poseStack,widget,peerGuideY,screenHeight,false))
+         this.snapWidgetAxis(poseStack,widget,size[1],screenHeight,hud.getSafeY(),false);
    }
 
    private void renderSnapGuide(PoseStack poseStack, double position, boolean vertical) {
