@@ -4,14 +4,31 @@ import dev.schizo.client.utils.FloatAnimation;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.Tooltip;
+import java.time.Duration;
+import java.util.Objects;
 import net.minecraft.network.chat.Component;
 
 /** Palette-aware button; vanilla Button retains input, focus, sound and narration. */
 final class StudioButton extends Button {
    private final FloatAnimation hover = new FloatAnimation();
+   private String help, installedTooltip;
 
    StudioButton(int x, int y, int width, int height, Component label, OnPress action) {
       super(x, y, width, height, label, action, DEFAULT_NARRATION);
+      setTooltipDelay(Duration.ofMillis(450));
+   }
+
+   StudioButton help(String text) {
+      help = text;
+      return this;
+   }
+
+   private void updateTooltip(String label, boolean clipped) {
+      String text = StudioTooltipText.resolve(label, clipped, help);
+      if (Objects.equals(installedTooltip, text)) return;
+      installedTooltip = text;
+      setTooltip(text == null ? null : Tooltip.create(Component.literal(text)));
    }
 
    @Override protected void renderContents(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
@@ -29,6 +46,8 @@ final class StudioButton extends Button {
       var font = Minecraft.getInstance().font;
       String label = getMessage().getString();
       int available = Math.max(0, w - 8);
+      boolean clipped = font.width(label) > available || h < font.lineHeight;
+      updateTooltip(label, clipped);
       if (font.width(label) > available) {
          String ellipsis = "…";
          label = available < font.width(ellipsis) ? "" : font.plainSubstrByWidth(label, available - font.width(ellipsis)) + ellipsis;
