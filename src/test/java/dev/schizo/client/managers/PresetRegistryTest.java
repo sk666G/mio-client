@@ -245,4 +245,36 @@ class PresetRegistryTest {
       contents.addProperty("value", name);
       return new PresetData(name, contents);
    }
+
+   @Test void createNewRejectsExistingFileAndCaseInsensitiveCollision() throws IOException {
+      var original=preset("Original");
+      original.saveToDirectory(directory);
+      var registry=new PresetRegistry(directory);
+      registry.loadPresets();
+      byte[] bytes=Files.readAllBytes(directory.resolve("Original.json"));
+      assertThrows(FileAlreadyExistsException.class,()->registry.storeNewPreset(preset("original")));
+      assertThrows(FileAlreadyExistsException.class,()->registry.storeNewPreset(preset("Original")));
+      assertArrayEquals(bytes,Files.readAllBytes(directory.resolve("Original.json")));
+      registry.storeNewPreset(preset("Different"));
+      assertTrue(Files.isRegularFile(directory.resolve("Different.json")));
+      assertNotNull(registry.getPreset("Different"));
+   }
+
+   @Test void reviewedPresetRequiresMatchingRegistryAndCurrentDiskContents() throws IOException {
+      var original=preset("reviewed");
+      original.saveToDirectory(directory);
+      var registry=new PresetRegistry(directory);
+      registry.loadPresets();
+      assertTrue(registry.matchesReviewedPreset(original));
+      var changed=original.copyContents();
+      changed.addProperty("external",true);
+      new PresetData("reviewed",changed).saveToDirectory(directory);
+      assertFalse(registry.matchesReviewedPreset(original));
+      registry.loadPresets();
+      assertFalse(registry.matchesReviewedPreset(original));
+      var current=registry.getPreset("reviewed");
+      assertTrue(registry.matchesReviewedPreset(current));
+      Files.delete(directory.resolve("reviewed.json"));
+      assertFalse(registry.matchesReviewedPreset(current));
+   }
 }
