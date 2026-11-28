@@ -86,6 +86,12 @@ public class ClientScreen extends Screen implements ClientAccess {
    protected float guiScale;
    protected boolean closing;
    protected String tooltipText = "";
+   private ScreenTooltipLayout.Wrapped cachedTooltip;
+   private String cachedTooltipText;
+   private Object cachedTooltipFont;
+   private float cachedTooltipMaxWidth;
+   private int cachedTooltipMaxLines;
+   private long cachedTooltipNanos;
    protected long lastHoverNanos = 0L;
    protected long transitionStartedNanos;
    private Screen parentScreen;
@@ -187,6 +193,31 @@ public class ClientScreen extends Screen implements ClientAccess {
    }
 
    public void onMouseClick(double mouseX, double mouseY, int button) {
+   }
+
+   private void clearTooltipCache() {
+      this.cachedTooltip=null;
+      this.cachedTooltipText=null;
+      this.cachedTooltipFont=null;
+   }
+
+   private ScreenTooltipLayout.Wrapped resolveTooltip(float lineHeight) {
+      if(this.tooltipText.isBlank()) return null;
+      float maxWidth=Math.min(320F,GuiScaleUtils.getScaledWidth()-8F);
+      int maxLines=(int)((GuiScaleUtils.getScaledHeight()-8F)/lineHeight);
+      Object fontToken=FontRenderer.INSTANCE.measurementIdentity();
+      long now=System.nanoTime();
+      if(fontToken==null || this.cachedTooltip==null || this.cachedTooltipFont!=fontToken
+         || !this.tooltipText.equals(this.cachedTooltipText) || maxWidth!=this.cachedTooltipMaxWidth
+         || maxLines!=this.cachedTooltipMaxLines || now-this.cachedTooltipNanos>=500_000_000L) {
+         this.cachedTooltip=ScreenTooltipLayout.wrap(this.tooltipText,maxWidth,maxLines,FontRenderer.INSTANCE::getWidth);
+         this.cachedTooltipText=this.tooltipText;
+         this.cachedTooltipFont=fontToken;
+         this.cachedTooltipMaxWidth=maxWidth;
+         this.cachedTooltipMaxLines=maxLines;
+         this.cachedTooltipNanos=now;
+      }
+      return this.cachedTooltip;
    }
 
    public void setTooltipText(String text) {
@@ -357,6 +388,7 @@ public class ClientScreen extends Screen implements ClientAccess {
 
    @Override
    protected void init() {
+      this.clearTooltipCache();
       int screenWidth = ClientAccess.schizoMinecraft.getWindow().getGuiScaledWidth();
       int screenHeight = ClientAccess.schizoMinecraft.getWindow().getGuiScaledHeight();
       if (this.getParentScreen() != null && !(this.getParentScreen() instanceof ClientScreen)) {
@@ -421,6 +453,7 @@ public class ClientScreen extends Screen implements ClientAccess {
 
    @Override
    public void removed() {
+      this.clearTooltipCache();
       SettingComponent<?> editor = this.focusedSetting();
       if (editor != null) {
          editor.editing = false;
@@ -567,20 +600,13 @@ public class ClientScreen extends Screen implements ClientAccess {
          panel.render(poseStack, mouseX, mouseY);
       }
 
-      if (!this.tooltipText.isBlank()) {
+      float lineHeight=Math.max(1F,FontRenderer.INSTANCE.getHeight()+1F);
+      var tooltip=this.resolveTooltip(lineHeight);
+      if (tooltip!=null && !tooltip.lines().isEmpty()) {
          GuiDrawUtils.flush();
-         String[] tooltipLines = this.tooltipText.split("\n");
-         float tooltipWidth = 0.0F;
-
-         for (String tooltipLine : tooltipLines) {
-            float lineWidth = FontRenderer.INSTANCE
-               .getWidth(tooltipLine);
-            if (lineWidth > tooltipWidth) {
-               tooltipWidth = lineWidth;
-            }
-         }
-
-         float tooltipExtentX = tooltipWidth + 1.0F;
+         var tooltipLines=tooltip.lines();
+         float tooltipWidth=tooltip.width();
+         float tooltipExtentX = tooltipWidth + 4.0F;
          float preferredTooltipLeft = hoverX + 9.0F;
          if (preferredTooltipLeft + tooltipExtentX > GuiScaleUtils.getScaledWidth()) {
             preferredTooltipLeft = hoverX - tooltipWidth - 2.0F;
@@ -590,15 +616,14 @@ public class ClientScreen extends Screen implements ClientAccess {
          );
          float tooltipRight = tooltipLeft + tooltipExtentX;
 
-         float lineHeight = FontRenderer.INSTANCE.getHeight() + 1.0F;
-         float tooltipHeight = lineHeight * tooltipLines.length;
+         float tooltipHeight = lineHeight * tooltipLines.size() + 3F;
          float tooltipTop = ScreenTooltipLayout.clampStart(
             hoverY - 1.0F, tooltipHeight, GuiScaleUtils.getScaledHeight()
          );
          float tooltipBottom = tooltipTop + tooltipHeight;
          float blurLeft = tooltipLeft;
          float blurRight = tooltipRight;
-         int blurY = (int)tooltipTop;
+         int blurY = Math.max(1,(int)tooltipTop);
          if (blurModule != null && blurModule.isToggled()) {
             MaskShaderRenderer.renderBlur(
                () -> RenderUtils.INSTANCE
