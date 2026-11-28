@@ -184,4 +184,20 @@ class FrameTimingTest {
 
       assertEquals(0, timing.getStuttersPerSecond());
    }
+
+   @Test void rejectsInvalidFrameFactorScale() {
+      var timing=new FrameTiming();
+      assertEquals(0,timing.getFrameFactor(Float.NaN));
+      assertEquals(0,timing.getFrameFactor(Float.POSITIVE_INFINITY));
+      assertEquals(0,timing.getFrameFactor(-1));
+   }
+
+   @Test void longIdleInvalidatesCachedPercentileImmediately() {
+      var timing=new FrameTiming();
+      timing.recordFrameAt(0);
+      timing.recordFrameAt(10_000_000);
+      assertEquals(100,timing.getOnePercentLowFramesPerSecondAt(10_000_000),0.01);
+      timing.recordFrameAt(2_000_000_000);
+      assertEquals(1000.0/1990.0,timing.getOnePercentLowFramesPerSecondAt(20_000_000),0.001);
+   }
 }
