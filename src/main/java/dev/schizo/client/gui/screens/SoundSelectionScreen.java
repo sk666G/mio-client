@@ -155,6 +155,12 @@ public class SoundSelectionScreen extends ClientScreen {
       }
    }
 
+   boolean soundAvailable(NamedIdentifier sound) {
+      synchronized(ClientContext.soundManager.getSoundIds()) {
+         return ClientContext.soundManager.getSoundIds().contains(sound);
+      }
+   }
+
    public Setting<dev.schizo.client.utils.collections.NamedIdentifier> getSelectedSetting() {
       return this.selectedSetting;
    }
