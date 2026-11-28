@@ -64,6 +64,14 @@ public interface GuiElement {
    default void mouseReleased(double mouseX, double mouseY, int button) {
    }
 
+   /** Discard transient input capture without changing committed settings. */
+   default void cancelInput() {}
+
+   /** Forward one complete character event; legacy controls keep their char handler. */
+   default void textTyped(String text) {
+      for(int i=0;i<text.length();i++) charTyped(text.charAt(i));
+   }
+
    default void charTyped(char character) {
    }
 }

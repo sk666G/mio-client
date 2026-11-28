@@ -34,8 +34,8 @@ public class TradeListPanel extends Panel {
    }
 
    public void refreshTrades() {
-      this.getChildren()
-         .clear();
+      this.cancelInput();
+      this.getChildren().clear();
 
       for (Object registeredEntry : (List)ClientContext.tradeRegistry
          .getRegistry()) {

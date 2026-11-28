@@ -23,11 +23,11 @@ public abstract class AbstractRegistry<T> implements RegistryContainer {
    }
 
    @Override
-   public Collection getRegistry() {
+   public Collection<T> getRegistry() {
       return this.entries;
    }
 
-   public Optional findFirst(Predicate predicate) {
+   public Optional<T> findFirst(Predicate<? super T> predicate) {
       for (T entry : this.entries) {
          if (predicate.test(entry)) {
             return Optional.of(entry);
@@ -37,7 +37,7 @@ public abstract class AbstractRegistry<T> implements RegistryContainer {
       return Optional.empty();
    }
 
-   public Object findFirstOrNull(Predicate predicate) {
+   public T findFirstOrNull(Predicate<? super T> predicate) {
       for (T entry : this.entries) {
          if (predicate.test(entry)) {
             return entry;

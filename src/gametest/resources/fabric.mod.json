@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "schizo-gametest",
+  "version": "1.0.0",
+  "name": "Schizo Client Game Tests",
+  "environment": "client",
+  "entrypoints": {
+    "fabric-client-gametest": [
+      "dev.schizo.client.gametest.SchizoClientGameTest"
+    ]
+  },
+  "depends": {
+    "schizo": "*",
+    "fabric-api": "*"
+  }
+}

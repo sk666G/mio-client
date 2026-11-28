@@ -19,8 +19,6 @@ import dev.schizo.client.render.FontRenderer;
 import dev.schizo.client.gui.ScissorStack;
 
 import com.mojang.blaze3d.vertex.PoseStack;
-import java.util.Locale;
-import java.util.Set;
 import net.minecraft.core.Holder;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
@@ -41,8 +39,9 @@ class RegistryEntryComponent<E> extends ButtonComponent {
    protected final FloatAnimation hoverScrollAnimation = new FloatAnimation();
    private final RegistrySetScreen<E> screen;
    private final E entry;
-   private final Item iconItem;
-   private final ItemStack iconStack;
+   private final Identifier identifier;
+   private final String normalizedLabel,normalizedId;
+   private ItemStack iconStack;
    private final boolean availableEntry;
    private boolean resetVisibilityAnimation = true;
    private boolean visible;
@@ -55,11 +54,9 @@ class RegistryEntryComponent<E> extends ButtonComponent {
       this.screen = screen;
       this.entry = entry;
       this.availableEntry = availableEntry;
-      this.iconStack = createIconStack(
-         identifier, entry
-      );
-      this.iconItem = this.iconStack
-         .getItem();
+      this.identifier=identifier;
+      this.normalizedLabel=RegistrySearchText.normalize(getLabel());
+      this.normalizedId=RegistrySearchText.normalize(identifier.toString());
       this.addFlags(new ComponentFlag[]{ComponentFlag.SILENT_HOVER});
    }
 
@@ -71,13 +68,7 @@ class RegistryEntryComponent<E> extends ButtonComponent {
          .contains(this.entry);
       if (this.availableEntry) {
          this.visible = !this.visible;
-         String searchText = this.screen
-            .searchComponent
-            .getText();
-         if (!searchText.isEmpty()
-            && !this.getLabel()
-               .toLowerCase()
-               .contains(searchText.toLowerCase(Locale.ROOT))) {
+         if (!RegistrySearchText.matches(normalizedLabel,normalizedId,screen.normalizedSearch())) {
             this.visible = false;
             this.resetVisibilityAnimation = true;
             this.visibilityAnimation
@@ -101,7 +92,9 @@ class RegistryEntryComponent<E> extends ButtonComponent {
    @Override
    public void mouseClicked(double mouseX, double mouseY, int button) {
       super.mouseClicked(mouseX, mouseY, button);
-      if (this.isMouseOver(mouseX, mouseY) && button == 0) {
+      if (this.visible && this.isMouseOver(mouseX, mouseY) && button == 0
+         && this.screen.registrySetting.getValue().contains(entry)!=availableEntry
+         && (!availableEntry || RegistrySearchText.matches(normalizedLabel,normalizedId,screen.normalizedSearch()))) {
          if (this.availableEntry) {
             this.screen
                .registrySetting
@@ -120,8 +113,8 @@ class RegistryEntryComponent<E> extends ButtonComponent {
    public void render(PoseStack poseStack, double mouseX, double mouseY) {
       if (this.visible) {
          float iconOffset = 0.0F;
-         if (this.iconItem != null
-            && this.iconItem != Items.AIR) {
+         if(iconStack==null) iconStack=createIconStack(identifier,entry);
+         if (!iconStack.isEmpty() && iconStack.getItem()!=Items.AIR) {
             GuiDrawUtils.drawItem(
                poseStack,
                this.iconStack,
@@ -141,22 +134,25 @@ class RegistryEntryComponent<E> extends ButtonComponent {
          }
 
          poseStack.pushPose();
-         poseStack.translate(
-            iconOffset,
-            1.5F,
-            0.0F
-         );
-         boolean hovered = this.isMouseOver(mouseX, mouseY);
-         this.hoverScrollAnimation
-            .setTarget(hovered, 500L);
-         this.renderClippedLabel(
-            poseStack,
-            iconOffset
-               + 3.0F,
-            mouseX,
-            mouseY
-         );
-         poseStack.popPose();
+         try {
+            poseStack.translate(
+               iconOffset,
+               1.5F,
+               0.0F
+            );
+            boolean hovered = this.isMouseOver(mouseX, mouseY);
+            this.hoverScrollAnimation
+               .setTarget(hovered, 500L);
+            this.renderClippedLabel(
+               poseStack,
+               iconOffset
+                  + 3.0F,
+               mouseX,
+               mouseY
+            );
+         } finally {
+            poseStack.popPose();
+         }
       }
    }
 
@@ -205,19 +201,25 @@ class RegistryEntryComponent<E> extends ButtonComponent {
             ),
             this.getHeight()
          );
-         poseStack.translate(
-            -(
-                  textWidth
-                     - this.panel
-                        .getWidth()
-               )
-               * scrollProgress,
-            0.0F,
-            0.0F
-         );
-         super.render(poseStack, mouseX, mouseY);
-         GuiDrawUtils.flush();
-         ScissorStack.pop();
+         try {
+            poseStack.translate(
+               -(
+                     textWidth
+                        - this.panel
+                           .getWidth()
+                  )
+                  * scrollProgress,
+               0.0F,
+               0.0F
+            );
+            super.render(poseStack, mouseX, mouseY);
+         } finally {
+            try {
+               GuiDrawUtils.flush();
+            } finally {
+               ScissorStack.pop();
+            }
+         }
       } else {
          super.render(poseStack, mouseX, mouseY);
       }
@@ -239,7 +241,8 @@ class RegistryEntryComponent<E> extends ButtonComponent {
          Holder potionHolder = BuiltInRegistries.POTION.wrapAsHolder(potion);
          return PotionContents.createItemStack(Items.SPLASH_POTION, potionHolder);
       } else {
-         return BuiltInRegistries.ITEM.getValue(identifier).getDefaultInstance();
+         Item item=BuiltInRegistries.ITEM.getValue(identifier);
+         return item==null?ItemStack.EMPTY:item.getDefaultInstance();
       }
    }
 

@@ -24,13 +24,8 @@ import java.awt.font.FontRenderContext;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.Collection;
-import javax.imageio.ImageIO;
 import net.minecraft.resources.Identifier;
-import org.lwjgl.BufferUtils;
 
 public final class FontAtlas {
    public static final Identifier ATLAS_TEXTURE = Identifier.fromNamespaceAndPath("schizo", "textures/font.png");
@@ -53,7 +48,22 @@ public final class FontAtlas {
    }
 
    public void buildAtlas(Collection<Character> characters) {
-      this.atlasSize = align(this.calculateAtlasSize(characters), 2);
+      buildAtlas(characters, characters.isEmpty() ? 2 : align(this.calculateAtlasSize(characters), 2));
+   }
+
+   // Packing accepts an initial estimate independently of how it was calculated.
+   void buildAtlas(Collection<Character> characters, int initialSize) {
+      if (initialSize < 2 || initialSize % 2 != 0) {
+         throw new IllegalArgumentException("Atlas estimate must be positive and mip-aligned");
+      }
+      this.glyphs.clear();
+      this.fontHeight = -1;
+      if (characters.isEmpty()) {
+         this.fontHeight = 0;
+         this.atlasSize = 2;
+         return;
+      }
+      this.atlasSize = initialSize;
       BufferedImage metricsImage = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);
       Graphics2D graphics = metricsImage.createGraphics();
       try {
@@ -63,6 +73,7 @@ public final class FontAtlas {
          int rowHeight = 0;
          int cursorX = 0;
          int cursorY = 0;
+         int requiredSize = this.atlasSize;
          for (char character : characters) {
             Rectangle2D bounds = metrics.getStringBounds(Character.toString(character), graphics);
             int width = align(bounds.getBounds().width + 8, 2);
@@ -72,12 +83,25 @@ public final class FontAtlas {
                cursorY += rowHeight + 2;
                rowHeight = 0;
             }
+            requiredSize = Math.max(requiredSize, Math.max(cursorX + width, cursorY + height));
             Uv minUv = new Uv((float)cursorX / this.atlasSize, (float)cursorY / this.atlasSize);
             Uv maxUv = new Uv((float)(cursorX + width) / this.atlasSize, (float)(cursorY + height) / this.atlasSize);
             this.glyphs.put(character, new Glyph(cursorX, cursorY, width, height, minUv, maxUv));
             this.fontHeight = Math.max(this.fontHeight, height);
             rowHeight = Math.max(rowHeight, height);
             cursorX += width;
+         }
+         // The estimate uses different metrics from packing and can understate
+         // the last row's extent. Preserve positions, grow the square if needed,
+         // and normalize every UV against the final texture dimensions.
+         if (requiredSize > this.atlasSize) {
+            this.atlasSize = align(requiredSize, 2);
+            this.glyphs.replaceAll((character, glyph) -> new Glyph(
+               glyph.x, glyph.y, glyph.width, glyph.height,
+               new Uv((float)glyph.x / this.atlasSize, (float)glyph.y / this.atlasSize),
+               new Uv((float)(glyph.x + glyph.width) / this.atlasSize,
+                  (float)(glyph.y + glyph.height) / this.atlasSize)
+            ));
          }
          if ("Dialog".equals(this.font.getFamily())) {
             this.fontHeight -= 2;
@@ -122,6 +146,9 @@ public final class FontAtlas {
             Glyph glyph = this.glyphs.get(character);
             graphics.drawString(Character.toString(character), glyph.x / scale + padding, glyph.y / scale + metrics.getAscent());
          }
+      } catch (RuntimeException | Error failure) {
+         image.flush();
+         throw failure;
       } finally {
          graphics.dispose();
       }
@@ -145,28 +172,55 @@ public final class FontAtlas {
             mipImages[level] = toNativeImage(this.createMipLevel(level));
          }
          ClientAccess.schizoMinecraft.getTextureManager().register(ATLAS_TEXTURE, new MipmapFontTexture(() -> ATLAS_LABEL, mipImages));
-      } catch (Exception exception) {
+      } catch (RuntimeException | Error failure) {
          for (NativeImage image : mipImages) {
             if (image != null) {
-               image.close();
+               try {
+                  image.close();
+               } catch (RuntimeException | Error cleanupFailure) {
+                  if (cleanupFailure != failure) failure.addSuppressed(cleanupFailure);
+               }
             }
          }
-         throw new RuntimeException(exception);
+         throw failure;
       }
    }
 
-   private static NativeImage toNativeImage(BufferedImage image) throws IOException {
-      ByteArrayOutputStream output = new ByteArrayOutputStream();
-      if (!ImageIO.write(image, "png", output)) {
-         throw new IOException("No PNG writer is available");
+   static NativeImage toNativeImage(BufferedImage image) {
+      NativeImage nativeImage = null;
+      try {
+         int width = image.getWidth();
+         int height = image.getHeight();
+         nativeImage = new NativeImage(NativeImage.Format.RGBA, width, height, false);
+         int[] row = new int[width];
+         for (int y = 0; y < height; y++) {
+            image.getRGB(0, y, width, 1, row, 0, width);
+            for (int x = 0; x < width; x++) {
+               // NativeImage.setPixel accepts ARGB, as does BufferedImage.getRGB.
+               nativeImage.setPixel(x, y, row[x]);
+            }
+         }
+         return nativeImage;
+      } catch (RuntimeException | Error failure) {
+         if (nativeImage != null) {
+            try {
+               nativeImage.close();
+            } catch (RuntimeException | Error cleanupFailure) {
+               if (failure != cleanupFailure) failure.addSuppressed(cleanupFailure);
+            }
+         }
+         throw failure;
+      } finally {
+         image.flush();
       }
-      ByteBuffer buffer = BufferUtils.createByteBuffer(output.size()).put(output.toByteArray());
-      buffer.flip();
-      return NativeImage.read(buffer);
    }
 
    public float drawGlyph(PoseStack poses, VertexConsumer consumer, char character, float x, float y, int argb) {
-      Glyph glyph = this.glyphs.get(character);
+      return this.drawGlyph(poses, consumer, (int)character, x, y, argb);
+   }
+
+   public float drawGlyph(PoseStack poses, VertexConsumer consumer, int codePoint, float x, float y, int argb) {
+      Glyph glyph = this.resolveGlyph(codePoint);
       if (glyph == null) {
          return 0.0F;
       }
@@ -179,17 +233,28 @@ public final class FontAtlas {
    }
 
    public float getGlyphWidth(char character) {
-      Glyph glyph = this.glyphs.get(character);
-      if (glyph == null) {
-         glyph = this.glyphs.get('?');
-      }
+      return this.getGlyphWidth((int)character);
+   }
+
+   public float getGlyphWidth(int codePoint) {
+      Glyph glyph = this.resolveGlyph(codePoint);
       return glyph == null ? 0.0F : glyph.width - 8.0F;
+   }
+
+   Glyph resolveGlyph(int codePoint) {
+      Glyph glyph = Character.isBmpCodePoint(codePoint) && !Character.isSurrogate((char)codePoint)
+         ? this.glyphs.get((char)codePoint) : null;
+      return glyph != null ? glyph : this.glyphs.get('?');
    }
 
    public int getHeight() {
       return this.fontHeight;
    }
 
-   private record Uv(float u, float v) {}
-   private record Glyph(int x, int y, int width, int height, Uv minimumUv, Uv maximumUv) {}
+   int atlasSize() {
+      return this.atlasSize;
+   }
+
+   record Uv(float u, float v) {}
+   record Glyph(int x, int y, int width, int height, Uv minimumUv, Uv maximumUv) {}
 }

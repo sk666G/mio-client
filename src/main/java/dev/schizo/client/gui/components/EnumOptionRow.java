@@ -18,6 +18,7 @@ import java.awt.Color;
 public class EnumOptionRow<E extends Enum<E> & NamedEntry> extends AbstractComponent {
    final EnumSettingComponent<E> enumComponent;
    final String label;
+   final E value;
    final int selectableIndex;
 
    @Override
@@ -28,16 +29,25 @@ public class EnumOptionRow<E extends Enum<E> & NamedEntry> extends AbstractCompo
          : super.getHeight();
    }
 
-   public EnumOptionRow(EnumSettingComponent<E> enumComponent, String label, int yOffset, int selectableIndex) {
+   public EnumOptionRow(EnumSettingComponent<E> enumComponent, E value, String label, int yOffset, int selectableIndex) {
       super(enumComponent.getPanel(), yOffset);
       this.label = label;
+      this.value = value;
       this.selectableIndex = selectableIndex;
       this.enumComponent = enumComponent;
    }
 
    @Override
    public void render(PoseStack poseStack, double mouseX, double mouseY) {
+      if(dev.schizo.client.utils.ExperimentalFeatures.isEnumConstantHidden(this.value)) return;
       super.render(poseStack, mouseX, mouseY);
+      if (this.panel.isDocked()) {
+         FontRenderer.INSTANCE.drawWithoutShadow(poseStack,
+            StudioControlStyle.fitText(this.label, this.panel.getWidth() - 28),
+            this.panel.getX() + 16, this.enumComponent.getY() + this.yOffset + this.getTextYOffset(),
+            this.getUiModule().textColorSetting.getValue());
+         return;
+      }
       FontRenderer.INSTANCE
          .drawWithShadow(
             poseStack,
@@ -75,19 +85,9 @@ public class EnumOptionRow<E extends Enum<E> & NamedEntry> extends AbstractCompo
             .getParentCloseState()
             .isOpen()
          && button == 0) {
-         for (E candidate : this.enumComponent
-               .getSetting()
-               .getValue()
-            .getDeclaringClass()
-            .getEnumConstants()) {
-            if (candidate.getName()
-                  .equalsIgnoreCase(this.label)) {
-               this.enumComponent
-                  .getSetting()
-                  .setValue(candidate);
-               this.enumComponent
-                  .setSelectedIndex(this.selectableIndex);
-            }
+         if(!dev.schizo.client.utils.ExperimentalFeatures.isEnumConstantHidden(this.value)) {
+            this.enumComponent.getSetting().setValue(this.value);
+            this.enumComponent.setSelectedIndex(this.selectableIndex);
          }
       }
    }
@@ -103,14 +103,9 @@ public class EnumOptionRow<E extends Enum<E> & NamedEntry> extends AbstractCompo
                + this.getPanel()
                   .getWidth()
          && mouseY
-            > this.enumComponent
-                  .getY()
-               + this.yOffset
+            > this.clampYToPanel(this.enumComponent.getY() + this.yOffset)
          && mouseY
-            < this.enumComponent
-                  .getY()
-               + this.getBaseHeight()
-               + this.yOffset;
+            < this.clampYToPanel(this.enumComponent.getY() + this.getBaseHeight() + this.yOffset);
    }
 
 }

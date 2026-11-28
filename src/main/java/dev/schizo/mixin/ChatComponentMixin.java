@@ -15,7 +15,7 @@ import com.llamalad7.mixinextras.sugar.Local;
 import dev.schizo.client.modules.misc.BetterChatModule;
 import dev.schizo.client.modules.hud.ChatModule;
 import dev.schizo.client.ClientAccess;
-import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.events.ChatMessageEvent;
 import dev.schizo.client.access.ChatLineAccess;
 import dev.schizo.client.access.VisibleChatLinesAccess;
@@ -51,9 +51,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(ChatComponent.class)
 public abstract class ChatComponentMixin implements ClientAccess, VisibleChatLinesAccess {
-   private static final BetterChatModule betterChatModule = ClientContext.getModule(BetterChatModule.class);
-   private static final ChatModule chatModule = ClientContext.getModule(ChatModule.class);
-   private static final FontsModule fontsModule = ClientContext.getModule(FontsModule.class);
+   private static ChatModule chatModule() {
+      return MixinModuleRegistry.getModule(ChatModule.class);
+   }
    @Shadow
    @Final
    public List trimmedMessages;
@@ -122,8 +122,8 @@ public abstract class ChatComponentMixin implements ClientAccess, VisibleChatLin
    private static boolean queueCustomChatBackground(
       ChatGraphicsAccess graphicsAccess, int left, int top, int right, int bottom, int color
    ) {
-      if (fontsModule.isToggled()
-         && fontsModule.chatSetting.getValue()) {
+      if (MixinModuleRegistry.clientFonts.isToggled()
+         && MixinModuleRegistry.clientFonts.chatSetting.getValue()) {
          Matrix3x2fStack poses = switch (graphicsAccess) {
             case DrawingFocusedGraphicsAccess focusedGraphics -> focusedGraphics.graphics.pose();
             case DrawingBackgroundGraphicsAccess backgroundGraphics -> backgroundGraphics.graphics.pose();
@@ -133,7 +133,7 @@ public abstract class ChatComponentMixin implements ClientAccess, VisibleChatLin
             return true;
          }
 
-         fontsModule.enqueueRectangle(
+         MixinModuleRegistry.clientFonts.enqueueRectangle(
             poses, left, top, right, bottom, color
          );
          return false;
@@ -149,15 +149,15 @@ public abstract class ChatComponentMixin implements ClientAccess, VisibleChatLin
    ) {
       float offsetX = 0.0F;
       float offsetY = 0.0F;
-      if (chatModule.isToggled()) {
-         offsetX += chatModule.getChatOffsetX();
-         offsetY += chatModule.getChatOffsetY();
+      if (chatModule().isToggled()) {
+         offsetX += chatModule().getChatOffsetX();
+         offsetY += chatModule().getChatOffsetY();
       }
 
-      if (betterChatModule.isAnimationEnabled()
-         && betterChatModule.typeSetting.getValue()
+      if (MixinModuleRegistry.chatBetterChat.isAnimationEnabled()
+         && MixinModuleRegistry.chatBetterChat.typeSetting.getValue()
             == BetterChatModule.TypeChoice.BOUNCE) {
-         offsetY += betterChatModule.bounceAnimation
+         offsetY += MixinModuleRegistry.chatBetterChat.bounceAnimation
                .getValue()
             * 8.0F;
       }
@@ -200,24 +200,24 @@ public abstract class ChatComponentMixin implements ClientAccess, VisibleChatLin
 
    @ModifyExpressionValue(method = "addMessageToDisplayQueue", at = @At(value = "INVOKE", target = "Ljava/util/List;size()I", ordinal = 2))
    public int overrideDisplayQueueSize(int originalSize) {
-      return betterChatModule.isToggled()
-            && betterChatModule.longChatHistorySetting.getValue()
+      return MixinModuleRegistry.chatBetterChat.isToggled()
+            && MixinModuleRegistry.chatBetterChat.longChatHistorySetting.getValue()
          ? 1
          : originalSize;
    }
 
    @ModifyExpressionValue(method = "addMessageToQueue", at = @At(value = "INVOKE", target = "Ljava/util/List;size()I", ordinal = 0))
    public int overrideMessageQueueSize(int originalSize) {
-      return betterChatModule.isToggled()
-            && betterChatModule.longChatHistorySetting.getValue()
+      return MixinModuleRegistry.chatBetterChat.isToggled()
+            && MixinModuleRegistry.chatBetterChat.longChatHistorySetting.getValue()
          ? 1
          : originalSize;
    }
 
    @Inject(method = "clearMessages", at = @At("HEAD"), cancellable = true)
    private void preserveChatHistoryOnClear(boolean clearHistory, CallbackInfo callback) {
-      if (betterChatModule.isToggled()
-         && betterChatModule.noResetSetting.getValue()
+      if (MixinModuleRegistry.chatBetterChat.isToggled()
+         && MixinModuleRegistry.chatBetterChat.noResetSetting.getValue()
          && !BetterChatModule.clearingChatFromDebugKey) {
          callback.cancel();
       }
@@ -239,8 +239,8 @@ public abstract class ChatComponentMixin implements ClientAccess, VisibleChatLin
    private void enableCustomChatText(
       GuiGraphics graphics, Font font, int ignoredRenderInt1, int ignoredRenderInt2, int ignoredRenderInt3, boolean ignoredRenderFlag1, boolean ignoredRenderFlag2, CallbackInfo callback
    ) {
-      FontActiveTextCollector.customChatTextEnabled = fontsModule.isToggled()
-         && fontsModule.chatSetting.getValue();
+      FontActiveTextCollector.customChatTextEnabled = MixinModuleRegistry.clientFonts.isToggled()
+         && MixinModuleRegistry.clientFonts.chatSetting.getValue();
    }
 
    @Inject(method = "render(Lnet/minecraft/client/gui/GuiGraphics;Lnet/minecraft/client/gui/Font;IIIZZ)V", at = @At("RETURN"))
@@ -251,7 +251,7 @@ public abstract class ChatComponentMixin implements ClientAccess, VisibleChatLin
       FontActiveTextCollector.customChatTextEnabled = false;
       // Focused chat queues text after the HUD has already flushed.
       if (focused && customText) {
-         fontsModule.flushFocusedChat();
+         MixinModuleRegistry.clientFonts.flushFocusedChat();
       }
    }
 

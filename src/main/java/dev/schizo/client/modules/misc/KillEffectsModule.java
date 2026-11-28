@@ -100,8 +100,20 @@ public class KillEffectsModule extends Module {
 
    @Override
    public void onEnable() {
+      this.clearTransientSessionState();
+      this.killSayMessages.reloadMessages(true);
+   }
+
+   @Override
+   public void onDisable() {
+      this.clearTransientSessionState();
+      this.killSayMessages.invalidate();
+   }
+
+   private void clearTransientSessionState() {
       this.killStreak = 0;
-      this.killSayMessages.reloadMessages((true));
+      this.trackedTargets.clear();
+      this.expiredTargets.clear();
    }
 
    private void spawnKillLightning(Vec3 position) {
@@ -300,7 +312,8 @@ public class KillEffectsModule extends Module {
 
    @EventHandler
    private void onMinecraftDisconnectEvent(MinecraftDisconnectEvent event) {
-      this.killStreak = 0;
+      this.clearTransientSessionState();
+      this.killSayMessages.invalidate();
    }
 
    public void trackTarget(Player player) {
@@ -406,26 +419,21 @@ public class KillEffectsModule extends Module {
 
       callbackOption.setConfigName(("KillStreakVolume"));
       this.killSaySetting.setChangeCallback(() -> {
-         KillSayMessages messagesSnapshot = this.killSayMessages;
-
-         boolean force = false;
-         messagesSnapshot.reloadMessages(force);
+         if (this.isToggled()) {
+            this.killSayMessages.reloadMessages(false);
+         }
       });
       this.pathSetting.setChangeCallback(() -> {
-         KillSayMessages messagesSnapshot = this.killSayMessages;
-
-         boolean force = true;
-         messagesSnapshot.reloadMessages(force);
+         if (this.isToggled()) {
+            this.killSayMessages.reloadMessages(true);
+         }
       });
       this.refreshSetting.setChangeCallback(() -> {
-         Setting<Boolean> refreshOption = this.refreshSetting;
-         Boolean refresh = refreshOption.getValue();
-         if (refresh) {
-            KillSayMessages messagesSnapshot = this.killSayMessages;
-
-            boolean force = true;
-            messagesSnapshot.reloadMessages(force);
+         if (this.refreshSetting.getValue()) {
             this.refreshSetting.setValue(false);
+            if (this.isToggled()) {
+               this.killSayMessages.reloadMessages(true);
+            }
          }
       });
       this.randomSetting.setChangeCallback(this.killSayMessages::resetSequence);

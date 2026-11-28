@@ -14,6 +14,7 @@ import java.util.Set;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.LocalPlayerTickEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.render.FontRenderer;
 import dev.schizo.client.render.ResizableHudWidgetRenderer;
 import dev.schizo.client.modules.HudWidgetModule;
@@ -33,7 +34,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.regex.Matcher;
 import java.util.function.Predicate;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.multiplayer.ClientLevel;
@@ -75,81 +75,66 @@ public class EntityListModule extends HudWidgetModule {
          }
       }
 
-      float[] dimensions = new float[2];
-      dimensions[0] = maximumWidth;
-      dimensions[1] = totalHeight;
-      return dimensions;
+      return this.dimensions(maximumWidth, totalHeight);
+   }
+
+   @Override
+   public void onDisable() {
+      this.clearEntitySnapshot();
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.clearEntitySnapshot();
+   }
+
+   private void clearEntitySnapshot() {
+      this.countsByName.clear();
+      this.entries.clear();
    }
 
    @EventHandler
    private void onLocalPlayerTickEvent(LocalPlayerTickEvent ignoredEvent) {
       this.countsByName.clear();
       ClientLevel level = ClientAccess.schizoMinecraft.level;
+      ListFilterMode entitySelection = this.selectionSetting.getValue();
+      Collection<?> selectedEntityTypes = this.entitiesSetting.getValue();
+      ListFilterMode itemSelection = this.itemSelectionSetting.getValue();
+      Collection<?> selectedItems = this.itemsSetting.getValue();
+      boolean useCustomNames = this.customNamesSetting.getValue();
+
       for (Entity entity : level.entitiesForRendering()) {
-         Setting<ListFilterMode> selectionOption = this.selectionSetting;
-         ListFilterMode selection = selectionOption.getValue();
-         EntityType entityType = entity.getType();
-         Setting<Set<EntityType<?>>> entityTypesOption = this.entitiesSetting;
-         Collection<?> selectedEntityTypes = (Collection<?>)entityTypesOption.getValue();
-         if (ListFilterMode.matches(selection, entityType, selectedEntityTypes)) {
-            if (entity instanceof ItemEntity itemEntity) {
-               ItemStack stackForEmptyCheck = itemEntity.getItem();
-               if (stackForEmptyCheck.isEmpty()) {
-                  continue;
-               }
-               ItemStack stackForItem = itemEntity.getItem();
-               Item item = stackForItem.getItem();
-               Setting<ListFilterMode> itemSelectionOption = this.itemSelectionSetting;
-               selection = itemSelectionOption.getValue();
-               Setting<Set<Item>> selectedItemsOption = this.itemsSetting;
-               ListFilterMode itemSelection = selection;
-               if (!ListFilterMode.matches(itemSelection, item, selectedItemsOption)) {
-                  continue;
-               }
-            }
-
-            Boolean useCustomNames = this.customNamesSetting.getValue();
-            String entityName;
-            if (useCustomNames) {
-               Component nameText = entity.getName();
-               entityName = nameText.getString();
-            } else {
-               EntityType typeForName = entity.getType();
-               Component description = typeForName.getDescription();
-               entityName = description.getString();
-            }
-
-            String name = entityName;
-            if (entity instanceof ItemEntity namedItemEntity) {
-               ItemStack stackForName = namedItemEntity.getItem();
-               Component hoverName = stackForName.getHoverName();
-               name = hoverName.getString();
-            }
-
-            int countedAmount;
-            if (entity instanceof ItemEntity countedItemEntity) {
-               ItemStack stackForCount = countedItemEntity.getItem();
-               countedAmount = stackForCount.getCount();
-            } else {
-               countedAmount = 1;
-            }
-
-            int countContribution = countedAmount;
-            this.countsByName.compute(
-               name,
-               (ignoredName, previousCount) -> previousCount == null
-                  ? countContribution
-                  : previousCount + countContribution
-            );
+         EntityType<?> entityType = entity.getType();
+         if (!ListFilterMode.matches(entitySelection, entityType, selectedEntityTypes)) {
+            continue;
          }
+
+         ItemStack itemStack = null;
+         if (entity instanceof ItemEntity itemEntity) {
+            itemStack = itemEntity.getItem();
+            if (itemStack.isEmpty()
+               || !ListFilterMode.matches(itemSelection, itemStack.getItem(), selectedItems)) {
+               continue;
+            }
+         }
+
+         String name;
+         if (itemStack != null) {
+            name = itemStack.getHoverName().getString();
+         } else if (useCustomNames) {
+            name = entity.getName().getString();
+         } else {
+            name = entityType.getDescription().getString();
+         }
+
+         int countContribution = itemStack != null ? itemStack.getCount() : 1;
+         this.countsByName.merge(name, countContribution, Integer::sum);
       }
 
       this.entries.clear();
-      this.entries.addAll(
-         this.countsByName.entrySet().stream()
-            .map(EntityCount::fromEntry)
-            .toList()
-      );
+      for (Entry<String, Integer> entry : this.countsByName.entrySet()) {
+         this.entries.add(EntityCount.fromEntry(entry));
+      }
       Setting<SortMode> sortingOption = this.sortingSetting;
       EntityListModule.SortMode sorting = sortingOption.getValue();
       switch (sorting) {
@@ -157,23 +142,18 @@ public class EntityListModule extends HudWidgetModule {
             this.entries.sort(Comparator.comparing(EntityCount::displayName));
             break;
          case COUNT:
-            this.entries.sort(Comparator.comparing((EntityCount entry) -> -entry.count()));
+            this.entries.sort(Comparator.comparingInt((EntityCount entry) -> -entry.count()));
             break;
          case LENGTH:
-            this.entries.sort(Comparator.comparing((EntityCount entry) -> {
-                     FontRenderer textRenderer = FontRenderer.INSTANCE;
-                     boolean coloredCount = false;
-                     float width = textRenderer.getWidth(
-                        entry.formatText(coloredCount)
-                     );
-                     return width;
-                  }));
+            this.entries.sort(Comparator.comparingDouble(
+               entry -> FontRenderer.INSTANCE.getWidth(entry.plainText())
+            ));
       }
    }
 
    @Override
    public void renderContent(PoseStack poses) {
-      float hudScale = hud.getTextScale();
+      float hudScale = hud().getTextScale();
       float y = this.renderer
             .getContentY(
                FontRenderer.INSTANCE
@@ -260,32 +240,20 @@ public class EntityListModule extends HudWidgetModule {
 
    private record EntityCount(
       String displayName,
-      int count
+      int count,
+      String plainText,
+      String coloredText
    ) {
       static EntityListModule.EntityCount fromEntry(Entry<String, Integer> entry) {
-         return new EntityListModule.EntityCount(entry.getKey(), entry.getValue());
+         String displayName = entry.getKey();
+         int count = entry.getValue();
+         String plainText = displayName + " x" + count;
+         String coloredText = displayName + ChatFormatting.WHITE + " x" + count;
+         return new EntityListModule.EntityCount(displayName, count, plainText, coloredText);
       }
 
       public String formatText(boolean coloredCount) {
-         if (coloredCount) {
-            String nameForColoredText = this.displayName;
-            ChatFormatting whiteFormatting = ChatFormatting.WHITE;
-            String whiteCode = String.valueOf(whiteFormatting);
-            int coloredCountValue = this.count;
-            String countText = String.valueOf(coloredCountValue);
-            return "\u0001\u0001 x\u0001"
-               .replaceFirst("\u0001", Matcher.quoteReplacement(String.valueOf(nameForColoredText)))
-               .replaceFirst("\u0001", Matcher.quoteReplacement(String.valueOf(whiteCode)))
-               .replaceFirst("\u0001", Matcher.quoteReplacement(countText));
-         } else {
-            String nameForPlainText = this.displayName;
-            int plainCount = this.count;
-            String countText = String.valueOf(plainCount);
-            return "\u0001 x\u0001"
-               .replaceFirst("\u0001", Matcher.quoteReplacement(String.valueOf(nameForPlainText)))
-               .replaceFirst("\u0001", Matcher.quoteReplacement(countText));
-         }
+         return coloredCount ? this.coloredText : this.plainText;
       }
-
    }
 }

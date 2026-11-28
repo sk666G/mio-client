@@ -10,7 +10,15 @@
 package dev.schizo.client.managers;
 
 import dev.schizo.client.config.LegacySocialMigration;
+import dev.schizo.client.config.LegacyDirectoryMigration;
+import dev.schizo.client.config.ConfigFileReader;
+import dev.schizo.client.config.BackedUpConfigWriter;
+import dev.schizo.client.config.SafeModeManager;
+import dev.schizo.client.config.ConfigurationBackupManager;
 import dev.schizo.client.config.ModulePresetCodec;
+import dev.schizo.client.config.JsonStateTransaction;
+import dev.schizo.client.config.ConfigurationSaveGate;
+import dev.schizo.client.config.ConfigPathGuard;
 import dev.schizo.client.config.PresetUndoState;
 import dev.schizo.client.render.BundledResourceInstaller;
 import dev.schizo.client.utils.FileUtils;
@@ -27,12 +35,14 @@ import com.google.gson.JsonParser;
 import java.io.File;
 import java.nio.file.Path;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.RejectedExecutionException;
 import net.fabricmc.loader.api.FabricLoader;
 
 public final class ConfigurationManager implements ClientAccess {
@@ -45,16 +55,34 @@ public final class ConfigurationManager implements ClientAccess {
    public static final Path CHUNKS_DIRECTORY;
    public static final Path SOUNDS_DIRECTORY;
    public static final Path SHADERS_DIRECTORY;
-   public static final Path USER_HOME_MARKER_PATH;
+   public static final Path GAME_PANEL_UNLOCK_MARKER_PATH;
    private static final List<Path> directories;
+   private final ConfigurationBackupManager backupManager = new ConfigurationBackupManager(ROOT_DIRECTORY);
    private final ModulePresetCodec modulePresetCodec = new ModulePresetCodec();
    private final Map<PresetCategory, PresetRegistry> presetRegistries = new HashMap<>();
    private final BundledResourceInstaller bundledResources = new BundledResourceInstaller();
    private final PresetUndoState presetUndoState = new PresetUndoState();
    private final ConfigurableRegistry configurables = new ConfigurableRegistry();
+   private final ConfigurationSaveGate saveGate = new ConfigurationSaveGate();
 
    public ModulePresetCodec getModulePresetCodec() {
       return this.modulePresetCodec;
+   }
+
+   public ConfigurationBackupManager getBackupManager() {
+      return this.backupManager;
+   }
+
+   public List<String> getConfigurableNames() {
+      List<String> names = new ArrayList<>();
+      for (JsonConfigurable configurable : this.configurables) {
+         names.add(configurable.getConfigName());
+      }
+      return List.copyOf(names);
+   }
+
+   public boolean isRegisteredConfig(String configName) {
+      return configName != null && this.getConfigurableNames().contains(configName);
    }
 
    public PresetUndoState getPresetUndoState() {
@@ -68,11 +96,16 @@ public final class ConfigurationManager implements ClientAccess {
       for (PresetCategory category : PresetCategory.values()) directories.add(category.getDirectory());
 
       this.prepareDirectories();
+      if (!isSafeRootDirectory()) {
+         ClientAccess.logger.error("Skipping configuration load because the data root is not a real directory");
+         return;
+      }
 
       try {
 
          LegacySocialMigration.migrate();
-      } catch (Throwable ignoredBootstrapFailure) {
+      } catch (Exception migrationFailure) {
+         ClientAccess.logger.error("Could not migrate legacy social data", migrationFailure);
       }
 
       Iterator<?> configurableIterator = this.configurables.iterator();
@@ -81,18 +114,22 @@ public final class ConfigurationManager implements ClientAccess {
          JsonConfigurable configurable = (JsonConfigurable)configurableIterator.next();
 
          try {
-            Path configPath = ROOT_DIRECTORY.resolve(configurable.getConfigName());
-            File configFile = configPath.toFile();
-            if (configFile.exists()) {
-               String configText = FileUtils.readUtf8(configPath);
+            Path configPath = ConfigPathGuard.resolveForRead(ROOT_DIRECTORY, configurable.getConfigName());
+            if (Files.exists(configPath, LinkOption.NOFOLLOW_LINKS)) {
+               String configText = ConfigFileReader.readUtf8(configPath, (int)ConfigurationBackupManager.MAX_CONFIG_BYTES);
                JsonElement configJson = JsonParser.parseString(configText);
-               configurable.fromJson(configJson.getAsJsonObject());
+               JsonStateTransaction.apply(
+                  configurable::toJson,
+                  configurable::fromJson,
+                  configJson.getAsJsonObject()
+               );
             }
-         } catch (Throwable loadFailure) {
-            loadFailure.printStackTrace();
+         } catch (Exception loadFailure) {
+            ClientAccess.logger.error("Could not load configuration {}", configurable.getConfigName(), loadFailure);
          }
       }
 
+      this.presetUndoState.clear();
       for (PresetCategory presetCategory : PresetCategory.values()) {
          PresetRegistry presetRegistry = new PresetRegistry(presetCategory);
          this.presetRegistries.put(presetCategory, presetRegistry);
@@ -101,20 +138,30 @@ public final class ConfigurationManager implements ClientAccess {
       }
    }
 
+   private static void createDirectoryTreeNoFollow(Path root, Path destination) throws IOException {
+      ConfigPathGuard.ensureDirectory(root, destination);
+   }
+
    public void prepareDirectories() {
       try {
-         Path legacyAutoEzPath = ROOT_DIRECTORY.resolve("autoez");
-         File legacyAutoEz = legacyAutoEzPath.toFile();
-         if (legacyAutoEz.isDirectory()) {
-            File killsayTarget = KILLSAY_DIRECTORY.toFile();
-            legacyAutoEz.renameTo(killsayTarget);
-         }
-      } catch (Exception ignoredMigrationFailure) {
+         if (Files.isSymbolicLink(ROOT_DIRECTORY)) throw new IOException("Configuration root must not be a symbolic link");
+         Files.createDirectories(ROOT_DIRECTORY);
+         if (!Files.isDirectory(ROOT_DIRECTORY, LinkOption.NOFOLLOW_LINKS)) throw new IOException("Configuration root is not a real directory");
+      } catch (IOException failure) {
+         ClientAccess.logger.error("Could not prepare configuration root {}", ROOT_DIRECTORY, failure);
+         return;
       }
-
+      try {
+         LegacyDirectoryMigration.Result result = LegacyDirectoryMigration.moveDirectory(ROOT_DIRECTORY, "autoez", "killsay");
+         if (result == LegacyDirectoryMigration.Result.MOVED) ClientAccess.logger.info("Migrated legacy autoez directory to killsay");
+         else if (result == LegacyDirectoryMigration.Result.TARGET_EXISTS) ClientAccess.logger.warn("Leaving legacy autoez directory in place because killsay already exists");
+         else if (result == LegacyDirectoryMigration.Result.UNSAFE_SOURCE) ClientAccess.logger.warn("Leaving legacy autoez directory in place because it contains unsafe entries");
+      } catch (IOException | IllegalArgumentException failure) {
+         ClientAccess.logger.warn("Could not migrate legacy autoez directory", failure);
+      }
       for (Path path : directories) {
          try {
-            Files.createDirectories(path);
+            createDirectoryTreeNoFollow(ROOT_DIRECTORY, path);
          } catch (IOException failure) {
             ClientAccess.logger.warn("Could not create configuration directory {}", path.getFileName(), failure);
          }
@@ -152,8 +199,7 @@ public final class ConfigurationManager implements ClientAccess {
 
       SHADERS_DIRECTORY = parentDirectory.resolve("shaders");
 
-      String userHome = System.getProperty("user.home");
-      USER_HOME_MARKER_PATH = Path.of(userHome, "_____a");
+      GAME_PANEL_UNLOCK_MARKER_PATH = ROOT_DIRECTORY.resolve(".game-panel-unlocked");
       directories = new ArrayList<>();
    }
 
@@ -161,22 +207,144 @@ public final class ConfigurationManager implements ClientAccess {
       return this.presetRegistries.get(category);
    }
 
+   private static boolean isSafeRootDirectory() {
+      return !Files.isSymbolicLink(ROOT_DIRECTORY)
+         && Files.isDirectory(ROOT_DIRECTORY, LinkOption.NOFOLLOW_LINKS);
+   }
+
+   /**
+    * Restore is an on-disk recovery operation: in-memory config remains live until restart.
+    * Prevent pending and future saves from overwriting the recovered file this session.
+    */
+   public void restoreBackup(String configName, String backupFileName) throws IOException {
+      if (!this.isRegisteredConfig(configName)) {
+         throw new IllegalArgumentException("Unknown configuration: " + configName);
+      }
+      this.saveGate.restoreAndProtect(
+         configName,
+         () -> this.backupManager.restoreBackup(configName, backupFileName)
+      );
+   }
+
+   public void saveAsyncSnapshot() {
+      if (!isSafeRootDirectory()) {
+         ClientAccess.logger.error("Skipping configuration save because the data root is not a real directory");
+         return;
+      }
+      if (PanicCommand.unloaded) {
+         return;
+      }
+
+      long saveVersion = this.saveGate.reserveAsyncSave();
+      if (saveVersion == ConfigurationSaveGate.NO_ASYNC_SAVE) {
+         return;
+      }
+
+      List<ConfigSnapshot> snapshots = new ArrayList<>();
+      Iterator<?> configurableIterator = this.configurables.iterator();
+      while (configurableIterator.hasNext()) {
+         JsonConfigurable configurable = (JsonConfigurable)configurableIterator.next();
+         if (this.saveGate.isSaveSuspended(configurable.getConfigName())) {
+            continue;
+         }
+         if (SafeModeManager.GLOBAL.isActive() && "modules.json".equals(configurable.getConfigName())) {
+            ClientAccess.logger.info("Preserving module enablement state while Safe Mode is active");
+            continue;
+         }
+         try {
+            JsonElement serialized = configurable.toJson();
+            snapshots.add(new ConfigSnapshot(configurable.getConfigName(), serialized.getAsJsonObject().deepCopy()));
+         } catch (Exception snapshotFailure) {
+            ClientAccess.logger.error("Could not snapshot configuration {}", configurable.getConfigName(), snapshotFailure);
+         }
+      }
+
+      try {
+         ClientAccess.executorService.submit(() -> this.writeSnapshots(snapshots, saveVersion));
+      } catch (RejectedExecutionException shutdownRace) {
+         ClientAccess.logger.debug("Skipping asynchronous configuration save because the worker executor is shutting down");
+      }
+   }
+
+   /** Stops new asynchronous saves before client shutdown begins. */
+   public void beginShutdown() {
+      this.saveGate.closeAsyncSaves();
+   }
+
+   private void writeSnapshots(List<ConfigSnapshot> snapshots, long saveVersion) {
+      this.saveGate.runIfCurrent(
+         saveVersion,
+         () -> this.writeSnapshotsLocked(snapshots)
+      );
+   }
+
+   private void writeSnapshotsLocked(List<ConfigSnapshot> snapshots) {
+      if (!isSafeRootDirectory()) {
+         ClientAccess.logger.error("Skipping configuration save because the data root is not a real directory");
+         return;
+      }
+      Gson gsonSnapshot = ClientAccess.gson;
+      for (ConfigSnapshot snapshot : snapshots) {
+         if (this.saveGate.isSaveSuspended(snapshot.name())) {
+            continue;
+         }
+         try {
+            Path configPath = ConfigPathGuard.resolveForWrite(ROOT_DIRECTORY, snapshot.name());
+            BackedUpConfigWriter.writeAfterBackup(
+               configPath,
+               gsonSnapshot.toJson(snapshot.json()),
+               () -> this.backupManager.backupBeforeSave(snapshot.name())
+            );
+         } catch (Exception saveFailure) {
+            ClientAccess.logger.error("Could not save configuration {}", snapshot.name(), saveFailure);
+         }
+      }
+   }
+
+   private record ConfigSnapshot(String name, JsonObject json) {
+   }
+
    public void save() {
-      if (!PanicCommand.unloaded) {
-         Iterator<?> configurableIterator = this.configurables.iterator();
+      if (!isSafeRootDirectory()) {
+         ClientAccess.logger.error("Skipping configuration save because the data root is not a real directory");
+         return;
+      }
+      if (PanicCommand.unloaded) {
+         return;
+      }
 
-         while (configurableIterator.hasNext()) {
-            JsonConfigurable configurable = (JsonConfigurable)configurableIterator.next();
+      this.saveGate.invalidatePendingAndRun(this::saveCurrentStateLocked);
+   }
 
-            try {
-               Path configPath = ROOT_DIRECTORY.resolve(configurable.getConfigName());
-               Gson gsonSnapshot = ClientAccess.gson;
-               JsonElement serialized = configurable.toJson();
-               JsonObject object = serialized.getAsJsonObject();
-               FileUtils.writeUtf8(configPath, gsonSnapshot.toJson(object));
-            } catch (Throwable saveFailure) {
-               saveFailure.printStackTrace();
-            }
+   private void saveCurrentStateLocked() {
+      if (!isSafeRootDirectory()) {
+         ClientAccess.logger.error("Skipping configuration save because the data root is not a real directory");
+         return;
+      }
+
+      Iterator<?> configurableIterator = this.configurables.iterator();
+      while (configurableIterator.hasNext()) {
+         JsonConfigurable configurable = (JsonConfigurable)configurableIterator.next();
+         if (this.saveGate.isSaveSuspended(configurable.getConfigName())) {
+            continue;
+         }
+         if (SafeModeManager.GLOBAL.isActive() && "modules.json".equals(configurable.getConfigName())) {
+            ClientAccess.logger.info("Preserving module enablement state while Safe Mode is active");
+            continue;
+         }
+
+         try {
+            Path configPath = ConfigPathGuard.resolveForWrite(ROOT_DIRECTORY, configurable.getConfigName());
+            Gson gsonSnapshot = ClientAccess.gson;
+            JsonElement serialized = configurable.toJson();
+            JsonObject object = serialized.getAsJsonObject();
+            BackedUpConfigWriter.writeAfterBackup(
+               configPath,
+               gsonSnapshot.toJson(object),
+               () -> this.backupManager.backupBeforeSave(configurable.getConfigName())
+            );
+         } catch (Exception saveFailure) {
+            ClientAccess.logger.error("Could not save configuration {}", configurable.getConfigName(), saveFailure);
          }
       }
    }

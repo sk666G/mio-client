@@ -15,6 +15,7 @@ import dev.schizo.client.gui.screens.PresetScreen;
 import dev.schizo.client.gui.components.ActionButtonComponent;
 import dev.schizo.client.config.PresetData;
 import dev.schizo.client.gui.GuiElement;
+import dev.schizo.client.settings.options.PresetCategory;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 
@@ -43,7 +44,9 @@ public class PresetListPanel extends Panel {
 
    public void refreshPresets() {
       this.layoutUpdatePending = true;
+      this.cancelInput();
       this.children.clear();
+      var category=screen.getSelectedCategory();
       ClientContext.configurationManager
          .getPresetRegistry(
             this.screen
@@ -52,7 +55,7 @@ public class PresetListPanel extends Panel {
          .forEachPreset(
             (java.util.function.Consumer<dev.schizo.client.config.PresetData>)(preset -> this.addChild(
                new PresetListPanel.PresetButton(
-                  this.screen, this, preset
+                  this.screen, this, preset, category
                )
             ))
          );
@@ -61,12 +64,14 @@ public class PresetListPanel extends Panel {
    private static final class PresetButton extends ActionButtonComponent {
       private final PresetScreen screen;
       private final PresetData preset;
+      private final PresetCategory category;
 
-      public PresetButton(PresetScreen screen, Panel panel, PresetData preset) {
+      public PresetButton(PresetScreen screen, Panel panel, PresetData preset,PresetCategory category) {
          super(
             panel,
             preset.getName(),
             () -> {
+               if(screen.getSelectedCategory()!=category) return;
                screen.getPresetPanel()
                   .editPreset(
                      preset
@@ -76,12 +81,13 @@ public class PresetListPanel extends Panel {
             }
          );
          this.preset = preset;
+         this.category=category;
          this.screen = screen;
       }
 
       @Override
       public boolean isHighlighted() {
-         return this.preset
+         return screen.getSelectedCategory()==category && this.preset
             .equals(
                this.screen
                   .getPresetPanel()

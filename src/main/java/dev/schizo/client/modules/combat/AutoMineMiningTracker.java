@@ -10,7 +10,6 @@
 package dev.schizo.client.modules.combat;
 
 import dev.schizo.client.ClientAccess;
-import dev.schizo.client.ClientContext;
 import dev.schizo.client.utils.combat.ExtraBreakTarget;
 import dev.schizo.client.utils.ElapsedTimer;
 import dev.schizo.client.managers.ModuleRegistry;
@@ -54,9 +53,7 @@ public final class AutoMineMiningTracker implements ClientAccess {
    AutoMineMiningTracker() {
    }
 
-   static {
-      speedMine = (SpeedMineModule)ClientContext.getModule(SpeedMineModule.class);
-   }
+   
 
 
    public void rememberPosition(BlockPos position) {

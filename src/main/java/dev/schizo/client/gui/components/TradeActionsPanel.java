@@ -16,12 +16,15 @@ import dev.schizo.client.gui.screens.TradeManagerScreen;
 import dev.schizo.client.gui.screens.TradeEditorScreen;
 import dev.schizo.client.gui.components.ActionButtonComponent;
 import dev.schizo.client.utils.inventory.TradeDefinition;
-import dev.schizo.client.utils.ElapsedTimer;
 import dev.schizo.client.gui.components.ButtonComponent;
 import dev.schizo.client.render.TradePanelRequest;
+import dev.schizo.client.utils.inventory.EnchantmentUtils;
+import dev.schizo.client.utils.inventory.TradeEnchantmentEntry;
 
 public class TradeActionsPanel extends Panel implements ClientAccess {
-   private final ElapsedTimer deleteConfirmationTimer = new ElapsedTimer();
+   private long deleteArmedAt;
+   private boolean deleteArmed;
+   private String notice="";
    private final TradeManagerScreen managerScreen;
    private final TradeDefinition trade;
 
@@ -50,35 +53,53 @@ public class TradeActionsPanel extends Panel implements ClientAccess {
             this::deleteIfConfirmed
          )
       );
-      this.registerChild(
-         new ActionButtonComponent(this, "Cancel", this::showCreatePanel)
-      );
+      this.registerChild(new ActionButtonComponent(this,"Cancel",this::showCreatePanel));
+      this.registerChild(new ButtonComponent(this,()->StudioControlStyle.fitText(notice,Math.max(0,getWidth()-8))));
+   }
+
+   private TradeDefinition currentTrade() {
+      return (TradeDefinition)ClientContext.tradeRegistry.findFirst(
+         (java.util.function.Predicate<TradeDefinition>)candidate->candidate.getName().equals(trade.getName())
+      ).orElse(null);
    }
 
    private void openEditor() {
-      TradeDefinition registeredTrade = (TradeDefinition)ClientContext.tradeRegistry
-         .findFirst(
-            (java.util.function.Predicate<dev.schizo.client.utils.inventory.TradeDefinition>)(candidate -> candidate.getName()
-               .equals(this.trade.getName())
-         ))
-         .orElse(null);
-      TradeEditorScreen editorScreen = new TradeEditorScreen(registeredTrade);
-      editorScreen.setParentScreen(
-         this.managerScreen
-      );
+      deleteArmed=false;
+      TradeDefinition current=currentTrade();
+      if(current!=trade) {notice="Trade changed; reopen selection.";return;}
+      if(ClientAccess.schizoMinecraft.level==null) {notice="Open a world first.";return;}
+      for(Object entry:current.enchants()) {
+         var enchantment=(TradeEnchantmentEntry)entry;
+         if(EnchantmentUtils.getHolder(enchantment.getName())==null) {
+            notice="Missing enchantment; edit unavailable.";
+            return;
+         }
+      }
+      TradeEditorScreen editorScreen=new TradeEditorScreen(current);
+      editorScreen.setParentScreen(managerScreen);
       ClientAccess.schizoMinecraft.setScreen(editorScreen);
    }
 
    private void deleteIfConfirmed() {
-      if (!this.deleteConfirmationTimer
-         .hasElapsedAndReset(1000L)) {
-         ClientContext.tradeRegistry
-            .reregisterByName(
-               this.trade
-                  .name()
-            );
-         this.showCreatePanel();
+      if(currentTrade()!=trade) {
+         deleteArmed=false;
+         notice="Trade changed; reopen selection.";
+         return;
       }
+      long now=System.nanoTime();
+      if(deleteArmed && now-deleteArmedAt<1_000_000_000L) {
+         deleteArmed=false;
+         ClientContext.tradeRegistry.unregisterByName(trade.name());
+         showCreatePanel();
+      } else {
+         deleteArmed=true;
+         deleteArmedAt=now;
+      }
+   }
+
+   @Override public void cancelInput() {
+      deleteArmed=false;
+      super.cancelInput();
    }
 
    private void showCreatePanel() {
@@ -89,10 +110,6 @@ public class TradeActionsPanel extends Panel implements ClientAccess {
    }
 
    private String getDeleteButtonLabel() {
-      return this.deleteConfirmationTimer
-            .hasElapsed(1000L)
-         ? "Delete"
-         : "Are you sure?";
+      return deleteArmed && System.nanoTime()-deleteArmedAt<1_000_000_000L?"Confirm delete":"Delete";
    }
-
 }

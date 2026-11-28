@@ -79,7 +79,7 @@ public class LongJumpModule extends Module {
          this.disable();
       } else {
          if (this.autoJumpSetting.getValue()) {
-            ClientContext.inputOverrides.requestJump(true);
+            ClientContext.inputOverrides.requestJump(this, true);
             this.jumpRequested = true;
          } else {
             this.jumpRequested = false;
@@ -291,6 +291,12 @@ public class LongJumpModule extends Module {
       this.autoDisableSetting = this.add(new BooleanSetting("AutoDisable", true));
 
       this.movementStage = 4;
+      this.modeSetting.setChangeCallback(this::releaseTimerRequest);
+      this.useTimerSetting.setChangeCallback(this::releaseTimerRequest);
+   }
+
+   private void releaseTimerRequest() {
+      ClientContext.tickRateController.releaseMultiplier(this);
    }
 
    public enum ModeChoice implements NamedEntry {

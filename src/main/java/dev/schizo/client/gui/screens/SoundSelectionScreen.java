@@ -16,11 +16,14 @@ import dev.schizo.client.gui.panels.Panel;
 import dev.schizo.client.gui.components.ButtonComponent;
 import dev.schizo.client.render.FontRenderer;
 import dev.schizo.client.managers.ConfigurationManager;
+import dev.schizo.client.managers.SoundManager;
+import dev.schizo.client.config.ConfigPathGuard;
 import dev.schizo.client.utils.collections.NamedIdentifier;
 import dev.schizo.client.settings.Setting;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.List;
@@ -50,23 +53,49 @@ public class SoundSelectionScreen extends ClientScreen {
 
    @Override
    public void onFilesDrop(List paths) {
+      Path customSoundsDirectory = ConfigurationManager.SOUNDS_DIRECTORY.resolve("custom");
+      int imported = 0;
+      try {
+         this.prepareCustomSoundsDirectory(customSoundsDirectory);
+      } catch (IOException directoryFailure) {
+         ClientAccess.logger.warn("Could not prepare custom sound directory", directoryFailure);
+         return;
+      }
+
       for (Object pathElement : paths) {
          Path droppedFile = (Path)pathElement;
-         if (droppedFile.toFile().getName().endsWith(".ogg")) {
-            Path customSoundsDirectory = ConfigurationManager.SOUNDS_DIRECTORY.resolve("custom");
-            customSoundsDirectory.toFile().mkdirs();
+         if (!droppedFile.getFileName().toString().toLowerCase(java.util.Locale.ROOT).endsWith(".ogg")) {
+            continue;
+         }
 
-            try {
-               Files.copy(droppedFile, customSoundsDirectory.resolve(droppedFile.getFileName()));
-            } catch (IOException exception) {
-               exception.printStackTrace();
+         try {
+            if (Files.isSymbolicLink(droppedFile)
+               || !Files.isRegularFile(droppedFile, LinkOption.NOFOLLOW_LINKS)) {
+               throw new IOException("Dropped sound is not a regular file");
             }
+            long sourceSize = Files.size(droppedFile);
+            if (!isSupportedImportSize(sourceSize)) {
+               throw new IOException("Dropped sound exceeds the supported size limit");
+            }
+            Files.copy(droppedFile, customSoundsDirectory.resolve(droppedFile.getFileName()));
+            imported++;
+         } catch (IOException exception) {
+            ClientAccess.logger.warn("Could not import custom sound {}", droppedFile, exception);
          }
       }
 
-      ClientContext.soundManager
-         .reload();
-      this.rebuildSoundPanels();
+      if (imported > 0) {
+         ClientContext.soundManager.reload();
+         this.rebuildSoundPanels();
+      }
+   }
+
+   private void prepareCustomSoundsDirectory(Path directory) throws IOException {
+      ConfigPathGuard.ensureDirectory(ConfigurationManager.ROOT_DIRECTORY, directory);
+   }
+
+   static boolean isSupportedImportSize(long bytes) {
+      return bytes >= 0L && bytes <= SoundManager.MAX_CUSTOM_SOUND_BYTES;
    }
 
    private void rebuildSoundPanels() {
@@ -123,6 +152,12 @@ public class SoundSelectionScreen extends ClientScreen {
                   )
                );
          }
+      }
+   }
+
+   boolean soundAvailable(NamedIdentifier sound) {
+      synchronized(ClientContext.soundManager.getSoundIds()) {
+         return ClientContext.soundManager.getSoundIds().contains(sound);
       }
    }
 

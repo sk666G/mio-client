@@ -179,7 +179,7 @@ public final class ColorUtils {
             (int)(firstColor.getAlpha() * firstWeight + secondColor.getAlpha() * (1.0F - firstWeight))
          );
       } catch (IllegalArgumentException exception) {
-         exception.printStackTrace();
+         dev.schizo.client.ClientAccess.logger.debug("Could not interpolate color; using white fallback", exception);
          return Color.white;
       }
    }
@@ -253,6 +253,12 @@ public final class ColorUtils {
       return packArgb(
          color.getRed(), color.getGreen(), color.getBlue(), (int)Math.min(alpha * 255.0F, 255.0F)
       );
+   }
+
+   /** Replace formatting RGB without discarding the caller's opacity or shadow pass. */
+   static int fontFormattingColor(int baseArgb, int rgb, boolean shadowPass) {
+      int formatted = shadowPass ? (rgb & 0x00FCFCFC) >>> 2 : rgb & 0x00FFFFFF;
+      return (baseArgb & 0xFF000000) | formatted;
    }
 
    public static int modulateRgb(

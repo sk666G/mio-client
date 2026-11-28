@@ -26,6 +26,7 @@ import dev.schizo.client.settings.BooleanSetting;
 import dev.schizo.client.settings.NumberSetting;
 import dev.schizo.client.settings.Setting;
 import dev.schizo.client.utils.math.MathUtils;
+import dev.schizo.client.utils.network.ServerSideDeathState;
 
 import dev.schizo.mixin.MinecraftAccessor;
 import java.util.concurrent.TimeUnit;
@@ -106,16 +107,26 @@ public class TriggerModule extends Module {
       }
 
       Entity target = ((EntityHitResult)ClientAccess.schizoMinecraft.hitResult).getEntity();
+      if (target instanceof Player player && !CombatTargetPolicy.isEligible(
+         player.isAlive(),
+         player.isDeadOrDying(),
+         player == ClientAccess.schizoMinecraft.player,
+         player.isSpectator(),
+         player.isCreative(),
+         ClientContext.socialRegistry.isFriendName(player.getGameProfile().name()),
+         ((ServerSideDeathState)player).isServerSideDead()
+      )) {
+         return;
+      }
+
       boolean eligiblePlayer = false;
       if (target instanceof Player) {
          SocialRegistry socialRegistry = ClientContext.socialRegistry;
          Component targetName = target.getName();
          String playerName = targetName.getString();
 
-         if (!socialRegistry.isFriendName(playerName)) {
-            if (this.playersSetting.getValue()) {
-               eligiblePlayer = true;
-            }
+         if (!socialRegistry.isFriendName(playerName) && this.playersSetting.getValue()) {
+            eligiblePlayer = true;
          }
       }
 

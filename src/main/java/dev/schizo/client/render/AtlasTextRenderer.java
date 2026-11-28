@@ -32,7 +32,6 @@ import net.minecraft.util.FormattedCharSequence;
 public final class AtlasTextRenderer {
    private static final float ATLAS_SCALE = 0.25F;
    private static final Map<Character, ChatFormatting> FORMATTING_CODES = new Char2ObjectOpenHashMap<>();
-   private static final FontsModule FONTS = (FontsModule)ClientContext.getModule(FontsModule.class);
    protected static final MeshBuffer glyphMesh = MeshBuffer.create();
    private static final ByteBufferBuilder byteBuffer = new ByteBufferBuilder(2048);
    private static final BufferSource immediateBuffers = MultiBufferSource.immediate(byteBuffer);
@@ -54,9 +53,21 @@ public final class AtlasTextRenderer {
       this.atlas = atlas;
    }
 
+   private static FontsModule fonts() {
+      return ClientContext.getModule(FontsModule.class);
+   }
+
    public void flush() {
+      flushPending();
+   }
+
+   static boolean hasPendingGlyphs() {
+      return glyphMesh.isBuilding();
+   }
+
+   static void flushPending() {
       if (glyphMesh.isBuilding()) {
-         boolean antiAlias = FONTS.antiAliasSetting.getValue();
+         boolean antiAlias = fonts().antiAliasSetting.getValue();
          MeshDrawContext.setRenderType(ClientRenderTypes.font(FontAtlas.ATLAS_TEXTURE, antiAlias));
          MeshBuffer.draw(glyphMesh);
       }
@@ -64,6 +75,10 @@ public final class AtlasTextRenderer {
    }
 
    public MultiBufferSource getBufferSource() {
+      return sharedBufferSource();
+   }
+
+   static MultiBufferSource sharedBufferSource() {
       return bufferSource;
    }
 
@@ -80,8 +95,11 @@ public final class AtlasTextRenderer {
    }
 
    public static void finishBuffers() {
-      immediateBuffers.endBatch();
-      lastRenderType = null;
+      try {
+         immediateBuffers.endBatch();
+      } finally {
+         lastRenderType = null;
+      }
    }
 
    public int draw(PoseStack poses, String text, float x, float y, int argb) {
@@ -127,11 +145,12 @@ public final class AtlasTextRenderer {
       };
       FontAtlas atlas = new FontAtlas(new Font(fontName, awtStyle, fontSize));
       atlas.buildAtlas(characters);
+      AtlasTextRenderer renderer = new AtlasTextRenderer(atlas);
       atlas.uploadTexture();
-      return new AtlasTextRenderer(atlas);
+      return renderer;
    }
 
-   private void renderString(PoseStack poses, String text, int baseColor) {
+   private void renderString(PoseStack poses, String text, int baseColor, boolean shadowPass) {
       int color = baseColor;
       poses.pushPose();
       try {
@@ -141,14 +160,16 @@ public final class AtlasTextRenderer {
             glyphMesh.begin(Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
          }
          boolean formattingCode = false;
-         for (char character : text.toCharArray()) {
+         for (int offset = 0; offset < text.length();) {
+            int character = text.codePointAt(offset);
+            offset += Character.charCount(character);
             if (formattingCode) {
                formattingCode = false;
-               ChatFormatting format = FORMATTING_CODES.get(Character.toLowerCase(character));
+               ChatFormatting format = Character.isBmpCodePoint(character) ? FORMATTING_CODES.get((char)Character.toLowerCase(character)) : null;
                if (format == null || format == ChatFormatting.RESET) {
                   color = baseColor;
                } else if (format.getColor() != null) {
-                  color = format.getColor();
+                  color = ColorUtils.fontFormattingColor(baseColor, format.getColor(), shadowPass);
                }
             } else if (character == '\u00a7') {
                formattingCode = true;
@@ -162,7 +183,11 @@ public final class AtlasTextRenderer {
    }
 
    public float getCharacterWidth(char character) {
-      return this.atlas.getGlyphWidth(character) * ATLAS_SCALE;
+      return this.getCharacterWidth((int)character);
+   }
+
+   public float getCharacterWidth(int codePoint) {
+      return this.atlas.getGlyphWidth(codePoint) * ATLAS_SCALE;
    }
 
    private int drawPass(PoseStack poses, String text, float x, float y, int argb, boolean shadowPass) {
@@ -178,7 +203,7 @@ public final class AtlasTextRenderer {
       }
       this.cursorX = x / ATLAS_SCALE;
       this.cursorY = y / ATLAS_SCALE;
-      this.renderString(poses, text, argb);
+      this.renderString(poses, text, argb, shadowPass);
       return (int)(this.cursorX * ATLAS_SCALE);
    }
 
@@ -207,7 +232,9 @@ public final class AtlasTextRenderer {
       }
       float width = 0.0F;
       boolean formattingCode = false;
-      for (char character : text.toCharArray()) {
+      for (int offset = 0; offset < text.length();) {
+         int character = text.codePointAt(offset);
+         offset += Character.charCount(character);
          if (formattingCode) {
             formattingCode = false;
          } else if (character == '\u00a7') {
@@ -227,7 +254,8 @@ public final class AtlasTextRenderer {
       if (lastRenderType != null && lastRenderType != renderType) {
          GuiDrawUtils.flush();
       }
+      VertexConsumer consumer = immediateBuffers.getBuffer(renderType);
       lastRenderType = renderType;
-      return immediateBuffers.getBuffer(renderType);
+      return consumer;
    }
 }

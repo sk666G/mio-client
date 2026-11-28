@@ -2,34 +2,45 @@ name: Build
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - 'lunyx/**'
+      - 'codex/**'
+      - 'astra/**'
   pull_request:
   workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: build-${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
+
+      - name: Run rebuild security tests
+        run: python3 -m unittest discover -s tests -v
 
       - name: Install Java 21 toolchain
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '21'
 
       - name: Install Java 25 Gradle runtime
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '25'
 
       - name: Set up Gradle cache
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v6
 
       - name: Ensure Gradle wrapper is executable
         run: chmod +x ./gradlew
@@ -37,11 +48,72 @@ jobs:
       - name: Build mod
         env:
           ORG_GRADLE_JAVA_INSTALLATIONS_PATHS: ${{ env.JAVA_HOME_21_X64 }}
-        run: ./gradlew --no-daemon clean build
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            if ./gradlew --no-daemon clean build; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              exit 1
+            fi
+            sleep $((attempt * 15))
+          done
 
-      - name: Upload remapped mod jar
-        uses: actions/upload-artifact@v4
+      - name: Verify remapped artifacts and record provenance
+        shell: bash
+        env:
+          SOURCE_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          mapfile -t jars < <(find build/libs -maxdepth 1 -type f -name 'schizo-*.jar' ! -name '*-sources.jar' ! -name '*-dev.jar' | sort)
+          if [ "${#jars[@]}" -ne 1 ]; then
+            printf 'Expected exactly one runnable Schizo JAR, found %s\n' "${#jars[@]}" >&2
+            printf '%s\n' "${jars[@]}" >&2
+            exit 1
+          fi
+          mapfile -t source_jars < <(find build/libs -maxdepth 1 -type f -name 'schizo-*-sources.jar' | sort)
+          if [ "${#source_jars[@]}" -ne 1 ]; then
+            printf 'Expected exactly one Schizo sources JAR, found %s\n' "${#source_jars[@]}" >&2
+            printf '%s\n' "${source_jars[@]}" >&2
+            exit 1
+          fi
+
+          jar_file="${jars[0]}"
+          source_jar="${source_jars[0]}"
+          for required in fabric.mod.json LICENSING.md THIRD_PARTY_NOTICES.md LICENSES/DiscordIPC-APACHE-2.0.txt; do
+            jar tf "$jar_file" | grep -Fqx "$required"
+          done
+          for required in LICENSING.md THIRD_PARTY_NOTICES.md LICENSES/DiscordIPC-APACHE-2.0.txt; do
+            jar tf "$source_jar" | grep -Fqx "$required"
+          done
+
+          jar tf "$jar_file" | grep '^META-INF/jars/.*[.]jar$' | sort > build/libs/NESTED_JARS.txt || true
+          printf '%s\n' 'Nested libraries in runtime JAR:'
+          if [ -s build/libs/NESTED_JARS.txt ]; then
+            cat build/libs/NESTED_JARS.txt
+          else
+            printf '%s\n' '(none)'
+          fi
+          jar_basename="$(basename "$jar_file")"
+          (
+            cd build/libs
+            sha256sum "$jar_basename" > SHA256SUMS.txt
+          )
+          printf '%s\n' "$SOURCE_COMMIT_SHA" > build/libs/COMMIT_SHA.txt
+          printf '%s\n' "$GITHUB_SHA" > build/libs/BUILD_COMMIT_SHA.txt
+
+      - name: Upload verified remapped mod jar
+        uses: actions/upload-artifact@v6
         with:
           name: schizo-client
-          path: build/libs/*.jar
+          path: |
+            build/libs/schizo-*.jar
+            !build/libs/*-sources.jar
+            !build/libs/*-dev.jar
+            build/libs/SHA256SUMS.txt
+            build/libs/COMMIT_SHA.txt
+            build/libs/BUILD_COMMIT_SHA.txt
+            build/libs/NESTED_JARS.txt
           if-no-files-found: error

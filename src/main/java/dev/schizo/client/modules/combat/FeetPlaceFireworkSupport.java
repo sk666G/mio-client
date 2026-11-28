@@ -29,6 +29,7 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.Map.Entry;
+import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -50,7 +51,16 @@ public final class FeetPlaceFireworkSupport implements ClientAccess {
    private final Map itemSpawnTimes = new HashMap();
 
    void onEnable() {
+      this.clearTracking();
+   }
+
+   void onDisable() {
+      this.clearTracking();
+   }
+
+   private void clearTracking() {
       this.pendingFireworks.clear();
+      this.itemSpawnTimes.clear();
    }
 
    private boolean hasHorizontalNeighbor(BlockPos position, Iterable positions) {
@@ -226,7 +236,7 @@ public final class FeetPlaceFireworkSupport implements ClientAccess {
       return positions.contains(position);
    }
 
-   void observeSpawnPacket(PacketEvent.Receive event) {
+   void observeSpawnPacket(PacketEvent.Receive event, BooleanSupplier stillOwned) {
       long receivedAt = System.currentTimeMillis();
       Packet packet = event.getPacket();
       if (packet instanceof ClientboundAddEntityPacket itemPacket) {
@@ -238,6 +248,9 @@ public final class FeetPlaceFireworkSupport implements ClientAccess {
 
             BlockPos position = BlockPos.containing(itemX, capturedItemY, itemZ);
             ClientAccess.schizoMinecraft.execute((Runnable)() -> {
+               if (!stillOwned.getAsBoolean()) {
+                  return;
+               }
                Deque spawnTimes = (Deque)this.itemSpawnTimes.computeIfAbsent(
                   position, (Function<BlockPos, Deque>) unused -> new ArrayDeque()
                );

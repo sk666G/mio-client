@@ -33,10 +33,7 @@ class SoundOptionButton extends ButtonComponent {
 
    @Override
    public void render(PoseStack poseStack, double mouseX, double mouseY) {
-      if ((this.screen
-            .getSelectedSetting()
-            .getValue())
-         .equals(this.soundId)) {
+      if (java.util.Objects.equals(this.screen.getSelectedSetting().getValue(),this.soundId)) {
          RenderUtils.INSTANCE
             .fillRect(
                poseStack,
@@ -68,7 +65,7 @@ class SoundOptionButton extends ButtonComponent {
 
    @Override
    public void mouseClicked(double mouseX, double mouseY, int button) {
-      if (this.hovered) {
+      if (this.isMouseOver(mouseX,mouseY) && this.screen.soundAvailable(soundId)) {
          if (button == 0) {
             this.screen
                .getSelectedSetting()

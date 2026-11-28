@@ -15,7 +15,7 @@ import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.RotationRequestEvent;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.managers.RotationManager;
-import dev.schizo.client.managers.SocialRegistry;
+import dev.schizo.client.utils.network.ServerSideDeathState;
 import dev.schizo.client.utils.chat.ChatUtils;
 import dev.schizo.client.utils.world.BlockInteractionUtils;
 import dev.schizo.client.utils.inventory.InventoryUtils;
@@ -54,22 +54,30 @@ public class SelfWebModule extends Module {
 
    private Entity findNearestEnemy(Setting<Float> rangeSetting) {
       Stream<Entity> enemyStream = StreamSupport.stream(ClientAccess.schizoMinecraft.level.entitiesForRendering().spliterator(), false).filter(candidate -> {
-         if (candidate == ClientAccess.schizoMinecraft.player) {
+         if (!(candidate instanceof Player player)) {
             return false;
          }
 
-         float distanceToEnemy = ClientAccess.schizoMinecraft.player.distanceTo(candidate);
+         LocalPlayer localPlayer = ClientAccess.schizoMinecraft.player;
+         if (player == localPlayer || !this.meetsHeightPolicy(player)) {
+            return false;
+         }
+
+         float distanceToEnemy = localPlayer.distanceTo(player);
          Float enemyRange = rangeSetting.getValue();
-         if (!(distanceToEnemy <= enemyRange)) {
+         if (distanceToEnemy > enemyRange) {
             return false;
          }
-         if (!this.meetsHeightPolicy(candidate) || !(candidate instanceof Player)) {
-            return false;
-         }
-         SocialRegistry friendManagerSnapshot = ClientContext.socialRegistry;
-         String candidateName = candidate.getName().getString();
 
-         return !friendManagerSnapshot.isFriendName(candidateName) && candidate.isAlive();
+         return CombatTargetPolicy.isEligible(
+            player.isAlive(),
+            player.isDeadOrDying(),
+            player == localPlayer,
+            player.isSpectator(),
+            player.isCreative(),
+            ClientContext.socialRegistry.isFriendPlayer(player),
+            ((ServerSideDeathState)player).isServerSideDead()
+         );
       });
       LocalPlayer comparatorPlayerSnapshot = ClientAccess.schizoMinecraft.player;
       Optional<Entity> nearestEnemySnapshot = enemyStream.min(Comparator.comparingDouble((ToDoubleFunction<Entity>)comparatorPlayerSnapshot::distanceToSqr));
@@ -148,23 +156,23 @@ public class SelfWebModule extends Module {
          return;
       }
 
-      InventoryUtils.selectHotbarSlotForPlacement(webSlot);
-
-      AABB previousBounds = ClientAccess.schizoMinecraft.player.getBoundingBox();
-      LocalPlayer clearBoundsPlayerSnapshot = ClientAccess.schizoMinecraft.player;
+      LocalPlayer placementPlayer = ClientAccess.schizoMinecraft.player;
+      AABB previousBounds = placementPlayer.getBoundingBox();
       AABB emptyBounds = new AABB(0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
-      clearBoundsPlayerSnapshot.setBoundingBox(emptyBounds);
-      InteractionHand placementHand = InteractionHand.MAIN_HAND;
-      boolean placementFlag = false;
-      Direction placementFace = placementDirection;
-      BlockInteractionUtils.placeBlockIgnoringCrystals(
-         feetPosition, placementFace, placementFlag, placementHand
-      );
-      AABB restoredBounds = previousBounds;
-
-      ClientAccess.schizoMinecraft.player.setBoundingBox(restoredBounds);
-
-      InventoryUtils.selectHotbarSlotForPlacement(previousSlot);
+      try {
+         InventoryUtils.selectHotbarSlotForPlacement(webSlot);
+         placementPlayer.setBoundingBox(emptyBounds);
+         InteractionHand placementHand = InteractionHand.MAIN_HAND;
+         BlockInteractionUtils.placeBlockIgnoringCrystals(
+            feetPosition, placementDirection, false, placementHand
+         );
+      } finally {
+         try {
+            placementPlayer.setBoundingBox(previousBounds);
+         } finally {
+            InventoryUtils.selectHotbarSlotForPlacement(previousSlot);
+         }
+      }
 
       if (this.rotateSetting.getValue()) {
          RotationManager rotationManagerSnapshot = ClientContext.rotationManager;

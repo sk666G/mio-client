@@ -10,6 +10,7 @@
 package dev.schizo.client.events.bus;
 
 import dev.schizo.client.events.EventHandler;
+import dev.schizo.client.profiling.EventProfiler;
 import java.lang.invoke.LambdaMetafactory;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -23,12 +24,22 @@ public final class MethodEventListener implements EventListener {
    private final boolean staticListener;
    private final int priority;
    private final Consumer<Object> consumer;
+   private final EventProfiler.CallbackHandle profileHandle;
+   private final String diagnosticName;
 
    @SuppressWarnings("unchecked")
    public MethodEventListener(Class<?> declaringClass, Object subscriber, Method handlerMethod) {
+      this(declaringClass, subscriber, handlerMethod, EventProfiler.GLOBAL,
+         subscriber == null ? declaringClass.getSimpleName() : subscriber.getClass().getSimpleName(), null);
+   }
+
+   public MethodEventListener(Class<?> declaringClass, Object subscriber, Method handlerMethod,
+      EventProfiler profiler, String ownerName, String moduleName) {
       this.eventType = handlerMethod.getParameterTypes()[0];
       this.staticListener = Modifier.isStatic(handlerMethod.getModifiers());
       this.priority = handlerMethod.getAnnotation(EventHandler.class).priority();
+      this.diagnosticName = ownerName + "#" + handlerMethod.getName();
+      this.profileHandle = profiler.registerCallback(ownerName, moduleName, handlerMethod.getName(), this.eventType.getSimpleName());
       try {
          MethodHandles.Lookup lookup = MethodHandles.privateLookupIn(declaringClass, MethodHandles.lookup());
          MethodType handlerType = MethodType.methodType(void.class, this.eventType);
@@ -51,6 +62,11 @@ public final class MethodEventListener implements EventListener {
    }
 
    @Override
+   public String diagnosticName() {
+      return this.diagnosticName;
+   }
+
+   @Override
    public Class<?> getEventType() {
       return this.eventType;
    }
@@ -63,6 +79,11 @@ public final class MethodEventListener implements EventListener {
    @Override
    public int getPriority() {
       return this.priority;
+   }
+
+   @Override
+   public EventProfiler.CallbackHandle profileHandle() {
+      return this.profileHandle;
    }
 
    @Override

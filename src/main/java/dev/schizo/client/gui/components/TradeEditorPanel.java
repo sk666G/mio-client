@@ -43,11 +43,18 @@ public class TradeEditorPanel extends Panel implements ClientAccess {
    private final TradeItemsComponent tradeItems;
    private final TradeEditorScreen screen;
    private final String tradeName;
+   private final TradeDefinition expected;
+   private String notice="";
 
    public TradeEditorPanel(TradeEditorScreen screen, TradeDefinition trade, String actionLabel) {
+      this(screen,trade,actionLabel,!"Create".equals(actionLabel));
+   }
+
+   public TradeEditorPanel(TradeEditorScreen screen, TradeDefinition trade, String actionLabel,boolean editingExisting) {
       super("Trade Editor");
       this.screen = screen;
       this.tradeName = trade.name();
+      this.expected=editingExisting?trade:null;
       this.maxPriceSetting
          .setValue(
             trade.maxPrice()
@@ -78,6 +85,7 @@ public class TradeEditorPanel extends Panel implements ClientAccess {
          );
       this.children
          .add(new ActionButtonComponent(this, actionLabel, this::saveTrade));
+      this.children.add(new ButtonComponent(this,()->StudioControlStyle.fitText(notice,Math.max(0,getWidth()-8))));
       this.clearEnchantsSetting
          .setChangeCallback(
             this::clearEnchantments
@@ -119,14 +127,14 @@ public class TradeEditorPanel extends Panel implements ClientAccess {
          maxPrice,
          enchantments
       );
-      ClientContext.tradeRegistry
-         .reregisterByName(
-            this.tradeName
-         );
-      ClientContext.tradeRegistry
-         .registerTrade(trade);
-      ((ClientScreen)ClientAccess.schizoMinecraft.screen)
-         .closeWithTransition();
+      boolean accepted=expected==null?ClientContext.tradeRegistry.registerTrade(trade)
+         :ClientContext.tradeRegistry.replaceReviewedTrade(expected,trade);
+      if(!accepted) {
+         notice="Trade changed or invalid; not saved.";
+         return;
+      }
+      this.tradeItems.closeSelector();
+      if(ClientAccess.schizoMinecraft.screen==screen) screen.closeWithTransition();
    }
 
    private boolean hasAnyEnchantedStack() {

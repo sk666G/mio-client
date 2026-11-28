@@ -34,6 +34,7 @@ import dev.schizo.client.ClientContext;
 import dev.schizo.client.gui.panels.Panel;
 import dev.schizo.client.modules.HudWidgetModule;
 import dev.schizo.client.modules.Module;
+import dev.schizo.client.managers.ModulePreferencesRegistry;
 import dev.schizo.client.modules.PermanentModule;
 import dev.schizo.client.modules.client.FontsModule;
 import dev.schizo.client.modules.client.UIModule;
@@ -87,7 +88,19 @@ public class ModuleComponent extends AbstractComponent implements CloseState {
    }
 
    public void setOpen(boolean open) {
+      boolean wasOpen=this.requestedOpen;
       this.requestedOpen = open;
+      if(wasOpen&&!open) this.cancelInput();
+   }
+
+   @Override public void cancelInput() { this.children.forEach(child -> child.cancelInput()); }
+
+   private boolean isFavoriteHandleHovered(double mouseX, double mouseY) {
+      float right = this.panel.getX() + this.panel.getWidth() - 5.0F;
+      float left = right - 12.0F;
+      float top = this.panel.getY() + this.yOffset;
+      float bottom = top + this.getBaseHeight();
+      return mouseX >= left && mouseX <= right && mouseY >= top && mouseY <= bottom;
    }
 
    public void startSearchHighlight() {
@@ -307,41 +320,63 @@ public class ModuleComponent extends AbstractComponent implements CloseState {
          .getValue();
       float enabledProgress = this.enabledAnimation
          .updateAndGet();
-      float hoverOffset = this.getHoverAnimationValue();
+      boolean docked = this.panel.isDocked();
+      float hoverOffset = docked ? 0.0F : this.getHoverAnimationValue();
       int baseHeight = this.getBaseHeight();
-      if (this.module.isToggled()
-         || enabledProgress > 0.01D) {
-         GuiDrawUtils.fillRect(
-            poseStack,
-            this.panel
-                  .getX()
-               + 1.0F,
-            this.panel
-                     .getY()
-                  + this.yOffset
-               + 0.5F,
-            this.panel
-                  .getX()
-               + (
-                     this.panel
-                           .getWidth()
-                        - 1.0F
-                  )
-                  * enabledProgress,
-            this.panel
-                     .getY()
-                  + this.yOffset
-                  + baseHeight
-               - 0.5F,
-            this.getUiModule().enabledSetting.getValue()
-         );
-      }
+      if (docked) {
+         float x = this.panel.getX();
+         float y = this.panel.getY() + this.yOffset;
+         float right = x + this.panel.getWidth();
+         Color accent = this.getUiModule().colorSetting.getValue();
+         float progress = Math.max(0.0F, Math.min(1.0F, enabledProgress));
+         float hover = Math.max(0.0F, Math.min(1.0F, this.getHoverAnimationValue()));
+         int fillAlpha = Math.round(26.0F * hover + 35.0F * progress);
+         if (fillAlpha > 0) {
+            GuiDrawUtils.fillRect(poseStack, x + 2, y + 1, right - 2, y + baseHeight - 1,
+               ColorUtils.withAlpha(progress > 0.01F ? accent : Color.WHITE, fillAlpha));
+         }
+         if (progress > 0.01F) {
+            GuiDrawUtils.fillRect(poseStack, x + 2, y + 3, x + 4, y + baseHeight - 3,
+               ColorUtils.withAlpha(accent, Math.round(220.0F * progress)));
+         }
+         GuiDrawUtils.fillRect(poseStack, x + 8, y + baseHeight - 0.5F, right - 8, y + baseHeight,
+            0x302E3038);
+      } else {
+         if (this.module.isToggled()
+            || enabledProgress > 0.01D) {
+            GuiDrawUtils.fillRect(
+               poseStack,
+               this.panel
+                     .getX()
+                  + 1.0F,
+               this.panel
+                        .getY()
+                     + this.yOffset
+                  + 0.5F,
+               this.panel
+                     .getX()
+                  + (
+                        this.panel
+                              .getWidth()
+                           - 1.0F
+                     )
+                     * enabledProgress,
+               this.panel
+                        .getY()
+                     + this.yOffset
+                     + baseHeight
+                  - 0.5F,
+               this.getUiModule().enabledSetting.getValue()
+            );
+         }
 
-      if (gradientEnabled) {
-         this.renderButtonBackground(poseStack, 1.0F);
-      } else if (enabledProgress
-         < 1.0F) {
-         this.renderButtonBackground(poseStack, enabledProgress);
+         if (gradientEnabled) {
+            this.renderButtonBackground(poseStack, 1.0F);
+         } else if (enabledProgress
+            < 1.0F) {
+            this.renderButtonBackground(poseStack, enabledProgress);
+         }
+
       }
 
       if (this.searchHighlightCycle > 0) {
@@ -366,12 +401,8 @@ public class ModuleComponent extends AbstractComponent implements CloseState {
                   + this.yOffset
                   + baseHeight
                - 0.5F,
-            ColorUtils.packArgb(
-               1.0F,
-               0.0F,
-               0.0F,
-               highlightProgress
-            )
+            ColorUtils.withAlpha(this.getUiModule().colorSetting.getValue(),
+               Math.round(90.0F * Math.max(0.0F, Math.min(1.0F, highlightProgress))))
          );
          if (highlightProgress
                == 1.0F
@@ -401,7 +432,7 @@ public class ModuleComponent extends AbstractComponent implements CloseState {
             this.module.getName(),
             this.panel
                   .getX()
-               + (3),
+               + (docked ? 9 : 3),
             this.panel
                   .getY()
                + this.getTextYOffset()
@@ -468,7 +499,7 @@ public class ModuleComponent extends AbstractComponent implements CloseState {
                      .getWidth(
                         this.module.getName()
                      )
-                  + 3.0F,
+                  + (docked ? 9.0F : 3.0F),
                this.panel
                      .getY()
                   + this.getTextYOffset()
@@ -480,37 +511,64 @@ public class ModuleComponent extends AbstractComponent implements CloseState {
             );
       }
 
-      poseStack.pushPose();
-      if (this.animatedHeight > baseHeight
-         || this.requestedOpen) {
-         GuiDrawUtils.flush();
-         ScissorStack.pushIntersection(
-            this.panel
-               .getX(),
-            this.panel
-                  .getY()
-               + this.yOffset
-               + baseHeight,
-            this.panel
-                  .getWidth()
-               - 1,
-            (int)this.animatedHeight - baseHeight
+      ModulePreferencesRegistry preferences = ClientContext.modulePreferencesRegistry;
+      if (preferences != null) {
+         boolean favorite = preferences.isFavorite(this.module);
+         String favoriteGlyph = favorite ? "★" : "☆";
+         Color favoriteColor = favorite
+            ? ColorUtils.getThemeColor()
+            : ColorUtils.withAlpha(this.getUiModule().textColorSetting.getValue(), 125);
+         FontRenderer.INSTANCE.drawWithShadow(
+            poseStack,
+            favoriteGlyph,
+            this.panel.getX() + this.panel.getWidth() - 16.0F,
+            this.panel.getY() + this.getTextYOffset() + this.yOffset,
+            favoriteColor
          );
-
-         for (GuiElement child : this.children) {
-            child.render(poseStack, mouseX, mouseY);
-         }
-
-         GuiDrawUtils.flush();
-         ScissorStack.pop();
       }
 
-      poseStack.popPose();
-      if (this.getUiModule().descriptionsSetting.getValue()
+      poseStack.pushPose();
+      try {
+         if (this.animatedHeight > baseHeight
+            || this.requestedOpen) {
+            GuiDrawUtils.flush();
+            ScissorStack.pushIntersection(
+               this.panel
+                  .getX(),
+               this.panel
+                     .getY()
+                  + this.yOffset
+                  + baseHeight,
+               this.panel
+                     .getWidth()
+                  - 1,
+               (int)this.animatedHeight - baseHeight
+            );
+            try {
+               for (GuiElement child : this.children) {
+                  child.render(poseStack, mouseX, mouseY);
+               }
+            } finally {
+               try {
+                  GuiDrawUtils.flush();
+               } finally {
+                  ScissorStack.pop();
+               }
+            }
+         }
+      } finally {
+         poseStack.popPose();
+      }
+      if (this.isFavoriteHandleHovered(mouseX, mouseY)) {
+         boolean favorite = preferences != null && preferences.isFavorite(this.module);
+         ClientContext.getClickGui().setTooltipText(
+            favorite ? "Remove from favourites" : "Add to favourites"
+         );
+      } else if (this.getUiModule().descriptionsSetting.getValue()
          && this.isMouseOver(mouseX, mouseY)) {
          ClientContext.getClickGui()
             .setTooltipText(
-               this.module.getDescription()
+               this.module.getDescription() + "\n" + this.module.getRuntimeStatus()
             );
       }
    }
@@ -531,11 +589,18 @@ public class ModuleComponent extends AbstractComponent implements CloseState {
          this.startSearchHighlight();
       }
 
+      if (button == 0 && this.isFavoriteHandleHovered(mouseX, mouseY)) {
+         ModulePreferencesRegistry preferences = ClientContext.modulePreferencesRegistry;
+         if (preferences != null) {
+            preferences.toggleFavorite(this.module);
+            return;
+         }
+      }
+
       if (this.isMouseOver(mouseX, mouseY)
          && button == 0
          && this.isLeftClickEligible()) {
-         this.module
-            .toggle();
+         this.module.toggle();
       }
 
       if (this.isMouseOver(mouseX, mouseY) && button == 1) {

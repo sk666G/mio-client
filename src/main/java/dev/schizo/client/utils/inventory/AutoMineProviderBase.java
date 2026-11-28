@@ -13,7 +13,6 @@ import dev.schizo.client.utils.world.BlockInteractionUtils;
 import dev.schizo.client.utils.world.WorldUtils;
 
 import dev.schizo.client.ClientAccess;
-import dev.schizo.client.ClientContext;
 import dev.schizo.client.managers.ModuleRegistry;
 import dev.schizo.client.modules.combat.AutoMineMiningTracker;
 import dev.schizo.client.modules.combat.AutoMineModule;
@@ -41,9 +40,7 @@ public abstract class AutoMineProviderBase implements ClientAccess, AutoMineProv
       this.autoMine = module;
    }
 
-   static {
-      speedMine = (SpeedMineModule)ClientContext.getModule(SpeedMineModule.class);
-   }
+   
 
    protected boolean canMinePosition(BlockPos position) {
       AutoMineMiningTracker miningTracker = this.autoMine.miningTracker;

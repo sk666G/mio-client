@@ -14,6 +14,7 @@ import dev.schizo.client.settings.JsonConfigurable;
 import dev.schizo.client.settings.NamedEntry;
 import dev.schizo.client.settings.RegistrySetSetting;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import java.util.Set;
@@ -38,17 +39,22 @@ public class GlintRegistry implements JsonConfigurable {
 
    @Override
    public void fromJson(JsonElement element) {
-      if (element instanceof JsonObject object) {
-         if (object.has("never")) {
-            RegistrySetSetting<Item> neverSetting = this.neverItems;
-            JsonElement neverValue = object.get("never");
-            neverSetting.fromJson(neverValue);
-         }
-         if (object.has("always")) {
-            RegistrySetSetting<Item> alwaysSetting = this.alwaysItems;
-            JsonElement alwaysValue = object.get("always");
-            alwaysSetting.fromJson(alwaysValue);
-         }
+      if (!(element instanceof JsonObject object)) {
+         throw new IllegalArgumentException("Glint configuration must be a JSON object");
+      }
+
+      JsonElement neverValue = object.get("never");
+      JsonElement alwaysValue = object.get("always");
+      if ((neverValue != null && !neverValue.isJsonArray())
+         || (alwaysValue != null && !alwaysValue.isJsonArray())) {
+         throw new IllegalArgumentException("Glint configuration lists must be JSON arrays");
+      }
+
+      if (neverValue != null) {
+         this.neverItems.fromJson(neverValue);
+      }
+      if (alwaysValue != null) {
+         this.alwaysItems.fromJson(alwaysValue);
       }
    }
 

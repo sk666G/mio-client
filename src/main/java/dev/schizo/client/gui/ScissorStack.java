@@ -15,85 +15,53 @@ import dev.schizo.client.ClientAccess;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.systems.ScissorState;
-import java.util.ArrayDeque;
-import java.util.Deque;
-import org.joml.Vector4d;
-import org.joml.Vector4i;
 
 public final class ScissorStack implements ClientAccess {
-   private static final Deque<ScissorRegion> regions = new ArrayDeque<>();
+   private static final ScissorScopeStack regions = new ScissorScopeStack(
+      ScissorStack::capture, ScissorStack::apply, ScissorStack::toFramebuffer);
 
    private ScissorStack() {
    }
 
    public static void pop() {
-      getScissorState().disable();
-      regions.removeLast();
-      if (!regions.isEmpty()) {
-         ScissorStack.ScissorRegion previousRegion = regions.getLast();
-         Vector4i framebufferBounds = previousRegion.framebufferBounds();
-         enableFramebufferScissor(framebufferBounds.x, framebufferBounds.y, framebufferBounds.z, framebufferBounds.w);
-      }
+      regions.pop();
    }
 
-   public static void push(
-      int x, int y, int width, int height
-   ) {
-      ScissorStack.ScissorRegion region = ScissorStack.ScissorRegion.create(
-         x, y, width, height
-      );
-      Vector4i framebufferBounds = region.framebufferBounds();
-      enableFramebufferScissor(framebufferBounds.x, framebufferBounds.y, framebufferBounds.z, framebufferBounds.w);
-      regions.addLast(region);
+   public static void push(int x, int y, int width, int height) {
+      regions.push(new ScissorBounds(x, y, width, height), false);
+   }
+
+   public static void pushIntersection(int x, int y, int width, int height) {
+      regions.push(new ScissorBounds(x, y, width, height), true);
    }
 
    private static ScissorState getScissorState() {
       return RenderSystem.getScissorStateForRenderTypeDraws();
    }
 
-   public static void pushIntersection(
-      int x, int y, int width, int height
-   ) {
-      ScissorStack.ScissorRegion previousRegion = regions.getLast();
-      if (previousRegion != null) {
-         Vector4i previousBounds = previousRegion.guiBounds();
-         int intersectionX = Math.max(previousBounds.x, x);
-         int intersectionY = Math.max(previousBounds.y, y);
-         int intersectionWidth = Math.min(previousBounds.x + previousBounds.z, x + width) - intersectionX;
-         int intersectionHeight = Math.min(previousBounds.y + previousBounds.w, y + height) - intersectionY;
-         push(intersectionX, intersectionY, intersectionWidth, intersectionHeight);
+   private static ScissorScopeStack.Snapshot capture() {
+      ScissorState state = getScissorState();
+      return new ScissorScopeStack.Snapshot(state.enabled(),
+         new ScissorBounds(state.x(), state.y(), state.width(), state.height()));
+   }
+
+   private static void apply(ScissorScopeStack.Snapshot snapshot) {
+      ScissorState state = getScissorState();
+      ScissorBounds bounds = snapshot.bounds();
+      if (snapshot.enabled()) {
+         state.enable(bounds.x(), bounds.y(), bounds.width(), bounds.height());
       } else {
-         push(x, y, width, height);
+         state.disable();
       }
    }
 
-   public static void enableFramebufferScissor(
-      int x, int y, int width, int height
-   ) {
-      getScissorState()
-         .enable(x, y, Math.max(width, 0), Math.max(height, 0));
+   private static ScissorBounds toFramebuffer(ScissorBounds bounds) {
+      var window = ClientAccess.schizoMinecraft.getWindow();
+      double scale = window.getGuiScale() * GuiScaleUtils.getScaleMultiplier();
+      return bounds.toFramebuffer(scale, window.getWidth(), window.getHeight());
    }
 
-   record ScissorRegion(
-      Vector4i guiBounds,
-      Vector4i framebufferBounds
-   ) {
-      private static final Vector4d framebufferBoundsScratch = new Vector4d();
-
-      public static ScissorStack.ScissorRegion create(
-         int x, int y, int width, int height
-      ) {
-         double framebufferScale = ClientAccess.schizoMinecraft.getWindow().getGuiScale() * GuiScaleUtils.getScaleMultiplier();
-         float guiHeight = (float)(
-            ClientAccess.schizoMinecraft.getWindow().getHeight()
-               / framebufferScale
-         );
-         framebufferBoundsScratch.set(x, guiHeight - y - height, width, height)
-            .mul(framebufferScale)
-            .sub(0.0, 0.0, 0.0, 1.0);
-         Vector4i guiBounds = new Vector4i(x, y, width, height);
-         Vector4i framebufferBounds = new Vector4i(framebufferBoundsScratch, 0);
-         return new ScissorStack.ScissorRegion(guiBounds, framebufferBounds);
-      }
+   public static void enableFramebufferScissor(int x, int y, int width, int height) {
+      getScissorState().enable(x, y, Math.max(width, 0), Math.max(height, 0));
    }
 }

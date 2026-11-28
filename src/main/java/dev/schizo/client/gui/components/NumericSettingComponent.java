@@ -22,11 +22,8 @@ import dev.schizo.client.settings.Setting;
 import dev.schizo.client.render.FontRenderer;
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.text.NumberFormat;
 import net.minecraft.util.Mth;
-import java.util.regex.Matcher;
 public class NumericSettingComponent<N extends Number> extends SettingComponent<N> {
    private static final NumberFormat NUMBER_FORMAT;
    private final InterpolatedFloat sliderFillAnimation = new InterpolatedFloat(
@@ -40,6 +37,7 @@ public class NumericSettingComponent<N extends Number> extends SettingComponent<
    private boolean cursorVisible = false;
    private float sliderFillWidth;
    private String inputText = "";
+   private String inputError="";
 
    private String getBlinkingCursor() {
       if (this.cursorBlinkTimer
@@ -63,6 +61,8 @@ public class NumericSettingComponent<N extends Number> extends SettingComponent<
       switch (keyCode) {
          case 256:
             this.editing = false;
+            this.inputError="";
+            if(this.getClickGui().getEditingSetting()==this) this.getClickGui().setEditingSetting(null);
             ClientContext.getClickGui()
                .suppressEscapeClose();
             break;
@@ -71,17 +71,12 @@ public class NumericSettingComponent<N extends Number> extends SettingComponent<
             this.commitEditedValue();
             break;
          case 259:
+            this.inputError="";
             if (!this.inputText.isEmpty()) {
                this.inputText = this.inputText
                   .substring(0, this.inputText.length() - 1);
             }
       }
-   }
-
-   private static double roundSliderValue(double value) {
-      return new BigDecimal(value).setScale(4,
-         RoundingMode.HALF_UP
-      ).doubleValue();
    }
 
    public NumericSettingComponent(Panel panel, CloseState parentCloseState, NumberSetting<N> setting) {
@@ -99,61 +94,25 @@ public class NumericSettingComponent<N extends Number> extends SettingComponent<
    private final NumberSetting<N> numberSetting;
 
    private void commitEditedValue() {
-      this.editing = false;
-      boolean inputBlank = this.inputText.isBlank();
-
-      try {
-         String valueTypeName = (this.setting.getValue())
-            .getClass()
-            .getSimpleName();
-         int valueTypeCase = switch (valueTypeName) {
-            case "Integer" -> 0;
-            case "Float" -> 1;
-            case "Double" -> 2;
-            default -> -1;
-         };
-
-         switch (valueTypeCase) {
-            case 0:
-               this.numberSetting
-                  .setNumber(
-                     inputBlank
-                        ? this.setting.getValue()
-                        : Math.round(
-                           Double.parseDouble(this.inputText)
-                        )
-                  );
-               break;
-            case 1:
-               NumberSetting<N> floatSetting = this.numberSetting;
-               Number floatResult;
-               if (inputBlank) {
-                  floatResult = this.setting.getValue();
-               } else {
-                  String floatInputText = this.inputText;
-                  floatResult = Float.parseFloat(
-                     floatInputText + "f"
-                  );
-               }
-
-               floatSetting.setNumber(floatResult);
-               break;
-            case 2:
-               NumberSetting<N> doubleSetting = this.numberSetting;
-               Number doubleResult;
-               if (inputBlank) {
-                  doubleResult = this.setting.getValue();
-               } else {
-                  String doubleInputText = this.inputText;
-                  doubleResult = Double.parseDouble(
-                     doubleInputText + "d"
-                  );
-               }
-
-               doubleSetting.setNumber(doubleResult);
+      if(!this.inputText.isBlank()) {
+         Double value=NumericControlInput.parse(this.inputText,setting.getMinimumValue().doubleValue(),
+            setting.getMaximumValue().doubleValue(),setting.getValue() instanceof Integer);
+         if(value==null) {
+            this.inputError=setting.getValue() instanceof Integer?"Enter a whole number inside the allowed range.":"Enter a finite number inside the allowed range.";
+            this.editing=true;
+            return;
          }
-      } catch (Exception ignoredException) {
+         try {
+            this.numberSetting.setNumber(value);
+         } catch(IllegalArgumentException rejected) {
+            this.inputError="Value rejected by the setting.";
+            this.editing=true;
+            return;
+         }
       }
+      this.editing=false;
+      this.inputError="";
+      if(this.getClickGui().getEditingSetting()==this) this.getClickGui().setEditingSetting(null);
    }
 
    @Override
@@ -168,15 +127,19 @@ public class NumericSettingComponent<N extends Number> extends SettingComponent<
          }
 
          this.editing = false;
+         this.dragging=false;
+         this.inputError="";
          return;
       }
 
       super.render(poseStack, mouseX, mouseY);
+      if(this.hovered && !inputError.isEmpty() && this.getClickGui()!=null) this.getClickGui().setTooltipText(inputError);
       if (this.hovered
          && this.editing) {
          ClientScreen.cursor = CursorType.INPUT;
       }
 
+      if (!this.panel.isDocked()) {
       GuiDrawUtils.fillRect(
          poseStack,
          this.sliderX
@@ -200,31 +163,41 @@ public class NumericSettingComponent<N extends Number> extends SettingComponent<
             - 0.5F,
          this.getUiModule().colorSetting.getValue()
       );
-      String unitText = this.numberSetting.getUnit();
-      String valueText = ((NUMBER_FORMAT.format((this.setting.getValue()).doubleValue())) + "\u0001")
-         .replaceFirst("\u0001", Matcher.quoteReplacement(String.valueOf(unitText)));
-      if (this.setting
-         .shouldDisplayBoundaryLabel()) {
-         valueText = this.setting
-            .getBoundaryLabel();
       }
-
       String displayText;
       if (this.editing) {
          displayText = this.inputText;
       } else {
-         displayText = String.format("%s: %s", this.setting.getName(), valueText);
+         String valueText = this.setting.shouldDisplayBoundaryLabel()
+            ? this.setting.getBoundaryLabel()
+            : NUMBER_FORMAT.format(this.setting.getValue().doubleValue()) + this.numberSetting.getUnit();
+         displayText = this.setting.getName() + ": " + valueText;
       }
 
-      String editingCursorText = this.editing ? "_" : "";
+      String measuredText = this.editing ? displayText + "_" : displayText;
+      String drawnText = this.editing && !this.getBlinkingCursor().isEmpty() ? measuredText : displayText;
+
+      if (this.panel.isDocked()) {
+         float x = this.panel.getX(), y = this.panel.getY() + this.yOffset;
+         float w = this.panel.getWidth(), h = this.getHeight();
+         Color accent = this.getUiModule().colorSetting.getValue();
+         float p = StudioControlGeometry.fraction(this.sliderFillAnimation.updateAndGet(), 0, Math.max(1, w - 18));
+         float hover = StudioControlGeometry.clampProgress(this.getHoverAnimationValue());
+         StudioControlStyle.softRect(poseStack, x + 5, y + 1, w - 10, h - 2,
+            dev.schizo.client.render.ColorUtils.withAlpha(Color.WHITE, Math.round(9 + 14 * hover)));
+         if (h >= 11) StudioControlStyle.slider(poseStack, x + 9, y + h - 4, w - 18, p, accent);
+         FontRenderer.INSTANCE.drawWithoutShadow(poseStack, StudioControlStyle.fitText(drawnText, w - 18),
+            x + 9, y + Math.max(0, this.getTextYOffset() - 2), this.getUiModule().textColorSetting.getValue());
+         return;
+      }
 
       this.renderWithTextScroll(
          poseStack,
-         (String.valueOf(displayText) + "\u0001").replaceFirst("\u0001", editingCursorText),
+         measuredText,
          () -> FontRenderer.INSTANCE
             .drawWithShadow(
                poseStack,
-               (displayText + "\u0001").replaceFirst("\u0001", this.getBlinkingCursor()),
+               drawnText,
                this.panel
                      .getX()
                   + (4),
@@ -278,6 +251,8 @@ public class NumericSettingComponent<N extends Number> extends SettingComponent<
 
             this.getClickGui()
                .setEditingSetting(this);
+            this.dragging=false;
+            this.inputError="";
             this.inputText = (this.setting
                   .getValue())
                .toString();
@@ -285,8 +260,6 @@ public class NumericSettingComponent<N extends Number> extends SettingComponent<
                .getEditingSetting()
             == this) {
             this.commitEditedValue();
-            this.getClickGui()
-               .setEditingSetting(null);
          }
       }
    }
@@ -300,90 +273,39 @@ public class NumericSettingComponent<N extends Number> extends SettingComponent<
    @Override
    public void update(double mouseX, double mouseY) {
       if (this.isUnavailable()) {
-         InterpolatedFloat sliderAnimation = this.sliderFillAnimation;
-         sliderAnimation.setValue(0.0F);
+         this.dragging = false;
+         this.sliderFillAnimation.setValue(0.0F);
+         return;
       }
 
       this.sliderY = this.panel
             .getY()
          + this.yOffset;
-      this.sliderX = this.panel
-         .getX();
-      double sliderWidth = this.getPanel()
-            .getWidth()
-         - (2);
-      double mouseOffset = Math.min(
-         sliderWidth, Math.max(0.0, mouseX - this.sliderX)
-      );
+      boolean docked = this.panel.isDocked();
+      this.sliderX = this.panel.getX() + (docked ? 9 : 0);
+      double sliderWidth = this.getPanel().getWidth() - (docked ? 18 : 2);
       double minimumValue = (this.setting
             .getMinimumValue())
          .doubleValue();
       double maximumValue = (this.setting
             .getMaximumValue())
          .doubleValue();
-      double roundingStep = (this.setting.getValue())
-            .getClass()
-            .getSimpleName()
-            .equalsIgnoreCase("Integer")
-         ? 1.0D
-         : 0.1D;
-      this.sliderFillWidth = (float)(
-         sliderWidth
-            * (
-               (
-                     roundingStep == 1.0D
-                        ? (this.setting.getValue())
-                           .intValue()
-                        : (this.setting.getValue())
-                           .floatValue()
-                  )
-                  - minimumValue
-            )
-            / (maximumValue - minimumValue)
-      );
-      if (this.dragging) {
-         if (mouseOffset == 0.0) {
-            if (roundingStep == 1.0D) {
-               this.numberSetting
-                  .setNumber(
-                     (int)(this.setting
-                           .getMinimumValue())
-                        .floatValue()
-                  );
-            } else {
-               this.numberSetting
-                  .setNumber(
-                     (this.setting
-                           .getMinimumValue())
-                        .floatValue()
-                  );
-            }
-         } else {
-            float mappedValue = (float)(mouseOffset / sliderWidth * (maximumValue - minimumValue) + minimumValue);
-            float roundingFactor = (float)(1.0D / roundingStep);
-            double clampedValue = Math.max(minimumValue, Math.min(maximumValue, mappedValue));
-            if (roundingStep == 0.1D) {
-               this.numberSetting
-                  .setNumber(
-                     roundSliderValue((float)Math.round(clampedValue * roundingFactor) / roundingFactor)
-                  );
-            } else {
-               this.numberSetting
-                  .setNumber(
-                     roundSliderValue(clampedValue)
-                  );
-            }
-         }
+      this.sliderFillWidth = (float)Math.max(0, sliderWidth) * StudioControlGeometry.fraction(
+         this.setting.getValue().doubleValue(), minimumValue, maximumValue);
+      if (sliderWidth <= 0 || !Double.isFinite(maximumValue - minimumValue) || maximumValue <= minimumValue) {
+         this.dragging = false;
+         this.sliderFillAnimation.setValue(0.0F);
+         return;
+      }
+      if(this.dragging) {
+         double proposed=NumericControlInput.slider(mouseX,sliderX,sliderWidth,minimumValue,maximumValue,
+            setting.getValue() instanceof Integer);
+         if(Double.isFinite(proposed) && Double.compare(proposed,setting.getValue().doubleValue())!=0)
+            this.numberSetting.setNumber(proposed);
       }
 
-      if ((this.setting.getValue()).floatValue()
-         >= (this.setting
-               .getMaximumValue())
-            .floatValue()) {
-         this.sliderFillWidth = this.getPanel()
-               .getWidth()
-            - (2);
-      }
+      this.sliderFillWidth = (float)sliderWidth * StudioControlGeometry.fraction(
+         this.setting.getValue().doubleValue(), minimumValue, maximumValue);
 
       this.sliderFillAnimation
          .setTarget(
@@ -392,8 +314,17 @@ public class NumericSettingComponent<N extends Number> extends SettingComponent<
    }
 
    @Override
+   public void cancelInput() {
+      super.cancelInput();
+      this.dragging=false;
+      this.inputError="";
+   }
+
+   @Override
    public void mouseReleased(double mouseX, double mouseY, int button) {
-      this.dragging = false;
+      if (button == 0) {
+         this.dragging = false;
+      }
    }
 
    @Override
@@ -423,10 +354,9 @@ public class NumericSettingComponent<N extends Number> extends SettingComponent<
          return;
       }
 
-      String previousInputText = this.inputText;
-
-      this.inputText = (String.valueOf(previousInputText) + "\u0001")
-         .replaceFirst("\u0001", String.valueOf((char)characterCode));
+      if(this.inputText.length()>=48 || characterCode=='-' && !this.inputText.isEmpty()) return;
+      this.inputError="";
+      this.inputText += (char)characterCode;
    }
 
 }

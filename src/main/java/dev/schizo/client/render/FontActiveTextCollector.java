@@ -14,6 +14,7 @@ import dev.schizo.client.modules.client.FontsModule;
 
 import dev.schizo.mixin.GuiGraphicsAccessor;
 import java.util.function.Consumer;
+import java.util.function.IntToDoubleFunction;
 import net.minecraft.client.gui.ActiveTextCollector;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.GuiGraphics.HoveredTextEffects;
@@ -27,7 +28,6 @@ import org.joml.Matrix3x2f;
 import org.joml.Vector2f;
 
 public class FontActiveTextCollector implements Consumer<Style>, ActiveTextCollector {
-   private static final FontsModule fontsModule;
    public static boolean customChatTextEnabled;
    private Parameters parameters;
    private final GuiGraphicsAccessor graphicsAccessor;
@@ -39,9 +39,8 @@ public class FontActiveTextCollector implements Consumer<Style>, ActiveTextColle
       boolean checkHoveredStyle = this.hoveredTextEffects.allowCursorChanges
          || this.hoveredTextEffects.allowTooltip
          || this.styleConsumer != null;
-      float left = alignedX(alignment, x, text);
-      float width = FontRenderer.INSTANCE
-         .getWidth(text);
+      float width = FontRenderer.INSTANCE.getWidth(text);
+      float left = alignedX(alignment, x, width);
       float height = FontRenderer.INSTANCE
          .getHeight();
       if (checkHoveredStyle) {
@@ -54,7 +53,7 @@ public class FontActiveTextCollector implements Consumer<Style>, ActiveTextColle
 
       if (ARGB.as8BitChannel(parameters.opacity()) != 0) {
          int color = ARGB.color(parameters.opacity(), -1);
-         fontsModule.enqueueText(
+         fontsModule().enqueueText(
             parameters.pose(), text, left, y, color, true
          );
       }
@@ -86,9 +85,8 @@ public class FontActiveTextCollector implements Consumer<Style>, ActiveTextColle
       this.styleConsumer = styleConsumer;
    }
 
-   static {
-      fontsModule = (FontsModule)ClientContext.getModule(FontsModule.class);
-      customChatTextEnabled = false;
+   private static FontsModule fontsModule() {
+      return ClientContext.getModule(FontsModule.class);
    }
 
    static void visitHoveredStyle(
@@ -107,28 +105,27 @@ public class FontActiveTextCollector implements Consumer<Style>, ActiveTextColle
       if (relativeY < 0.0F || relativeY >= height) {
          return;
       }
-      float[] advance = new float[]{0.0F};
-      text.accept(
-         (index, style, codePoint) -> {
-            float glyphWidth = FontRenderer.INSTANCE
-               .getWidth(
-                  FormattedCharSequence.codepoint(codePoint, Style.EMPTY)
-               );
-            if (relativeX >= advance[0] && relativeX < advance[0] + glyphWidth) {
-               styleConsumer.accept(style);
-               return false;
-            } else {
-               advance[0] += glyphWidth;
-               return true;
-            }
+      visitGlyphStyleAt(text, relativeX, FontRenderer.INSTANCE.getRenderer()::getCharacterWidth, styleConsumer);
+   }
+
+   // Use the same unrounded advances as the formatted glyph renderer.
+   static void visitGlyphStyleAt(FormattedCharSequence text, float relativeX,
+      IntToDoubleFunction glyphAdvance, Consumer<Style> styleConsumer) {
+      double[] advance = {0.0D};
+      text.accept((index, style, codePoint) -> {
+         double next = advance[0] + glyphAdvance.applyAsDouble(codePoint);
+         if (relativeX >= advance[0] && relativeX < next) {
+            styleConsumer.accept(style);
+            return false;
          }
-      );
+         advance[0] = next;
+         return true;
+      });
    }
 
    private static float alignedX(
-      TextAlignment alignment, float x, FormattedCharSequence text
+      TextAlignment alignment, float x, float width
    ) {
-      float width = FontRenderer.INSTANCE.getWidth(text);
       return switch (alignment) {
          case LEFT -> x;
          case CENTER -> x - width / 2.0F;
@@ -190,15 +187,15 @@ public class FontActiveTextCollector implements Consumer<Style>, ActiveTextColle
 
       @Override
       public void accept(TextAlignment alignment, int x, int y, Parameters parameters, FormattedCharSequence text) {
-         float left = FontActiveTextCollector.alignedX(alignment, x, text);
+         float width = FontRenderer.INSTANCE.getWidth(text);
+         float left = FontActiveTextCollector.alignedX(alignment, x, width);
          FontActiveTextCollector.visitHoveredStyle(
             text,
             this.mouseX,
             this.mouseY,
             left,
             y,
-            FontRenderer.INSTANCE
-               .getWidth(text),
+            width,
             FontRenderer.INSTANCE
                .getHeight(),
             parameters,

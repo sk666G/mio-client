@@ -16,6 +16,8 @@ import dev.schizo.client.events.PacketEvent;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.LocalPlayerTickEvent;
 import dev.schizo.client.events.MultiPlayerGameModeDestroyBlockEvent;
+import dev.schizo.client.events.ConnectScreenConnectEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.utils.movement.MovementSpeedTracker;
 import dev.schizo.client.utils.ElapsedTimer;
 import dev.schizo.client.managers.SocialRegistry;
@@ -33,9 +35,12 @@ import dev.schizo.client.utils.math.MathUtils;
 import com.mojang.authlib.GameProfile;
 import java.awt.Color;
 import java.text.DecimalFormat;
-import java.util.Iterator;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.ThreadLocalRandom;
 import net.minecraft.client.multiplayer.ClientPacketListener;
@@ -68,6 +73,8 @@ public class AnnouncerModule extends Module {
    private double distanceTravelled;
    private int foodConsumed;
    private int blocksBroken;
+   private final Map<UUID, String> profileNames = new ConcurrentHashMap<>();
+   private long announcementGeneration;
 
    private String chooseMovementMessage() {
       String[] messages = {
@@ -96,6 +103,38 @@ public class AnnouncerModule extends Module {
       this.foodConsumed = 0;
       this.blocksBroken = 0;
       this.announcementTimer.reset();
+      this.announcementGeneration++;
+      this.profileNames.clear();
+
+      ClientPacketListener connection = ClientAccess.schizoMinecraft.getConnection();
+      if (connection != null) {
+         for (PlayerInfo playerInfo : connection.getOnlinePlayers()) {
+            GameProfile profile = playerInfo.getProfile();
+            if (profile != null) {
+               this.profileNames.put(profile.id(), profile.name());
+            }
+         }
+      }
+   }
+
+   @Override
+   public void onDisable() {
+      this.invalidateAnnouncements();
+   }
+
+   @EventHandler
+   private void onConnectScreenConnect(ConnectScreenConnectEvent event) {
+      this.invalidateAnnouncements();
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.invalidateAnnouncements();
+   }
+
+   private void invalidateAnnouncements() {
+      this.announcementGeneration++;
+      this.profileNames.clear();
    }
 
    private void announce(String message) {
@@ -193,22 +232,19 @@ public class AnnouncerModule extends Module {
    }
 
    private void scheduleAnnouncement(String message, MessageSignature signature) {
+      long expectedGeneration = this.announcementGeneration;
       ClientAccess.schizoMinecraft.executeIfPossible(() -> {
-         Setting<Boolean> clientSideSettingSnapshot = this.clientSideSetting;
-         Boolean clientSideValue = clientSideSettingSnapshot.getValue();
-         if (clientSideValue) {
+         if (!this.isToggled() || this.announcementGeneration != expectedGeneration) {
+            return;
+         }
+
+         if (this.clientSideSetting.getValue()) {
             ChatUtils.printChat(Component.literal(message).withStyle(style -> {
-               Color color = new Color(
-                  161,
-                  161,
-                  161
-               );
-               int colorValue = color.hashCode();
-               return style.withColor(colorValue);
+               Color color = new Color(161, 161, 161);
+               return style.withColor(color.hashCode());
             }), signature);
-         } else {
-            ClientPacketListener connection = ClientAccess.schizoMinecraft.player.connection;
-            connection.sendChat(message);
+         } else if (ClientAccess.schizoMinecraft.player != null) {
+            ClientAccess.schizoMinecraft.player.connection.sendChat(message);
          }
       });
    }
@@ -334,134 +370,89 @@ public class AnnouncerModule extends Module {
    private void announcePlayerListChanges(
       PacketEvent.Receive event
    ) {
-      Setting<Boolean> joinsSettingSnapshot = this.joinsSetting;
-      Boolean joinsValue = joinsSettingSnapshot.getValue();
-      if (joinsValue) {
-         ElapsedTimer timer = this.announcementTimer;
-         Setting<Double> delaySettingSnapshot = this.delaySetting;
-         double delaySeconds = delaySettingSnapshot.getValue();
-         TimeUnit seconds = TimeUnit.SECONDS;
-         if (timer.hasElapsed(delaySeconds, seconds)) {
-            if (event.getPacket() instanceof ClientboundPlayerInfoUpdatePacket joinPacket) {
-               Iterator<Entry> joinEntries = joinPacket.newEntries().iterator();
+      List<String> joinedNames = new ArrayList<>();
+      List<String> departingNames = new ArrayList<>();
 
-               while (joinEntries.hasNext()) {
-                  Entry entry = joinEntries.next();
-                  if (entry.listed()) {
-                     GameProfile joiningProfile = entry.profile();
-                     String joiningName = joiningProfile.name();
-                     LocalPlayer localPlayer = ClientAccess.schizoMinecraft.player;
-                     if (!joiningName.equals(localPlayer.getName().getString())) {
-                        SocialRegistry joinRelationships = ClientContext.socialRegistry;
-
-                        SocialRole joiningRelationship = joinRelationships.getRole(
-                           joiningName
-                        );
-                        if (this.shouldAnnounceRelationship(joiningRelationship)) {
-                           joinAnnouncement: {
-                              Setting<Boolean> clientSideSettingSnapshot = this.clientSideSetting;
-                              Boolean clientSideValue = clientSideSettingSnapshot.getValue();
-                              if (clientSideValue) {
-                                 Setting<Boolean> compactSettingSnapshot = this.compactSetting;
-                                 Boolean compactValue = compactSettingSnapshot.getValue();
-                                 if (compactValue) {
-                                    joiningName = (joiningName) + " joined";
-                                    if (joiningRelationship == SocialRole.FRIEND) {
-                                       joiningName = (joiningName) + " [friend]";
-                                    } else if (joiningRelationship == SocialRole.ENEMY) {
-                                       joiningName = (joiningName) + " [enemy]";
-                                    }
-
-                                    String compactJoinMessage = joiningName;
-
-                                    MessageSignature compactJoinSignature = ChatUtils.createSignature(-254721);
-                                    this.scheduleAnnouncement(compactJoinMessage, compactJoinSignature);
-                                    break joinAnnouncement;
-                                 }
-                              }
-
-                              if (joiningRelationship == SocialRole.FRIEND) {
-                                 joiningName = "My friend " + (joiningName);
-                              }
-
-                              String joinMessage = joiningName + " has joined the game!";
-
-                              MessageSignature joinSignature = ChatUtils.createSignature(-254721);
-                              this.scheduleAnnouncement(joinMessage, joinSignature);
-                           }
-
-                           timer = this.announcementTimer;
-
-                           timer.reset();
-                        }
-                     }
-                  }
-               }
+      if (event.getPacket() instanceof ClientboundPlayerInfoUpdatePacket joinPacket) {
+         for (Entry entry : joinPacket.newEntries()) {
+            GameProfile profile = entry.profile();
+            if (profile == null) {
+               continue;
             }
-            if (event.getPacket() instanceof ClientboundPlayerInfoRemovePacket leavePacket) {
-               Iterator<UUID> departingIds = leavePacket.profileIds().iterator();
-
-               while (departingIds.hasNext()) {
-                  UUID departingId = departingIds.next();
-                  ClientPacketListener connection = ClientAccess.schizoMinecraft.player.connection;
-                  Iterator<PlayerInfo> onlinePlayers = connection.getListedOnlinePlayers().iterator();
-
-                  while (onlinePlayers.hasNext()) {
-                     PlayerInfo onlinePlayer = onlinePlayers.next();
-                     GameProfile onlineProfile = onlinePlayer.getProfile();
-                     if (onlineProfile.id().equals(departingId)) {
-                        GameProfile departingProfile = onlinePlayer.getProfile();
-                        String departingName = departingProfile.name();
-                        SocialRegistry leaveRelationships = ClientContext.socialRegistry;
-
-                        SocialRole departingRelationship = leaveRelationships.getRole(
-                           departingName
-                        );
-                        if (this.shouldAnnounceRelationship(departingRelationship)) {
-                           leaveAnnouncement: {
-                              Setting<Boolean> leaveClientSideSetting = this.clientSideSetting;
-                              Boolean leaveClientSideEnabled = leaveClientSideSetting.getValue();
-                              if (leaveClientSideEnabled) {
-                                 Setting<Boolean> leaveCompactSetting = this.compactSetting;
-                                 Boolean leaveCompactEnabled = leaveCompactSetting.getValue();
-                                 if (leaveCompactEnabled) {
-                                    departingName = (departingName) + " left";
-                                    if (departingRelationship == SocialRole.FRIEND) {
-                                       departingName = (departingName) + " [friend]";
-                                    } else if (departingRelationship == SocialRole.ENEMY) {
-                                       departingName = (departingName) + " [enemy]";
-                                    }
-
-                                    String compactLeaveMessage = departingName;
-
-                                    MessageSignature compactLeaveSignature = ChatUtils.createSignature(-254722);
-                                    this.scheduleAnnouncement(compactLeaveMessage, compactLeaveSignature);
-                                    break leaveAnnouncement;
-                                 }
-                              }
-
-                              if (departingRelationship == SocialRole.FRIEND) {
-                                 departingName = "My friend " + (departingName);
-                              }
-
-                              String leaveMessage = departingName + " has left the game!";
-
-                              MessageSignature leaveSignature = ChatUtils.createSignature(-254722);
-                              this.scheduleAnnouncement(leaveMessage, leaveSignature);
-                           }
-
-                           timer = this.announcementTimer;
-
-                           timer.reset();
-                        }
-                     }
-                  }
-               }
+            this.profileNames.put(profile.id(), profile.name());
+            if (entry.listed()) {
+               joinedNames.add(profile.name());
             }
-
-            return;
          }
       }
+
+      if (event.getPacket() instanceof ClientboundPlayerInfoRemovePacket leavePacket) {
+         for (UUID departingId : leavePacket.profileIds()) {
+            String departingName = this.profileNames.remove(departingId);
+            if (departingName != null) {
+               departingNames.add(departingName);
+            }
+         }
+      }
+
+      if (joinedNames.isEmpty() && departingNames.isEmpty()) {
+         return;
+      }
+
+      long expectedGeneration = this.announcementGeneration;
+      List<String> joinedSnapshot = List.copyOf(joinedNames);
+      List<String> departingSnapshot = List.copyOf(departingNames);
+      ClientAccess.schizoMinecraft.executeIfPossible(() -> {
+         if (!this.isToggled()
+            || this.announcementGeneration != expectedGeneration
+            || !this.joinsSetting.getValue()
+            || !this.announcementTimer.hasElapsed(this.delaySetting.getValue(), TimeUnit.SECONDS)) {
+            return;
+         }
+
+         String localName = ClientAccess.schizoMinecraft.player == null
+            ? null
+            : ClientAccess.schizoMinecraft.player.getName().getString();
+
+         for (String joiningName : joinedSnapshot) {
+            if (joiningName.equals(localName)) {
+               continue;
+            }
+            SocialRole relationship = ClientContext.socialRegistry.getRole(joiningName);
+            if (!this.shouldAnnounceRelationship(relationship)) {
+               continue;
+            }
+            this.schedulePlayerListAnnouncement(joiningName, relationship, true);
+            this.announcementTimer.reset();
+         }
+
+         for (String departingName : departingSnapshot) {
+            SocialRole relationship = ClientContext.socialRegistry.getRole(departingName);
+            if (!this.shouldAnnounceRelationship(relationship)) {
+               continue;
+            }
+            this.schedulePlayerListAnnouncement(departingName, relationship, false);
+            this.announcementTimer.reset();
+         }
+      });
+   }
+
+   private void schedulePlayerListAnnouncement(String playerName, SocialRole relationship, boolean joined) {
+      int signatureId = joined ? -254721 : -254722;
+      if (this.clientSideSetting.getValue() && this.compactSetting.getValue()) {
+         String compactMessage = playerName + (joined ? " joined" : " left");
+         if (relationship == SocialRole.FRIEND) {
+            compactMessage += " [friend]";
+         } else if (relationship == SocialRole.ENEMY) {
+            compactMessage += " [enemy]";
+         }
+         this.scheduleAnnouncement(compactMessage, ChatUtils.createSignature(signatureId));
+         return;
+      }
+
+      String displayName = relationship == SocialRole.FRIEND ? "My friend " + playerName : playerName;
+      String message = displayName + (joined ? " has joined the game!" : " has left the game!");
+      this.scheduleAnnouncement(message, ChatUtils.createSignature(signatureId));
    }
 
    public AnnouncerModule() {

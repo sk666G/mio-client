@@ -70,7 +70,7 @@ import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
 public final class WorldStateManager implements ClientAccess {
-   private static final AntiCheatModule antiCheatModule;
+   private static volatile AntiCheatModule antiCheatModule;
 
    private final List<BlockEntity> blockEntities = Collections.synchronizedList(new ArrayList<>());
 
@@ -95,11 +95,15 @@ public final class WorldStateManager implements ClientAccess {
 
    private DimensionType dimension = DimensionType.OVERWORLD;
 
-   private ItemStack mainHandSnapshot;
+   private ItemStack mainHandSnapshot = ItemStack.EMPTY;
 
-   private ItemStack offHandSnapshot;
+   private ItemStack offHandSnapshot = ItemStack.EMPTY;
 
    private int chunkRadius;
+
+   private ClientLevel observedLevel;
+
+   private volatile long packetGeneration;
 
    public DimensionType getDimension() {
       return this.dimension;
@@ -151,8 +155,11 @@ public final class WorldStateManager implements ClientAccess {
       ClientAccess.eventBus.subscribe(this);
    }
 
-   static {
-      antiCheatModule = (AntiCheatModule)ClientContext.getModule(AntiCheatModule.class);
+   public static void bindModules(ModuleRegistry registry) {
+      antiCheatModule = (AntiCheatModule)Objects.requireNonNull(
+         registry.getModule(AntiCheatModule.class),
+         "Required module is not registered: AntiCheatModule"
+      );
    }
 
    public boolean isPlacementOccupied(BlockPos position) {
@@ -333,6 +340,37 @@ public final class WorldStateManager implements ClientAccess {
 
    @EventHandler
    private void onMinecraftDisconnectEvent(MinecraftDisconnectEvent event) {
+      this.packetGeneration++;
+      this.observedLevel = null;
+      this.resetWorldTransientState();
+      this.chunkRadius = 0;
+   }
+
+   @EventHandler(priority = 200)
+   private void onLocalPlayerPreTick(LocalPlayerPreTickEvent event) {
+      this.synchronizeLevel(ClientAccess.schizoMinecraft.level);
+      this.currentTickPlacements.clear();
+      this.dimension = WorldUtils.getDimension();
+      this.refreshHandSnapshots();
+   }
+
+   private void synchronizeLevel(ClientLevel currentLevel) {
+      if (this.observedLevel == currentLevel) {
+         return;
+      }
+
+      if (isLevelReplacement(this.observedLevel, currentLevel)) {
+         this.packetGeneration++;
+      }
+      this.observedLevel = currentLevel;
+      this.resetWorldTransientState();
+   }
+
+   static boolean isLevelReplacement(Object observedLevel, Object currentLevel) {
+      return observedLevel != null && observedLevel != currentLevel;
+   }
+
+   private void resetWorldTransientState() {
       this.pendingPlacements.clear();
       this.confirmedPlacements.clear();
       this.blockEntities.clear();
@@ -341,26 +379,23 @@ public final class WorldStateManager implements ClientAccess {
       this.glassUpdateWindows.clear();
       this.unconfirmedBreak = null;
       this.extraBreak = null;
-   }
-
-   @EventHandler(priority = 200)
-   private void onLocalPlayerPreTick(LocalPlayerPreTickEvent event) {
-      this.currentTickPlacements.clear();
-      this.dimension = WorldUtils.getDimension();
-      this.refreshHandSnapshots();
+      this.mainHandSnapshot = ItemStack.EMPTY;
+      this.offHandSnapshot = ItemStack.EMPTY;
+      this.dimension = DimensionType.OVERWORLD;
    }
 
    private void trackGlassUpdate(BlockPos position, BlockState state) {
       if (!BlockInteractionUtils.isGlass(state)) {
          return;
       }
-      long now = System.currentTimeMillis();
-      int latencyDurationMillis = ClientContext.serverStateManager.getLatencyTicks() * (50) + (50);
-      long activeDurationMillis = Math.min(250, latencyDurationMillis);
+      long nowNanos = System.nanoTime();
+      int latencyDurationMillis = ClientContext.serverStateManager.getLatencyTicks() * 50 + 50;
+      long activeDurationNanos = java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(Math.min(250, latencyDurationMillis));
       Map<BlockPos, GlassUpdateWindow> windows = this.glassUpdateWindows;
       BlockPos immutableWindowPosition = position.immutable();
-      long activeUntilMillis = now + activeDurationMillis;
-      windows.putIfAbsent(immutableWindowPosition, new WorldStateManager.GlassUpdateWindow(activeUntilMillis, now + 10000L));
+      long activeUntilNanos = nowNanos + activeDurationNanos;
+      long expiresAtNanos = nowNanos + java.util.concurrent.TimeUnit.SECONDS.toNanos(10L);
+      windows.putIfAbsent(immutableWindowPosition, new WorldStateManager.GlassUpdateWindow(activeUntilNanos, expiresAtNanos));
    }
 
    private ItemStack resolveHandStack(InteractionHand hand) {
@@ -375,48 +410,102 @@ public final class WorldStateManager implements ClientAccess {
          || this.pendingPlacements.containsKey(position);
    }
 
+   private void dispatchPacketUpdate(long expectedGeneration, Runnable action) {
+      ClientAccess.schizoMinecraft.executeIfPossible(() -> {
+         if (this.packetGeneration == expectedGeneration) {
+            action.run();
+         }
+      });
+   }
+
+   private void dispatchWorldPacketUpdate(
+      long expectedGeneration,
+      ClientLevel expectedLevel,
+      Runnable action
+   ) {
+      ClientAccess.schizoMinecraft.executeIfPossible(() -> {
+         if (matchesWorldPacketContext(
+            expectedGeneration,
+            this.packetGeneration,
+            expectedLevel,
+            ClientAccess.schizoMinecraft.level
+         )) {
+            action.run();
+         }
+      });
+   }
+
+   static boolean matchesWorldPacketContext(
+      long expectedGeneration,
+      long currentGeneration,
+      Object expectedLevel,
+      Object currentLevel
+   ) {
+      return expectedGeneration == currentGeneration
+         && expectedLevel != null
+         && expectedLevel == currentLevel;
+   }
+
+   private void applyBlockUpdate(BlockPos position, BlockState state) {
+      this.rollbackBlocks.remove(position);
+      if (state.isAir()) {
+         this.confirmedPlacements.remove(position);
+         this.pendingPlacements.remove(position);
+         this.glassUpdateWindows.remove(position);
+      } else if (this.pendingPlacements.remove(position) != null) {
+         this.confirmedPlacements.add(position);
+      }
+      this.trackGlassUpdate(position, state);
+   }
+
+   private void applySectionUpdate(BlockPos position, BlockState state) {
+      this.rollbackBlocks.remove(position);
+      if (state.isAir()) {
+         this.glassUpdateWindows.remove(position);
+      } else {
+         this.trackGlassUpdate(position, state);
+      }
+   }
+
    @EventHandler
    private void onPacketReceive(
       PacketEvent.Receive event
    ) {
+      long expectedGeneration = this.packetGeneration;
+      ClientLevel expectedLevel = ClientAccess.schizoMinecraft.level;
       if (event.getPacket() instanceof ClientboundBlockUpdatePacket blockUpdate) {
-         this.rollbackBlocks.remove(blockUpdate.getPos());
+         BlockPos position = blockUpdate.getPos().immutable();
          BlockState state = blockUpdate.getBlockState();
-         if (state.isAir()) {
-            this.confirmedPlacements.remove(blockUpdate.getPos());
-            Map<BlockPos, PendingPlacement> pending = this.pendingPlacements;
-            pending.remove(blockUpdate.getPos());
-            Map<BlockPos, GlassUpdateWindow> windows = this.glassUpdateWindows;
-            windows.remove(blockUpdate.getPos());
-         } else {
-            Map<BlockPos, PendingPlacement> pending = this.pendingPlacements;
-            if (pending.remove(blockUpdate.getPos()) != null) {
-               this.confirmedPlacements.add(blockUpdate.getPos());
-            }
-         }
-         BlockPos updatePosition = blockUpdate.getPos();
-         BlockState updateState = blockUpdate.getBlockState();
-         this.trackGlassUpdate(updatePosition, updateState);
+         this.dispatchWorldPacketUpdate(
+            expectedGeneration,
+            expectedLevel,
+            () -> this.applyBlockUpdate(position, state)
+         );
       }
+
       if (event.getPacket() instanceof ClientboundSectionBlocksUpdatePacket sectionUpdate) {
-         synchronized (this.rollbackBlocks) {
-            BiConsumer<BlockPos, BlockState> sectionUpdates = (position, state) -> {
-               this.rollbackBlocks.remove(position);
-               if (state.isAir()) {
-                  Map<BlockPos, GlassUpdateWindow> windows = this.glassUpdateWindows;
-                  windows.remove(position.immutable());
-               } else {
-                  this.trackGlassUpdate(position, state);
+         ArrayList<PacketBlockUpdate> updates = new ArrayList<>();
+         sectionUpdate.runUpdates((position, state) ->
+            updates.add(new PacketBlockUpdate(position.immutable(), state))
+         );
+         if (!updates.isEmpty()) {
+            List<PacketBlockUpdate> updateSnapshot = List.copyOf(updates);
+            this.dispatchWorldPacketUpdate(expectedGeneration, expectedLevel, () -> {
+               for (PacketBlockUpdate update : updateSnapshot) {
+                  this.applySectionUpdate(update.position(), update.state());
                }
-            };
-            sectionUpdate.runUpdates(sectionUpdates);
+            });
          }
       }
+
       if (event.getPacket() instanceof ClientboundLoginPacket login) {
-         this.chunkRadius = login.chunkRadius();
+         int radius = login.chunkRadius();
+         this.dispatchPacketUpdate(expectedGeneration, () -> this.chunkRadius = radius);
       }
+
       if (event.getPacket() instanceof ClientboundSetChunkCacheRadiusPacket radiusUpdate) {
-         this.chunkRadius = radiusUpdate.getRadius();
+         int radius = radiusUpdate.getRadius();
+         this.dispatchPacketUpdate(expectedGeneration, () -> this.chunkRadius = radius);
       }
    }
 
@@ -428,15 +517,18 @@ public final class WorldStateManager implements ClientAccess {
       }
    }
 
+   private record PacketBlockUpdate(BlockPos position, BlockState state) {
+   }
+
    private record GlassUpdateWindow(
-      long activeUntilMillis,
-      long expiresAtMillis
+      long activeUntilNanos,
+      long expiresAtNanos
    ) {
       public boolean isActive() {
-         return System.currentTimeMillis() < this.activeUntilMillis;
+         return System.nanoTime() < this.activeUntilNanos;
       }
       public boolean hasExpired() {
-         return System.currentTimeMillis() >= this.expiresAtMillis;
+         return System.nanoTime() >= this.expiresAtNanos;
       }
    }
 }

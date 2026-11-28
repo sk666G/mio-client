@@ -11,6 +11,9 @@ package dev.schizo.client.bootstrap;
 
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
+import dev.schizo.client.config.SafeModeManager;
+import dev.schizo.client.integrations.MultiplayerCompatibilityWarnings;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.SchizoClient;
 import dev.schizo.client.events.ClientInitializationEvent;
 import dev.schizo.client.integrations.baritone.BaritoneAdapter;
@@ -22,6 +25,7 @@ import dev.schizo.client.managers.BlockColorRegistry;
 import dev.schizo.client.managers.ChatFilterRegistry;
 import dev.schizo.client.managers.CommandRegistry;
 import dev.schizo.client.managers.ConfigurationManager;
+import dev.schizo.client.managers.ContextProfileRegistry;
 import dev.schizo.client.managers.CrystalInteractionManager;
 import dev.schizo.client.managers.GlintRegistry;
 import dev.schizo.client.managers.HoleManager;
@@ -31,6 +35,8 @@ import dev.schizo.client.managers.InventoryStateManager;
 import dev.schizo.client.managers.KitRegistry;
 import dev.schizo.client.managers.MacroRegistry;
 import dev.schizo.client.managers.ModuleRegistry;
+import dev.schizo.client.modules.Module;
+import dev.schizo.client.managers.ModulePreferencesRegistry;
 import dev.schizo.client.managers.MovementPredictionManager;
 import dev.schizo.client.managers.RotationManager;
 import dev.schizo.client.managers.ServerStateManager;
@@ -55,19 +61,22 @@ import dev.schizo.client.utils.movement.MovementSpeedTracker;
 import dev.schizo.client.utils.world.BlockBreakTracker;
 import dev.schizo.client.utils.world.MapDataCache;
 import java.util.Locale;
+import java.io.IOException;
 import java.util.Locale.Category;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.loader.api.FabricLoader;
 
 public final class ClientInitializer {
-   private boolean managersInitialized;
-   private boolean clientInitialized;
+   private final InitializationPhase managersPhase=new InitializationPhase("Manager");
+   private final InitializationPhase clientPhase=new InitializationPhase("Client");
+   private MultiplayerCompatibilityWarnings compatibilityWarnings;
 
    public void initialize() {
       requireEnvironment();
-      if (this.managersInitialized) {
-         return;
-      }
+      managersPhase.run(this::initializeManagers);
+   }
+
+   private void initializeManagers() {
       // Constructors publish services in dependency order before modules bind to them.
       ClientContext.baritoneBridge = FabricLoader.getInstance().isModLoaded("baritone-meteor")
          ? new BaritoneAdapter() : new DisabledBaritoneBridge();
@@ -85,11 +94,15 @@ public final class ClientInitializer {
       ClientContext.holeManager = new HoleManager();
       ClientContext.totemPopTracker = new TotemPopTracker();
       ClientContext.movementSpeedTracker = new MovementSpeedTracker();
+      new dev.schizo.client.managers.TravelMonitor();
       ClientContext.rotationManager = new RotationManager();
       ClientContext.waypointRegistry = new WaypointRegistry();
       ClientContext.featureBoxRenderer = new FeatureBoxRenderer();
       ClientContext.taskScheduler = new TaskScheduler();
       ClientContext.moduleRegistry = new ModuleRegistry();
+      MixinModuleRegistry.bind(ClientContext.moduleRegistry);
+      this.compatibilityWarnings = new MultiplayerCompatibilityWarnings();
+      ClientContext.modulePreferencesRegistry = new ModulePreferencesRegistry();
       ClientContext.hudModuleRegistry = new HudModuleRegistry();
       ClientContext.tradeRegistry = new TradeRegistry();
       ClientContext.commandRegistry = new CommandRegistry();
@@ -108,28 +121,40 @@ public final class ClientInitializer {
       ClientContext.chatFilterRegistry = new ChatFilterRegistry();
       ClientContext.glintRegistry = new GlintRegistry();
       ClientContext.autoPresetRegistry = new AutoPresetRegistry();
+      ClientContext.contextProfileRegistry = new ContextProfileRegistry();
       ClientContext.swingManager = new SwingInteractionManager();
       Locale.setDefault(Category.FORMAT, Locale.US);
-      this.managersInitialized = true;
       SchizoClient.LOGGER.info("Schizo main initialization completed.");
    }
 
    public void initializeClient() {
       requireEnvironment();
-      if (!this.managersInitialized) {
-         throw new IllegalStateException("Schizo client initialization requires the main phase.");
-      }
-      if (this.clientInitialized) {
-         return;
-      }
+      managersPhase.requireComplete();
+      clientPhase.run(this::initializeClientServices);
+   }
+
+   private void initializeClientServices() {
       ModuleDependencies.bind(ClientContext.moduleRegistry);
+      try {
+         SafeModeManager.GLOBAL.initialize(ConfigurationManager.ROOT_DIRECTORY);
+      } catch (IOException safeModeInitializationFailure) {
+         SafeModeManager.GLOBAL.activateFailSafe();
+         SchizoClient.LOGGER.error("Could not initialize configuration safety state; starting with modules disabled.", safeModeInitializationFailure);
+      }
+      if (SafeModeManager.GLOBAL.isActive()) {
+         for (Object entry : ClientContext.moduleRegistry.getRegistry()) {
+            Module module = (Module)entry;
+            if (module.isToggled()) {
+               module.disable();
+            }
+         }
+      }
       ClientAccess.eventBus.post(new ClientInitializationEvent());
-      ClientContext.soundManager.reload();
       ClientContext.configurationManager = new ConfigurationManager();
       ConfigurationManager configuration = ClientContext.configurationManager;
       CustomItemRegistries.initialize();
       configuration.load();
-      this.clientInitialized = true;
+      ClientContext.soundManager.reload();
       SchizoClient.LOGGER.info("Schizo client initialization completed.");
    }
 

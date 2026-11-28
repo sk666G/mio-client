@@ -64,7 +64,9 @@ import net.minecraft.network.chat.Style;
 import org.jetbrains.annotations.NotNull;
 
 public final class ModuleCommand extends Command {
-   private static NotificationsModule notifications;
+   private static NotificationsModule notifications() {
+      return ClientContext.getModule(NotificationsModule.class);
+   }
    private final Module module;
 
    @NotNull
@@ -120,10 +122,7 @@ public final class ModuleCommand extends Command {
       this.module = module;
    }
 
-   static {
-
-      notifications = ClientContext.getModule(NotificationsModule.class);
-   }
+   
 
    @Override
    public void exec(LiteralArgumentBuilder builder) {
@@ -161,7 +160,7 @@ public final class ModuleCommand extends Command {
             valuesToClear.clear();
 
             setSetting.runChangeCallback();
-            NotificationsModule notificationsForCheck = notifications;
+            NotificationsModule notificationsForCheck = notifications();
             if (NotificationsModule.shouldNotifyCommands(notificationsForCheck)) {
                Module moduleForName = this.module;
                String moduleName = moduleForName.getName();
@@ -255,7 +254,7 @@ public final class ModuleCommand extends Command {
                valueText = changedEntryText.withStyle(changedEntryStyle);
             }
 
-            NotificationsModule notificationsForCheck = notifications;
+            NotificationsModule notificationsForCheck = notifications();
             if (NotificationsModule.shouldNotifyCommands(notificationsForCheck)) {
                Module moduleForName = this.module;
                String moduleName = moduleForName.getName();

@@ -34,14 +34,31 @@ public final class RenderTargetRegistry implements ClientAccess {
       return target;
    }
 
-   public static Supplier createLazyRenderTarget(String name) {
-      RenderTarget[] cachedTarget = new RenderTarget[1];
-      return () -> {
-         if (cachedTarget[0] == null) {
-            cachedTarget[0] = createRenderTarget(name);
-         }
+   public static Supplier<RenderTarget> createLazyRenderTarget(String name) {
+      return createLazyRenderTarget(name, 1);
+   }
 
-         return cachedTarget[0];
+   public static Supplier<RenderTarget> createLazyRenderTarget(String name, int scale) {
+      return new Supplier<>() {
+         private volatile RenderTarget cachedTarget;
+
+         @Override
+         public RenderTarget get() {
+            RenderTarget target = this.cachedTarget;
+            if (target != null) {
+               return target;
+            }
+
+            synchronized (this) {
+               target = this.cachedTarget;
+               if (target == null) {
+                  // Assign only after successful creation so an early call can retry once the window exists.
+                  target = createRenderTarget(name, scale);
+                  this.cachedTarget = target;
+               }
+               return target;
+            }
+         }
       };
    }
 

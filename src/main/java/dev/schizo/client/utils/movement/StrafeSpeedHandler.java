@@ -34,20 +34,24 @@ public class StrafeSpeedHandler extends SpeedModeHandler {
    @Override
    public void onMove(LocalPlayerMoveEvent event) {
       LocalPlayer player = ClientAccess.schizoMinecraft.player;
-      if (this.speedModule.shouldPauseInBlocks() || this.speedModule.shouldPauseInLiquid()
+      boolean paused = this.speedModule.shouldPauseInBlocks() || this.speedModule.shouldPauseInLiquid()
          || PlayerStateUtils.isHungerLimited() || player.isFallFlying() || player.isSpectator()
-         || longJumpModule.isToggled()) {
+         || longJumpModule.isToggled();
+      boolean timerRequested = shouldRequestTimer(
+         paused,
+         this.speedModule.useTimerSetting.getValue(),
+         ClientContext.serverStateManager.getSetbackTimer().hasElapsed(250L)
+      );
+      if (timerRequested) {
+         ClientContext.tickRateController.requestMultiplier(this.speedModule, 1.0888F);
+      } else {
+         ClientContext.tickRateController.releaseMultiplier(this.speedModule);
+      }
+      if (paused) {
          return;
       }
 
       double motionY = event.getY();
-      if (this.speedModule.useTimerSetting.getValue()) {
-         if (ClientContext.serverStateManager.getSetbackTimer().hasElapsed(250L)) {
-            ClientContext.tickRateController.requestMultiplier(this.speedModule, 1.0888F);
-         } else {
-            ClientContext.tickRateController.releaseMultiplier(this.speedModule);
-         }
-      }
       float speedMultiplier = !this.speedModule.explosionBoostTimer.hasElapsed(1000L)
          && this.speedModule.boostSetting.getValue() ? 1.2F : 1.0F;
       double configuredSpeed = 0.2873D * this.speedModule.speedSetting.getValue() * speedMultiplier;
@@ -77,6 +81,10 @@ public class StrafeSpeedHandler extends SpeedModeHandler {
       if (MovementPhysics.isLocalPlayerMoving()) {
          this.movementStage++;
       }
+   }
+
+   static boolean shouldRequestTimer(boolean paused, boolean useTimer, boolean setbackElapsed) {
+      return !paused && useTimer && setbackElapsed;
    }
 
    public static void bindModules(ModuleRegistry modules) {

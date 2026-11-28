@@ -14,8 +14,10 @@ import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.systems.CommandEncoder;
 import com.mojang.blaze3d.textures.GpuTexture;
 import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.audio.BuiltinSound;
 import dev.schizo.client.render.LoadingOverlayRenderer;
+import dev.schizo.client.render.LoadingMotion;
 import dev.schizo.client.render.LoadingOverlayTheme;
 import dev.schizo.client.modules.client.SettingsModule;
 import dev.schizo.client.utils.collections.NamedIdentifier;
@@ -87,7 +89,7 @@ public abstract class LoadingOverlayMixin extends Overlay {
 
          // Mixins may be initialized before Schizo's module registry and sound
          // manager. Resolve these lazily so world loads/disconnects cannot NPE.
-         SettingsModule settingsModule = ClientContext.getModule(SettingsModule.class);
+         SettingsModule settingsModule = MixinModuleRegistry.getModule(SettingsModule.class);
          if (settingsModule != null && ClientContext.soundManager != null) {
             NamedIdentifier startupSound = settingsModule.getStartupSound();
             Calendar calendar = Calendar.getInstance();
@@ -171,19 +173,13 @@ public abstract class LoadingOverlayMixin extends Overlay {
    ) {
       int screenWidth = this.minecraft.getWindow().getGuiScaledWidth();
       int screenHeight = this.minecraft.getWindow().getGuiScaledHeight();
-      long fadeInElapsedMillis = Util.getMillis() - this.fadeInStart;
-      int opacityByte;
-      if (fadeInElapsedMillis <= 500L) {
-         opacityByte = (int)((float)fadeInElapsedMillis / 500.0F * 255.0F);
-      } else {
-         long fadeOutElapsedMillis = Util.getMillis() - this.fadeOutStart;
-         opacityByte = Mth.ceil(
-            (1.0F - Mth.clamp((this.fadeOutStart > -1L ? (float)fadeOutElapsedMillis / 1000.0F : -1.0F) - 1.0F, 0.0F, 1.0F)) * 255.0F
-         );
-      }
+      long now = Util.getMillis();
+      float fade = LoadingMotion.opacity(now, this.fadeInStart, this.fadeOutStart);
+      int opacityByte = Math.round(fade * 255.0F);
 
       if (this.loadingTheme == LoadingOverlayTheme.DEFAULT) {
-         LoadingOverlayRenderer.render(graphics, opacityByte / 255.0F, 1.0F, 0.75F);
+         LoadingOverlayRenderer.render(graphics, fade, 1.0F,
+            LoadingMotion.logoScale(fade, dev.schizo.client.gui.UiMotionPolicy.isReducedMotion()));
       } else {
          for (int stripeIndex = 0;
             stripeIndex
@@ -226,28 +222,18 @@ public abstract class LoadingOverlayMixin extends Overlay {
       GuiGraphics graphics, int left, int top, int right, int bottom, float opacity, CallbackInfo callback
    ) {
       if (this.loadingTheme == LoadingOverlayTheme.DEFAULT) {
-         int foregroundColor = replaceAlpha(
-            -249507,
-            (int)(opacity * 255.0F)
-         );
-         int backgroundColor = replaceAlpha(-1, (int)(opacity * 0.1 * 255.0));
-         float progressWidth = graphics.guiWidth() * this.currentProgress * 1.01F;
-         graphics.fill(
-            0,
-            graphics.guiHeight()
-               - 3,
-            graphics.guiWidth(),
-            graphics.guiHeight(),
-            backgroundColor
-         );
-         graphics.fill(
-            0,
-            graphics.guiHeight()
-               - 3,
-            (int)progressWidth,
-            graphics.guiHeight(),
-            foregroundColor
-         );
+         int width = graphics.guiWidth(), height = graphics.guiHeight();
+         if (width > 0 && height > 0) {
+            int railWidth = Math.min(240, Math.max(1, width - 24));
+            int railLeft = (width - railWidth) / 2;
+            int railY = Math.max(0, height - 17);
+            float alpha = LoadingMotion.unit(opacity);
+            int track = replaceAlpha(0xff33343e, Math.round(alpha * 255));
+            int fill = replaceAlpha(0xffe7394d, Math.round(alpha * 255));
+            int progressWidth = LoadingMotion.progressWidth(railWidth, this.currentProgress);
+            graphics.fill(railLeft, railY, railLeft + railWidth, Math.min(height, railY + 3), track);
+            if (progressWidth > 0) graphics.fill(railLeft, railY, railLeft + progressWidth, Math.min(height, railY + 3), fill);
+         }
          callback.cancel();
       }
    }

@@ -10,6 +10,8 @@
 package dev.schizo.client.gui.components;
 
 import dev.schizo.client.render.GuiDrawUtils;
+import dev.schizo.client.integrations.ModuleCompatibility;
+import dev.schizo.client.integrations.MultiplayerCompatibilityWarnings;
 import dev.schizo.client.gui.CloseState;
 import dev.schizo.client.render.text.LanguageTable;
 import dev.schizo.client.gui.components.EnumSettingComponent;
@@ -29,8 +31,9 @@ public abstract class SettingComponent<T> extends AbstractComponent {
    protected final CloseState parentCloseState;
    protected final Setting<T> setting;
    private boolean wasHoveredForTextScroll;
-   private long textScrollHoverStartedAtMillis;
+   private long textScrollHoverStartedNanos;
    public boolean editing;
+   private boolean previouslyUnavailable;
 
    @Override
    public int getHeight() {
@@ -46,9 +49,17 @@ public abstract class SettingComponent<T> extends AbstractComponent {
          || this.parentCloseState.isClosed();
       if (unavailable) {
          this.setting.expanded = false;
+         if(!this.previouslyUnavailable) this.cancelInput();
       }
+      this.previouslyUnavailable=unavailable;
 
       return unavailable;
+   }
+
+   @Override public void cancelInput() {
+      this.editing=false;
+      var gui=this.getClickGui();
+      if(gui!=null && gui.getEditingSetting()==this) gui.setEditingSetting(null);
    }
 
    public Setting<T> getSetting() {
@@ -78,6 +89,7 @@ public abstract class SettingComponent<T> extends AbstractComponent {
          <= this.panel
                .getWidth()
             - (4)) {
+         this.wasHoveredForTextScroll = false;
          this.textScrollAnimation
             .setValue(
                0.0F
@@ -85,10 +97,10 @@ public abstract class SettingComponent<T> extends AbstractComponent {
       } else {
          if (this.hovered) {
             if (!this.wasHoveredForTextScroll) {
-               this.textScrollHoverStartedAtMillis = System.currentTimeMillis();
+               this.textScrollHoverStartedNanos = System.nanoTime();
             }
 
-            if (System.currentTimeMillis() > this.textScrollHoverStartedAtMillis + 750L) {
+            if (System.nanoTime() - this.textScrollHoverStartedNanos > 750_000_000L) {
                this.textScrollAnimation
                   .setTarget(
                      textWidth
@@ -113,57 +125,79 @@ public abstract class SettingComponent<T> extends AbstractComponent {
       PoseStack poseStack, String text, Runnable renderer
    ) {
       poseStack.pushPose();
-      this.updateTextScroll(
-         FontRenderer.INSTANCE
-            .getWidth(text)
-      );
-      float scrollOffset = -this.textScrollAnimation
-         .getValue();
-      boolean scissorRequired = scrollOffset != 0.0F && !(this instanceof EnumSettingComponent<?>);
-      if (scissorRequired) {
-         ModuleComponent parentModule = (ModuleComponent)this.parentCloseState;
-         GuiDrawUtils.flush();
-         ScissorStack.pushIntersection(
-            this.panel
-                  .getX()
-               + this.getHorizontalPadding(),
-            this.panel
-                  .getY()
-               + parentModule.getYOffset(),
-            this.panel
-                  .getWidth()
-               - this.getHorizontalPadding(),
-            parentModule.getHeight()
-         );
-      }
+      try {
+         this.updateTextScroll(FontRenderer.INSTANCE.getWidth(text));
+         float scrollOffset = -this.textScrollAnimation.getValue();
+         boolean scissorRequired = scrollOffset != 0.0F && !(this instanceof EnumSettingComponent<?>);
+         if (scissorRequired) {
+            int clipY = this.panel.getY() + this.yOffset;
+            int clipHeight = this.getHeight();
+            if (this.parentCloseState instanceof ModuleComponent parentModule) {
+               clipY = this.panel.getY() + parentModule.getYOffset();
+               clipHeight = parentModule.getHeight();
+            }
+            GuiDrawUtils.flush();
+            ScissorStack.pushIntersection(
+               this.panel.getX() + this.getHorizontalPadding(),
+               clipY,
+               this.panel.getWidth() - this.getHorizontalPadding(),
+               clipHeight
+            );
+         }
 
-      poseStack.translate(scrollOffset, 0.0F, 0.0F);
-      renderer.run();
-      if (scissorRequired) {
-         GuiDrawUtils.flush();
-         ScissorStack.pop();
+         try {
+            poseStack.translate(scrollOffset, 0.0F, 0.0F);
+            renderer.run();
+         } finally {
+            if (scissorRequired) {
+               try {
+                  GuiDrawUtils.flush();
+               } finally {
+                  ScissorStack.pop();
+               }
+            }
+         }
+      } finally {
+         poseStack.popPose();
       }
-
-      poseStack.popPose();
    }
 
    @Override
    public void render(PoseStack poseStack, double mouseX, double mouseY) {
-      if (this.getUiModule().descriptionsSetting.getValue()
-         && this.getUiModule().settingsSetting.getValue()
-         && this.isMouseOver(mouseX, mouseY)
+      if (this.isMouseOver(mouseX, mouseY)
          && this.parentCloseState instanceof ModuleComponent parentModule) {
-         String moduleConfigName = parentModule.getModule()
-            .getConfigName();
-         String settingConfigName = this.setting.getConfigName();
-         LanguageTable translations = ClientContext.languageTable;
-         String description = translations.getTranslation(
-            "descriptions.settings.%s.%s".formatted(moduleConfigName, settingConfigName));
-         if (description != null) {
-            ClientContext.getClickGui()
-               .setTooltipText(
-                  description
-               );
+         String tooltip = null;
+         if (this.getUiModule().descriptionsSetting.getValue()
+            && this.getUiModule().settingsSetting.getValue()) {
+            String moduleConfigName = parentModule.getModule().getConfigName();
+            String settingConfigName = this.setting.getConfigName();
+            LanguageTable translations = ClientContext.languageTable;
+            tooltip = translations.getTranslation(
+               "descriptions.settings.%s.%s".formatted(moduleConfigName, settingConfigName)
+            );
+         }
+
+         if (MultiplayerCompatibilityWarnings.isMultiplayerSession()) {
+            ModuleCompatibility.SettingAssessment assessment = ModuleCompatibility.assessSetting(
+               parentModule.getModule().getClass(),
+               this.setting.getConfigName()
+            );
+            if (!assessment.individuallyReviewed()) {
+               String className = parentModule.getModule().getClass().getSimpleName();
+               String compatibilityWarning = "Multiplayer review: "
+                  + assessment.classification() + " setting '"
+                  + this.setting.getConfigName() + "'. Parent module: "
+                  + assessment.inheritedModuleClassification() + ". "
+                  + assessment.reason()
+                  + " See ;compat module " + className + ".";
+               tooltip = tooltip == null || tooltip.isBlank()
+                  ? compatibilityWarning
+                  : tooltip + "\n\n" + compatibilityWarning;
+            }
+         }
+
+         if (tooltip != null && !tooltip.isBlank()) {
+            ClientContext.getClickGui().setTooltipText(tooltip);
          }
       }
 

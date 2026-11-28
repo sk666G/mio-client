@@ -12,32 +12,53 @@ package dev.schizo.client.managers;
 import dev.schizo.client.ClientAccess;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.MinecraftRunTickEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.events.RotationRequestEvent;
 import dev.schizo.client.events.bus.EventBus;
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Queue;
+import java.util.concurrent.atomic.AtomicBoolean;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.util.thread.BlockableEventLoop;
 
 public final class TaskScheduler implements ClientAccess {
-   private final ClientThreadTaskQueue rotationTasks = new ClientThreadTaskQueue();
-   private final ClientThreadTaskQueue runTickTasks = new ClientThreadTaskQueue();
+   private final ClientThreadTaskQueue rotationTasks = new ClientThreadTaskQueue("rotation");
+   private final ClientThreadTaskQueue runTickTasks = new ClientThreadTaskQueue("run-tick");
 
    public TaskScheduler() {
       EventBus eventBus = ClientAccess.eventBus;
       eventBus.subscribe(this);
    }
 
-   public void scheduleRotationTask(Runnable task, int delay) {
-      this.rotationTasks.enqueue(task, delay);
+   public boolean scheduleRotationTask(Runnable task, int delay) {
+      return this.rotationTasks.enqueue(null, task, delay);
    }
 
-   public void scheduleRunTickTask(Runnable task) {
-      this.runTickTasks.enqueue(task, 1);
+   public boolean scheduleRotationTask(Object owner, Runnable task, int delay) {
+      return this.rotationTasks.enqueue(owner, task, delay);
+   }
+
+   public boolean scheduleRunTickTask(Runnable task) {
+      return this.runTickTasks.enqueue(null, task, 1);
+   }
+
+   public boolean scheduleRunTickTask(Object owner, Runnable task) {
+      return this.runTickTasks.enqueue(owner, task, 1);
+   }
+
+   public int cancelOwnedTasks(Object owner) {
+      if (owner == null) {
+         return 0;
+      }
+      return this.rotationTasks.cancelOwner(owner) + this.runTickTasks.cancelOwner(owner);
+   }
+
+   public Snapshot snapshot() {
+      return new Snapshot(
+         this.rotationTasks.queuedCount(),
+         this.rotationTasks.outstandingCount(),
+         this.runTickTasks.queuedCount(),
+         this.runTickTasks.outstandingCount()
+      );
    }
 
    @EventHandler(priority = -100)
@@ -50,59 +71,120 @@ public final class TaskScheduler implements ClientAccess {
       this.runTickTasks.run();
    }
 
-   public void scheduleScreenChange(Screen screen) {
-      this.scheduleRunTickTask(() -> {
-         ClientAccess.schizoMinecraft.setScreen(screen);
-      });
+   public boolean scheduleScreenChange(Screen screen) {
+      return this.scheduleRunTickTask(() -> ClientAccess.schizoMinecraft.setScreen(screen));
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.rotationTasks.clear();
+      this.runTickTasks.clear();
+   }
+
+   /** Stops accepting work and discards tasks that have not started. Running tasks are not interrupted. */
+   public void shutdown() {
+      this.rotationTasks.shutdown();
+      this.runTickTasks.shutdown();
    }
 
    private static final class ClientThreadTaskQueue {
-      private final List<CountdownTask> activeTasks = Collections.synchronizedList(new ArrayList<>());
-      private final Queue<CountdownTask> pendingTasks = new ArrayDeque<>();
+      private final String name;
+      private final BoundedCountdownTaskQueue tasks = new BoundedCountdownTaskQueue(
+         BoundedCountdownTaskQueue.DEFAULT_CAPACITY,
+         BoundedCountdownTaskQueue.DEFAULT_MAX_TASKS_PER_PASS
+      );
+      private final AtomicBoolean capacityWarningLogged = new AtomicBoolean();
+      private final AtomicBoolean shutdown = new AtomicBoolean();
+
+      private ClientThreadTaskQueue(String name) {
+         this.name = name;
+      }
+
+      private boolean enqueue(Object owner, Runnable task, int delay) {
+         if (this.shutdown.get()) {
+            return false;
+         }
+
+         BoundedCountdownTaskQueue.Reservation reservation = this.tasks.reserve(owner, task, delay);
+         if (reservation == null) {
+            if (!this.shutdown.get()) {
+               this.warnCapacity();
+            }
+            return false;
+         }
+
+         Minecraft minecraft = Minecraft.getInstance();
+         if (minecraft.isSameThread()) {
+            boolean accepted = this.tasks.enqueue(reservation);
+            if (accepted) {
+               this.capacityWarningLogged.set(false);
+            }
+            return accepted;
+         }
+
+         try {
+            ((BlockableEventLoop<Runnable>)minecraft).executeIfPossible(() -> this.tasks.enqueue(reservation));
+            this.capacityWarningLogged.set(false);
+            return true;
+         } catch (RuntimeException dispatchFailure) {
+            this.tasks.cancel(reservation);
+            if (!this.shutdown.get()) {
+               ClientAccess.logger.warn("Could not dispatch {} task to the Minecraft client thread", this.name, dispatchFailure);
+            }
+            return false;
+         }
+      }
 
       private void run() {
-         synchronized (this.activeTasks) {
-            while (!this.pendingTasks.isEmpty()) {
-               this.activeTasks.add(this.pendingTasks.poll());
-            }
+         this.tasks.runPass(failure -> ClientAccess.logger.error("Scheduled {} task failed", this.name, failure));
+      }
 
-            this.activeTasks.removeIf(CountdownTask::runIfReady);
+      private int cancelOwner(Object owner) {
+         return this.tasks.cancelOwner(owner);
+      }
+
+      private int queuedCount() {
+         return this.tasks.queuedCount();
+      }
+
+      private int outstandingCount() {
+         return this.tasks.outstandingCount();
+      }
+
+      private void clear() {
+         this.tasks.clear();
+         this.capacityWarningLogged.set(false);
+      }
+
+      private void shutdown() {
+         if (this.shutdown.compareAndSet(false, true)) {
+            this.tasks.close();
          }
       }
 
-      private void enqueue(CountdownTask task) {
-         synchronized (this.activeTasks) {
-            this.pendingTasks.add(task);
-         }
-      }
-
-      private void enqueue(Runnable task, int delay) {
-         Minecraft minecraft = Minecraft.getInstance();
-         CountdownTask countdownTask = new CountdownTask(task, delay);
-         if (minecraft.isSameThread()) {
-            this.enqueue(countdownTask);
-         } else {
-            ((BlockableEventLoop<Runnable>)minecraft).executeIfPossible(() -> this.enqueue(countdownTask));
+      private void warnCapacity() {
+         if (this.capacityWarningLogged.compareAndSet(false, true)) {
+            ClientAccess.logger.warn(
+               "The {} task queue reached its capacity ({}); rejecting additional tasks until space is available",
+               this.name,
+               BoundedCountdownTaskQueue.DEFAULT_CAPACITY
+            );
          }
       }
    }
 
-   private static final class CountdownTask {
-      private final Runnable task;
-      private int remainingPasses;
-
-      private CountdownTask(Runnable task, int remainingPasses) {
-         this.task = task;
-         this.remainingPasses = remainingPasses;
+   public record Snapshot(
+      int rotationQueued,
+      int rotationOutstanding,
+      int runTickQueued,
+      int runTickOutstanding
+   ) {
+      public int totalQueued() {
+         return this.rotationQueued + this.runTickQueued;
       }
 
-      private boolean runIfReady() {
-         if (this.remainingPasses-- < 0) {
-            this.task.run();
-            return true;
-         } else {
-            return false;
-         }
+      public int totalOutstanding() {
+         return this.rotationOutstanding + this.runTickOutstanding;
       }
    }
 }

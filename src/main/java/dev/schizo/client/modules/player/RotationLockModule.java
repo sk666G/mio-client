@@ -25,7 +25,6 @@ import dev.schizo.client.managers.SocialRegistry;
 import dev.schizo.client.settings.SettingLabelCondition;
 import dev.schizo.client.modules.Module;
 import dev.schizo.client.modules.ModuleCategory;
-import dev.schizo.client.modules.render.FreeLookModule;
 import dev.schizo.client.settings.BooleanSetting;
 import dev.schizo.client.settings.EnumSetting;
 import dev.schizo.client.settings.NamedEntry;
@@ -57,10 +56,6 @@ public class RotationLockModule extends Module {
    private final RotationLockModule.PlainRotationProvider plainRotationProvider;
    private final RotationLockModule.TargetRotationProvider targetRotationProvider;
    private String targetName;
-
-   static {
-      FreeLookModule checkedFreeLook = (FreeLookModule)ClientContext.getModule(FreeLookModule.class);
-   }
 
    @Override
    public void onEnable() {

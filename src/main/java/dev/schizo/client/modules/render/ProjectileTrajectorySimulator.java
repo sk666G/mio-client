@@ -63,8 +63,8 @@ import net.minecraft.world.phys.Vec3;
 import org.joml.Quaterniond;
 import org.joml.Vector3d;
 public class ProjectileTrajectorySimulator implements ClientAccess {
-   private static TrajectoriesModule module = ClientContext.getModule(TrajectoriesModule.class);
-   private static AutoBowReleaseModule autoBowModule = ClientContext.getModule(AutoBowReleaseModule.class);
+   private static TrajectoriesModule module;
+   private static AutoBowReleaseModule autoBowModule;
    private static final HitResult SIMULATION_LIMIT = new HitResult(
       Vec3.ZERO
    ) {

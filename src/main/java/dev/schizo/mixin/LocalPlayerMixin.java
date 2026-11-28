@@ -10,7 +10,7 @@
 package dev.schizo.mixin;
 
 import dev.schizo.client.ClientAccess;
-import dev.schizo.client.ClientContext;
+import dev.schizo.client.bootstrap.MixinModuleRegistry;
 import dev.schizo.client.events.ItemUseEvent;
 import dev.schizo.client.modules.movement.SprintModule;
 import net.minecraft.client.player.LocalPlayer;
@@ -23,7 +23,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(LocalPlayer.class)
 public class LocalPlayerMixin {
-   private static final SprintModule sprintModule = ClientContext.getModule(SprintModule.class);
    @Unique
    private boolean aiStepInputActive;
    @Unique
@@ -39,8 +38,8 @@ public class LocalPlayerMixin {
          .post(event);
       this.itemUseSlowdownCancelled = event.isCancelled();
       this.aiStepInputActive = true;
-      if (sprintModule.isToggled()
-         && sprintModule.shouldDeferToVanillaSprinting()) {
+      if (MixinModuleRegistry.localPlayerSprint.isToggled()
+         && MixinModuleRegistry.localPlayerSprint.shouldDeferToVanillaSprinting()) {
          SprintModule.forceSprintKeyDown = true;
       }
    }

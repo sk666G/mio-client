@@ -13,6 +13,7 @@ import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.LocalPlayerTickEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.managers.ServerStateManager;
 import dev.schizo.client.render.ColorUtils;
 import dev.schizo.client.render.FontRenderer;
@@ -27,7 +28,6 @@ import java.awt.Color;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import java.util.function.Function;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.client.player.LocalPlayer;
@@ -40,11 +40,21 @@ import net.minecraft.world.level.block.entity.ChestBlockEntity;
 import net.minecraft.world.level.block.entity.ShulkerBoxBlockEntity;
 
 public class MetricsModule extends HudWidgetModule {
+   private static final Comparator<HudTextRow> METRIC_WIDTH_COMPARATOR =
+      Comparator.comparingDouble(row -> measureMetricWidth(FontRenderer.INSTANCE, row));
+
    private final Setting<Boolean> speedSetting;
    private final Setting<Boolean> bpsSetting;
    private final Setting<Boolean> tpsSetting;
    private final Setting<Boolean> pingSetting;
    private final Setting<Boolean> fpsSetting;
+   private final Setting<Boolean> averageFpsSetting;
+   private final Setting<Boolean> frameTimeSetting;
+   private final Setting<Boolean> averageFrameTimeSetting;
+   private final Setting<Boolean> onePercentLowSetting;
+   private final Setting<Boolean> oneTenthPercentLowSetting;
+   private final Setting<Boolean> frameVarianceSetting;
+   private final Setting<Boolean> hitchesSetting;
    private final Setting<Boolean> serverBrandSetting;
    private final Setting<Boolean> durabilitySetting;
    private final Setting<Boolean> shulkersSetting;
@@ -73,6 +83,9 @@ public class MetricsModule extends HudWidgetModule {
 
    private Component getHeldItemDurability() {
       LocalPlayer player = ClientAccess.schizoMinecraft.player;
+      if (player == null) {
+         return this.cachedDurabilityText != null ? this.cachedDurabilityText : Component.empty();
+      }
       ItemStack heldStack = player.getMainHandItem();
 
       Component durabilityText = formatStackDurability(heldStack);
@@ -108,38 +121,65 @@ public class MetricsModule extends HudWidgetModule {
          return Component.literal(text);
       }, this.tpsSetting::getValue);
       HudTextRow pingRow = new HudTextRow(() -> {
-
-         Object[] formatArguments = new Object[2];
-         formatArguments[0] = ChatFormatting.WHITE;
          ServerStateManager networkTracker = ClientContext.serverStateManager;
-
-         int pingMillis = networkTracker.getLatencyMillis();
-         formatArguments[1] = pingMillis;
-         String format = "Ping %s%dms";
-         String text = format.formatted(formatArguments);
-         return Component.literal(text);
+         return Component.literal(formatColoredInteger(
+            "Ping ", networkTracker.getLatencyMillis(), "ms"
+         ));
       }, this.pingSetting::getValue);
       HudTextRow fpsRow = new HudTextRow(() -> {
-
-         Object[] formatArguments = new Object[2];
-         formatArguments[0] = ChatFormatting.WHITE;
          FrameTiming frameTiming = ClientContext.frameTiming;
-
-         int framesPerSecond = frameTiming.getFramesPerSecond();
-         formatArguments[1] = framesPerSecond;
-         String format = "FPS %s%d";
-         String text = format.formatted(formatArguments);
-         return Component.literal(text);
+         return Component.literal(formatColoredInteger(
+            "FPS ", frameTiming.getFramesPerSecond(), ""
+         ));
       }, this.fpsSetting::getValue);
+      HudTextRow averageFpsRow = new HudTextRow(() -> {
+         FrameTiming frameTiming = ClientContext.frameTiming;
+         return Component.literal("AvgFPS %s%.1f".formatted(
+            ChatFormatting.WHITE, frameTiming.getAverageFramesPerSecond()
+         ));
+      }, this.averageFpsSetting::getValue);
+      HudTextRow frameTimeRow = new HudTextRow(() -> {
+         FrameTiming frameTiming = ClientContext.frameTiming;
+         return Component.literal("Frame %s%.2fms".formatted(
+            ChatFormatting.WHITE, frameTiming.getFrameTimeMillis()
+         ));
+      }, this.frameTimeSetting::getValue);
+      HudTextRow averageFrameTimeRow = new HudTextRow(() -> {
+         FrameTiming frameTiming = ClientContext.frameTiming;
+         return Component.literal("AvgFrame %s%.2fms".formatted(
+            ChatFormatting.WHITE, frameTiming.getAverageFrameTimeMillis()
+         ));
+      }, this.averageFrameTimeSetting::getValue);
+      HudTextRow onePercentLowRow = new HudTextRow(() -> {
+         FrameTiming frameTiming = ClientContext.frameTiming;
+         return Component.literal("1%% Low %s%.0f".formatted(
+            ChatFormatting.WHITE, frameTiming.getOnePercentLowFramesPerSecond()
+         ));
+      }, this.onePercentLowSetting::getValue);
+      HudTextRow oneTenthPercentLowRow = new HudTextRow(() -> {
+         FrameTiming frameTiming = ClientContext.frameTiming;
+         return Component.literal("0.1%% Low %s%.0f".formatted(
+            ChatFormatting.WHITE, frameTiming.getOneTenthPercentLowFramesPerSecond()
+         ));
+      }, this.oneTenthPercentLowSetting::getValue);
+      HudTextRow frameVarianceRow = new HudTextRow(() -> {
+         FrameTiming frameTiming = ClientContext.frameTiming;
+         return Component.literal("FrameVariance %s%.2fms²".formatted(
+            ChatFormatting.WHITE, frameTiming.getFrameTimeVarianceMillisSquared()
+         ));
+      }, this.frameVarianceSetting::getValue);
+      HudTextRow hitchesRow = new HudTextRow(() -> {
+         FrameTiming frameTiming = ClientContext.frameTiming;
+         return Component.literal("Hitches %s%d/s".formatted(
+            ChatFormatting.WHITE, frameTiming.getStuttersPerSecond()
+         ));
+      }, this.hitchesSetting::getValue);
       HudTextRow serverBrandRow = new HudTextRow(() -> {
-
-         Object[] formatArguments = new Object[2];
-         formatArguments[0] = ChatFormatting.WHITE;
-         ClientPacketListener connection = ClientAccess.schizoMinecraft.player.connection;
-         formatArguments[1] = connection.serverBrand();
-         String format = "ServerBrand %s%s";
-         String text = format.formatted(formatArguments);
-         return Component.literal(text);
+         ClientPacketListener connection = ClientAccess.schizoMinecraft.getConnection();
+         String serverBrand = connection == null || connection.serverBrand() == null
+            ? "N/A"
+            : connection.serverBrand();
+         return Component.literal("ServerBrand " + ChatFormatting.WHITE + serverBrand);
       }, this.serverBrandSetting::getValue);
       HudTextRow durabilityRow = new HudTextRow(
          () -> formatDurabilityMetric(this),
@@ -150,48 +190,59 @@ public class MetricsModule extends HudWidgetModule {
                return false;
             }
             LocalPlayer player = ClientAccess.schizoMinecraft.player;
-            ItemStack heldStack = player.getMainHandItem();
-            return heldStack.isDamageableItem();
+            return player != null && player.getMainHandItem().isDamageableItem();
          }
       );
-      HudTextRow chestRow = new HudTextRow(() -> {
+      HudTextRow chestRow = new HudTextRow(
+         () -> Component.literal(formatColoredInteger(
+            "Chests ", this.chestAndBarrelCount, ""
+         )),
+         this.chestSetting::getValue
+      );
+      HudTextRow shulkerRow = new HudTextRow(
+         () -> Component.literal(formatColoredInteger(
+            "Shulkers ", this.shulkerCount, ""
+         )),
+         this.shulkersSetting::getValue
+      );
 
-         Object[] formatArguments = new Object[2];
-         formatArguments[0] = ChatFormatting.WHITE;
-         int count = this.chestAndBarrelCount;
-         formatArguments[1] = count;
-         String format = "Chests %s%d";
-         String text = format.formatted(formatArguments);
-         return Component.literal(text);
-      }, this.chestSetting::getValue);
-      HudTextRow shulkerRow = new HudTextRow(() -> {
+      rowsForRegistration.addAll(List.of(
+         speedRow, tpsRow, pingRow, fpsRow, averageFpsRow, frameTimeRow, averageFrameTimeRow,
+         onePercentLowRow, oneTenthPercentLowRow, frameVarianceRow, hitchesRow, serverBrandRow,
+         durabilityRow, chestRow, shulkerRow
+      ));
+   }
 
-         Object[] formatArguments = new Object[2];
-         formatArguments[0] = ChatFormatting.WHITE;
-         int count = this.shulkerCount;
-         formatArguments[1] = count;
-         String format = "Shulkers %s%d";
-         String text = format.formatted(formatArguments);
-         return Component.literal(text);
-      }, this.shulkersSetting::getValue);
+   @Override
+   public void onDisable() {
+      this.clearSessionState();
+   }
 
-      rowsForRegistration.addAll(List.of(speedRow, tpsRow, pingRow, fpsRow, serverBrandRow, durabilityRow, chestRow, shulkerRow));
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.clearSessionState();
+   }
+
+   private void clearSessionState() {
+      this.cachedDurabilityText = null;
+      this.chestAndBarrelCount = 0;
+      this.shulkerCount = 0;
    }
 
    @EventHandler
    private void onLocalPlayerTickEvent(LocalPlayerTickEvent ignoredEvent) {
-      List<HudTextRow> rowsToSort = this.metricRows;
-      Function<HudTextRow, Float> metricWidth = row -> {
-         FontRenderer textRenderer = FontRenderer.INSTANCE;
-         return measureMetricWidth(textRenderer, row);
-      };
-
-      Comparator<HudTextRow> metricComparator = Comparator.comparing(metricWidth);
-
-      rowsToSort.sort(metricComparator);
+      this.metricRows.sort(METRIC_WIDTH_COMPARATOR);
       this.shulkerCount = this.chestAndBarrelCount = 0;
-      WorldStateManager worldTracker = ClientContext.worldStateManager;
-      countContainers(this, worldTracker);
+      boolean countChests = this.chestSetting.getValue();
+      boolean countShulkers = this.shulkersSetting.getValue();
+      if (countChests || countShulkers) {
+         WorldStateManager worldTracker = ClientContext.worldStateManager;
+         countContainers(this, worldTracker, countChests, countShulkers);
+      }
+   }
+
+   static String formatColoredInteger(String prefix, int value, String suffix) {
+      return prefix + ChatFormatting.WHITE + value + suffix;
    }
 
    private static Component formatSpeedMetric(MetricsModule owner, boolean useBpsSuffix) {
@@ -231,24 +282,22 @@ public class MetricsModule extends HudWidgetModule {
       return -textRenderer.getWidth(rowText.getString());
    }
 
-   private static void countContainers(MetricsModule owner, WorldStateManager worldTracker) {
+   private static void countContainers(
+      MetricsModule owner, WorldStateManager worldTracker, boolean countChests, boolean countShulkers
+   ) {
       for (BlockEntity blockEntity : worldTracker.getBlockEntities()) {
-         if (blockEntity instanceof ChestBlockEntity || blockEntity instanceof BarrelBlockEntity) {
+         if (countChests && (blockEntity instanceof ChestBlockEntity || blockEntity instanceof BarrelBlockEntity)) {
             owner.chestAndBarrelCount++;
          }
 
-         if (blockEntity instanceof ShulkerBoxBlockEntity) {
+         if (countShulkers && blockEntity instanceof ShulkerBoxBlockEntity) {
             owner.shulkerCount++;
          }
       }
 
-      Setting<Boolean> doubleChestOption = owner.doubleChestSetting;
-      Boolean combineChestPairs = doubleChestOption.getValue();
-      if (combineChestPairs) {
+      if (countChests && owner.doubleChestSetting.getValue()) {
          int combinedContainerCount = owner.chestAndBarrelCount;
-
-         owner.chestAndBarrelCount = combinedContainerCount
-            / 2;
+         owner.chestAndBarrelCount = combinedContainerCount / 2;
       }
    }
 
@@ -267,6 +316,13 @@ public class MetricsModule extends HudWidgetModule {
       this.tpsSetting = this.add(new BooleanSetting("TPS", true));
       this.pingSetting = this.add(new BooleanSetting("Ping", true));
       this.fpsSetting = this.add(new BooleanSetting("FPS", true));
+      this.averageFpsSetting = this.add(new BooleanSetting("AverageFPS", false));
+      this.frameTimeSetting = this.add(new BooleanSetting("FrameTime", false));
+      this.averageFrameTimeSetting = this.add(new BooleanSetting("AverageFrameTime", false));
+      this.onePercentLowSetting = this.add(new BooleanSetting("OnePercentLow", false));
+      this.oneTenthPercentLowSetting = this.add(new BooleanSetting("OneTenthPercentLow", false));
+      this.frameVarianceSetting = this.add(new BooleanSetting("FrameVariance", false));
+      this.hitchesSetting = this.add(new BooleanSetting("Hitches", false));
       this.serverBrandSetting = this.add(new BooleanSetting("ServerBrand", true));
       this.durabilitySetting = this.add(new BooleanSetting("Durability", false));
       this.shulkersSetting = this.add(new BooleanSetting("Shulkers", false));

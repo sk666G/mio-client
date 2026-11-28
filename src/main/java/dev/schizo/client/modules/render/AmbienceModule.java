@@ -35,6 +35,8 @@ import java.awt.Color;
 import java.util.Calendar;
 import java.util.function.Supplier;
 import net.minecraft.client.OptionInstance;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.Options;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.renderer.LevelRenderer;
@@ -60,19 +62,26 @@ public class AmbienceModule extends Module {
    private RenderTarget depthRenderTarget;
    private AmbienceModule.BrightnessChoice previousBrightness;
    private double savedGamma;
+   private boolean gammaOverrideApplied;
+   private MobEffectInstance appliedNightVisionEffect;
    private boolean weatherOverrideSuppressed;
    private ServerTimeSnapshot serverTimeSnapshot;
+   private ClientLevel serverTimeOwner;
 
    @Override
    public void onEnable() {
+      this.gammaOverrideApplied = false;
+      this.appliedNightVisionEffect = null;
       Options options = ClientAccess.schizoMinecraft.options;
       OptionInstance<Double> gammaOption = options.gamma();
       this.savedGamma = gammaOption.get();
       if (ClientAccess.schizoMinecraft.level != null) {
+         this.serverTimeOwner = ClientAccess.schizoMinecraft.level;
          this.serverTimeSnapshot = new ServerTimeSnapshot(
-            ClientAccess.schizoMinecraft.level.getGameTime(), ClientAccess.schizoMinecraft.level.getDayTime()
+            this.serverTimeOwner.getGameTime(), this.serverTimeOwner.getDayTime()
          );
       } else {
+         this.serverTimeOwner = null;
          this.serverTimeSnapshot = null;
       }
    }
@@ -90,26 +99,38 @@ public class AmbienceModule extends Module {
 
    @Override
    public void onDisable() {
-      if (!this.isWorldUnavailable()) {
-         LocalPlayer effectPlayer = ClientAccess.schizoMinecraft.player;
-         Holder nightVision = MobEffects.NIGHT_VISION;
-         effectPlayer.removeEffect(nightVision);
+      Minecraft minecraft = ClientAccess.schizoMinecraft;
+      ServerTimeSnapshot timeSnapshot = this.serverTimeSnapshot;
+      ClientLevel timeOwner = this.serverTimeOwner;
+      this.serverTimeSnapshot = null;
+      this.serverTimeOwner = null;
+      if (minecraft == null) {
+         this.appliedNightVisionEffect = null;
+         this.gammaOverrideApplied = false;
+         return;
+      }
+      if (minecraft.player != null) {
+         this.removeOwnedNightVision(minecraft.player);
+      } else {
+         this.appliedNightVisionEffect = null;
       }
 
-      if (this.serverTimeSnapshot != null && ClientAccess.schizoMinecraft.level != null) {
-         ClientAccess.schizoMinecraft.level.setTimeFromServer(
-            this.serverTimeSnapshot.gameTime(), this.serverTimeSnapshot.dayTime(), true
+      if (timeSnapshot != null && shouldRestoreServerTime(timeOwner, minecraft.level)) {
+         minecraft.level.setTimeFromServer(
+            timeSnapshot.gameTime(), timeSnapshot.dayTime(), true
          );
       }
 
-      Options options = ClientAccess.schizoMinecraft.options;
-      OptionInstance<Double> gammaOption = options.gamma();
-      double gammaToRestore = this.savedGamma;
-      GameOptionsOverrides.forceSetOptionValue(gammaOption, gammaToRestore);
+      this.restoreGammaIfOwned(minecraft);
    }
 
    public void updateServerTimeSnapshot(long gameTime, long dayTime) {
+      this.serverTimeOwner = ClientAccess.schizoMinecraft == null ? null : ClientAccess.schizoMinecraft.level;
       this.serverTimeSnapshot = new ServerTimeSnapshot(gameTime, dayTime);
+   }
+
+   static boolean shouldRestoreServerTime(Object capturedLevel, Object currentLevel) {
+      return capturedLevel != null && capturedLevel == currentLevel;
    }
 
    public long getWorldTime() {
@@ -163,6 +184,10 @@ public class AmbienceModule extends Module {
       if (gammaBrightnessOption.getValue() == AmbienceModule.BrightnessChoice.GAMMA) {
          Options options = ClientAccess.schizoMinecraft.options;
          OptionInstance<Double> gammaOption = options.gamma();
+         if (!this.gammaOverrideApplied) {
+            this.savedGamma = gammaOption.get();
+            this.gammaOverrideApplied = true;
+         }
          GameOptionsOverrides.forceSetOptionValue(gammaOption, 1000.0D);
       } else {
          Setting<BrightnessChoice> potionBrightnessOption = this.brightnessSetting;
@@ -175,8 +200,49 @@ public class AmbienceModule extends Module {
                   MobEffects.NIGHT_VISION, -1, getNightVisionAmplifier()
                );
                effectPlayerCapture.addEffect(nightVisionEffect);
+               MobEffectInstance appliedEffect = effectPlayerCapture.getEffect(MobEffects.NIGHT_VISION);
+               this.appliedNightVisionEffect = appliedEffect != null
+                  && appliedEffect.getAmplifier() == getNightVisionAmplifier()
+                  ? appliedEffect
+                  : null;
             }
          }
+      }
+   }
+
+   private void restoreGammaIfOwned(Minecraft minecraft) {
+      boolean owned = this.gammaOverrideApplied;
+      this.gammaOverrideApplied = false;
+      if (!owned || minecraft == null || minecraft.options == null) {
+         return;
+      }
+
+      OptionInstance<Double> gammaOption = minecraft.options.gamma();
+      double currentGamma = gammaOption.get();
+      if (shouldRestoreGamma(owned, currentGamma, 1000.0D)) {
+         GameOptionsOverrides.forceSetOptionValue(gammaOption, this.savedGamma);
+      }
+   }
+
+   static boolean shouldRestoreGamma(
+      boolean overrideApplied,
+      double currentGamma,
+      double lastAppliedGamma
+   ) {
+      return overrideApplied && Double.compare(currentGamma, lastAppliedGamma) == 0;
+   }
+
+   private void removeOwnedNightVision(LocalPlayer player) {
+      MobEffectInstance ownedEffect = this.appliedNightVisionEffect;
+      this.appliedNightVisionEffect = null;
+      if (ownedEffect == null) {
+         return;
+      }
+
+      MobEffectInstance currentEffect = player.getEffect(MobEffects.NIGHT_VISION);
+      if (currentEffect == ownedEffect
+         && currentEffect.getAmplifier() == getNightVisionAmplifier()) {
+         player.removeEffect(MobEffects.NIGHT_VISION);
       }
    }
 
@@ -202,10 +268,13 @@ public class AmbienceModule extends Module {
    }
 
    public Object withWeatherOverrideSuppressed(Supplier supplier) {
+      boolean previous = this.weatherOverrideSuppressed;
       this.weatherOverrideSuppressed = true;
-      Object result = supplier.get();
-      this.weatherOverrideSuppressed = false;
-      return result;
+      try {
+         return supplier.get();
+      } finally {
+         this.weatherOverrideSuppressed = previous;
+      }
    }
 
    public AmbienceModule() {
@@ -234,36 +303,24 @@ public class AmbienceModule extends Module {
       this.strengthSetting = this.add(new NumberSetting<>("Strength", 10.0F, 1.0F, 20.0F).dependsOn(this.fieldDepthSetting));
       Setting<BrightnessChoice> brightnessForCallback = this.brightnessSetting;
       Runnable brightnessChangeCallback = () -> {
-         AmbienceModule.BrightnessChoice previousBrightnessCapture = this.previousBrightness;
          Setting<BrightnessChoice> changedBrightnessOption = this.brightnessSetting;
-         if (previousBrightnessCapture != changedBrightnessOption.getValue()
-            && this.previousBrightness
-               == AmbienceModule.BrightnessChoice.GAMMA) {
-            OptionInstance<Double> restoreGammaOption = ClientAccess.schizoMinecraft.options.gamma();
-            double gammaToRestore = this.savedGamma;
-            GameOptionsOverrides.forceSetOptionValue(restoreGammaOption, gammaToRestore);
-         } else {
-            OptionInstance<Double> captureGammaOption = ClientAccess.schizoMinecraft.options.gamma();
-            this.savedGamma = captureGammaOption.get();
+         AmbienceModule.BrightnessChoice changedBrightness = changedBrightnessOption.getValue();
+         if (!this.isToggled()) {
+            this.previousBrightness = changedBrightness;
+            return;
          }
 
-         this.previousBrightness = this.brightnessSetting.getValue();
-         if (!this.isWorldUnavailable()) {
-            LocalPlayer playerToCheck = ClientAccess.schizoMinecraft.player;
-            Holder effectToCheck = MobEffects.NIGHT_VISION;
-            if (playerToCheck.hasEffect(effectToCheck)) {
-               LocalPlayer playerForEffect = ClientAccess.schizoMinecraft.player;
-               Holder effectToGet = MobEffects.NIGHT_VISION;
-               MobEffectInstance nightVisionEffect = playerForEffect.getEffect(effectToGet);
-               int effectAmplifier = nightVisionEffect.getAmplifier();
+         AmbienceModule.BrightnessChoice previousBrightnessCapture = this.previousBrightness;
+         if (previousBrightnessCapture == AmbienceModule.BrightnessChoice.GAMMA
+            && changedBrightness != AmbienceModule.BrightnessChoice.GAMMA) {
+            this.restoreGammaIfOwned(ClientAccess.schizoMinecraft);
+         }
 
-               int expectedAmplifier = 68;
-               if (effectAmplifier == expectedAmplifier) {
-                  LocalPlayer playerForRemoval = ClientAccess.schizoMinecraft.player;
-                  Holder effectToRemove = MobEffects.NIGHT_VISION;
-                  playerForRemoval.removeEffect(effectToRemove);
-               }
-            }
+         this.previousBrightness = changedBrightness;
+         if (previousBrightnessCapture == AmbienceModule.BrightnessChoice.POTION
+            && changedBrightness != AmbienceModule.BrightnessChoice.POTION
+            && !this.isWorldUnavailable()) {
+            this.removeOwnedNightVision(ClientAccess.schizoMinecraft.player);
          }
       };
       brightnessForCallback.setChangeCallback(brightnessChangeCallback);
@@ -273,11 +330,17 @@ public class AmbienceModule extends Module {
          if (worldTimeOption.getValue()) {
             return;
          }
-         if (this.serverTimeSnapshot != null && ClientAccess.schizoMinecraft.level != null) {
-            ClientAccess.schizoMinecraft.level.setTimeFromServer(
-               this.serverTimeSnapshot.gameTime(), this.serverTimeSnapshot.dayTime(), false
+         Minecraft minecraft = ClientAccess.schizoMinecraft;
+         ServerTimeSnapshot timeSnapshot = this.serverTimeSnapshot;
+         ClientLevel timeOwner = this.serverTimeOwner;
+         this.serverTimeSnapshot = null;
+         this.serverTimeOwner = null;
+         if (timeSnapshot != null
+            && minecraft != null
+            && shouldRestoreServerTime(timeOwner, minecraft.level)) {
+            minecraft.level.setTimeFromServer(
+               timeSnapshot.gameTime(), timeSnapshot.dayTime(), false
             );
-            this.serverTimeSnapshot = null;
          }
       };
       worldTimeForCallback.setChangeCallback(worldTimeChangeCallback);

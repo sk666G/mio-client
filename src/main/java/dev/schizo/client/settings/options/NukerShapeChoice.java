@@ -10,7 +10,6 @@
 package dev.schizo.client.settings.options;
 
 import dev.schizo.client.ClientAccess;
-import dev.schizo.client.ClientContext;
 import dev.schizo.client.utils.world.NukerBlockQueue;
 import dev.schizo.client.utils.world.WorldUtils;
 import dev.schizo.client.managers.ModuleRegistry;
@@ -105,7 +104,7 @@ public enum NukerShapeChoice implements NamedEntry {
       }
    };
 
-   private static SpeedMineModule speedMineModule = (SpeedMineModule)ClientContext.getModule(SpeedMineModule.class);
+   private static SpeedMineModule speedMineModule ;
    private final String displayName;
 
    @Override

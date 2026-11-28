@@ -74,6 +74,6 @@ public class FastStairsModule extends Module {
       if (this.jumpTimer.hasElapsedAndReset(150L)) {
          return;
       }
-      ClientContext.inputOverrides.requestJump(true);
+      ClientContext.inputOverrides.requestJump(this, true);
    }
 }

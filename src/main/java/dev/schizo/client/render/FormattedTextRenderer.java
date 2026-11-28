@@ -43,7 +43,7 @@ public final class FormattedTextRenderer implements FormattedCharSink {
          color = ColorUtils.modulateRgb(color, this.brightness, this.brightness, this.brightness);
       }
       this.cursorX += this.atlas.drawGlyph(
-         this.poses, AtlasTextRenderer.glyphMesh, Character.toString(codePoint).charAt(0),
+         this.poses, AtlasTextRenderer.glyphMesh, codePoint,
          this.cursorX, this.cursorY, color
       );
       return true;

@@ -65,9 +65,9 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 
 public class NukerModule extends Module {
-   private static AntiCheatModule antiCheatModule = (AntiCheatModule)ClientContext.getModule(AntiCheatModule.class);
-   private static ItemSaverModule itemSaverModule = (ItemSaverModule)ClientContext.getModule(ItemSaverModule.class);
-   private static SpeedMineModule speedMineModule = (SpeedMineModule)ClientContext.getModule(SpeedMineModule.class);
+   private static AntiCheatModule antiCheatModule;
+   private static ItemSaverModule itemSaverModule;
+   private static SpeedMineModule speedMineModule;
    final Setting<Set<Block>> blocksSetting;
    final Setting<NukerModeChoice> modeSetting;
    final Setting<NukerShapeChoice> shapeSetting;
@@ -158,7 +158,6 @@ public class NukerModule extends Module {
 
    @Override
    public void onDisable() {
-      ClientAccess.schizoMinecraft.options.keyAttack.setDown(false);
       this.clickedBlock = null;
    }
 

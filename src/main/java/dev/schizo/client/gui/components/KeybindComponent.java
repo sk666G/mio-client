@@ -28,20 +28,36 @@ public class KeybindComponent extends AbstractComponent {
 
    @Override
    public void keyPressed(int keyCode) {
+      if (!this.captureAvailable()) {
+         this.cancelInput();
+         return;
+      }
       if (!this.listening) {
          return;
       }
 
-      boolean clearBinding = keyCode
-            == 261
-         || keyCode
-            == 256;
+      if(keyCode==256) {
+         this.cancelInput();
+         ClientContext.getClickGui().suppressEscapeClose();
+         return;
+      }
+      boolean clearBinding = keyCode==261;
       this.modifyKeybind(
          binding -> binding.withCode(clearBinding ? -1 : keyCode).withMouse(false)
       );
-      this.listening = false;
+      this.cancelInput();
       ClientContext.getClickGui()
          .suppressEscapeClose();
+   }
+
+   public boolean captureAvailable() {
+      return this.panel.acceptsModuleInput(moduleRow) && (bindingSetting==null || bindingSetting.isVisible());
+   }
+
+   @Override public void cancelInput() {
+      this.listening=false;
+      var gui=ClientContext.getClickGui();
+      if(gui!=null) gui.clearKeybindCapture(this);
    }
 
    public KeybindComponent(int index, ModuleComponent moduleRow) {
@@ -81,6 +97,7 @@ public class KeybindComponent extends AbstractComponent {
 
    @Override
    public void render(PoseStack stack, double mouseX, double mouseY) {
+      if(!captureAvailable()) { cancelInput(); return; }
       super.render(stack, mouseX, mouseY);
       if (this.hovered) {
          ClientScreen.cursor = CursorType.INPUT;
@@ -99,7 +116,7 @@ public class KeybindComponent extends AbstractComponent {
       String keyLabel = this.getKeybind()
          .getDisplayName();
       if (this.listening) {
-         keyLabel = "...";
+         keyLabel = "... (Esc cancel)";
       }
 
       FontRenderer.INSTANCE
@@ -120,7 +137,8 @@ public class KeybindComponent extends AbstractComponent {
 
    @Override
    public void mouseClicked(double mouseX, double mouseY, int button) {
-      if (!this.moduleRow.isOpen()) {
+      if (!this.captureAvailable()) {
+         this.cancelInput();
          return;
       }
 
@@ -129,7 +147,11 @@ public class KeybindComponent extends AbstractComponent {
          && this.moduleRow
             .isOpen()) {
          if (button == 0) {
-            this.listening = !this.listening;
+            if(this.listening) this.cancelInput();
+            else {
+               ClientContext.getClickGui().setKeybindCapture(this);
+               this.listening=true;
+            }
             return;
          }
 
@@ -137,7 +159,7 @@ public class KeybindComponent extends AbstractComponent {
             this.modifyKeybind(
                binding -> binding.withCode(button).withMouse(true)
             );
-            this.listening = !this.listening;
+            this.cancelInput();
             return;
          }
 

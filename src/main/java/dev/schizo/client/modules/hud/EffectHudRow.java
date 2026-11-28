@@ -29,12 +29,15 @@ public class EffectHudRow extends HudTextRow implements ClientAccess {
       super(
          () -> {
             LocalPlayer player = ClientAccess.schizoMinecraft.player;
+            ClientLevel level = ClientAccess.schizoMinecraft.level;
+            if (player == null || level == null) {
+               return Component.empty();
+            }
             MobEffectInstance effectInstance = (MobEffectInstance)player.getActiveEffectsMap().get(holder);
             if (effectInstance == null) {
                return Component.empty();
             }
             float durationScale = 1.0F;
-            ClientLevel level = ClientAccess.schizoMinecraft.level;
             TickRateManager tickRateManager = level.tickRateManager();
             float tickRate = tickRateManager.tickrate();
             Component durationComponent = MobEffectUtil.formatDuration(effectInstance, durationScale, tickRate);

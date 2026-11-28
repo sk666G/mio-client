@@ -13,7 +13,6 @@ import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.modules.client.FontsModule;
 import dev.schizo.client.modules.player.NameProtectModule;
-import dev.schizo.client.settings.options.FontsStyleChoice;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
@@ -23,18 +22,40 @@ import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.ARGB;
 
 public final class FontRenderer implements ClientAccess {
-   private static final NameProtectModule nameProtect = (NameProtectModule)ClientContext.getModule(NameProtectModule.class);
    public static final FontRenderer INSTANCE = new FontRenderer();
    private AtlasTextRenderer renderer;
+   private FontAtlasConfiguration appliedConfiguration;
+
+   private static NameProtectModule nameProtect() {
+      return ClientContext.getModule(NameProtectModule.class);
+   }
+
+   private static FontAtlasConfiguration requestedConfiguration() {
+      FontsModule fonts = FontsModule.INSTANCE;
+      return new FontAtlasConfiguration(fonts.fontSetting.getValue(),
+         fonts.sizeSetting.getValue() * 2, fonts.styleSetting.getValue(), fonts.getLanguages());
+   }
 
    public AtlasTextRenderer createRenderer() {
-      FontsModule fonts = FontsModule.INSTANCE;
-      return AtlasTextRenderer.create(
-         fonts.fontSetting.getValue(),
-         fonts.sizeSetting.getValue() * 2,
-         fonts.styleSetting.getValue(),
-         fonts.getLanguages()
-      );
+      return requestedConfiguration().create();
+   }
+
+   private void install(FontAtlasConfiguration configuration) {
+      AtlasTextRenderer replacement = configuration.create();
+      this.renderer = replacement;
+      this.appliedConfiguration = configuration;
+   }
+
+   /**
+    * Consume a reload only when no old-atlas glyph batch is pending.
+    * False means the request must be retained for a later tick.
+    */
+   public boolean reloadIfNeeded() {
+      FontAtlasConfiguration requested = requestedConfiguration();
+      if (this.renderer != null && requested.equals(this.appliedConfiguration)) return true;
+      if (AtlasTextRenderer.hasPendingGlyphs()) return false;
+      this.install(requested);
+      return true;
    }
 
    public int getHeight() {
@@ -51,7 +72,12 @@ public final class FontRenderer implements ClientAccess {
    }
 
    public void flush() {
-      this.getRenderer().flush();
+      // Keep the custom-font initialization path when enabled, but vanilla
+      // buffering does not require constructing or uploading an atlas.
+      if (this.renderer == null && FontsModule.INSTANCE.isToggled()) {
+         this.getRenderer();
+      }
+      AtlasTextRenderer.flushPending();
    }
 
    public boolean isFontLoading() {
@@ -60,7 +86,7 @@ public final class FontRenderer implements ClientAccess {
 
    public AtlasTextRenderer getRenderer() {
       if (this.renderer == null) {
-         this.renderer = this.createRenderer();
+         this.install(requestedConfiguration());
       }
 
       return this.renderer;
@@ -87,10 +113,17 @@ public final class FontRenderer implements ClientAccess {
    private FontRenderer() {
    }
 
+   /** Width-cache identity, or null when dynamic name substitution can affect metrics. */
+   public Object measurementIdentity() {
+      var protect=nameProtect();
+      if(protect!=null && protect.isToggled() && !this.isWorldUnavailable()) return null;
+      return FontsModule.INSTANCE.isToggled() && renderer!=null ? renderer : ClientAccess.schizoMinecraft.font;
+   }
+
    public float getWidth(String text) {
-      if (nameProtect.isToggled()
+      if (nameProtect().isToggled()
          && !this.isWorldUnavailable()) {
-         text = nameProtect.protectNames(text);
+         text = nameProtect().protectNames(text);
       }
 
       return FontsModule.INSTANCE.isToggled()
@@ -116,8 +149,9 @@ public final class FontRenderer implements ClientAccess {
    }
 
    public void setRenderer(AtlasTextRenderer renderer) {
-      if (renderer != null) {
+      if (renderer != null && renderer != this.renderer) {
          this.renderer = renderer;
+         this.appliedConfiguration = null;
       }
    }
 
@@ -165,8 +199,7 @@ public final class FontRenderer implements ClientAccess {
                argb,
                true,
                poses.last().pose(),
-               this.getRenderer()
-                  .getBufferSource(),
+               AtlasTextRenderer.sharedBufferSource(),
                displayMode,
                0,
                15728880
@@ -206,8 +239,7 @@ public final class FontRenderer implements ClientAccess {
                argb,
                false,
                poses.last().pose(),
-               this.getRenderer()
-                  .getBufferSource(),
+               AtlasTextRenderer.sharedBufferSource(),
                displayMode,
                0,
                15728880

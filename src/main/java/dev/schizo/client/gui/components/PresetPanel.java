@@ -9,22 +9,17 @@
 
 package dev.schizo.client.gui.components;
 
-import dev.schizo.client.gui.panels.Panel;
+import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
-import dev.schizo.client.gui.screens.PresetScreen;
-import dev.schizo.client.gui.components.ActionButtonComponent;
 import dev.schizo.client.config.PresetData;
 import dev.schizo.client.config.PresetUndoAction;
 import dev.schizo.client.gui.CloseState;
+import dev.schizo.client.gui.panels.Panel;
+import dev.schizo.client.gui.screens.PresetScreen;
 import dev.schizo.client.managers.PresetRegistry;
-import dev.schizo.client.gui.components.EnumSettingComponent;
-import dev.schizo.client.gui.components.ButtonComponent;
-import dev.schizo.client.gui.components.StringSettingComponent;
 import dev.schizo.client.settings.EnumSetting;
-import dev.schizo.client.settings.Setting;
 import dev.schizo.client.settings.StringSetting;
 import dev.schizo.client.settings.options.PresetCategory;
-
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -32,231 +27,219 @@ import net.minecraft.util.Util;
 import org.apache.commons.lang3.SystemUtils;
 
 public class PresetPanel extends Panel {
-   private final StringSetting saveNameSetting = new StringSetting("Save", "");
-   private final EnumSetting<PresetCategory> categorySetting = new EnumSetting<>(
-      "Category", PresetCategory.MODULES
-   );
+   private final StringSetting saveNameSetting=new StringSetting("Name","");
+   private final StringSetting destination=new StringSetting("New name","");
+   private final EnumSetting<PresetCategory> categorySetting=new EnumSetting<>("Category",PresetCategory.MODULES);
    private final PresetScreen screen;
-   private PresetPanelMode mode = PresetPanelMode.NEW;
+   private PresetPanelMode mode=PresetPanelMode.NEW;
    private PresetData selectedPreset;
-   private boolean listRefreshPending;
-   private boolean controlsRebuildPending;
+   private PresetCategory selectedPresetCategory;
+   private boolean listRefreshPending,controlsRebuildPending;
+   private String status="Choose a preset or create one.";
+   private final PresetConfirmation confirmation=new PresetConfirmation();
 
    public PresetPanel(PresetScreen screen) {
       super("Preset");
-      this.screen = screen;
-      this.saveNameSetting
-         .setChangeCallback(
-            () -> {
-               try {
-                  PresetUndoAction action = PresetUndoAction.beforeSave(
-                     this.getSelectedCategoryPresets(), this.saveNameSetting.getValue()
-                  );
-                  this.getSelectedCategoryPresets()
-                     .savePreset(
-                        this.saveNameSetting.getValue()
-                     );
-                  ClientContext.configurationManager.getPresetUndoState().push(action);
-                  this.requestListRefresh();
-               } catch (IOException saveFailure) {
-                  saveFailure.printStackTrace();
-               }
-
-               this.saveNameSetting
-                  .setValue("");
-            }
-         );
-      this.categorySetting
-         .setChangeCallback(
-            () -> {
-               screen.setSelectedCategory(
-                  this.categorySetting.getValue()
-               );
-               this.requestListRefresh();
-            }
-         );
+      this.screen=screen;
+      destination.setChangeCallback(confirmation::clear);
+      categorySetting.setChangeCallback(()->{
+         screen.setSelectedCategory(categorySetting.getValue());
+         confirmation.clear();
+         requestListRefresh();
+      });
    }
 
-   @Override
-   public void init() {
-      this.rebuildControls();
+   @Override public void init() {
+      rebuildControls();
    }
 
-   @Override
-   public void render(PoseStack poses, double mouseX, double mouseY) {
-      if (this.controlsRebuildPending) {
-         this.rebuildControls();
-         this.controlsRebuildPending = false;
+   @Override public void render(PoseStack poses,double mouseX,double mouseY) {
+      if(controlsRebuildPending) {
+         controlsRebuildPending=false;
+         rebuildControls();
+         updateLayout();
       }
-
-      if (this.listRefreshPending) {
-         this.screen
-            .getListPanel()
-            .refreshPresets();
-         this.listRefreshPending = false;
+      if(listRefreshPending) {
+         listRefreshPending=false;
+         screen.getListPanel().refreshPresets();
       }
-
-      super.render(poses, mouseX, mouseY);
+      super.render(poses,mouseX,mouseY);
    }
 
    public void rebuildControls() {
-      this.children.clear();
-      switch (this.mode) {
-         case NEW:
-            this.addChild(
-               new EnumSettingComponent<>(
-                  this,
-                  CloseState.ALWAYS_OPEN,
-                  this.categorySetting
-               )
-            );
-            this.addChild(
-               new StringSettingComponent(
-                  this,
-                  CloseState.ALWAYS_OPEN,
-                  this.saveNameSetting
-               )
-            );
-            this.addChild(
-               new ActionButtonComponent(this, "Refresh", this::requestListRefresh)
-            );
-            this.addChild(
-               new ActionButtonComponent(
-                  this,
-                  "Undo",
-                  () -> {
-                     try {
-                        ClientContext.configurationManager.getPresetUndoState().undo();
-                        this.requestListRefresh();
-                     } catch (IOException undoFailure) {
-                        undoFailure.printStackTrace();
-                     }
-                  }
-               )
-            );
-            break;
-         case EDIT:
-            this.addChild(
-               new ButtonComponent(
-                  this,
-                  "Preset " + this.selectedPreset.getName()
-               )
-            );
-            this.addChild(
-               new ActionButtonComponent(
-                  this,
-                  "Load",
-                  () -> {
-                     PresetUndoAction action = PresetUndoAction.beforeLoad(this.selectedPreset.getName());
-                     if (this.getSelectedCategoryPresets().applyPreset(this.selectedPreset.getName())) {
-                        ClientContext.configurationManager.getPresetUndoState().push(action);
-                     }
-                  }
-               )
-            );
-            this.addChild(
-               new ActionButtonComponent(
-                  this,
-                  "Save",
-                  () -> {
-                     try {
-                        PresetUndoAction action = PresetUndoAction.beforeSave(
-                           this.getSelectedCategoryPresets(), this.selectedPreset.getName()
-                        );
-                        this.getSelectedCategoryPresets()
-                           .savePreset(
-                              this.selectedPreset.getName()
-                           );
-                        ClientContext.configurationManager.getPresetUndoState().push(action);
-                        this.requestListRefresh();
-                     } catch (IOException ignoredSaveFailure) {
-                     }
-                  }
-               )
-            );
-            this.addChild(
-               new ActionButtonComponent(
-                  this,
-                  "Delete",
-                  () -> {
-                     PresetUndoAction action = PresetUndoAction.beforeDelete(
-                        this.getSelectedCategoryPresets(), this.selectedPreset.getName()
-                     );
-                     if (this.getSelectedCategoryPresets().deletePreset(this.selectedPreset.getName())) {
-                        ClientContext.configurationManager.getPresetUndoState().push(action);
-                     }
-                     this.setMode(PresetPanelMode.NEW);
-                  }
-               )
-            );
-            this.addChild(
-               new ActionButtonComponent(this, "Open", this::openPresetLocation)
-            );
-            this.addChild(
-               new ActionButtonComponent(
-                  this,
-                  "Back",
-                  () -> this.setMode(PresetPanelMode.NEW)
-               )
-            );
+      cancelInput();
+      children.clear();
+      if(mode==PresetPanelMode.EDIT && selectedPreset==null) mode=PresetPanelMode.NEW;
+      if(mode==PresetPanelMode.NEW) {
+         addChild(new EnumSettingComponent<>(this,CloseState.ALWAYS_OPEN,categorySetting));
+         addChild(new StringSettingComponent(this,CloseState.ALWAYS_OPEN,saveNameSetting));
+         action("Create new",this::createPreset);
+         action("Refresh",this::refresh);
+         action("Undo",this::undo);
+      } else {
+         addChild(new ButtonComponent(this,"Preset "+selectedPreset.getName()));
+         action("Load",()->perform("Load"));
+         addChild(new ActionButtonComponent(this,()->confirmation.armed("Save")?"Confirm overwrite":"Save changes",()->perform("Save")));
+         addChild(new ActionButtonComponent(this,()->confirmation.armed("Delete")?"Confirm delete":"Delete",()->perform("Delete")));
+         addChild(new StringSettingComponent(this,CloseState.ALWAYS_OPEN,destination));
+         action("Rename",()->perform("Rename"));
+         action("Duplicate",()->perform("Duplicate"));
+         action("Open",this::openPresetLocation);
+         action("Back",()->{status="Choose a preset or create one.";setMode(PresetPanelMode.NEW);});
       }
-
-      this.requestListRefresh();
+      addChild(new ButtonComponent(this,()->StudioControlStyle.fitText(status,Math.max(0,getWidth()-8))));
+      requestListRefresh();
    }
 
-   private void requestListRefresh() {
-      this.listRefreshPending = true;
+   private void action(String label,Runnable action) {
+      addChild(new ActionButtonComponent(this,label,action));
    }
+
+   private void createPreset() {
+      if(mode!=PresetPanelMode.NEW || controlsRebuildPending) return;
+      String name=saveNameSetting.getValue();
+      if(name.isBlank()) {status="Enter a name first.";return;}
+      var registry=getSelectedCategoryPresets();
+      try {
+         var undo=PresetUndoAction.beforeSave(registry,name);
+         registry.createPreset(name);
+         ClientContext.configurationManager.getPresetUndoState().push(undo);
+         saveNameSetting.setValue("");
+         status="Preset created.";
+         requestListRefresh();
+      } catch(IOException | RuntimeException failure) {
+         fail("Create",failure);
+      }
+   }
+
+   private void refresh() {
+      if(mode!=PresetPanelMode.NEW || controlsRebuildPending) return;
+      confirmation.clear();
+      getSelectedCategoryPresets().loadPresets();
+      requestListRefresh();
+      status="List refreshed from registry.";
+   }
+
+   private void undo() {
+      if(mode!=PresetPanelMode.NEW || controlsRebuildPending) return;
+      try {
+         status=ClientContext.configurationManager.getPresetUndoState().undo()==null?"Nothing to undo.":"Preset operation undone.";
+         requestListRefresh();
+      } catch(IOException | RuntimeException failure) {fail("Undo",failure);}
+   }
+
+   private void perform(String action) {
+      if(mode!=PresetPanelMode.EDIT || controlsRebuildPending || selectedPreset==null) return;
+      var registry=getSelectedCategoryPresets();
+      PresetData expected=selectedPreset;
+      try {
+         if(selectedPresetCategory!=screen.getSelectedCategory() || !registry.matchesReviewedPreset(expected)) {
+            stale();
+            return;
+         }
+         if(action.equals("Save") || action.equals("Delete")) {
+            if(!confirmation.confirm(action,selectedPresetCategory,expected)) {
+               status=action.equals("Save")?"Click Confirm overwrite.":"Click Confirm delete.";
+               return;
+            }
+         } else confirmation.clear();
+         String name=expected.getName();
+         PresetUndoAction undo;
+         switch(action) {
+            case "Load" -> {
+               undo=PresetUndoAction.beforeLoad(selectedPresetCategory,name);
+               if(!registry.applyPreset(name)) {status="Load rejected; inspect log.";return;}
+            }
+            case "Save" -> {
+               undo=PresetUndoAction.beforeSave(registry,name);
+               registry.savePreset(name);
+            }
+            case "Delete" -> {
+               undo=PresetUndoAction.beforeDelete(registry,name);
+               if(!registry.deletePreset(name)) {status="Registry changed; refresh.";requestListRefresh();return;}
+            }
+            case "Rename" -> {
+               String target=destination.getValue();
+               undo=PresetUndoAction.beforeRename(registry,name,target);
+               if(!registry.renamePreset(name,target)) {status="Choose a different name.";return;}
+            }
+            case "Duplicate" -> {
+               String target=destination.getValue();
+               undo=PresetUndoAction.beforeSave(registry,target);
+               if(!registry.copyPreset(name,target)) {status="Source unavailable.";return;}
+            }
+            default -> throw new IllegalArgumentException("Unknown preset action");
+         }
+         ClientContext.configurationManager.getPresetUndoState().push(undo);
+         status=switch(action) {
+            case "Load" -> "Preset loaded.";
+            case "Save" -> "Preset saved.";
+            case "Delete" -> "Preset deleted.";
+            case "Rename" -> "Preset renamed.";
+            default -> "Preset duplicated.";
+         };
+         setMode(PresetPanelMode.NEW);
+      } catch(IOException | RuntimeException failure) {fail(action,failure);}
+   }
+
+   private void stale() {
+      status="Preset changed; refresh and select again.";
+      setMode(PresetPanelMode.NEW);
+      getSelectedCategoryPresets().loadPresets();
+   }
+
+   private void fail(String action,Exception failure) {
+      confirmation.clear();
+      ClientAccess.logger.warn("Preset action failed: {}",action,failure);
+      status=action+" failed; inspect log.";
+      requestListRefresh();
+   }
+
+   private void requestListRefresh() {listRefreshPending=true;}
 
    private PresetRegistry getSelectedCategoryPresets() {
-      return ClientContext.configurationManager
-         .getPresetRegistry(
-            this.screen
-               .getSelectedCategory()
-         );
+      return ClientContext.configurationManager.getPresetRegistry(screen.getSelectedCategory());
    }
 
    public void editPreset(PresetData preset) {
-      this.selectedPreset = preset;
-      this.setMode(PresetPanelMode.EDIT);
+      if(preset==null || !preset.equals(getSelectedCategoryPresets().getPreset(preset.getName()))) {
+         stale();
+         return;
+      }
+      selectedPreset=preset;
+      selectedPresetCategory=screen.getSelectedCategory();
+      destination.setValue("");
+      status="Select an action.";
+      setMode(PresetPanelMode.EDIT);
    }
 
-   public PresetData getSelectedPreset() {
-      return this.mode != PresetPanelMode.EDIT
-         ? null
-         : this.selectedPreset;
-   }
+   public PresetData getSelectedPreset() {return mode==PresetPanelMode.EDIT?selectedPreset:null;}
 
    public void setMode(PresetPanelMode mode) {
-      this.mode = mode;
-      this.controlsRebuildPending = true;
+      cancelInput();
+      this.mode=mode;
+      if(mode==PresetPanelMode.NEW) {
+         selectedPreset=null;
+         selectedPresetCategory=null;
+      }
+      controlsRebuildPending=true;
+      requestListRefresh();
+   }
+
+   @Override public void cancelInput() {
+      confirmation.clear();
+      super.cancelInput();
    }
 
    private void openPresetLocation() {
+      if(mode!=PresetPanelMode.EDIT || controlsRebuildPending || selectedPreset==null) return;
+      confirmation.clear();
       try {
-         if (!SystemUtils.IS_OS_WINDOWS_10 && !SystemUtils.OS_NAME.startsWith("Windows 11")) {
-            Util.getPlatform().openPath(this.screen.getSelectedCategory().getDirectory());
-         } else {
-            Path path = this.screen
-               .getSelectedCategory()
-               .getDirectory()
-               .toAbsolutePath();
-            PresetData preset = this.selectedPreset;
-            path = path.resolve(
-               preset.getName() + ".json"
-            );
-            new ProcessBuilder(createExplorerCommand(path)).start();
-         }
-      } catch (Throwable ignoredOpenFailure) {
-      }
+         if(!getSelectedCategoryPresets().matchesReviewedPreset(selectedPreset)) {stale();return;}
+         Path directory=screen.getSelectedCategory().getDirectory();
+         if(!SystemUtils.IS_OS_WINDOWS_10 && !SystemUtils.OS_NAME.startsWith("Windows 11"))
+            Util.getPlatform().openPath(directory);
+         else new ProcessBuilder("explorer.exe","/select,",directory.toAbsolutePath().resolve(selectedPreset.getName()+".json").toString()).start();
+      } catch(IOException | RuntimeException failure) {fail("Open",failure);}
    }
-
-   private static String[] createExplorerCommand(Path path) {
-      String[] command = new String[3];
-      command[0] = "explorer.exe";
-      command[1] = "/select,";
-      command[2] = path.toString();
-      return command;
-   }
-
 }

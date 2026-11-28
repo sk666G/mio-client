@@ -16,6 +16,7 @@ import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.LocalPlayerPreTickEvent;
 import dev.schizo.client.events.MinecraftRunTickEvent;
 import dev.schizo.client.events.MouseHandlerOnScrollEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.utils.InterpolatedFloat;
 import dev.schizo.client.utils.movement.EntityMotionAccess;
 import dev.schizo.client.render.RenderUtils;
@@ -39,10 +40,11 @@ import org.joml.Vector2f;
 
 public class FreeLookModule extends Module {
 
-   private static FreecamModule freecamModule = (FreecamModule)ClientContext.getModule(FreecamModule.class);
+   private static FreecamModule freecamModule;
    private final InterpolatedFloat cameraDistanceAnimation;
    private final Vector2f cameraRotation;
    private CameraType cameraType;
+   private LocalPlayer cameraOwner;
    private float cameraDistance;
    public final Setting<Boolean> scrollSetting;
 
@@ -63,10 +65,12 @@ public class FreeLookModule extends Module {
          selectedCameraType = ClientAccess.schizoMinecraft.options.getCameraType();
       }
       this.cameraType = selectedCameraType;
+      LocalPlayer player = ClientAccess.schizoMinecraft.player;
+      this.cameraOwner = player;
       GameOptionsOverrides.registerCameraOverride(this);
       Vector2f rotation = this.cameraRotation;
-      float yaw = ClientAccess.schizoMinecraft.player.getYRot();
-      float pitch = ClientAccess.schizoMinecraft.player.getXRot();
+      float yaw = player.getYRot();
+      float pitch = player.getXRot();
       rotation.set(yaw, pitch);
       if (ClientAccess.schizoMinecraft.player instanceof EntityMotionAccess cameraPlayer) {
          float cameraYaw = this.cameraRotation.x;
@@ -79,28 +83,38 @@ public class FreeLookModule extends Module {
    @Override
    public void onDisable() {
       GameOptionsOverrides.unregisterCameraOverride(this);
-      LocalPlayer yawPlayer = ClientAccess.schizoMinecraft.player;
-      Vector2f yawRotation = this.cameraRotation;
-      float yaw = yawRotation.x();
-      yawPlayer.setYRot(yaw);
-      LocalPlayer previousYawBobPlayer = ClientAccess.schizoMinecraft.player;
-      LocalPlayer yawBobPlayer = ClientAccess.schizoMinecraft.player;
-      LocalPlayer previousYawPlayer = ClientAccess.schizoMinecraft.player;
-      Vector2f previousYawRotation = this.cameraRotation;
-      previousYawBobPlayer.yBobO = yawBobPlayer.yBob = previousYawPlayer.yRotO = previousYawRotation.x();
-      LocalPlayer pitchPlayer = ClientAccess.schizoMinecraft.player;
-      Vector2f pitchRotation = this.cameraRotation;
-      float pitch = pitchRotation.y();
-      pitchPlayer.setXRot(pitch);
-      LocalPlayer previousPitchBobPlayer = ClientAccess.schizoMinecraft.player;
-      LocalPlayer pitchBobPlayer = ClientAccess.schizoMinecraft.player;
-      LocalPlayer previousPitchPlayer = ClientAccess.schizoMinecraft.player;
-      Vector2f previousPitchRotation = this.cameraRotation;
-      previousPitchBobPlayer.xBobO = pitchBobPlayer.xBob = previousPitchPlayer.xRotO = previousPitchRotation.y();
-      Camera camera = ClientAccess.schizoMinecraft.gameRenderer.getMainCamera();
-      ClientLevel level = ClientAccess.schizoMinecraft.level;
-      LocalPlayer cameraPlayer = ClientAccess.schizoMinecraft.player;
-      camera.setup(level, cameraPlayer, false, false, 1.0F);
+      LocalPlayer owner = this.cameraOwner;
+      this.cameraOwner = null;
+      Minecraft minecraft = ClientAccess.schizoMinecraft;
+      if (minecraft == null) {
+         return;
+      }
+      LocalPlayer player = minecraft.player;
+      if (!shouldRestorePlayerRotation(owner, player)) {
+         return;
+      }
+
+      float yaw = this.cameraRotation.x();
+      float pitch = this.cameraRotation.y();
+      player.setYRot(yaw);
+      player.yBobO = player.yBob = player.yRotO = yaw;
+      player.setXRot(pitch);
+      player.xBobO = player.xBob = player.xRotO = pitch;
+
+      ClientLevel level = minecraft.level;
+      if (level == null || minecraft.gameRenderer == null) {
+         return;
+      }
+      Camera camera = minecraft.gameRenderer.getMainCamera();
+      camera.setup(level, player, false, false, 1.0F);
+   }
+
+   static boolean shouldRestorePlayerRotation(Object capturedPlayer, Object currentPlayer) {
+      return ownsCurrentPlayer(capturedPlayer, currentPlayer);
+   }
+
+   static boolean ownsCurrentPlayer(Object capturedPlayer, Object currentPlayer) {
+      return capturedPlayer != null && capturedPlayer == currentPlayer;
    }
 
    public float getCameraDistanceOffset() {
@@ -114,13 +128,17 @@ public class FreeLookModule extends Module {
 
    @EventHandler(priority = -200)
    private void onLocalPlayerPreTick(LocalPlayerPreTickEvent event) {
+      LocalPlayer currentPlayer = ClientAccess.schizoMinecraft.player;
+      if (!ownsCurrentPlayer(this.cameraOwner, currentPlayer)) {
+         this.disable();
+         return;
+      }
       FreecamModule freecam = freecamModule;
       if (freecam.isToggled()) {
          return;
       }
-      Options options = ClientAccess.schizoMinecraft.options;
       CameraType selectedCameraType = this.cameraType;
-      options.setCameraType(selectedCameraType);
+      GameOptionsOverrides.applyCameraOverride(this, selectedCameraType);
       Minecraft minecraft = ClientAccess.schizoMinecraft;
       LocalPlayer pickPlayer = ClientAccess.schizoMinecraft.player;
       double range = ClientAccess.schizoMinecraft.player.blockInteractionRange();
@@ -139,6 +157,11 @@ public class FreeLookModule extends Module {
          this.cameraDistance = Mth.clamp(distance, 1.0F, 2e+02F);
          event.cancel();
       }
+   }
+
+   @EventHandler
+   private void onMinecraftDisconnectEvent(MinecraftDisconnectEvent event) {
+      this.disable();
    }
 
    @EventHandler

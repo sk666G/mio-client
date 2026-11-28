@@ -21,6 +21,7 @@ import dev.schizo.client.events.ScreenChangeEvent;
 import dev.schizo.client.events.EventHandler;
 import dev.schizo.client.events.LocalPlayerSendPositionEvent;
 import dev.schizo.client.events.LocalPlayerPreTickEvent;
+import dev.schizo.client.events.MinecraftDisconnectEvent;
 import dev.schizo.client.events.MultiPlayerGameModeHandleInventoryMouseClickEvent;
 import dev.schizo.client.events.MultiPlayerGameModeUseItemOnEvent;
 import dev.schizo.client.gui.screens.ShulkerPreviewScreen;
@@ -112,16 +113,13 @@ public class ChestStealerModule extends Module {
    private final ElapsedTimer screenOpenTimer;
    private final ElapsedTimer idleCloseTimer;
    private BlockPos lastInteractedBlock;
+   private ClientLevel observedSessionLevel;
+   private volatile long sessionGeneration;
    private ChestStealerModeChoice requestedMode;
    private boolean trackingQuickMove;
    private boolean hasTransferred;
    private boolean transferredThisTick;
    private Slot quickMoveDestination;
-
-   static {
-      chestSearchBar = (ChestSearchBarModule)ClientContext.getModule(ChestSearchBarModule.class);
-   }
-
    public ChestStealerModeChoice getRequestedMode() {
       return this.requestedMode;
    }
@@ -176,6 +174,9 @@ public class ChestStealerModule extends Module {
 
    private boolean moveRekitStack(ItemStack stack, int sourceSlotIndex, int containerSlotCount) {
       AbstractContainerMenu menu = ClientAccess.schizoMinecraft.player.containerMenu;
+      if (!menu.getCarried().isEmpty()) {
+         return false;
+      }
       InventoryStateManager inventoryCoordinator = ClientContext.inventoryStateManager;
 
       if (InventoryStateManager.wouldReachClickLimit(inventoryCoordinator, 3)) {
@@ -279,6 +280,7 @@ public class ChestStealerModule extends Module {
 
    @EventHandler(priority = 200)
    private void onPlayerTick(LocalPlayerPreTickEvent event) {
+      this.synchronizeSessionLevel();
       if (this.fullSetting.getValue()) {
          this.cleanupController.tick();
       }
@@ -303,6 +305,7 @@ public class ChestStealerModule extends Module {
    private void onInventoryClick(
       MultiPlayerGameModeHandleInventoryMouseClickEvent event
    ) {
+      this.synchronizeSessionLevel();
       if (!this.shouldReturnAutomatically()) {
          return;
       }
@@ -314,6 +317,7 @@ public class ChestStealerModule extends Module {
    private void onMoveItemStack(
       AbstractContainerMenuMoveItemStackToEvent event
    ) {
+      this.synchronizeSessionLevel();
       if (this.trackingQuickMove) {
          ItemStack movedStack = event.getSlot().getItem();
          if (!movedStack.isEmpty()) {
@@ -325,6 +329,7 @@ public class ChestStealerModule extends Module {
 
    @EventHandler
    private void onUseItemOn(MultiPlayerGameModeUseItemOnEvent event) {
+      this.synchronizeSessionLevel();
       ClientLevel world = ClientAccess.schizoMinecraft.level;
       BlockPos blockState = event.getHitResult().getBlockPos();
       BlockState interactedState = world.getBlockState(blockState);
@@ -502,6 +507,7 @@ public class ChestStealerModule extends Module {
 
    @EventHandler
    private void onSendPosition(LocalPlayerSendPositionEvent event) {
+      this.synchronizeSessionLevel();
       if (event.getStage() == EventStage.Post) {
          return;
       }
@@ -545,6 +551,9 @@ public class ChestStealerModule extends Module {
       }
 
       AbstractContainerMenu menu = ClientAccess.schizoMinecraft.player.containerMenu;
+      if (!menu.getCarried().isEmpty()) {
+         return;
+      }
       int startSlot = 0;
 
       int slotCount = 27;
@@ -611,12 +620,15 @@ public class ChestStealerModule extends Module {
 
                this.quickMoveDestination = null;
                this.trackingQuickMove = true;
-               MultiPlayerGameMode quickMoveGameMode = ClientAccess.schizoMinecraft.gameMode;
-               byte quickMoveButton = 0;
-               ClickType quickMoveType = ClickType.QUICK_MOVE;
-               LocalPlayer quickMovePlayer = ClientAccess.schizoMinecraft.player;
-               quickMoveGameMode.handleInventoryMouseClick(containerId, slotIndex, quickMoveButton, quickMoveType, quickMovePlayer);
-               this.trackingQuickMove = false;
+               try {
+                  MultiPlayerGameMode quickMoveGameMode = ClientAccess.schizoMinecraft.gameMode;
+                  byte quickMoveButton = 0;
+                  ClickType quickMoveType = ClickType.QUICK_MOVE;
+                  LocalPlayer quickMovePlayer = ClientAccess.schizoMinecraft.player;
+                  quickMoveGameMode.handleInventoryMouseClick(containerId, slotIndex, quickMoveButton, quickMoveType, quickMovePlayer);
+               } finally {
+                  this.trackingQuickMove = false;
+               }
                if (this.quickMoveDestination != null) {
                   Slot sourceSlot = menu.getSlot(slotIndex);
                   Slot destinationSlot = this.quickMoveDestination;
@@ -671,10 +683,15 @@ public class ChestStealerModule extends Module {
             int closeDelay = (int)((ClientContext.serverStateManager.getLatencyMillis() / 5e+01F) + 1.0F);
             ClientAccess.schizoMinecraft.setScreen(null);
             TaskScheduler closeScheduler = ClientContext.taskScheduler;
+            LocalPlayer expectedPlayer = ClientAccess.schizoMinecraft.player;
+            long expectedGeneration = this.sessionGeneration;
             Runnable closeContainer = () -> {
-               if (ClientAccess.schizoMinecraft.player != null
-                  && ClientAccess.schizoMinecraft.player.containerMenu == menu) {
-                  ClientAccess.schizoMinecraft.player.closeContainer();
+               if (this.isToggled()
+                  && this.sessionGeneration == expectedGeneration
+                  && ClientAccess.schizoMinecraft.player == expectedPlayer
+                  && expectedPlayer != null
+                  && expectedPlayer.containerMenu == menu) {
+                  expectedPlayer.closeContainer();
                }
             };
             closeScheduler.scheduleRotationTask(closeContainer, closeDelay);
@@ -685,6 +702,7 @@ public class ChestStealerModule extends Module {
 
    @EventHandler
    private void onRotationUpdate(RotationRequestEvent event) {
+      this.synchronizeSessionLevel();
       if (this.shouldReturnAutomatically()) {
          this.returnController.reopenRequestedShulker();
       }
@@ -701,7 +719,15 @@ public class ChestStealerModule extends Module {
       if (event.getPacket() instanceof ClientboundContainerSetSlotPacket packet) {
          if (this.shouldReturnAutomatically()) {
             Minecraft animationMinecraft = ClientAccess.schizoMinecraft;
+            long packetSessionGeneration = this.sessionGeneration;
             Runnable recordAnimation = () -> {
+               this.synchronizeSessionLevel();
+               if (packetSessionGeneration != this.sessionGeneration
+                  || ClientAccess.schizoMinecraft.level == null
+                  || ClientAccess.schizoMinecraft.player == null) {
+                  return;
+               }
+
                ShulkerReturnController returnHelper = this.returnController;
                int containerId = packet.getContainerId();
                ItemStack updatedStack = packet.getItem();
@@ -716,12 +742,56 @@ public class ChestStealerModule extends Module {
    private void onScreenChange(
       ScreenChangeEvent.AfterInit event
    ) {
+      this.synchronizeSessionLevel();
       this.hasTransferred = false;
 
       this.screenOpenTimer.reset();
       this.transferAnimations.clear();
       this.slotCooldowns.clear();
    }
+
+   @EventHandler
+   private void onMinecraftDisconnect(MinecraftDisconnectEvent event) {
+      this.sessionGeneration++;
+      this.observedSessionLevel = null;
+      this.resetSessionState();
+   }
+
+   @Override
+   public void onDisable() {
+      this.sessionGeneration++;
+      this.observedSessionLevel = null;
+      this.resetSessionState();
+   }
+
+   private void synchronizeSessionLevel() {
+      ClientLevel currentLevel = ClientAccess.schizoMinecraft.level;
+      if (currentLevel != this.observedSessionLevel) {
+         this.observedSessionLevel = currentLevel;
+         this.sessionGeneration++;
+         this.resetSessionState();
+      }
+   }
+
+   private void resetSessionState() {
+      this.lastInteractedBlock = null;
+      this.requestedMode = null;
+      this.trackingQuickMove = false;
+      this.hasTransferred = false;
+      this.transferredThisTick = false;
+      this.quickMoveDestination = null;
+      this.transferAnimations.clear();
+      this.slotCooldowns.clear();
+      this.transferDelayTimer.reset();
+      this.screenOpenTimer.reset();
+      this.idleCloseTimer.reset();
+      this.cleanupController.resetSession();
+      this.returnController.resetSession();
+      this.refillController.resetSession();
+      this.openController.resetSession();
+      this.placementController.resetSession();
+   }
+
 
    private boolean isSlotCoolingDown(int slotIndex) {
       Long expiresAtMillis = (Long)this.slotCooldowns.get(slotIndex);

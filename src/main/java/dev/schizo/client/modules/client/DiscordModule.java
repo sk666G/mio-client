@@ -10,6 +10,7 @@
 package dev.schizo.client.modules.client;
 
 import dev.schizo.client.ClientAccess;
+import dev.schizo.client.integrations.IntegrationHealth;
 import dev.schizo.client.SchizoClient;
 import dev.schizo.client.events.MinecraftTickEvent;
 import dev.schizo.client.events.EventHandler;
@@ -25,6 +26,7 @@ import com.jagrosh.discordipc.entities.DiscordBuild;
 import com.jagrosh.discordipc.entities.RichPresence;
 import com.jagrosh.discordipc.entities.StatusDisplayType;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.client.multiplayer.ServerData;
@@ -32,8 +34,10 @@ import net.minecraft.client.multiplayer.ServerData;
 public class DiscordModule extends Module {
    private static final org.slf4j.Logger LOGGER = com.mojang.logging.LogUtils.getLogger();
    private static final String ICON_URL = "https://cdn.discordapp.com/app-icons/1055222411819241572/22387af3b091639d90c2335d52cf11b7.png";
+   private static final long CONNECTION_TIMEOUT_MS = 12_000L;
    private final Setting<Boolean> serverSetting;
-   private CompletableFuture<IPCClient> connectionFuture;
+   private volatile CompletableFuture<IPCClient> connectionFuture;
+   private volatile IPCClient activeClient;
    private long startTimestamp;
    private final ElapsedTimer updateTimer;
 
@@ -49,25 +53,81 @@ public class DiscordModule extends Module {
    @Override
    public void onEnable() {
       this.closeClient();
+      IPCClient client = new IPCClient(1055222411819241572L);
+      this.activeClient = client;
+
       CompletableFuture<IPCClient> pending = CompletableFuture.supplyAsync(() -> {
-         IPCClient client = new IPCClient(1055222411819241572L);
          try {
             client.connect(new DiscordBuild[0]);
             return client;
          } catch (Exception failure) {
-            try { client.close(); } catch (Exception cleanup) { failure.addSuppressed(cleanup); }
+            client.cancelConnect();
             throw new java.util.concurrent.CompletionException(failure);
          }
-      });
+      }, ClientAccess.executorService);
       this.connectionFuture = pending;
-      pending.whenComplete((client, failure) -> {
+      pending.whenComplete((connectedClient, failure) -> {
          if (failure != null) {
             LOGGER.warn("Discord connection failed: {}", failure.getClass().getSimpleName());
-            ClientAccess.schizoMinecraft.execute(() -> {
+            Minecraft minecraft = ClientAccess.schizoMinecraft;
+            if (minecraft != null) {
+               minecraft.execute(() -> {
+                  if (this.connectionFuture == pending && this.isToggled()) this.toggle();
+               });
+            }
+            return;
+         }
+
+         if (!ownsCompletedConnection(
+            pending,
+            this.connectionFuture,
+            connectedClient,
+            this.activeClient,
+            this.isToggled()
+         )) {
+            closeObsoleteClient(connectedClient);
+         }
+      });
+
+      CompletableFuture.runAsync(() -> {
+         if (this.connectionFuture != pending || pending.isDone() || !this.isToggled()) return;
+         LOGGER.warn("Discord IPC connection timed out after {} ms; aborting the local transport", CONNECTION_TIMEOUT_MS);
+         client.cancelConnect();
+         Minecraft minecraft = ClientAccess.schizoMinecraft;
+         if (minecraft != null) {
+            minecraft.execute(() -> {
                if (this.connectionFuture == pending && this.isToggled()) this.toggle();
             });
          }
-      });
+      }, CompletableFuture.delayedExecutor(
+         CONNECTION_TIMEOUT_MS, TimeUnit.MILLISECONDS, ClientAccess.executorService
+      )).exceptionally(failure -> null);
+   }
+
+   static boolean ownsCompletedConnection(
+      Object completedFuture,
+      Object currentFuture,
+      Object connectedClient,
+      Object activeClient,
+      boolean enabled
+   ) {
+      return enabled
+         && completedFuture != null
+         && completedFuture == currentFuture
+         && connectedClient != null
+         && connectedClient == activeClient;
+   }
+
+   private static void closeObsoleteClient(IPCClient client) {
+      if (client == null) {
+         return;
+      }
+      try {
+         client.close();
+      } catch (Exception failure) {
+         LOGGER.debug("Could not close obsolete Discord connection", failure);
+         client.cancelConnect();
+      }
    }
 
    @Override
@@ -122,24 +182,57 @@ public class DiscordModule extends Module {
          }
          RichPresence presence = presenceBuilder.build();
          ipcClient.sendRichPresence(presence);
-      } catch (Exception ignored) {
+      } catch (Exception updateFailure) {
+         LOGGER.warn("Could not update Discord activity", updateFailure);
       }
+   }
+
+   public IntegrationHealth getConnectionHealth() {
+      if (!this.isToggled()) {
+         return IntegrationHealth.DISABLED;
+      }
+      CompletableFuture<IPCClient> pending = this.connectionFuture;
+      if (pending == null) {
+         return IntegrationHealth.UNAVAILABLE;
+      }
+      if (!pending.isDone()) {
+         return IntegrationHealth.CONNECTING;
+      }
+      if (pending.isCompletedExceptionally() || pending.isCancelled()) {
+         return IntegrationHealth.FAILED;
+      }
+      return pending.getNow(null) == null ? IntegrationHealth.UNAVAILABLE : IntegrationHealth.CONNECTED;
+   }
+
+   /** Returns the local IPC lifecycle state without waiting for the connection future. */
+   public String getConnectionStatus() {
+      return this.getConnectionHealth().label();
    }
 
    public void closeClient() {
       CompletableFuture<IPCClient> pending = this.connectionFuture;
+      IPCClient client = this.activeClient;
       this.connectionFuture = null;
-      if (pending == null) return;
-      pending.thenAccept(client -> {
-         if (client == null) return;
+      this.activeClient = null;
+      if (client == null) return;
+
+      if (pending == null || !pending.isDone() || pending.isCompletedExceptionally() || pending.isCancelled()) {
+         client.cancelConnect();
+         return;
+      }
+
+      try {
+         client.sendRichPresence(null);
+      } catch (Exception failure) {
+         LOGGER.debug("Could not clear Discord activity", failure);
+      } finally {
          try {
-            client.sendRichPresence(null);
+            client.close();
          } catch (Exception failure) {
-            LOGGER.debug("Could not clear Discord activity", failure);
-         } finally {
-            try { client.close(); } catch (Exception failure) { LOGGER.debug("Could not close Discord connection", failure); }
+            LOGGER.debug("Could not close Discord connection", failure);
+            client.cancelConnect();
          }
-      });
+      }
    }
 
 }

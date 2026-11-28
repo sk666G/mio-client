@@ -14,6 +14,13 @@ import dev.schizo.client.utils.inventory.ChestSearchController;
 import dev.schizo.client.modules.PlacementModule;
 import dev.schizo.client.managers.RotationManager;
 import dev.schizo.client.managers.ServerStateManager;
+import dev.schizo.client.managers.WorldStateManager;
+import dev.schizo.client.managers.SwingInteractionManager;
+import dev.schizo.client.managers.StashRegistry;
+import dev.schizo.client.managers.SocialRegistry;
+import dev.schizo.client.managers.InventoryStateManager;
+import dev.schizo.client.managers.CrystalInteractionManager;
+import dev.schizo.client.managers.ChatFilterRegistry;
 import dev.schizo.client.managers.ModuleRegistry;
 import dev.schizo.client.modules.client.AntiCheatModule;
 import dev.schizo.client.modules.client.BaritoneModule;
@@ -34,6 +41,7 @@ import dev.schizo.client.modules.combat.AutoMineModule;
 import dev.schizo.client.modules.combat.AutoTrapModule;
 import dev.schizo.client.modules.combat.BlockerModule;
 import dev.schizo.client.modules.combat.CriticalsModule;
+import dev.schizo.client.modules.combat.CrystalDamagePolicy;
 import dev.schizo.client.modules.combat.FeetPlaceModule;
 import dev.schizo.client.modules.combat.KeyPearlModule;
 import dev.schizo.client.modules.combat.MainhandModule;
@@ -65,6 +73,7 @@ import dev.schizo.client.modules.movement.SprintModule;
 import dev.schizo.client.modules.movement.StepModule;
 import dev.schizo.client.modules.movement.VelocityModule;
 import dev.schizo.client.modules.movement.WarpModule;
+import dev.schizo.client.modules.player.AutoEatModule;
 import dev.schizo.client.modules.player.AutoToolModule;
 import dev.schizo.client.modules.player.ChestStealerModule;
 import dev.schizo.client.modules.player.FastPlaceModule;
@@ -89,23 +98,6 @@ import dev.schizo.client.modules.render.ShaderModule;
 import dev.schizo.client.modules.render.SkeletonModule;
 import dev.schizo.client.modules.render.TracersModule;
 import dev.schizo.client.settings.ColorSetting;
-import dev.schizo.mixin.BlockModuleBindings;
-import dev.schizo.mixin.BundleContentsModuleBindings;
-import dev.schizo.mixin.EntityModuleBindings;
-import dev.schizo.mixin.HoneyBlockModuleBindings;
-import dev.schizo.mixin.LevelModuleBindings;
-import dev.schizo.mixin.LiquidBlockModuleBindings;
-import dev.schizo.mixin.LivingEntityModuleBindings;
-import dev.schizo.mixin.MaterialModuleBindings;
-import dev.schizo.mixin.MinecraftModuleBindings;
-import dev.schizo.mixin.MobModuleBindings;
-import dev.schizo.mixin.PlayerModuleBindings;
-import dev.schizo.mixin.RenderTypeColorModuleBindings;
-import dev.schizo.mixin.SlimeBlockModuleBindings;
-import dev.schizo.mixin.SweetBerryBushBlockModuleBindings;
-import dev.schizo.mixin.TextureTransformModuleBindings;
-import dev.schizo.mixin.TridentItemModuleBindings;
-import dev.schizo.mixin.WebBlockModuleBindings;
 import java.util.Objects;
 
 public final class ModuleDependencies {
@@ -113,13 +105,20 @@ public final class ModuleDependencies {
 
    public static void bind(ModuleRegistry registry) {
       Objects.requireNonNull(registry, "Module manager is not initialized");
-      bindMinecraftHooks(registry);
       ServerStateManager.bindModules(registry);
+      WorldStateManager.bindModules(registry);
+      ChatFilterRegistry.bindModules(registry);
+      CrystalInteractionManager.bindModules(registry);
+      InventoryStateManager.bindModules(registry);
+      SocialRegistry.bindModules(registry);
+      StashRegistry.bindModules(registry);
+      SwingInteractionManager.bindModules(registry);
       BlockBreakTracker.bindModules(registry);
       RotationManager.bindReferencedModules(registry);
       SprintModule.bindReferencedModules(registry);
       ColorSetting.bindModuleRegistry(registry);
       CriticalsModule.bindModules(registry);
+      CrystalDamagePolicy.bindModuleRegistry(registry);
       HighlightModule.bindModuleDependencies(registry);
       AuraModule.bindModuleRegistry(registry);
       ScaffoldModule.bindReferencedModules(registry);
@@ -135,6 +134,7 @@ public final class ModuleDependencies {
       FastPlaceModule.bindModules(registry);
       ElytraFlyModule.bindModuleReferences(registry);
       AutoWalkModule.bindReferencedModules(registry);
+      AutoEatModule.bindReferencedModules(registry);
       AnchorAuraModule.bindReferencedModules(registry);
       PlacementModule.bindModules(registry);
       FeetPlaceModule.bindReferencedModules(registry);
@@ -196,23 +196,4 @@ public final class ModuleDependencies {
       ObstaclePasserModule.bindModules(registry);
    }
 
-   private static void bindMinecraftHooks(ModuleRegistry registry) {
-      BlockModuleBindings.bind(registry);
-      LiquidBlockModuleBindings.bind(registry);
-      WebBlockModuleBindings.bind(registry);
-      SlimeBlockModuleBindings.bind(registry);
-      SweetBerryBushBlockModuleBindings.bind(registry);
-      HoneyBlockModuleBindings.bind(registry);
-      MinecraftModuleBindings.bind(registry);
-      BundleContentsModuleBindings.bind(registry);
-      LevelModuleBindings.bind(registry);
-      EntityModuleBindings.bind(registry);
-      LivingEntityModuleBindings.bind(registry);
-      TridentItemModuleBindings.bind(registry);
-      TextureTransformModuleBindings.bind(registry);
-      RenderTypeColorModuleBindings.bind(registry);
-      MaterialModuleBindings.bind(registry);
-      MobModuleBindings.bind(registry);
-      PlayerModuleBindings.bind(registry);
-   }
 }

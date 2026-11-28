@@ -1,0 +1,50 @@
+name: Schizo Windows storage tests
+
+on:
+  push:
+    branches: [zio-rebuild-v7, 'lunyx/runtime-*', 'lunyx/final-*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-storage-tests:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Install Java 21 toolchain
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install Java 25 Gradle runtime
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Set up Gradle cache
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Run full JUnit suite on Windows
+        env:
+          ORG_GRADLE_JAVA_INSTALLATIONS_PATHS: ${{ env.JAVA_HOME_21_X64 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew --no-daemon test
+
+      - name: Preserve test reports
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: schizo-windows-test-reports
+          path: |
+            build/reports/tests/test
+            build/test-results/test
+          if-no-files-found: warn

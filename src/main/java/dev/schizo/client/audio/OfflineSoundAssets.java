@@ -9,9 +9,12 @@
 
 package dev.schizo.client.audio;
 
+import dev.schizo.client.config.ConfigPathGuard;
+import dev.schizo.client.utils.FileUtils;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
@@ -22,16 +25,10 @@ public final class OfflineSoundAssets {
     private OfflineSoundAssets() {
     }
 
-    public static void installKillstreaks(Path path) {
-        Path directory = path.toAbsolutePath().normalize();
-        if (Files.isDirectory(directory)) {
-            return;
-        }
+    public static void installKillstreaks(Path root, Path path) {
         try {
+            Path directory = ConfigPathGuard.ensureDirectory(root, path);
             String manifest;
-            if (Files.exists(directory, LinkOption.NOFOLLOW_LINKS)) {
-                throw new IOException("Sound-pack path is occupied by a file: " + directory);
-            }
             try (InputStream inputStream = OfflineSoundAssets.class.getResourceAsStream(PREFIX + "manifest.txt")) {
                 if (inputStream == null) {
                     throw new IOException("Preserved sound-pack manifest is missing");
@@ -52,17 +49,34 @@ public final class OfflineSoundAssets {
                     continue;
                 }
                 try {
-                    Files.createDirectories(destination.getParent());
+                    Path parent = destination.getParent();
+                    if (parent == null) {
+                        throw new IOException("Preserved sound path has no parent");
+                    }
+                    ConfigPathGuard.ensureDirectory(directory, parent);
                     if (Files.exists(destination, LinkOption.NOFOLLOW_LINKS)) {
+                        if (Files.isSymbolicLink(destination)
+                            || !Files.isRegularFile(destination, LinkOption.NOFOLLOW_LINKS)) {
+                            throw new IOException("Preserved sound path is not a regular file: " + destination.getFileName());
+                        }
                         continue;
                     }
-                    Files.copy(inputStream, destination);
+                    installMissingFile(destination, inputStream.readAllBytes());
                 } finally {
                     inputStream.close();
                 }
             }
         } catch (IOException | SecurityException exception) {
             System.getLogger("Schizo Offline Sounds").log(System.Logger.Level.WARNING, "Optional killstreak sounds are unavailable: " + exception.getMessage());
+        }
+    }
+
+    static boolean installMissingFile(Path destination, byte[] bytes) throws IOException {
+        try {
+            FileUtils.writeBytesCreateNew(destination, bytes);
+            return true;
+        } catch (FileAlreadyExistsException createdConcurrently) {
+            return false;
         }
     }
 }
