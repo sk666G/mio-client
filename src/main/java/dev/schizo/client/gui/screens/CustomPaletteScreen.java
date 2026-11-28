@@ -57,7 +57,7 @@ final class CustomPaletteScreen extends StudioScreen {
          fields[i] = trackResizeFocus("field:" + index, addRenderableWidget(field));
          trackResizeFocus("picker:" + index, addRenderableWidget(new StudioButton(layout.pickerX(i), y, 30, 18, Component.literal("Pick"), button -> {
             Color initial = parsed[index] == null ? Color.WHITE : parsed[index];
-            minecraft.setScreen(new PalettePickerScreen(this, LABELS[index], initial, color -> {
+            openStudioChild(new PalettePickerScreen(this, LABELS[index], initial, color -> {
                values[index] = PaletteHex.format(color);
                validate();
             }));
@@ -107,6 +107,6 @@ final class CustomPaletteScreen extends StudioScreen {
       super.render(graphics, mouseX, mouseY, partialTick);
    }
 
-   @Override public void onClose() { minecraft.setScreen(parent); }
+   @Override public void onClose() { returnToParent(parent); }
    @Override public boolean isPauseScreen() { return false; }
 }
