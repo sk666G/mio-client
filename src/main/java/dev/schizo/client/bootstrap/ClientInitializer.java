@@ -67,15 +67,16 @@ import net.fabricmc.api.EnvType;
 import net.fabricmc.loader.api.FabricLoader;
 
 public final class ClientInitializer {
-   private boolean managersInitialized;
-   private boolean clientInitialized;
+   private final InitializationPhase managersPhase=new InitializationPhase("Manager");
+   private final InitializationPhase clientPhase=new InitializationPhase("Client");
    private MultiplayerCompatibilityWarnings compatibilityWarnings;
 
    public void initialize() {
       requireEnvironment();
-      if (this.managersInitialized) {
-         return;
-      }
+      managersPhase.run(this::initializeManagers);
+   }
+
+   private void initializeManagers() {
       // Constructors publish services in dependency order before modules bind to them.
       ClientContext.baritoneBridge = FabricLoader.getInstance().isModLoaded("baritone-meteor")
          ? new BaritoneAdapter() : new DisabledBaritoneBridge();
@@ -123,18 +124,16 @@ public final class ClientInitializer {
       ClientContext.contextProfileRegistry = new ContextProfileRegistry();
       ClientContext.swingManager = new SwingInteractionManager();
       Locale.setDefault(Category.FORMAT, Locale.US);
-      this.managersInitialized = true;
       SchizoClient.LOGGER.info("Schizo main initialization completed.");
    }
 
    public void initializeClient() {
       requireEnvironment();
-      if (!this.managersInitialized) {
-         throw new IllegalStateException("Schizo client initialization requires the main phase.");
-      }
-      if (this.clientInitialized) {
-         return;
-      }
+      managersPhase.requireComplete();
+      clientPhase.run(this::initializeClientServices);
+   }
+
+   private void initializeClientServices() {
       ModuleDependencies.bind(ClientContext.moduleRegistry);
       try {
          SafeModeManager.GLOBAL.initialize(ConfigurationManager.ROOT_DIRECTORY);
@@ -156,7 +155,6 @@ public final class ClientInitializer {
       CustomItemRegistries.initialize();
       configuration.load();
       ClientContext.soundManager.reload();
-      this.clientInitialized = true;
       SchizoClient.LOGGER.info("Schizo client initialization completed.");
    }
 
