@@ -78,12 +78,27 @@ public final class MipmapFontTexture extends AbstractTexture {
 
    @Override
    public void close() {
-      if (this.mipImages != null) {
-         for (NativeImage image : this.mipImages) {
-            image.close();
+      NativeImage[] images = this.mipImages;
+      this.mipImages = null;
+      Throwable failure = null;
+      if (images != null) {
+         for (NativeImage image : images) {
+            if (image == null) continue;
+            try {
+               image.close();
+            } catch (RuntimeException | Error cleanupFailure) {
+               if (failure == null) failure = cleanupFailure;
+               else if (failure != cleanupFailure) failure.addSuppressed(cleanupFailure);
+            }
          }
-         this.mipImages = null;
       }
-      super.close();
+      try {
+         super.close();
+      } catch (RuntimeException | Error cleanupFailure) {
+         if (failure == null) failure = cleanupFailure;
+         else if (failure != cleanupFailure) failure.addSuppressed(cleanupFailure);
+      }
+      if (failure instanceof RuntimeException runtime) throw runtime;
+      if (failure instanceof Error error) throw error;
    }
 }
