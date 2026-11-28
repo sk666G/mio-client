@@ -33,13 +33,15 @@ final class ProfilerDisplayRow {
       return this.values;
    }
 
+   String name() { return this.name; }
+
    String displayName(int maximumLength) {
       int limit = Math.max(1, maximumLength);
       if (this.cachedName == null || this.cachedNameLimit != limit) {
          this.cachedNameLimit = limit;
-         this.cachedName = this.name.length() <= limit
+         this.cachedName = this.name.codePointCount(0,this.name.length()) <= limit
             ? this.name
-            : this.name.substring(0, limit - 1) + "…";
+            : this.name.substring(0,this.name.offsetByCodePoints(0,limit-1))+"…";
       }
       return this.cachedName;
    }
