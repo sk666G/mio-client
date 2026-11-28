@@ -3,6 +3,9 @@ package dev.schizo.client.gui.screens;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonPrimitive;
 import dev.schizo.client.gui.SettingEditHistory;
+import dev.schizo.client.gui.InspectorEnumOptions;
+import dev.schizo.client.settings.EnumSetting;
+import dev.schizo.client.settings.NamedEntry;
 import dev.schizo.client.diagnostics.ClientBindingDiagnostics;
 import dev.schizo.client.integrations.ModuleCompatibility;
 import dev.schizo.client.modules.Module;
@@ -102,9 +105,9 @@ public final class ModuleInspectorScreen extends StudioScreen {
       button("Previous setting", left, controlsY, half, () -> select(-1));
       button("Next setting", left + half + 4, controlsY, half, () -> select(1));
       value = new StudioEditBox(font, left, controlsY + 24, half, 20, Component.literal("Proposed value"));
-      value.setMaxLength(48);
+      value.setMaxLength(128);
       trackResizeFocus("value", addRenderableWidget(value));
-      apply = button("Apply value", left + half + 4, controlsY + 24, half, this::applyValue).help("Validate and apply the proposed scalar value.");
+      apply = button("Apply value", left + half + 4, controlsY + 24, half, this::applyValue).help("Validate and apply the proposed setting value.");
       int quarter = Math.max(1, (panelWidth - 12) / 4);
       undo = button("Undo", left, controlsY + 48, quarter, () -> replay(true));
       redo = button("Redo", left + quarter + 4, controlsY + 48, quarter, () -> replay(false));
@@ -150,7 +153,7 @@ public final class ModuleInspectorScreen extends StudioScreen {
       selected = 0;
       for (int i = 0; i < settings.size(); i++) if (settings.get(i) == previous) { selected = i; break; }
       offset = 0;
-      refreshSelection();
+      refreshSelection(current()==previous);
    }
 
    @Override public boolean keyPressed(KeyEvent event) {
@@ -179,9 +182,10 @@ public final class ModuleInspectorScreen extends StudioScreen {
       if (compact) return super.mouseClicked(event, doubleClick);
       int row = InspectorRows.hit(event.x(), event.y(), left, rowsY, panelWidth, rowCount, offset, settings.size());
       if (event.button() == 0 && row >= 0) {
+         boolean changed=selected!=row;
          selected = row;
          RecentSettingsScreen.record(module, current());
-         refreshSelection();
+         refreshSelection(!changed);
          setFocused(null);
          return true;
       }
@@ -198,9 +202,11 @@ public final class ModuleInspectorScreen extends StudioScreen {
 
    private void select(int delta) {
       if (settings.isEmpty()) return;
-      selected = Math.floorMod(selected + delta, settings.size());
-      RecentSettingsScreen.record(module, current());
-      refreshSelection();
+      int next=Math.floorMod(selected+delta,settings.size());
+      boolean changed=next!=selected;
+      selected=next;
+      RecentSettingsScreen.record(module,current());
+      refreshSelection(!changed);
    }
 
    private void refreshSelection() { refreshSelection(false); }
@@ -231,6 +237,10 @@ public final class ModuleInspectorScreen extends StudioScreen {
                return;
             }
             proposed = new JsonPrimitive(Boolean.parseBoolean(raw));
+         } else if(setting instanceof EnumSetting<?>) {
+            String canonical=InspectorEnumOptions.canonical(InspectorEnumOptions.selectable(setting),raw);
+            if(canonical==null) {notice="Invalid or unavailable choice. Hover the row for valid choices.";return;}
+            proposed=new JsonPrimitive(canonical);
          } else {
             double number = Double.parseDouble(raw);
             if (!Double.isFinite(number)) { notice = "Enter a finite number."; return; }
@@ -251,6 +261,7 @@ public final class ModuleInspectorScreen extends StudioScreen {
       JsonPrimitive target;
       if (original instanceof Boolean flag) target = new JsonPrimitive(flag);
       else if (original instanceof Number number) target = new JsonPrimitive(number);
+      else if (original instanceof NamedEntry named && setting instanceof EnumSetting<?>) target=new JsonPrimitive(named.getName());
       else return;
       notice = "Default: " + history.apply(setting, expected, target);
       refreshSelection();
@@ -277,11 +288,21 @@ public final class ModuleInspectorScreen extends StudioScreen {
          text.append("\nDefault: ").append(setting.getDefaultValue());
          if(setting.isNumericBoundsEnabled()) text.append("\nRange: ").append(setting.getMinimumValue()).append(" – ").append(setting.getMaximumValue());
       }
+      if(setting instanceof EnumSetting<?> && !assessment.requiresMultiplayerWarning()) {
+         if(setting.getDefaultValue() instanceof NamedEntry named) text.append("\nDefault: ").append(named.getName());
+         if(editable(setting)) text.append("\nChoices: ").append(String.join(", ",InspectorEnumOptions.selectable(setting)));
+      }
+      if(isModified(setting)) text.append("\nModified from default.");
       if(assessment.requiresMultiplayerWarning()) text.append("\nRead-only: compatibility review required.");
       else if(!setting.isVisible()) text.append("\nRead-only: setting is currently hidden.");
       else if(!SettingEditHistory.supports(setting)) text.append("\nRead-only here: use the original control.");
       else text.append("\nEditable through guarded history.");
       return text.toString();
+   }
+
+   private boolean isModified(Setting<?> setting) {
+      return (setting instanceof BooleanSetting || setting instanceof NumberSetting<?> || setting instanceof EnumSetting<?>)
+         && !java.util.Objects.equals(setting.getValue(),setting.getDefaultValue());
    }
 
    private String displayValue(Setting<?> setting) {
@@ -308,12 +329,12 @@ public final class ModuleInspectorScreen extends StudioScreen {
       line(graphics, "SCHIZO / INSPECTOR / " + module.getName(), top + 8, theme.accent());
       if (condensed) {
          line(graphics, "Compatibility: " + assessment.classification() + " | settings unverified", top + 19, 0xffa1a3af);
-         line(graphics, notice.isEmpty() ? "Local scalar edits | Quick Access history" : notice, top + 30, 0xffa1a3af);
+         line(graphics, notice.isEmpty() ? "Guarded setting edits | Quick Access history" : notice, top + 30, 0xffa1a3af);
       } else {
          line(graphics, module.getDescription(), top + 21, 0xffeeeeef);
          line(graphics, "Compatibility: " + assessment.classification() + " | individual settings unverified", top + 34, 0xffa1a3af);
          line(graphics, bindingNotice, top + 47, 0xffb8b9c7);
-         line(graphics, notice.isEmpty() ? "Local scalar edits | cross-module history in Quick Access" : notice, top + 60, 0xffa1a3af);
+         line(graphics, notice.isEmpty() ? "Guarded setting edits | cross-module history in Quick Access" : notice, top + 60, 0xffa1a3af);
       }
       if (settings.isEmpty()) line(graphics, "No matching settings.", rowsY + 1, 0xffa1a3af);
       for (int i = 0; i < rowCount && offset + i < settings.size(); i++) {
@@ -323,7 +344,7 @@ public final class ModuleInspectorScreen extends StudioScreen {
          boolean hover = mouseX >= left && mouseX < left + panelWidth && mouseY >= y && mouseY < y + 12;
          graphics.fill(left, y, left + panelWidth, y + 12, index == selected ? theme.selected() : hover ? theme.hover() : theme.row());
          if (index == selected) graphics.fill(left, y, left + 2, y + 12, theme.accent());
-         String text = setting.getName() + ": " + displayValue(setting) + (editable(setting) ? "" : " [read-only]");
+         String text = (isModified(setting)?"* ":"")+setting.getName()+": "+displayValue(setting)+(editable(setting)?"":" [read-only]");
          line(graphics, text, y + 2, index == selected ? 0xffeeeeef : 0xffb8b9c7);
       }
       int hoverIndex=compact?-1:InspectorRows.hit(mouseX,mouseY,left,rowsY,panelWidth,rowCount,offset,settings.size());
