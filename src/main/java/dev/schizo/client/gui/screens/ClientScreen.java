@@ -471,6 +471,14 @@ public class ClientScreen extends Screen implements ClientAccess {
    @Override
    public boolean keyPressed(KeyEvent event) {
       this.escapeCloseAllowed = true;
+      var capture=ClientContext.getClickGui().getKeybindCapture();
+      if(capture!=null) {
+         if(this.panels.contains(capture.getPanel()) && this.isPanelVisible(capture.getPanel()) && capture.captureAvailable()) {
+            capture.keyPressed(event.key());
+            return true;
+         }
+         capture.cancelInput();
+      }
       SettingComponent<?> editor = this.focusedSetting();
       if (editor != null) {
          editor.keyPressed(event.key());
