@@ -71,4 +71,15 @@ class TradeRegistryTest {
       assertSame(existing, registry.getRegistry().iterator().next());
    }
 
+
+   @Test void rejectedReviewedTradeEditKeepsOriginalConfiguration() {
+      var registry=new TradeRegistry();
+      var original=trade("Keep");
+      registry.getRegistry().add(original);
+      assertFalse(registry.replaceReviewedTrade(original,trade("Keep")));
+      assertFalse(registry.replaceReviewedTrade(original,trade("Different")));
+      assertFalse(registry.replaceReviewedTrade(null,trade("Keep")));
+      assertEquals(1,registry.getRegistry().size());
+      assertSame(original,registry.getRegistry().iterator().next());
+   }
 }
