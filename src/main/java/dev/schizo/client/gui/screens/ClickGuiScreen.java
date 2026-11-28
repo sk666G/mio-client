@@ -50,8 +50,8 @@ import net.minecraft.network.chat.Component;
 import org.lwjgl.glfw.GLFW;
 
 public class ClickGuiScreen extends ClientScreen implements ClientAccess {
-   private static final String[] TOOL_LABELS = {"HUD", "Performance", "Profiles", "Health", "Themes"};
-   private static final String[] SHORT_TOOL_LABELS = {"HUD", "Perf", "Rules", "Health", "Theme"};
+   private static final String[] TOOL_LABELS = {"HUD", "Performance", "Profiles", "Health", "Themes", "Quick access"};
+   private static final String[] SHORT_TOOL_LABELS = {"HUD", "Perf", "Rules", "Health", "Theme", "Quick"};
    private static final Color STUDIO_FRAME = new Color(17, 18, 23, 250);
    private static final Color STUDIO_NAV = new Color(12, 13, 17, 250);
    private static final Color STUDIO_EDGE = new Color(55, 56, 64, 200);
@@ -462,6 +462,7 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
             case 2 -> ClientAccess.schizoMinecraft.setScreen(new ExpeditionScreen(this, 2));
             case 3 -> ClientAccess.schizoMinecraft.setScreen(new HealthCenterScreen(this));
             case 4 -> ClientAccess.schizoMinecraft.setScreen(new ThemeStudioScreen(this));
+            case 5 -> ClientAccess.schizoMinecraft.setScreen(new QuickAccessScreen(this));
             default -> throw new IllegalStateException("Unknown Studio destination");
          }
          return;
