@@ -43,6 +43,7 @@ public class RegistrySetScreen<E> extends ClientScreen {
       this.createSearchSetting()
    );
    private final Screen parentScreen;
+   private final RegistrySearchText searchText=new RegistrySearchText();
 
    public RegistrySetScreen(Screen parentScreen, RegistrySetSetting<E> registrySetting) {
       this.registrySetting = registrySetting;
@@ -81,8 +82,8 @@ public class RegistrySetScreen<E> extends ClientScreen {
       if (KeyUtils.isControlDown()
          && event.key()
             == 70) {
-         this.searchComponent
-            .beginEditing();
+         this.searchComponent.beginEditing();
+         return true;
       }
 
       return super.keyPressed(event);
@@ -157,19 +158,15 @@ public class RegistrySetScreen<E> extends ClientScreen {
             new ActionButtonComponent(
                this.extraPanel,
                "Clear",
-               () -> this.registrySetting.getValue().clear()
+               () -> this.registrySetting.modifyEntries(Set::clear)
             )
          );
    }
 
+   String normalizedSearch() { return searchText.query(searchComponent.getText()); }
+
    private StringSetting createSearchSetting() {
-      StringSetting searchSetting = new StringSetting("Search", "");
-      searchSetting.setChangeCallback(() -> {
-         if (!searchSetting.getValue().isEmpty()) {
-            searchSetting.parseValue("");
-         }
-      });
-      return searchSetting;
+      return new StringSetting("Search", "");
    }
 
 }
