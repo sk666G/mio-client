@@ -55,6 +55,11 @@ public final class FontAtlas {
    public void buildAtlas(Collection<Character> characters) {
       this.glyphs.clear();
       this.fontHeight = -1;
+      if (characters.isEmpty()) {
+         this.fontHeight = 0;
+         this.atlasSize = 2;
+         return;
+      }
       this.atlasSize = align(this.calculateAtlasSize(characters), 2);
       BufferedImage metricsImage = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);
       Graphics2D graphics = metricsImage.createGraphics();
@@ -65,6 +70,7 @@ public final class FontAtlas {
          int rowHeight = 0;
          int cursorX = 0;
          int cursorY = 0;
+         int requiredSize = this.atlasSize;
          for (char character : characters) {
             Rectangle2D bounds = metrics.getStringBounds(Character.toString(character), graphics);
             int width = align(bounds.getBounds().width + 8, 2);
@@ -74,12 +80,25 @@ public final class FontAtlas {
                cursorY += rowHeight + 2;
                rowHeight = 0;
             }
+            requiredSize = Math.max(requiredSize, Math.max(cursorX + width, cursorY + height));
             Uv minUv = new Uv((float)cursorX / this.atlasSize, (float)cursorY / this.atlasSize);
             Uv maxUv = new Uv((float)(cursorX + width) / this.atlasSize, (float)(cursorY + height) / this.atlasSize);
             this.glyphs.put(character, new Glyph(cursorX, cursorY, width, height, minUv, maxUv));
             this.fontHeight = Math.max(this.fontHeight, height);
             rowHeight = Math.max(rowHeight, height);
             cursorX += width;
+         }
+         // The estimate uses different metrics from packing and can understate
+         // the last row's extent. Preserve positions, grow the square if needed,
+         // and normalize every UV against the final texture dimensions.
+         if (requiredSize > this.atlasSize) {
+            this.atlasSize = align(requiredSize, 2);
+            this.glyphs.replaceAll((character, glyph) -> new Glyph(
+               glyph.x, glyph.y, glyph.width, glyph.height,
+               new Uv((float)glyph.x / this.atlasSize, (float)glyph.y / this.atlasSize),
+               new Uv((float)(glyph.x + glyph.width) / this.atlasSize,
+                  (float)(glyph.y + glyph.height) / this.atlasSize)
+            ));
          }
          if ("Dialog".equals(this.font.getFamily())) {
             this.fontHeight -= 2;
