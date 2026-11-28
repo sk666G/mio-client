@@ -333,4 +333,18 @@ class PresetRegistryTest {
       assertSame(undo,history.undo());
       assertEquals(original,registry.getPreset("before"));
    }
+
+   @Test void clearingHistoryReleasesObsoleteRegistryActions() throws IOException {
+      var original=preset("before");
+      original.saveToDirectory(directory);
+      var registry=new PresetRegistry(directory);
+      registry.loadPresets();
+      var history=new dev.schizo.client.config.PresetUndoState();
+      var undo=dev.schizo.client.config.PresetUndoAction.beforeDelete(registry,"before");
+      assertTrue(registry.deletePreset("before"));
+      history.push(undo);
+      history.clear();
+      assertNull(history.undo());
+      assertFalse(Files.exists(directory.resolve("before.json")));
+   }
 }
