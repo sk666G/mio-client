@@ -279,10 +279,7 @@ public class ClientScreen extends Screen implements ClientAccess {
    public boolean charTyped(CharacterEvent event) {
       SettingComponent<?> editor = this.focusedSetting();
       if (editor != null) {
-         String input = event.codepointAsString();
-         for (int index = 0; index < input.length(); index++) {
-            editor.charTyped(input.charAt(index));
-         }
+         editor.textTyped(event.codepointAsString());
          return true;
       }
       String characters = event.codepointAsString();
