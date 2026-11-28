@@ -60,4 +60,25 @@ final class StudioViewportLayouts {
       return new Visited((width-w)/2, top, w, compact, stacked,
          searchY, rowsY, rows, footerY, statusY, statusY + 15);
    }
+
+   record CustomPalette(int left, int top, int width, boolean compact, int columns,
+                        int columnWidth, int fieldWidth, int footerY, int panelBottom) {
+      int fieldX(int index) { return left + index % columns * (columnWidth + 6); }
+      int fieldY(int index) { return top + 37 + index / columns * 33; }
+      int pickerX(int index) { return fieldX(index) + fieldWidth + 4; }
+      int swatchX(int index) { return pickerX(index) + 34; }
+   }
+
+   static CustomPalette customPalette(int width, int height) {
+      int w = Math.max(1, Math.min(460, width - 16));
+      boolean single = w < 320 && height >= 270;
+      int columns = single ? 1 : 2;
+      int bodyHeight = single ? 261 : 162;
+      boolean compact = w < (single ? 180 : 240) || height < (single ? 270 : 170);
+      int top = Math.max(4, (height - bodyHeight) / 2);
+      int column = Math.max(1, (w - (columns - 1) * 6) / columns);
+      int footer = top + (single ? 237 : 138);
+      return new CustomPalette((width-w)/2, top, w, compact, columns, column,
+         Math.max(1, column-52), footer, top+bodyHeight);
+   }
 }

@@ -80,4 +80,31 @@ class StudioViewportLayoutsTest {
       assertTrue(StudioViewportLayouts.visited(235,150).compact());
       assertTrue(StudioViewportLayouts.visited(376,149).compact());
    }
+
+   @Test void customPaletteKeepsFieldsPickersSwatchesAndFooterInsideViewport() {
+      for (int width : new int[]{180,195,196,255,256,335,336,460,825}) {
+         for (int height=120; height<=500; height++) {
+            var l=StudioViewportLayouts.customPalette(width,height);
+            if (l.compact()) continue;
+            assertTrue(l.fieldWidth()>=65);
+            assertTrue(l.panelBottom()<=height);
+            for (int i=0;i<6;i++) {
+               assertTrue(l.fieldX(i)>=l.left());
+               assertTrue(l.fieldY(i)>=l.top()+37);
+               assertEquals(l.fieldX(i)+l.fieldWidth()+4,l.pickerX(i));
+               assertEquals(l.pickerX(i)+34,l.swatchX(i));
+               assertTrue(l.swatchX(i)+14<=l.left()+l.width());
+               assertTrue(l.fieldY(i)+18<=l.footerY());
+               if (i>=l.columns()) assertTrue(l.fieldY(i)>=l.fieldY(i-l.columns())+33);
+            }
+            assertTrue(l.footerY()+20<=l.panelBottom());
+            assertTrue(2*((l.width()-6)/2)+6<=l.width());
+         }
+      }
+      assertTrue(StudioViewportLayouts.customPalette(196,269).compact());
+      assertFalse(StudioViewportLayouts.customPalette(196,270).compact());
+      assertEquals(1,StudioViewportLayouts.customPalette(320,270).columns());
+      assertEquals(2,StudioViewportLayouts.customPalette(336,270).columns());
+      assertEquals(2,StudioViewportLayouts.customPalette(256,170).columns());
+   }
 }
