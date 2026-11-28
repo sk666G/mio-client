@@ -129,6 +129,7 @@ public final class ConfigurationManager implements ClientAccess {
          }
       }
 
+      this.presetUndoState.clear();
       for (PresetCategory presetCategory : PresetCategory.values()) {
          PresetRegistry presetRegistry = new PresetRegistry(presetCategory);
          this.presetRegistries.put(presetCategory, presetRegistry);
