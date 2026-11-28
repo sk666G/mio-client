@@ -467,11 +467,15 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
    }
 
    private PeerGuide nearestPeer(HudWidgetRenderer widget,float position,float extent,float viewport,boolean horizontal) {
+      return nearestPeer(List.of(widget),position,extent,viewport,horizontal);
+   }
+
+   private PeerGuide nearestPeer(List<HudWidgetRenderer> excluded,float position,float extent,float viewport,boolean horizontal) {
       PeerGuide best=null;
       for(HudAnchorGroup group:anchorGroups) {
          for(Object item:group.getWidgets()) {
             HudWidgetRenderer peer=(HudWidgetRenderer)item;
-            if(peer==widget||!peer.isEnabled()) continue;
+            if(excluded.contains(peer)||!peer.isEnabled()) continue;
             float[] size=peer.getDimensions();
             var match=HudPeerSnap.nearest(position,extent,viewport,horizontal?peer.getX():peer.getY(),size[horizontal?0:1],5F);
             if(match!=null && (best==null || HudPeerSnap.better(best.match(),match)==match))
@@ -482,11 +486,16 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
    }
 
    private boolean renderPeerGuide(PoseStack poses,HudWidgetRenderer widget,PeerGuide guide,float viewport,boolean horizontal) {
+      int axis=horizontal?0:1;
+      return renderPeerGuide(poses,horizontal?widget.getX():widget.getY(),widget.getDimensions()[axis],guide,viewport,horizontal);
+   }
+
+   private boolean renderPeerGuide(PoseStack poses,float position,float extent,PeerGuide guide,float viewport,boolean horizontal) {
       if(guide==null||viewport!=guide.viewport()||!guide.peer().isEnabled()) return false;
       var group=getAnchorGroup(guide.peer().getAnchor());
       if(group==null||!group.getWidgets().contains(guide.peer())) return false;
       int axis=horizontal?0:1;
-      if(!HudPeerSnap.aligned(guide.match(),horizontal?widget.getX():widget.getY(),widget.getDimensions()[axis],
+      if(!HudPeerSnap.aligned(guide.match(),position,extent,
          horizontal?guide.peer().getX():guide.peer().getY(),guide.peer().getDimensions()[axis])) return false;
       renderSnapGuide(poses,guide.match().line(),horizontal);
       return true;
@@ -540,6 +549,7 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
          if (this.groupDrag != null) {
             if (this.groupDragMoved) {
                this.groupDrag = null;
+               peerGuideX=peerGuideY=null;
                this.groupDragMoved = false;
                this.finishLayoutEdit();
             } else this.cancelPendingLayoutGesture();
@@ -1010,6 +1020,7 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
       }
       if (!Double.isFinite(x) || !Double.isFinite(y)) return;
       this.beginLayoutEdit();
+      peerGuideX=peerGuideY=null;
       this.groupDrag = new GroupDrag(targets, List.copyOf(start), x, y, this.gridStep);
       this.groupDragMoved = false;
    }
@@ -1037,6 +1048,30 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
       var delta = dev.schizo.client.render.HudGroupDrag.plan(currentExtents, width, height,
          pointerX - drag.pointerX(), pointerY - drag.pointerY(), drag.gridStep());
       if (delta == null) {
+         this.cancelPendingLayoutGesture();
+         return;
+      }
+      peerGuideX=peerGuideY=null;
+      if(drag.gridStep()==0 && (delta.x()!=0 || delta.y()!=0)) {
+         var envelope=HudGroupMove.envelope(currentExtents);
+         if(envelope!=null && envelope.width()>0 && envelope.height()>0) {
+            float x=envelope.x()+delta.x(),y=envelope.y()+delta.y();
+            float sx=HudWidgetSnap.position(HudWidgetSnap.resolve(x,envelope.width(),width,hud.getSafeX(),5F),envelope.width(),width,hud.getSafeX());
+            float sy=HudWidgetSnap.position(HudWidgetSnap.resolve(y,envelope.height(),height,hud.getSafeY(),5F),envelope.height(),height,hud.getSafeY());
+            if(!Float.isFinite(sx)||sx<0||(double)sx+envelope.width()>width) {
+               peerGuideX=nearestPeer(drag.targets(),x,envelope.width(),width,true);
+               sx=peerGuideX==null?x:peerGuideX.match().position();
+            }
+            if(!Float.isFinite(sy)||sy<0||(double)sy+envelope.height()>height) {
+               peerGuideY=nearestPeer(drag.targets(),y,envelope.height(),height,false);
+               sy=peerGuideY==null?y:peerGuideY.match().position();
+            }
+            var snapped=new HudGroupMove.Delta(sx-envelope.x(),sy-envelope.y());
+            if(HudGroupMove.fits(currentExtents,width,height,snapped)) delta=snapped;
+            else peerGuideX=peerGuideY=null;
+         }
+      }
+      if(!HudGroupMove.fits(currentExtents,width,height,delta)) {
          this.cancelPendingLayoutGesture();
          return;
       }
@@ -1183,6 +1218,18 @@ public class HudEditorScreen extends ClientScreen implements ClientAccess {
          this.snapWidget(graphics, poseStack, widget, widget.getDimensions());
       }
 
+      if(groupDrag!=null && groupDrag.gridStep()==0 && (peerGuideX!=null || peerGuideY!=null)) {
+         List<HudGroupMove.Bounds> live=new ArrayList<>();
+         for(HudWidgetRenderer member:groupDrag.targets()) {
+            float[] size=member.getDimensions();
+            live.add(new HudGroupMove.Bounds(member.getX(),member.getY(),size[0],size[1]));
+         }
+         var bounds=HudGroupMove.envelope(live);
+         if(bounds!=null) {
+            if(!renderPeerGuide(poseStack,bounds.x(),bounds.width(),peerGuideX,graphics.guiWidth(),true)) peerGuideX=null;
+            if(!renderPeerGuide(poseStack,bounds.y(),bounds.height(),peerGuideY,graphics.guiHeight(),false)) peerGuideY=null;
+         } else peerGuideX=peerGuideY=null;
+      }
       this.pruneSelection();
       for (HudWidgetRenderer widget : this.selection) {
          float[] size = widget.getDimensions();
