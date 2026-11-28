@@ -148,6 +148,7 @@ public final class FrameTiming implements ClientAccess {
 
    private void refreshPercentiles(long currentTimeNanos) {
       if (this.lastLowFpsUpdateNanos == Long.MIN_VALUE
+         || currentTimeNanos < this.lastLowFpsUpdateNanos
          || currentTimeNanos - this.lastLowFpsUpdateNanos >= LOW_FPS_REFRESH_NANOS) {
          if (this.frameSampleCount == 0) {
             this.cachedOnePercentLowFramesPerSecond = 0.0F;
@@ -184,7 +185,7 @@ public final class FrameTiming implements ClientAccess {
    }
 
    public float getFrameFactor(float rateScale) {
-      if (rateScale <= 0.0F) {
+      if (!Float.isFinite(rateScale) || rateScale <= 0.0F) {
          return 0.0F;
       }
       return Mth.clamp(1.0F / ((float)this.lastFrameRate * rateScale), 0.0F, 1.0F);
@@ -256,6 +257,11 @@ public final class FrameTiming implements ClientAccess {
          this.removeOldestFrameSample();
       }
 
+      // Evict expired durations before adding: a long idle interval must not be summed with expired history.
+      while (this.frameSampleCount > 0
+         && sampledTimeNanos - this.frameSampleTimesNanos[this.oldestFrameSampleIndex] > ONE_SECOND_NANOS) {
+         this.removeOldestFrameSample();
+      }
       int writeIndex = (this.oldestFrameSampleIndex + this.frameSampleCount) % FRAME_SAMPLE_CAPACITY;
       this.frameSampleTimesNanos[writeIndex] = sampledTimeNanos;
       this.frameDurationsNanos[writeIndex] = frameDurationNanos;
@@ -266,10 +272,6 @@ public final class FrameTiming implements ClientAccess {
          this.stuttersInWindow++;
       }
 
-      while (this.frameSampleCount > 0
-         && sampledTimeNanos - this.frameSampleTimesNanos[this.oldestFrameSampleIndex] > ONE_SECOND_NANOS) {
-         this.removeOldestFrameSample();
-      }
    }
 
    private void removeOldestFrameSample() {
@@ -281,6 +283,12 @@ public final class FrameTiming implements ClientAccess {
       }
       this.oldestFrameSampleIndex = (this.oldestFrameSampleIndex + 1) % FRAME_SAMPLE_CAPACITY;
       this.frameSampleCount--;
+      if(this.frameSampleCount==0) {
+         this.totalFrameDurationNanos=0;
+         this.totalSquaredFrameDurationNanos=0;
+         this.stuttersInWindow=0;
+         this.lastLowFpsUpdateNanos=Long.MIN_VALUE;
+      }
    }
 
    private void clearFrameSamples() {
