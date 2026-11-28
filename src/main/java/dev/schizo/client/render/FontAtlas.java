@@ -53,6 +53,14 @@ public final class FontAtlas {
    }
 
    public void buildAtlas(Collection<Character> characters) {
+      buildAtlas(characters, characters.isEmpty() ? 2 : align(this.calculateAtlasSize(characters), 2));
+   }
+
+   // Packing accepts an initial estimate independently of how it was calculated.
+   void buildAtlas(Collection<Character> characters, int initialSize) {
+      if (initialSize < 2 || initialSize % 2 != 0) {
+         throw new IllegalArgumentException("Atlas estimate must be positive and mip-aligned");
+      }
       this.glyphs.clear();
       this.fontHeight = -1;
       if (characters.isEmpty()) {
@@ -60,7 +68,7 @@ public final class FontAtlas {
          this.atlasSize = 2;
          return;
       }
-      this.atlasSize = align(this.calculateAtlasSize(characters), 2);
+      this.atlasSize = initialSize;
       BufferedImage metricsImage = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);
       Graphics2D graphics = metricsImage.createGraphics();
       try {
@@ -225,7 +233,7 @@ public final class FontAtlas {
       return glyph == null ? 0.0F : glyph.width - 8.0F;
    }
 
-   private Glyph resolveGlyph(int codePoint) {
+   Glyph resolveGlyph(int codePoint) {
       Glyph glyph = Character.isBmpCodePoint(codePoint) && !Character.isSurrogate((char)codePoint)
          ? this.glyphs.get((char)codePoint) : null;
       return glyph != null ? glyph : this.glyphs.get('?');
@@ -235,6 +243,10 @@ public final class FontAtlas {
       return this.fontHeight;
    }
 
-   private record Uv(float u, float v) {}
-   private record Glyph(int x, int y, int width, int height, Uv minimumUv, Uv maximumUv) {}
+   int atlasSize() {
+      return this.atlasSize;
+   }
+
+   record Uv(float u, float v) {}
+   record Glyph(int x, int y, int width, int height, Uv minimumUv, Uv maximumUv) {}
 }
