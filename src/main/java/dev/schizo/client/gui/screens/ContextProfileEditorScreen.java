@@ -18,6 +18,7 @@ public final class ContextProfileEditorScreen extends StudioScreen {
    private EditBox server, dimension, gameMode, preset;
    private PresetCategory category = PresetCategory.COLORS;
    private Button categoryButton;
+   private StudioViewportLayouts.ContextEditor layout;
    private int index = -1, left, panelWidth, top;
    private Rule selected;
    private List<Rule> selectedSnapshot = List.of();
@@ -31,27 +32,32 @@ public final class ContextProfileEditorScreen extends StudioScreen {
 
    @Override protected void init() {
       super.init();
-      panelWidth = Math.max(1, Math.min(520, width - 16));
-      left = (width - panelWidth) / 2;
-      top = Math.max(4, (height - 216) / 2);
+      layout=StudioViewportLayouts.contextEditor(width,height);
+      panelWidth=layout.width();left=layout.left();top=layout.top();
+      server=dimension=gameMode=preset=null;
+      categoryButton=null;
+      if(layout.compact()) {
+         button("Back",left,Math.max(0,height-23),panelWidth,this::onClose);
+         return;
+      }
       int half = Math.max(1, (panelWidth - 4) / 2);
-      server = field("Server (* = any)", serverText, left, top + 41, half, 255, v -> serverText = v);
-      dimension = field("Dimension", dimensionText, left + half + 4, top + 41, half, 16, v -> dimensionText = v);
-      gameMode = field("Game mode", modeText, left, top + 72, half, 16, v -> modeText = v);
-      preset = field("Preset name", presetText, left + half + 4, top + 72, half, 64, v -> presetText = v);
-      categoryButton = button("Category: " + category.getName(), left, top + 94, half, () -> {
+      server = field("Server (* = any)", serverText, left, layout.firstFieldY(), half, 255, v -> serverText = v);
+      dimension = field("Dimension", dimensionText, left + half + 4, layout.firstFieldY(), half, 16, v -> dimensionText = v);
+      gameMode = field("Game mode", modeText, left, layout.secondFieldY(), half, 16, v -> modeText = v);
+      preset = field("Preset name", presetText, left + half + 4, layout.secondFieldY(), half, 64, v -> presetText = v);
+      categoryButton = button("category","Category: " + category.getName(), left, layout.categoryY(), half, () -> {
          category = PresetCategory.values()[(category.ordinal() + 1) % PresetCategory.values().length];
          categoryButton.setMessage(Component.literal("Category: " + category.getName()));
       });
-      button("Next saved preset", left + half + 4, top + 94, half, this::nextPreset);
+      button("Next saved preset", left + half + 4, layout.categoryY(), half, this::nextPreset);
       int third = Math.max(1, (panelWidth - 8) / 3);
-      button("Previous rule", left, top + 118, third, () -> browse(-1));
-      button("Next rule", left + third + 4, top + 118, third, () -> browse(1));
-      button("New rule", left + 2 * (third + 4), top + 118, third, this::newRule);
-      button("Preview save", left, top + 142, half, this::preview);
-      button("Delete selected", left + half + 4, top + 142, half, this::deleteSelected);
-      button("Back", left, top + 166, half, this::onClose);
-      button("Active preview", left + half + 4, top + 166, half, () -> minecraft.setScreen(new ExpeditionScreen(this, 2)));
+      button("Previous rule", left, layout.browseY(), third, () -> browse(-1));
+      button("Next rule", left + third + 4, layout.browseY(), third, () -> browse(1));
+      button("New rule", left + 2 * (third + 4), layout.browseY(), third, this::newRule);
+      button("Preview save", left, layout.previewY(), half, this::preview);
+      button("Delete selected", left + half + 4, layout.previewY(), half, this::deleteSelected);
+      button("Back", left, layout.backY(), half, this::onClose);
+      button("Active preview", left + half + 4, layout.backY(), half, () -> openStudioChild(new ExpeditionScreen(this, 2)));
    }
 
    private EditBox field(String label, String value, int x, int y, int w, int maximum,
@@ -60,11 +66,15 @@ public final class ContextProfileEditorScreen extends StudioScreen {
       box.setMaxLength(maximum);
       box.setValue(value);
       box.setResponder(responder);
-      return addRenderableWidget(box);
+      return trackResizeFocus("field:"+label,addRenderableWidget(box));
    }
 
-   private Button button(String text, int x, int y, int w, Runnable action) {
-      return addRenderableWidget(new StudioButton(x, y, w, 20, Component.literal(text), ignored -> action.run()));
+   private StudioButton button(String text,int x,int y,int w,Runnable action) {
+      return button(text,text,x,y,w,action);
+   }
+
+   private StudioButton button(String role,String text,int x,int y,int w,Runnable action) {
+      return trackResizeFocus("button:"+role,addRenderableWidget(new StudioButton(x,y,w,20,Component.literal(text),ignored->action.run())));
    }
 
    private void browse(int direction) {
@@ -111,7 +121,7 @@ public final class ContextProfileEditorScreen extends StudioScreen {
             return;
          }
          var result = ContextRulePreview.simulate(ClientContext.contextProfileRegistry.getRules(), rule);
-         minecraft.setScreen(new ContextRuleReviewScreen(this, result));
+         openStudioChild(new ContextRuleReviewScreen(this,result));
       } catch (IllegalArgumentException | IllegalStateException invalid) {
          notice = invalid.getMessage() == null ? "Invalid rule." : invalid.getMessage();
       }
@@ -137,19 +147,24 @@ public final class ContextProfileEditorScreen extends StudioScreen {
    @Override public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
       StudioScreenTheme theme = StudioScreenTheme.current();
       graphics.fill(0, 0, width, height, theme.backdrop());
-      graphics.fill(left - 4, top, left + panelWidth + 4, Math.min(height, top + 215), theme.panel());
+      if(layout.compact()) {
+         draw(graphics,"Reduce GUI scale to edit rules",left,top,panelWidth,0xffeeeeef);
+         super.render(graphics,mouseX,mouseY,partialTick);
+         return;
+      }
+      graphics.fill(left-4,top,left+panelWidth+4,layout.bottom(),theme.panel());
       graphics.fill(left - 4, top, left + panelWidth + 4, top + 2, theme.accent());
       draw(graphics, "SCHIZO / CONTEXT RULE EDITOR", left, top + 7, panelWidth, theme.accent());
       var registry = ClientContext.contextProfileRegistry;
       draw(graphics, "Profiles " + (registry.isEnabled() ? "enabled" : "disabled") + " | " + registry.getRules().size() + " rules"
-         + (registry.getFailedContextDescription() != null ? " | recovery pending" : ""), left, top + 20, panelWidth, 0xffa1a3af);
+         + (registry.getFailedContextDescription() != null ? " | recovery pending" : ""), left, top+(layout.condensed()?16:20),panelWidth,0xffa1a3af);
       int half = Math.max(1, (panelWidth - 4) / 2);
-      draw(graphics, "Server (* = any)", left, top + 32, half, 0xffb8b9c7);
-      draw(graphics, "Dimension", left + half + 4, top + 32, half, 0xffb8b9c7);
-      draw(graphics, "Game mode", left, top + 63, half, 0xffb8b9c7);
-      draw(graphics, "Preset name", left + half + 4, top + 63, half, 0xffb8b9c7);
-      draw(graphics, notice, left, top + 190, panelWidth, 0xffa1a3af);
-      draw(graphics, "Saving a changed selector adds a new rule; delete the old one separately.", left, top + 202, panelWidth, 0xffa1a3af);
+      draw(graphics, "Server (* = any)", left, layout.firstFieldY()-9, half, 0xffb8b9c7);
+      draw(graphics, "Dimension", left + half + 4, layout.firstFieldY()-9, half, 0xffb8b9c7);
+      draw(graphics, "Game mode", left, layout.secondFieldY()-9, half, 0xffb8b9c7);
+      draw(graphics, "Preset name", left + half + 4, layout.secondFieldY()-9, half, 0xffb8b9c7);
+      draw(graphics, notice, left, layout.noticeY(), panelWidth, 0xffa1a3af);
+      draw(graphics, "Saving a changed selector adds a new rule; delete the old one separately.", left, layout.noteY(), panelWidth, 0xffa1a3af);
       super.render(graphics, mouseX, mouseY, partialTick);
    }
 
@@ -157,6 +172,6 @@ public final class ContextProfileEditorScreen extends StudioScreen {
       graphics.drawString(font, font.plainSubstrByWidth(text, Math.max(0, w)), x, y, color, false);
    }
 
-   @Override public void onClose() { minecraft.setScreen(parent); }
+   @Override public void onClose() { returnToParent(parent); }
    @Override public boolean isPauseScreen() { return false; }
 }
