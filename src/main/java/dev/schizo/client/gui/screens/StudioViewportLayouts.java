@@ -81,4 +81,20 @@ final class StudioViewportLayouts {
       return new CustomPalette((width-w)/2, top, w, compact, columns, column,
          Math.max(1, column-52), footer, top+bodyHeight);
    }
+
+   record SavedThemes(int left, int top, int width, boolean compact, boolean condensed,
+                      int navigationY, int nameY, int actionsY, int secondaryY,
+                      int noticeY, int noteY, int panelBottom) {}
+
+   static SavedThemes savedThemes(int width, int height) {
+      int w = Math.max(1, Math.min(480, width - 16));
+      boolean compact = w < 240 || height < 152;
+      boolean condensed = height < 186;
+      int body = condensed ? 144 : 174;
+      int top = Math.max(4, (height - body) / 2);
+      return new SavedThemes((width-w)/2, top, w, compact, condensed,
+         top+(condensed?26:30), top+(condensed?49:65), top+(condensed?72:92),
+         top+(condensed?95:115), top+(condensed?118:144),
+         top+(condensed?130:156), top+body);
+   }
 }

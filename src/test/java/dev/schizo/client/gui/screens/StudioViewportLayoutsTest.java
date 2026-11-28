@@ -107,4 +107,30 @@ class StudioViewportLayoutsTest {
       assertEquals(2,StudioViewportLayouts.customPalette(336,270).columns());
       assertEquals(2,StudioViewportLayouts.customPalette(256,170).columns());
    }
+
+   @Test void savedThemesCondensesWithoutHidingActionsOrStatus() {
+      for (int width : new int[]{180,255,256,320,480,825}) {
+         for (int height=120; height<=500; height++) {
+            var l=StudioViewportLayouts.savedThemes(width,height);
+            if (l.compact()) continue;
+            assertTrue(l.left()>=0 && l.left()+l.width()<=width);
+            assertTrue(l.navigationY()>=l.top()+26);
+            assertTrue(l.nameY()>=l.navigationY()+20);
+            assertTrue(l.actionsY()>=l.nameY()+20);
+            assertTrue(l.secondaryY()>=l.actionsY()+20);
+            assertTrue(l.noticeY()>=l.secondaryY()+20);
+            assertTrue(l.noteY()>=l.noticeY()+10);
+            assertTrue(l.panelBottom()>=l.noteY()+10);
+            assertTrue(l.panelBottom()<=height-4);
+            int buttonWidth=(l.width()-8)/3;
+            assertTrue(buttonWidth>=77);
+            assertTrue(3*buttonWidth+8<=l.width());
+         }
+      }
+      assertTrue(StudioViewportLayouts.savedThemes(256,151).compact());
+      assertFalse(StudioViewportLayouts.savedThemes(256,152).compact());
+      assertTrue(StudioViewportLayouts.savedThemes(256,185).condensed());
+      assertFalse(StudioViewportLayouts.savedThemes(256,186).condensed());
+      assertTrue(StudioViewportLayouts.savedThemes(255,500).compact());
+   }
 }
