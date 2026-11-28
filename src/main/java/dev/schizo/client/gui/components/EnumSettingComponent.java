@@ -15,7 +15,6 @@ import dev.schizo.client.gui.components.EnumOptionRow;
 import dev.schizo.client.config.EnumJsonConverter;
 import dev.schizo.client.render.GuiDrawUtils;
 import dev.schizo.client.render.FontRenderer;
-import java.util.regex.Matcher;
 import dev.schizo.client.utils.InterpolatedFloat;
 import dev.schizo.client.gui.CloseState;
 import dev.schizo.client.gui.components.SettingComponent;
@@ -93,6 +92,7 @@ public class EnumSettingComponent<E extends Enum<E> & NamedEntry> extends Settin
                .add(
                   new EnumOptionRow<>(
                      this,
+                     candidate,
                      EnumJsonConverter.getName(candidate),
                      rowYOffset,
                      selectableIndex
@@ -237,8 +237,7 @@ public class EnumSettingComponent<E extends Enum<E> & NamedEntry> extends Settin
       String settingName = this.setting.getName();
       String valueName = EnumJsonConverter.getName(this.setting.getValue());
 
-      String label = (String.valueOf(settingName) + ": \u0001")
-         .replaceFirst("\u0001", Matcher.quoteReplacement(String.valueOf(valueName)));
+      String label = settingName + ": " + valueName;
       this.renderWithTextScroll(
          poseStack,
          label,
