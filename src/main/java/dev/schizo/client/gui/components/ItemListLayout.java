@@ -15,21 +15,6 @@ final class ItemListLayout {
    }
 
    static String fitLabel(String label, float width, ToDoubleFunction<String> measure) {
-      if (measure.applyAsDouble(label) <= width) {
-         return label;
-      }
-      String fitted = "...";
-      if (measure.applyAsDouble(fitted) > width) {
-         return "";
-      }
-      for (int end = 0; end < label.length();) {
-         end = label.offsetByCodePoints(end, 1);
-         String candidate = label.substring(0, end).trim() + "...";
-         if (measure.applyAsDouble(candidate) > width) {
-            break;
-         }
-         fitted = candidate;
-      }
-      return fitted;
+      return MeasuredControlText.fit(label,width,measure,true);
    }
 }
