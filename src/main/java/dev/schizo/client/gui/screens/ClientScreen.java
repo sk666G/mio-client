@@ -479,7 +479,7 @@ public class ClientScreen extends Screen implements ClientAccess {
       SettingComponent<?> editor = this.focusedSetting();
       if (editor != null) {
          editor.keyPressed(event.key());
-         if (!editor.editing) {
+         if (!editor.editing && ClientContext.getClickGui().getEditingSetting()==editor) {
             ClientContext.getClickGui().setEditingSetting(null);
          }
          return true;
