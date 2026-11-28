@@ -60,13 +60,13 @@ public final class RecentSettingsScreen extends StudioScreen {
       rowCount=Math.max(1,Math.min(10,(height-top-100)/13));
       search=addRenderableWidget(new StudioEditBox(font,left,top+30,panelWidth,20,Component.literal("Search visited settings")));
       search.setMaxLength(64); search.setValue(query);
-      search.setResponder(text -> {query=text;selected=0;offset=0;confirming=false;reload();});
+      search.setResponder(text -> {query=text;selected=0;offset=0;confirming=false;reload(false);});
       int y=top+57+rowCount*13, w=(panelWidth-16)/5;
       previous=button("Previous",left,y,w,() -> move(-1));
       next=button("Next",left+w+4,y,w,() -> move(1));
       open=button("Open",left+2*(w+4),y,w,this::open);
       clear=button("Clear",left+3*(w+4),y,w,() -> {
-         if(confirming) { HISTORY.clear(); confirming=false; reload(); }
+         if(confirming) { HISTORY.clear(); confirming=false; reload(false); }
          else {confirming=true;refresh();}
       });
       button("Back",left+4*(w+4),y,w,this::onClose);
@@ -78,10 +78,13 @@ public final class RecentSettingsScreen extends StudioScreen {
       return addRenderableWidget(new StudioButton(x,y,w,20,Component.literal(label),ignored -> action.run()));
    }
 
-   private void reload() {
+   private void reload() { reload(true); }
+
+   private void reload(boolean preserveSelection) {
+      var previousVisit = preserveSelection && selected>=0 && selected<rows.size() ? rows.get(selected) : null;
       rows=HISTORY.snapshot().stream().filter(RecentSettingsScreen::registered)
          .filter(v -> PaletteMatcher.score(v.item().getName(),v.owner().getName()+" "+v.item().getConfigName(),query)>=0).toList();
-      selected=Math.max(0,Math.min(selected,rows.size()-1));
+      selected=RecentVisits.restoreSelection(rows,previousVisit,preserveSelection?selected:0);
       refresh();
    }
 
@@ -105,6 +108,7 @@ public final class RecentSettingsScreen extends StudioScreen {
    private void open() {
       if(rows.isEmpty())return;
       var visit=rows.get(selected);
+      confirming=false;
       if(!registered(visit)) {reload();return;}
       minecraft.setScreen(new ModuleInspectorScreen(this,visit.owner(),visit.item()));
    }
