@@ -33,6 +33,7 @@ public abstract class SettingComponent<T> extends AbstractComponent {
    private boolean wasHoveredForTextScroll;
    private long textScrollHoverStartedNanos;
    public boolean editing;
+   private boolean previouslyUnavailable;
 
    @Override
    public int getHeight() {
@@ -48,7 +49,9 @@ public abstract class SettingComponent<T> extends AbstractComponent {
          || this.parentCloseState.isClosed();
       if (unavailable) {
          this.setting.expanded = false;
+         if(!this.previouslyUnavailable) this.cancelInput();
       }
+      this.previouslyUnavailable=unavailable;
 
       return unavailable;
    }
