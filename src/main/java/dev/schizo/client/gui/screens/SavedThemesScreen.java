@@ -136,6 +136,6 @@ final class SavedThemesScreen extends StudioScreen {
       super.render(graphics,mouseX,mouseY,partialTick);
    }
 
-   @Override public void onClose() { minecraft.setScreen(parent); }
+   @Override public void onClose() { returnToParent(parent); }
    @Override public boolean isPauseScreen() { return false; }
 }
