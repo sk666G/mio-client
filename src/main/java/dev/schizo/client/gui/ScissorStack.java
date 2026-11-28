@@ -17,7 +17,6 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.systems.ScissorState;
 import java.util.ArrayDeque;
 import java.util.Deque;
-import org.joml.Vector4d;
 import org.joml.Vector4i;
 
 public final class ScissorStack implements ClientAccess {
@@ -76,21 +75,15 @@ public final class ScissorStack implements ClientAccess {
       Vector4i guiBounds,
       Vector4i framebufferBounds
    ) {
-      private static final Vector4d framebufferBoundsScratch = new Vector4d();
 
       public static ScissorStack.ScissorRegion create(
          int x, int y, int width, int height
       ) {
          double framebufferScale = ClientAccess.schizoMinecraft.getWindow().getGuiScale() * GuiScaleUtils.getScaleMultiplier();
-         float guiHeight = (float)(
-            ClientAccess.schizoMinecraft.getWindow().getHeight()
-               / framebufferScale
-         );
-         framebufferBoundsScratch.set(x, guiHeight - y - height, width, height)
-            .mul(framebufferScale)
-            .sub(0.0, 0.0, 0.0, 1.0);
-         Vector4i guiBounds = new Vector4i(x, y, width, height);
-         Vector4i framebufferBounds = new Vector4i(framebufferBoundsScratch, 0);
+         var window=ClientAccess.schizoMinecraft.getWindow();
+         var bounds=new ScissorBounds(x,y,width,height).toFramebuffer(framebufferScale,window.getWidth(),window.getHeight());
+         Vector4i guiBounds = new Vector4i(x,y,width,height);
+         Vector4i framebufferBounds = new Vector4i(bounds.x(),bounds.y(),bounds.width(),bounds.height());
          return new ScissorStack.ScissorRegion(guiBounds, framebufferBounds);
       }
    }
