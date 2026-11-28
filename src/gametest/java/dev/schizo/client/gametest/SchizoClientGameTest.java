@@ -195,7 +195,8 @@ public final class SchizoClientGameTest implements FabricClientGameTest {
          context.waitTicks(2);
          // Exercise the actual dock buttons and return path, rather than creating destinations directly.
          Class<?>[] destinations = {HudEditorScreen.class, PerformanceCenterScreen.class,
-            ExpeditionScreen.class, HealthCenterScreen.class, dev.schizo.client.gui.screens.ThemeStudioScreen.class};
+            ExpeditionScreen.class, HealthCenterScreen.class, dev.schizo.client.gui.screens.ThemeStudioScreen.class,
+            dev.schizo.client.gui.screens.QuickAccessScreen.class};
          for (int index = 0; index < destinations.length; index++) {
             final int tool = index;
             context.runOnClient(minecraft -> {
