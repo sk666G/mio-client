@@ -23,6 +23,7 @@ final class SavedThemesScreen extends StudioScreen {
    private boolean readable, confirming;
    private int selected, left, top, panelWidth;
    private boolean compact;
+   private StudioViewportLayouts.SavedThemes layout;
    private EditBox name;
    private Button load, duplicate, rename, delete, save, previous, next;
    private String notice = "";
@@ -45,35 +46,36 @@ final class SavedThemesScreen extends StudioScreen {
 
    @Override protected void init() {
       super.init();
-      panelWidth = Math.max(1,Math.min(480,width-16));
-      left = (width-panelWidth)/2;
-      top = Math.max(4,(height-178)/2);
-      compact = panelWidth < 240 || height < 186;
+      layout = StudioViewportLayouts.savedThemes(width,height);
+      panelWidth=layout.width(); left=layout.left(); top=layout.top(); compact=layout.compact();
+      name=null; load=duplicate=rename=delete=save=previous=next=null;
+      confirming=false;
       if (compact) { button("Back",left,Math.max(1,height-25),panelWidth,this::onClose); return; }
       int w = (panelWidth-8)/3;
-      previous = button("Previous",left,top+30,w,() -> select(-1));
-      next = button("Next",left+w+4,top+30,w,() -> select(1));
-      load = button("Preview theme",left+2*(w+4),top+30,w,() -> {
+      previous = button("Previous",left,layout.navigationY(),w,() -> select(-1));
+      next = button("Next",left+w+4,layout.navigationY(),w,() -> select(1));
+      load = button("Preview theme",left+2*(w+4),layout.navigationY(),w,() -> {
          if (readable && !entries.isEmpty()) { accepted.accept(entries.get(selected).colors()); onClose(); }
       });
-      name = addRenderableWidget(new StudioEditBox(font,left,top+65,panelWidth,20,Component.literal("Theme name")));
+      name = trackResizeFocus("name",addRenderableWidget(new StudioEditBox(font,left,layout.nameY(),panelWidth,20,Component.literal("Theme name"))));
+      name.setHint(Component.literal("New theme name"));
       name.setMaxLength(64);
       name.setValue(nameDraft);
       name.setResponder(value -> { nameDraft=value; confirming=false; refresh(); });
-      save = button("Save preview",left,top+92,w,() -> mutate(0));
-      duplicate = button("Duplicate",left+w+4,top+92,w,() -> mutate(1));
-      rename = button("Rename",left+2*(w+4),top+92,w,() -> mutate(2));
-      delete = button("Delete",left,top+115,w,() -> {
-         if (!confirming) { confirming=true; notice="Confirm deletion of selected theme."; refresh(); }
+      save = button("Save preview",left,layout.actionsY(),w,() -> mutate(0));
+      duplicate = button("Duplicate",left+w+4,layout.actionsY(),w,() -> mutate(1));
+      rename = button("Rename",left+2*(w+4),layout.actionsY(),w,() -> mutate(2));
+      delete = button("Delete",left,layout.secondaryY(),w,() -> {
+         if (!confirming) { confirming=true; refresh(); }
          else mutate(3);
       });
-      button("Reload",left+w+4,top+115,w,this::reload);
-      button("Back",left+2*(w+4),top+115,w,this::onClose);
+      button("Reload",left+w+4,layout.secondaryY(),w,this::reload);
+      button("Back",left+2*(w+4),layout.secondaryY(),w,this::onClose);
       refresh();
    }
 
    private Button button(String title,int x,int y,int w,Runnable action) {
-      return addRenderableWidget(new StudioButton(x,y,w,20,Component.literal(title),ignored -> action.run()));
+      return trackResizeFocus("button:"+title,addRenderableWidget(new StudioButton(x,y,w,20,Component.literal(title),ignored -> action.run())));
    }
 
    private void select(int offset) {
@@ -122,14 +124,14 @@ final class SavedThemesScreen extends StudioScreen {
       if (compact) {
          graphics.drawString(font,font.plainSubstrByWidth("Reduce GUI scale to manage themes",panelWidth),left,top,0xffeeeeef,false);
       } else {
-         graphics.fill(left-4,top,left+panelWidth+4,top+174,theme.panel());
+         graphics.fill(left-4,top,left+panelWidth+4,layout.panelBottom(),theme.panel());
          graphics.fill(left-4,top,left+panelWidth+4,top+1,theme.accent());
          graphics.drawString(font,"SAVED THEMES",left,top+5,theme.accent(),false);
          String item=entries.isEmpty()?"No saved themes":(selected+1)+"/"+entries.size()+"  "+entries.get(selected).name();
          graphics.drawString(font,font.plainSubstrByWidth(item,panelWidth),left,top+17,0xffeeeeef,false);
-         graphics.drawString(font,"New name (save, duplicate or rename)",left,top+54,0xffb8b9c7,false);
-         graphics.drawString(font,font.plainSubstrByWidth(notice,panelWidth),left,top+144,0xffb8b9c7,false);
-         graphics.drawString(font,"Preview does not apply live settings.",left,top+156,0xffb8b9c7,false);
+         if (!layout.condensed()) graphics.drawString(font,font.plainSubstrByWidth("New name (save, duplicate or rename)",panelWidth),left,top+54,0xffb8b9c7,false);
+         graphics.drawString(font,font.plainSubstrByWidth(confirming?"Confirm deletion of selected theme.":notice,panelWidth),left,layout.noticeY(),0xffb8b9c7,false);
+         graphics.drawString(font,font.plainSubstrByWidth("Preview does not apply live settings.",panelWidth),left,layout.noteY(),0xffb8b9c7,false);
       }
       super.render(graphics,mouseX,mouseY,partialTick);
    }
