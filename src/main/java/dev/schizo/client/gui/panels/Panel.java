@@ -186,8 +186,9 @@ public class Panel implements RegistryContainer, GuiElement, NamedEntry {
    }
 
    public void setExpanded(boolean expanded) {
+      boolean wasExpanded=this.expanded;
       this.expanded = expanded;
-      if(!expanded) this.cancelInput();
+      if(wasExpanded&&!expanded) this.cancelInput();
    }
 
    @Override public void cancelInput() {
