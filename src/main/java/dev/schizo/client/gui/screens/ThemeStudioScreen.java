@@ -72,13 +72,13 @@ public final class ThemeStudioScreen extends StudioScreen {
       });
       button("Backdrop", left + w + 8 + half, top + 52, Math.max(1,w-half-4), () -> lightBackdrop = !lightBackdrop);
       button("Edit colors", left + 2 * (w + 4), top + 52, w, () -> {
-         minecraft.setScreen(new CustomPaletteScreen(this, draft.preview(), colors -> {
+         openStudioChild(new CustomPaletteScreen(this, draft.preview(), colors -> {
             draft.selectCustom(colors);
             notice = "Custom preview. Apply to save six fixed colors.";
          }));
       });
       button("Saved themes", left, top + 75, w, () -> {
-         minecraft.setScreen(new SavedThemesScreen(this, draft.preview(), colors -> {
+         openStudioChild(new SavedThemesScreen(this, draft.preview(), colors -> {
             draft.selectCustom(colors);
             notice = "Saved theme preview. Apply to change live colors.";
          }));
@@ -104,7 +104,7 @@ public final class ThemeStudioScreen extends StudioScreen {
    }
 
    private StudioButton button(String label, int x, int y, int w, Runnable action) {
-      return addRenderableWidget(new StudioButton(x, y, w, 20, Component.literal(label), ignored -> action.run()));
+      return trackResizeFocus("button:" + label, addRenderableWidget(new StudioButton(x, y, w, 20, Component.literal(label), ignored -> action.run())));
    }
 
    private void copyTheme() {
@@ -295,6 +295,6 @@ public final class ThemeStudioScreen extends StudioScreen {
       super.render(graphics, mouseX, mouseY, partialTick);
    }
 
-   @Override public void onClose() { minecraft.setScreen(parent); }
+   @Override public void onClose() { returnToParent(parent); }
    @Override public boolean isPauseScreen() { return false; }
 }
