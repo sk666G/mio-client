@@ -18,7 +18,7 @@ public final class ThemeStudioScreen extends StudioScreen {
    private ThemePreviewDraft draft;
    private final FloatAnimation switchMotion = new FloatAnimation();
    private boolean sampleEnabled = true;
-   private Button apply;
+   private Button apply, undoPreview, redoPreview;
    private int left, top, panelWidth, previewTop, previewHeight;
    private String notice = "Preview only. No settings changed.";
 
@@ -72,9 +72,12 @@ public final class ThemeStudioScreen extends StudioScreen {
       previewTop = top + 103;
       int bottom = Math.min(height - 25, top + 226);
       previewHeight = Math.max(1, bottom - previewTop - 15);
-      button("Back", left, bottom, w, this::onClose);
-      apply = button("Apply palette", left + w + 4, bottom, w, this::commit);
-      button("Discard preview", left + 2 * (w + 4), bottom, w, () -> {
+      int small = Math.max(1, (panelWidth - 16) / 5);
+      button("Back", left, bottom, small, this::onClose);
+      undoPreview = button("Undo", left + small + 4, bottom, small, () -> changeHistory(false));
+      redoPreview = button("Redo", left + 2 * (small + 4), bottom, small, () -> changeHistory(true));
+      apply = button("Apply palette", left + 3 * (small + 4), bottom, small, this::commit);
+      button("Discard preview", left + 4 * (small + 4), bottom, small, () -> {
          reload();
          notice = "Preview discarded. Current colors preserved.";
          refreshApply();
@@ -114,8 +117,30 @@ public final class ThemeStudioScreen extends StudioScreen {
       refreshApply();
    }
 
+   private void changeHistory(boolean redo) {
+      boolean changed = redo ? draft.redo() : draft.undo();
+      if (changed) notice = redo ? "Preview redone. Live colors unchanged." : "Preview undone. Live colors unchanged.";
+      refreshApply();
+   }
+
+   @Override public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
+      if (dev.schizo.client.utils.KeyUtils.isControlDown()) {
+         if (event.key() == org.lwjgl.glfw.GLFW.GLFW_KEY_Z) {
+            changeHistory(dev.schizo.client.utils.KeyUtils.isShiftDown());
+            return true;
+         }
+         if (event.key() == org.lwjgl.glfw.GLFW.GLFW_KEY_Y) {
+            changeHistory(true);
+            return true;
+         }
+      }
+      return super.keyPressed(event);
+   }
+
    private void refreshApply() {
       if (apply == null) return;
+      undoPreview.active = draft.canUndo();
+      redoPreview.active = draft.canRedo();
       UIModule ui = UIModule.INSTANCE;
       apply.active = draft.canApply(ui.paletteSetting.getValue(), ui.snapshotPalette())
          && (draft.selected() != PaletteChoice.CUSTOM || ui.supportsFixedPaletteEditing());
