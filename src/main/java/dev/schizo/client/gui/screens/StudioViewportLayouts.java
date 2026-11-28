@@ -43,4 +43,21 @@ final class StudioViewportLayouts {
       return new QuickAccess((width - w) / 2, top, w, compact, stacked,
          searchY, rowsY, rows, rowsY + rows * 13);
    }
+
+   record Visited(int left, int top, int width, boolean compact, boolean stacked,
+                  int searchY, int rowsY, int rows, int footerY, int statusY, int panelBottom) {}
+
+   static Visited visited(int width, int height) {
+      int w = Math.max(1, Math.min(480, width - 16));
+      boolean compact = w < 220 || height < 150;
+      boolean stacked = w < 360;
+      int top = Math.max(4, (height - (stacked ? 273 : 250)) / 2);
+      int searchY = top + 30, rowsY = top + 57;
+      int footerReserve = stacked ? 64 : 41;
+      int rows = compact ? 0 : Math.max(1, Math.min(10, (height - rowsY - footerReserve) / 13));
+      int footerY = rowsY + rows * 13;
+      int statusY = footerY + (stacked ? 46 : 23);
+      return new Visited((width-w)/2, top, w, compact, stacked,
+         searchY, rowsY, rows, footerY, statusY, statusY + 15);
+   }
 }

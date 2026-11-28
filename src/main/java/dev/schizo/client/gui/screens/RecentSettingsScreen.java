@@ -19,7 +19,7 @@ public final class RecentSettingsScreen extends StudioScreen {
    private static final RecentVisits<Module,Setting<?>> HISTORY = new RecentVisits<>(32);
    private final Screen parent;
    private List<RecentVisits.Visit<Module,Setting<?>>> rows=List.of();
-   private int selected,offset,rowCount,left,top,panelWidth;
+   private int selected,offset,rowCount,left,top,panelWidth,rowsY,footerY,statusY,panelBottom;
    private boolean compact,confirming;
    private Button open,previous,next,clear;
    private EditBox search;
@@ -52,24 +52,27 @@ public final class RecentSettingsScreen extends StudioScreen {
    @Override protected void init() {
       super.init();
       open=previous=next=clear=null; search=null; confirming=false;
-      panelWidth=Math.max(1,Math.min(480,width-16));
-      left=(width-panelWidth)/2;
-      top=Math.max(4,(height-250)/2);
-      compact=panelWidth<220 || height<170;
+      var layout=StudioViewportLayouts.visited(width,height);
+      panelWidth=layout.width(); left=layout.left(); top=layout.top();
+      compact=layout.compact(); rowCount=layout.rows();
+      rowsY=layout.rowsY(); footerY=layout.footerY();
+      statusY=layout.statusY(); panelBottom=layout.panelBottom();
       if(compact) {button("Back",left,Math.max(1,height-25),panelWidth,this::onClose);return;}
-      rowCount=Math.max(1,Math.min(10,(height-top-100)/13));
-      search = trackResizeFocus("search", addRenderableWidget(new StudioEditBox(font,left,top+30,panelWidth,20,Component.literal("Search visited settings"))));
+      search = trackResizeFocus("search", addRenderableWidget(new StudioEditBox(font,left,layout.searchY(),panelWidth,20,Component.literal("Search visited settings"))));
       search.setMaxLength(64); search.setValue(query);
       search.setResponder(text -> {query=text;selected=0;offset=0;confirming=false;reload(false);});
-      int y=top+57+rowCount*13, w=(panelWidth-16)/5;
+      int y=footerY, w=layout.stacked()?(panelWidth-8)/3:(panelWidth-16)/5;
       previous=button("Previous",left,y,w,() -> move(-1));
       next=button("Next",left+w+4,y,w,() -> move(1));
       open=button("Open",left+2*(w+4),y,w,this::open);
-      clear=button("Clear",left+3*(w+4),y,w,() -> {
+      int actionWidth=layout.stacked()?(panelWidth-4)/2:w;
+      int actionX=layout.stacked()?left:left+3*(w+4);
+      int actionY=y+(layout.stacked()?23:0);
+      clear=button("Clear",actionX,actionY,actionWidth,() -> {
          if(confirming) { HISTORY.clear(); confirming=false; reload(false); }
          else {confirming=true;refresh();}
       });
-      button("Back",left+4*(w+4),y,w,this::onClose);
+      button("Back",actionX+actionWidth+4,actionY,actionWidth,this::onClose);
       reload();
       setInitialFocus(search);
    }
@@ -128,14 +131,14 @@ public final class RecentSettingsScreen extends StudioScreen {
 
    @Override public boolean mouseClicked(MouseButtonEvent event,boolean doubleClick) {
       if(!compact && event.button()==0) {
-         int row=InspectorRows.hit(event.x(),event.y(),left,top+57,panelWidth,rowCount,offset,rows.size());
+         int row=InspectorRows.hit(event.x(),event.y(),left,rowsY,panelWidth,rowCount,offset,rows.size());
          if(row>=0) {selected=row;confirming=false;refresh();setFocused(null);return true;}
       }
       return super.mouseClicked(event,doubleClick);
    }
 
    @Override public boolean mouseScrolled(double x,double y,double horizontal,double vertical) {
-      if(!compact && vertical!=0 && x>=left && x<left+panelWidth && y>=top+57 && y<top+57+rowCount*13) {
+      if(!compact && vertical!=0 && x>=left && x<left+panelWidth && y>=rowsY && y<footerY) {
          offset=Math.max(0,Math.min(Math.max(0,rows.size()-rowCount),offset+(vertical<0?1:-1)));return true;
       }
       return super.mouseScrolled(x,y,horizontal,vertical);
@@ -150,19 +153,19 @@ public final class RecentSettingsScreen extends StudioScreen {
       graphics.fill(0,0,width,height,theme.backdrop());
       if(compact) line(graphics,"Reduce GUI scale to browse visited settings",top,0xffeeeeef);
       else {
-         graphics.fill(left-4,top,left+panelWidth+4,Math.min(height,top+95+rowCount*13),theme.panel());
+         graphics.fill(left-4,top,left+panelWidth+4,Math.min(height,panelBottom),theme.panel());
          graphics.fill(left-4,top,left+panelWidth+4,top+1,theme.accent());
          line(graphics,"SCHIZO / VISITED SETTINGS",top+6,theme.accent());
          line(graphics,"Session only | Explicit inspector selections",top+18,0xffb8b9c7);
-         if(rows.isEmpty())line(graphics,"No matching visited settings.",top+59,0xffb8b9c7);
+         if(rows.isEmpty())line(graphics,"No matching visited settings.",rowsY+2,0xffb8b9c7);
          for(int i=0;i<rowCount && offset+i<rows.size();i++) {
-            int index=offset+i,y=top+57+i*13;
+            int index=offset+i,y=rowsY+i*13;
             var v=rows.get(index);
             graphics.fill(left,y,left+panelWidth,y+12,index==selected?theme.selected():theme.row());
             if(index==selected)graphics.fill(left,y,left+2,y+12,theme.accent());
             line(graphics,v.owner().getName()+" / "+v.item().getName(),y+2,0xffeeeeef);
          }
-         line(graphics,confirming?"Confirm clearing all visited settings.":"Opening a setting never changes its value.",top+80+rowCount*13,0xffb8b9c7);
+         line(graphics,confirming?"Confirm clearing all visited settings.":"Opening a setting never changes its value.",statusY,0xffb8b9c7);
       }
       super.render(graphics,mouseX,mouseY,partialTick);
    }

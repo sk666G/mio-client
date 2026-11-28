@@ -54,4 +54,30 @@ class StudioViewportLayoutsTest {
       assertTrue(StudioViewportLayouts.quickAccess(255,180).compact());
       assertTrue(StudioViewportLayouts.quickAccess(406,179).compact());
    }
+
+   @Test void visitedSettingsReservesBothFooterLayoutsAndStatus() {
+      for (int width : new int[]{180,235,236,320,375,376,480,825}) {
+         for (int height=120; height<=500; height++) {
+            var l=StudioViewportLayouts.visited(width,height);
+            if (l.compact()) {
+               assertEquals(0,l.rows());
+               continue;
+            }
+            assertTrue(l.left()>=0 && l.left()+l.width()<=width);
+            assertTrue(l.rows()>=1 && l.rows()<=10);
+            assertTrue(l.rowsY()>=l.searchY()+20);
+            assertEquals(l.rowsY()+l.rows()*13,l.footerY());
+            assertTrue(l.statusY()>=l.footerY()+(l.stacked()?43:20));
+            assertTrue(l.panelBottom()<=height-3);
+            int count=l.stacked()?3:5;
+            int buttonWidth=(l.width()-(count-1)*4)/count;
+            assertTrue(buttonWidth>=68);
+            assertTrue(buttonWidth*count+(count-1)*4<=l.width());
+         }
+      }
+      assertTrue(StudioViewportLayouts.visited(236,150).stacked());
+      assertFalse(StudioViewportLayouts.visited(376,150).stacked());
+      assertTrue(StudioViewportLayouts.visited(235,150).compact());
+      assertTrue(StudioViewportLayouts.visited(376,149).compact());
+   }
 }
