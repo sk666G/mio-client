@@ -273,6 +273,33 @@ public final class SchizoClientGameTest implements FabricClientGameTest {
          context.getInput().typeChars("health");
          context.waitTicks(2);
          context.takeScreenshot("schizo-command-palette");
+         context.runOnClient(minecraft -> {
+            for (var child : minecraft.screen.children()) {
+               if (child instanceof net.minecraft.client.gui.components.EditBox box) {
+                  box.setValue("crosshair length");
+                  break;
+               }
+            }
+         });
+         context.getInput().pressKey(GLFW.GLFW_KEY_ENTER);
+         context.waitForScreen(dev.schizo.client.gui.screens.ModuleInspectorScreen.class);
+         context.runOnClient(minecraft -> {
+            var inspector = (dev.schizo.client.gui.screens.ModuleInspectorScreen)minecraft.screen;
+            var target = ClientContext.getModule(dev.schizo.client.modules.render.CrosshairModule.class).getSettings().stream()
+               .filter(setting -> setting.getName().equalsIgnoreCase("Length")).findFirst().orElseThrow();
+            if (inspector.selectedSetting() != target)
+               throw new IllegalStateException("Search did not reveal the exact registered setting");
+            inspector.onClose();
+         });
+         context.waitForScreen(CommandPaletteScreen.class);
+         context.runOnClient(minecraft -> {
+            boolean retained = false;
+            for (var child : minecraft.screen.children()) {
+               if (child instanceof net.minecraft.client.gui.components.EditBox box)
+                  retained |= box.getValue().equals("crosshair length");
+            }
+            if (!retained) throw new IllegalStateException("Command palette lost query on return");
+         });
          context.setScreen(() -> null);
          context.waitForScreen(null);
 

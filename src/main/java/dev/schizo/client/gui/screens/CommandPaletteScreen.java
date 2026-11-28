@@ -55,6 +55,7 @@ public final class CommandPaletteScreen extends ClientScreen {
       String subtitle,
       String searchContext,
       Module module,
+      Setting<?> setting,
       Command command
    ) {
    }
@@ -98,19 +99,21 @@ public final class CommandPaletteScreen extends ClientScreen {
             moduleSubtitle,
             moduleSubtitle + " " + String.join(" ", module.getAliases()) + " " + module.getDescription(),
             module,
+            null,
             null
          ));
 
          for (Setting<?> setting : module.getSettings()) {
-            if (setting.isGroupOnly()) {
+            if (setting.isGroupOnly() || setting.isExcludedFromConfig()) {
                continue;
             }
             this.index.add(new PaletteEntry(
                EntryKind.SETTING,
                setting.getName(),
                module.getName() + " setting",
-               module.getName() + " setting " + String.join(" ", module.getAliases()),
+               module.getName() + " setting " + setting.getConfigName() + " " + String.join(" ", module.getAliases()),
                module,
+               setting,
                null
             ));
          }
@@ -122,6 +125,7 @@ public final class CommandPaletteScreen extends ClientScreen {
                "Keybind for " + module.getName(),
                "Keybind for " + module.getName(),
                module,
+               null,
                null
             ));
          }
@@ -136,6 +140,7 @@ public final class CommandPaletteScreen extends ClientScreen {
                command.getName(),
                description.isBlank() ? "Command" : description,
                description,
+               null,
                null,
                command
             ));
@@ -214,7 +219,10 @@ public final class CommandPaletteScreen extends ClientScreen {
          case COMMAND -> ClientAccess.schizoMinecraft.setScreen(
             new ChatScreen(CommandRegistry.getPrefix() + entry.command().getName() + " ", false)
          );
-         case SETTING, KEYBIND -> this.openModuleSettings(entry.module());
+         case SETTING -> ClientAccess.schizoMinecraft.setScreen(
+            new ModuleInspectorScreen(this, entry.module(), entry.setting())
+         );
+         case KEYBIND -> this.openModuleSettings(entry.module());
       }
    }
 
@@ -226,6 +234,7 @@ public final class CommandPaletteScreen extends ClientScreen {
 
    @Override
    protected void init() {
+      String previousQuery = this.searchBox == null ? "" : this.searchBox.getValue();
       super.init();
       this.rebuildIndex();
       int screenWidth = GuiScaleUtils.getScaledWidth();
@@ -243,7 +252,7 @@ public final class CommandPaletteScreen extends ClientScreen {
          Component.literal("Search modules, commands and settings")
       );
       this.searchBox.setMaxLength(64);
-      this.searchBox.setValue("");
+      this.searchBox.setValue(previousQuery);
       this.searchBox.setResponder(ignored -> this.updateResults());
       this.addRenderableWidget(this.searchBox);
       this.setInitialFocus(this.searchBox);

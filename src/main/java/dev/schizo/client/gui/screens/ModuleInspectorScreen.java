@@ -38,6 +38,10 @@ public final class ModuleInspectorScreen extends StudioScreen {
    private long bindingRefresh;
 
    public ModuleInspectorScreen(Screen parent, Module module) {
+      this(parent, module, null);
+   }
+
+   public ModuleInspectorScreen(Screen parent, Module module, Setting<?> target) {
       super(Component.literal("Schizo Module Inspector"));
       this.parent = parent;
       this.module = module;
@@ -46,7 +50,21 @@ public final class ModuleInspectorScreen extends StudioScreen {
          if (item instanceof Setting<?> setting && !setting.isGroupOnly() && !setting.isExcludedFromConfig()) allSettings.add(setting);
       }
       settings = List.copyOf(allSettings);
+      if (target != null) {
+         boolean found = false;
+         for (int index = 0; index < settings.size(); index++) {
+            if (settings.get(index) == target) {
+               selected = index;
+               found = true;
+               break;
+            }
+         }
+         notice = found ? "Selected from search: " + target.getName() : "Setting unavailable in inspector.";
+      }
    }
+
+   /** Exact selected setting identity, including read-only targets. */
+   public Setting<?> selectedSetting() { return current(); }
 
    @Override protected void init() {
       super.init();
