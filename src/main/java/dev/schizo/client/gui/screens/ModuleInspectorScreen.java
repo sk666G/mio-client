@@ -13,6 +13,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.client.input.KeyEvent;
+import org.lwjgl.glfw.GLFW;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
@@ -112,6 +114,7 @@ public final class ModuleInspectorScreen extends StudioScreen {
       refreshSelection(true);
       value.setResponder(text -> draft = draft.withText(text));
       refreshBindingNotice();
+      setInitialFocus(filter);
    }
 
    private void refreshBindingNotice() {
@@ -148,6 +151,28 @@ public final class ModuleInspectorScreen extends StudioScreen {
       for (int i = 0; i < settings.size(); i++) if (settings.get(i) == previous) { selected = i; break; }
       offset = 0;
       refreshSelection();
+   }
+
+   @Override public boolean keyPressed(KeyEvent event) {
+      if (!compact && (getFocused()==null || getFocused()==filter)) {
+         int delta=switch(event.key()) {
+            case GLFW.GLFW_KEY_UP -> -1;
+            case GLFW.GLFW_KEY_DOWN -> 1;
+            case GLFW.GLFW_KEY_PAGE_UP -> -rowCount;
+            case GLFW.GLFW_KEY_PAGE_DOWN -> rowCount;
+            default -> 0;
+         };
+         if(delta!=0) {
+            int next=InspectorRows.step(selected,delta,settings.size());
+            if(next>=0 && next!=selected) {
+               selected=next;
+               RecentSettingsScreen.record(module,current());
+               refreshSelection();
+            }
+            return true;
+         }
+      }
+      return super.keyPressed(event);
    }
 
    @Override public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
@@ -241,6 +266,24 @@ public final class ModuleInspectorScreen extends StudioScreen {
       refreshSelection();
    }
 
+   private String settingHelp(Setting<?> setting) {
+      StringBuilder text=new StringBuilder(setting.getName());
+      if (dev.schizo.client.ClientContext.languageTable!=null) {
+         String description=dev.schizo.client.ClientContext.languageTable.getTranslation(
+            "descriptions.settings."+module.getConfigName()+"."+setting.getConfigName());
+         if(description!=null && !description.isBlank() && !description.startsWith("descriptions.settings.")) text.append("\n").append(description);
+      }
+      if(setting instanceof BooleanSetting || setting instanceof NumberSetting<?>) {
+         text.append("\nDefault: ").append(setting.getDefaultValue());
+         if(setting.isNumericBoundsEnabled()) text.append("\nRange: ").append(setting.getMinimumValue()).append(" – ").append(setting.getMaximumValue());
+      }
+      if(assessment.requiresMultiplayerWarning()) text.append("\nRead-only: compatibility review required.");
+      else if(!setting.isVisible()) text.append("\nRead-only: setting is currently hidden.");
+      else if(!SettingEditHistory.supports(setting)) text.append("\nRead-only here: use the original control.");
+      else text.append("\nEditable through guarded history.");
+      return text.toString();
+   }
+
    private String displayValue(Setting<?> setting) {
       if (setting instanceof BooleanSetting || setting instanceof NumberSetting<?> || setting.hasEnumValue()) {
          return setting.toJson().getAsString();
@@ -282,6 +325,11 @@ public final class ModuleInspectorScreen extends StudioScreen {
          if (index == selected) graphics.fill(left, y, left + 2, y + 12, theme.accent());
          String text = setting.getName() + ": " + displayValue(setting) + (editable(setting) ? "" : " [read-only]");
          line(graphics, text, y + 2, index == selected ? 0xffeeeeef : 0xffb8b9c7);
+      }
+      int hoverIndex=compact?-1:InspectorRows.hit(mouseX,mouseY,left,rowsY,panelWidth,rowCount,offset,settings.size());
+      if (rowHelpReady(hoverIndex<0?null:settings.get(hoverIndex))) {
+         Setting<?> hovered=settings.get(hoverIndex);
+         showRowHelp(graphics,settingHelp(hovered),mouseX,mouseY);
       }
       super.render(graphics, mouseX, mouseY, partialTick);
    }
