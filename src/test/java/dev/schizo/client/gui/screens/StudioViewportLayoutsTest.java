@@ -30,4 +30,28 @@ class StudioViewportLayoutsTest {
       assertFalse(StudioViewportLayouts.theme(320,180).appliedControls());
       assertTrue(StudioViewportLayouts.theme(320,250).appliedControls());
    }
+
+   @Test void quickAccessReservesSearchRowsAndFooterAtBothTabLayouts() {
+      for (int width : new int[]{180,255,256,320,405,406,490,825}) {
+         for (int height=120; height<=500; height++) {
+            var l=StudioViewportLayouts.quickAccess(width,height);
+            if (l.compact()) {
+               assertEquals(0,l.rows());
+               continue;
+            }
+            assertTrue(l.left()>=0 && l.left()+l.width()<=width);
+            assertTrue(l.rows()>=1 && l.rows()<=10);
+            assertTrue(l.searchY()>=l.top()+(l.stacked()?67:44));
+            assertTrue(l.rowsY()>=l.searchY()+20);
+            assertEquals(l.rowsY()+l.rows()*13,l.footerY());
+            assertTrue(l.footerY()+56<=height-4);
+            int tabWidth=l.stacked()?(l.width()-8)/3:(l.width()-16)/5;
+            assertTrue(tabWidth>=74);
+         }
+      }
+      assertTrue(StudioViewportLayouts.quickAccess(256,180).stacked());
+      assertFalse(StudioViewportLayouts.quickAccess(406,180).stacked());
+      assertTrue(StudioViewportLayouts.quickAccess(255,180).compact());
+      assertTrue(StudioViewportLayouts.quickAccess(406,179).compact());
+   }
 }

@@ -22,7 +22,7 @@ public final class QuickAccessScreen extends StudioScreen {
    private String query = "", notice = "";
    private List<Module> rows = List.of();
    private Module selected;
-   private int offset, rowCount, left, top, panelWidth;
+   private int offset, rowCount, left, top, panelWidth, rowsY, footerY;
    private Button favorite, inspect, reveal, previous, next;
    private boolean compact;
 
@@ -35,29 +35,31 @@ public final class QuickAccessScreen extends StudioScreen {
 
    @Override protected void init() {
       super.init();
-      favorite = null;
-      panelWidth = Math.max(1, Math.min(490, width - 16));
-      left = (width - panelWidth) / 2;
-      compact = panelWidth < 240 || height < 180;
-      top = Math.max(4, (height - 268) / 2);
+      favorite = inspect = reveal = previous = next = null;
+      var layout = StudioViewportLayouts.quickAccess(width, height);
+      panelWidth = layout.width(); left = layout.left(); top = layout.top();
+      compact = layout.compact(); rowCount = layout.rows();
+      rowsY = layout.rowsY(); footerY = layout.footerY();
       if (compact) {
          button("Back", left, Math.max(1,height-25), panelWidth, this::onClose);
          return;
       }
-      rowCount = Math.max(1, Math.min(10, (height - top - 150) / 13));
       int w = (panelWidth-8)/3;
-      int tab = (panelWidth-16)/5;
+      int tab = layout.stacked() ? w : (panelWidth-16)/5;
       button("Favorites",left,top+24,tab,() -> switchView(View.FAVORITES));
       button("Recent",left+tab+4,top+24,tab,() -> switchView(View.RECENT));
       button("All modules",left+2*(tab+4),top+24,tab,() -> switchView(View.ALL));
-      button("Visited",left+3*(tab+4),top+24,tab,() -> minecraft.setScreen(new RecentSettingsScreen(this)));
-      button("Edit history",left+4*(tab+4),top+24,tab,() -> minecraft.setScreen(new ScalarHistoryScreen(this)));
-      EditBox search = addRenderableWidget(new StudioEditBox(font,left,top+48,panelWidth,20,Component.literal("Search quick access")));
+      int historyWidth = layout.stacked() ? (panelWidth-4)/2 : tab;
+      int historyX = layout.stacked() ? left : left+3*(tab+4);
+      int historyY = top+(layout.stacked()?47:24);
+      button("Visited",historyX,historyY,historyWidth,() -> minecraft.setScreen(new RecentSettingsScreen(this)));
+      button("Edit history",historyX+historyWidth+4,historyY,historyWidth,() -> minecraft.setScreen(new ScalarHistoryScreen(this)));
+      EditBox search = addRenderableWidget(new StudioEditBox(font,left,layout.searchY(),panelWidth,20,Component.literal("Search quick access")));
       search.setMaxLength(64);
       search.setValue(query);
       search.setHint(Component.literal("Search modules..."));
       search.setResponder(value -> {query=value; offset=0; rebuild();});
-      int y = top+75+rowCount*13;
+      int y = footerY;
       previous=button("Previous",left,y,w,() -> select(-1));
       next=button("Next",left+w+4,y,w,() -> select(1));
       favorite=button("Favorite",left+2*(w+4),y,w,this::toggleFavorite);
@@ -153,14 +155,14 @@ public final class QuickAccessScreen extends StudioScreen {
 
    @Override public boolean mouseClicked(MouseButtonEvent event,boolean doubleClick) {
       if(!compact && event.button()==0) {
-         int index=InspectorRows.hit(event.x(),event.y(),left,top+75,panelWidth,rowCount,offset,rows.size());
+         int index=InspectorRows.hit(event.x(),event.y(),left,rowsY,panelWidth,rowCount,offset,rows.size());
          if(index>=0) {selected=rows.get(index);refresh();setFocused(null);return true;}
       }
       return super.mouseClicked(event,doubleClick);
    }
 
    @Override public boolean mouseScrolled(double x,double y,double horizontal,double vertical) {
-      if(!compact && vertical!=0 && x>=left && x<left+panelWidth && y>=top+75 && y<top+75+rowCount*13) {
+      if(!compact && vertical!=0 && x>=left && x<left+panelWidth && y>=rowsY && y<footerY) {
          offset=Math.max(0,Math.min(Math.max(0,rows.size()-rowCount),offset+(vertical<0?1:-1)));
          return true;
       }
@@ -177,22 +179,22 @@ public final class QuickAccessScreen extends StudioScreen {
       if(compact) {
          line(graphics,"Reduce GUI scale to use Quick Access",left,top,panelWidth,0xffeeeeef);
       } else {
-         graphics.fill(left-4,top,left+panelWidth+4,Math.min(height,top+141+rowCount*13),theme.panel());
+         graphics.fill(left-4,top,left+panelWidth+4,Math.min(height,footerY+66),theme.panel());
          graphics.fill(left-4,top,left+panelWidth+4,top+1,theme.accent());
          line(graphics,"SCHIZO / QUICK ACCESS",left,top+6,panelWidth,theme.accent());
          line(graphics,view.name()+" | "+rows.size()+" modules",left,top+15,panelWidth,0xffb8b9c7);
-         if(rows.isEmpty()) line(graphics,"No matching modules. Browse All modules to add favorites.",left,top+77,panelWidth,0xffb8b9c7);
+         if(rows.isEmpty()) line(graphics,"No matching modules. Browse All modules to add favorites.",left,rowsY+2,panelWidth,0xffb8b9c7);
          var prefs=preferences();
          for(int i=0;i<rowCount && offset+i<rows.size();i++) {
             Module module=rows.get(offset+i);
-            int y=top+75+i*13;
+            int y=rowsY+i*13;
             graphics.fill(left,y,left+panelWidth,y+12,module==selected?theme.selected():theme.row());
             if(module==selected) graphics.fill(left,y,left+2,y+12,theme.accent());
             String pin=prefs!=null && prefs.isFavorite(module)?"* ":"";
             line(graphics,pin+module.getName()+" | "+module.getCategory().getName(),left+4,y+3,panelWidth-70,0xffeeeeef);
             line(graphics,module.isToggled()?"Enabled":"Disabled",left+panelWidth-60,y+3,58,0xffb8b9c7);
          }
-         line(graphics,notice.isEmpty()?"Recent = most recently enabled. Opening does not toggle.":notice,left,top+122+rowCount*13,panelWidth,0xffb8b9c7);
+         line(graphics,notice.isEmpty()?"Recent = most recently enabled. Opening does not toggle.":notice,left,footerY+47,panelWidth,0xffb8b9c7);
       }
       super.render(graphics,mouseX,mouseY,partialTick);
    }
