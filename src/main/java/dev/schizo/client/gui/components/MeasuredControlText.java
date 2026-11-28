@@ -7,6 +7,10 @@ final class MeasuredControlText {
    private MeasuredControlText() {}
 
    static String fit(String text,float available,ToDoubleFunction<String> measure) {
+      return fit(text,available,measure,false);
+   }
+
+   static String fit(String text,float available,ToDoubleFunction<String> measure,boolean trimPrefix) {
       if(!Float.isFinite(available)||available<=0) return "";
       if(fits(text,available,measure)) return text;
       String suffix="...";
@@ -14,11 +18,13 @@ final class MeasuredControlText {
       int low=0,high=Math.min(4096,text.codePointCount(0,text.length()));
       while(low<high) {
          int mid=low+(high-low+1)/2;
-         String candidate=text.substring(0,text.offsetByCodePoints(0,mid))+suffix;
+         String prefix=text.substring(0,text.offsetByCodePoints(0,mid));
+         String candidate=(trimPrefix?prefix.trim():prefix)+suffix;
          if(fits(candidate,available,measure)) low=mid;
          else high=mid-1;
       }
-      String result=text.substring(0,text.offsetByCodePoints(0,low))+suffix;
+      String prefix=text.substring(0,text.offsetByCodePoints(0,low));
+      String result=(trimPrefix?prefix.trim():prefix)+suffix;
       // Font substitutions and kerning are not necessarily monotonic.
       return fits(result,available,measure)?result:suffix;
    }
