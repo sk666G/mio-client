@@ -1,6 +1,7 @@
 package dev.schizo.client.gui.screens;
 
 import dev.schizo.client.gui.ThemePreviewDraft;
+import dev.schizo.client.gui.ThemeShareCode;
 import dev.schizo.client.modules.client.UIModule;
 import dev.schizo.client.modules.client.UIModule.PaletteChoice;
 import dev.schizo.client.modules.client.UiPalette;
@@ -60,12 +61,14 @@ public final class ThemeStudioScreen extends StudioScreen {
             notice = "Custom preview. Apply to save six fixed colors.";
          }));
       });
-      button("Saved themes", left, top + 75, panelWidth, () -> {
+      button("Saved themes", left, top + 75, w, () -> {
          minecraft.setScreen(new SavedThemesScreen(this, draft.preview(), colors -> {
             draft.selectCustom(colors);
             notice = "Saved theme preview. Apply to change live colors.";
          }));
       });
+      button("Copy theme", left + w + 4, top + 75, w, this::copyTheme);
+      button("Paste theme", left + 2 * (w + 4), top + 75, w, this::pasteTheme);
       previewTop = top + 103;
       int bottom = Math.min(height - 25, top + 226);
       previewHeight = Math.max(1, bottom - previewTop - 15);
@@ -81,6 +84,28 @@ public final class ThemeStudioScreen extends StudioScreen {
 
    private Button button(String label, int x, int y, int w, Runnable action) {
       return addRenderableWidget(new StudioButton(x, y, w, 20, Component.literal(label), ignored -> action.run()));
+   }
+
+   private void copyTheme() {
+      try {
+         minecraft.keyboardHandler.setClipboard(ThemeShareCode.encode(draft.preview()));
+         notice = "Theme code copied. Only six palette colors are included.";
+      } catch (RuntimeException failure) {
+         notice = "Clipboard unavailable.";
+      }
+   }
+
+   private void pasteTheme() {
+      try {
+         UiPalette imported = ThemeShareCode.decode(minecraft.keyboardHandler.getClipboard());
+         draft.selectCustom(imported);
+         notice = "Imported preview. Apply to change live colors.";
+         refreshApply();
+      } catch (IllegalArgumentException invalid) {
+         notice = "Invalid theme code. Existing preview preserved.";
+      } catch (RuntimeException failure) {
+         notice = "Clipboard unavailable. Existing preview preserved.";
+      }
    }
 
    private void choose(PaletteChoice choice) {
