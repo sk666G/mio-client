@@ -287,7 +287,7 @@ public final class ModuleInspectorScreen extends StudioScreen {
    }
 
    @Override public void onClose() {
-      minecraft.setScreen(parent);
+      returnToParent(parent);
    }
 
    @Override public boolean isPauseScreen() { return false; }
