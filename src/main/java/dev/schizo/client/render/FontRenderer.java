@@ -13,7 +13,6 @@ import dev.schizo.client.ClientAccess;
 import dev.schizo.client.ClientContext;
 import dev.schizo.client.modules.client.FontsModule;
 import dev.schizo.client.modules.player.NameProtectModule;
-import dev.schizo.client.settings.options.FontsStyleChoice;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
@@ -25,19 +24,38 @@ import net.minecraft.util.ARGB;
 public final class FontRenderer implements ClientAccess {
    public static final FontRenderer INSTANCE = new FontRenderer();
    private AtlasTextRenderer renderer;
+   private FontAtlasConfiguration appliedConfiguration;
 
    private static NameProtectModule nameProtect() {
       return ClientContext.getModule(NameProtectModule.class);
    }
 
-   public AtlasTextRenderer createRenderer() {
+   private static FontAtlasConfiguration requestedConfiguration() {
       FontsModule fonts = FontsModule.INSTANCE;
-      return AtlasTextRenderer.create(
-         fonts.fontSetting.getValue(),
-         fonts.sizeSetting.getValue() * 2,
-         fonts.styleSetting.getValue(),
-         fonts.getLanguages()
-      );
+      return new FontAtlasConfiguration(fonts.fontSetting.getValue(),
+         fonts.sizeSetting.getValue() * 2, fonts.styleSetting.getValue(), fonts.getLanguages());
+   }
+
+   public AtlasTextRenderer createRenderer() {
+      return requestedConfiguration().create();
+   }
+
+   private void install(FontAtlasConfiguration configuration) {
+      AtlasTextRenderer replacement = configuration.create();
+      this.renderer = replacement;
+      this.appliedConfiguration = configuration;
+   }
+
+   /**
+    * Consume a reload only when no old-atlas glyph batch is pending.
+    * False means the request must be retained for a later tick.
+    */
+   public boolean reloadIfNeeded() {
+      FontAtlasConfiguration requested = requestedConfiguration();
+      if (this.renderer != null && requested.equals(this.appliedConfiguration)) return true;
+      if (AtlasTextRenderer.hasPendingGlyphs()) return false;
+      this.install(requested);
+      return true;
    }
 
    public int getHeight() {
@@ -68,7 +86,7 @@ public final class FontRenderer implements ClientAccess {
 
    public AtlasTextRenderer getRenderer() {
       if (this.renderer == null) {
-         this.renderer = this.createRenderer();
+         this.install(requestedConfiguration());
       }
 
       return this.renderer;
@@ -131,8 +149,9 @@ public final class FontRenderer implements ClientAccess {
    }
 
    public void setRenderer(AtlasTextRenderer renderer) {
-      if (renderer != null) {
+      if (renderer != null && renderer != this.renderer) {
          this.renderer = renderer;
+         this.appliedConfiguration = null;
       }
    }
 

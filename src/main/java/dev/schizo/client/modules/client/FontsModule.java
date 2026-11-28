@@ -19,7 +19,6 @@ import dev.schizo.client.events.MinecraftTickEvent;
 import dev.schizo.client.events.HudRenderEvent;
 import dev.schizo.client.events.ClientInitializationEvent;
 import dev.schizo.client.events.EventHandler;
-import dev.schizo.client.gui.screens.ClientScreen;
 import dev.schizo.client.render.GuiDrawUtils;
 import dev.schizo.client.render.GuiProjectionUtils;
 import dev.schizo.client.render.FontRenderer;
@@ -50,12 +49,6 @@ import org.lwjgl.glfw.GLFW;
 public class FontsModule extends Module {
    public static FontsModule INSTANCE;
 
-   private static final Runnable RELOAD_RENDERER = () -> {
-      if (ClientAccess.schizoMinecraft.player != null
-         || ClientAccess.schizoMinecraft.screen instanceof ClientScreen) {
-         FontRenderer.INSTANCE.setRenderer(FontRenderer.INSTANCE.createRenderer());
-      }
-   };
    public final Setting<String> fontSetting;
    public final Setting<FontsStyleChoice> styleSetting;
    public final Setting<Integer> sizeSetting;
@@ -69,6 +62,7 @@ public class FontsModule extends Module {
    private final Setting<Boolean> simplifiedChineseSetting;
    private final Setting<Boolean> japaneseSetting;
    private static final AtomicBoolean reloadRequested = new AtomicBoolean(false);
+   private static final Runnable RELOAD_RENDERER = () -> reloadRequested.set(true);
    private static int reloadCooldownTicks;
    private final Vector2f transformedPosition;
    private final List<QueuedDraw> queuedDraws;
@@ -104,6 +98,7 @@ public class FontsModule extends Module {
 
       reloadCooldownTicks = 3;
       this.validateFont(false);
+      if (this.isToggled()) reloadRequested.set(true);
    }
 
    private void flushQueuedDraws(PoseStack poseStack) {
@@ -160,8 +155,13 @@ public class FontsModule extends Module {
       long windowHandle = (long)(window.handle());
       if (GLFW.glfwGetMouseButton(windowHandle, 0) != 1) {
          if (reloadRequested.getAndSet(false)) {
-            FontRenderer.INSTANCE.setRenderer(FontRenderer.INSTANCE.createRenderer());
-            reloadCooldownTicks = 3;
+            if (FontRenderer.INSTANCE.reloadIfNeeded()) {
+               reloadCooldownTicks = 3;
+            } else {
+               // Never submit pending geometry from the tick's render state.
+               // A later tick may replace the atlas after the frame drains it.
+               reloadRequested.set(true);
+            }
          }
       }
 
@@ -203,7 +203,7 @@ public class FontsModule extends Module {
       // Filtering is selected by ClientRenderTypes at draw time; atlas pixels are unchanged.
       this.japaneseSetting.setChangeCallback(() -> this.validateFont(true));
       this.simplifiedChineseSetting.setChangeCallback(() -> this.validateFont(true));
-      this.sizeSetting.setChangeCallback(() -> reloadRequested.set(true));
+      this.sizeSetting.setChangeCallback(RELOAD_RENDERER);
       this.fontSetting.setChangeCallback(() -> this.validateFont(true));
       INSTANCE = this;
       ClientAccess.eventBus.subscribeStatic(FontsModule.class);

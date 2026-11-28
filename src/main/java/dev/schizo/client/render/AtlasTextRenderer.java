@@ -61,6 +61,10 @@ public final class AtlasTextRenderer {
       flushPending();
    }
 
+   static boolean hasPendingGlyphs() {
+      return glyphMesh.isBuilding();
+   }
+
    static void flushPending() {
       if (glyphMesh.isBuilding()) {
          boolean antiAlias = fonts().antiAliasSetting.getValue();
@@ -141,8 +145,9 @@ public final class AtlasTextRenderer {
       };
       FontAtlas atlas = new FontAtlas(new Font(fontName, awtStyle, fontSize));
       atlas.buildAtlas(characters);
+      AtlasTextRenderer renderer = new AtlasTextRenderer(atlas);
       atlas.uploadTexture();
-      return new AtlasTextRenderer(atlas);
+      return renderer;
    }
 
    private void renderString(PoseStack poses, String text, int baseColor, boolean shadowPass) {
@@ -249,7 +254,8 @@ public final class AtlasTextRenderer {
       if (lastRenderType != null && lastRenderType != renderType) {
          GuiDrawUtils.flush();
       }
+      VertexConsumer consumer = immediateBuffers.getBuffer(renderType);
       lastRenderType = renderType;
-      return immediateBuffers.getBuffer(renderType);
+      return consumer;
    }
 }
