@@ -17,6 +17,40 @@ import java.io.IOException;
 public sealed interface PresetUndoAction {
    void undo() throws IOException;
 
+   @FunctionalInterface
+   interface Guard {
+      void verify() throws IOException;
+   }
+
+   /** Capture the state produced by a successful operation before it enters history. */
+   default Guard guardAfterSuccess() {
+      return switch(this) {
+         case Load load -> {
+            JsonElement expected=load.category().toJson().deepCopy();
+            yield () -> {
+               if(!expected.equals(load.category().toJson())) throw new IOException("Live configuration changed since preset load");
+            };
+         }
+         case Save save -> reviewedGuard(save.registry(),save.name());
+         case Delete delete -> () -> delete.registry().requireUndoTargetAbsent(delete.preset().getName());
+         case Rename rename -> {
+            Guard target=reviewedGuard(rename.registry(),rename.newName());
+            yield () -> {
+               target.verify();
+               rename.registry().requireUndoTargetAbsent(rename.oldName());
+            };
+         }
+      };
+   }
+
+   private static Guard reviewedGuard(PresetRegistry registry,String name) {
+      PresetData expected=registry.getPreset(name);
+      return () -> {
+         if(expected==null || !registry.matchesReviewedPreset(expected))
+            throw new IOException("Preset changed since the recorded operation");
+      };
+   }
+
    static PresetUndoAction beforeLoad(PresetCategory category, String name) {
       if (category == null) {
          throw new IllegalArgumentException("Preset category is required");
@@ -40,7 +74,7 @@ public sealed interface PresetUndoAction {
    record Load(String name, PresetCategory category, JsonElement snapshot) implements PresetUndoAction {
       @Override
       public void undo() {
-         this.category.fromJson(this.snapshot);
+         JsonStateTransaction.apply(this.category::toJson,this.category::fromJson,this.snapshot);
       }
    }
 
@@ -48,9 +82,13 @@ public sealed interface PresetUndoAction {
       @Override
       public void undo() throws IOException {
          if (this.previous == null) {
-            this.registry.deletePresetForUndo(this.name);
+            PresetData current=this.registry.getPreset(this.name);
+            if(current==null) throw new IOException("Preset no longer exists");
+            this.registry.deletePresetForUndo(current.getName());
          } else {
-            this.registry.restorePreset(this.previous, this.name);
+            PresetData current=this.registry.getPreset(this.name);
+            if(current==null) throw new IOException("Preset no longer exists");
+            this.registry.restorePreset(this.previous,current.getName());
          }
       }
    }
@@ -58,14 +96,16 @@ public sealed interface PresetUndoAction {
    record Delete(PresetRegistry registry, PresetData preset) implements PresetUndoAction {
       @Override
       public void undo() throws IOException {
-         this.registry.restorePreset(this.preset);
+         this.registry.restoreDeletedPreset(this.preset);
       }
    }
 
    record Rename(PresetRegistry registry, String oldName, String newName, PresetData previousTarget, PresetData source) implements PresetUndoAction {
       @Override
       public void undo() throws IOException {
-         this.registry.renamePresetForUndo(this.newName, this.oldName, this.previousTarget, this.source);
+         PresetData current=this.registry.getPreset(this.newName);
+         if(current==null) throw new IOException("Renamed preset no longer exists");
+         this.registry.renamePresetForUndo(current.getName(),this.oldName,this.previousTarget,this.source);
       }
    }
 }
