@@ -44,4 +44,19 @@ class BenchmarkCaptureTest {
       assertFalse(capture.isActive());
       assertEquals(BenchmarkCapture.MAX_FRAMES, capture.finish().frames());
    }
+
+   @Test void ignoresDuplicateReorderedAndOverlappingIntervals() {
+      var capture=new BenchmarkCapture();
+      capture.start(0);
+      capture.onFrame(10_000_000,10_000_000);
+      capture.onFrame(20_000_000,10_000_000);
+      capture.onFrame(20_000_000,10_000_000);
+      capture.onFrame(19_000_000,1_000_000);
+      capture.onFrame(30_000_000,20_000_000);
+      capture.onFrame(40_000_000,10_000_000);
+      var session=capture.finish();
+      assertEquals(2,session.frames());
+      assertEquals(0.020,session.seconds(),0.000001);
+      assertEquals(10,session.meanMillis(),0.000001);
+   }
 }
