@@ -103,8 +103,8 @@ public class FontsModule extends Module {
 
    private void flushQueuedDraws(PoseStack poseStack) {
       if (!this.queuedDraws.isEmpty()) {
-         GuiDrawUtils.flush(true);
          try {
+            GuiDrawUtils.flush(true);
             for (QueuedDraw draw : this.queuedDraws) draw.render(poseStack);
          } finally {
             this.queuedDraws.clear();
@@ -153,7 +153,7 @@ public class FontsModule extends Module {
       Minecraft minecraft = ClientAccess.schizoMinecraft;
       Window window = minecraft.getWindow();
       long windowHandle = (long)(window.handle());
-      if (GLFW.glfwGetMouseButton(windowHandle, 0) != 1) {
+      if (INSTANCE.isToggled() && GLFW.glfwGetMouseButton(windowHandle, 0) != 1) {
          if (reloadRequested.getAndSet(false)) {
             if (FontRenderer.INSTANCE.reloadIfNeeded()) {
                reloadCooldownTicks = 3;

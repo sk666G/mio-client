@@ -85,6 +85,8 @@ public final class SchizoClientGameTest implements FabricClientGameTest {
          });
          context.waitTicks(1);
 
+         context.runOnClient(minecraft -> verifyScissorOwnership());
+
          context.getInput().pressKey(GLFW.GLFW_KEY_RIGHT_SHIFT);
          context.waitForScreen(ClickGuiScreen.class);
          context.waitTicks(3);
@@ -492,4 +494,39 @@ public final class SchizoClientGameTest implements FabricClientGameTest {
       }
       throw new IllegalStateException("Missing button: " + label);
    }
+
+   private static void verifyScissorOwnership() {
+      var state = com.mojang.blaze3d.systems.RenderSystem.getScissorStateForRenderTypeDraws();
+      boolean enabled = state.enabled();
+      int x = state.x(), y = state.y(), width = state.width(), height = state.height();
+      try {
+         state.enable(7, 9, 31, 37);
+         dev.schizo.client.gui.ScissorStack.push(0, 0, 16, 16);
+         try {
+            int innerX = state.x(), innerY = state.y(), innerW = state.width(), innerH = state.height();
+            dev.schizo.client.gui.ScissorStack.pushIntersection(4, 4, 4, 4);
+            try {
+               if (!state.enabled() || state.width() > innerW || state.height() > innerH) {
+                  throw new IllegalStateException("Nested scissor escaped parent");
+               }
+            } finally {
+               dev.schizo.client.gui.ScissorStack.pop();
+            }
+            if (!state.enabled() || state.x() != innerX || state.y() != innerY
+               || state.width() != innerW || state.height() != innerH) {
+               throw new IllegalStateException("Nested scissor did not restore its predecessor");
+            }
+         } finally {
+            dev.schizo.client.gui.ScissorStack.pop();
+         }
+         if (!state.enabled() || state.x() != 7 || state.y() != 9
+            || state.width() != 31 || state.height() != 37) {
+            throw new IllegalStateException("Schizo scissor did not restore external clipping");
+         }
+      } finally {
+         if (enabled) state.enable(x, y, width, height);
+         else state.disable();
+      }
+   }
+
 }

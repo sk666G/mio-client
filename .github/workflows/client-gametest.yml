@@ -2,7 +2,7 @@ name: Schizo client gametests
 
 on:
   push:
-    branches: [zio-rebuild-v7, 'lunyx/runtime-*', 'lunyx/final-*']
+    branches: [zio-rebuild-v7, 'lunyx/runtime-*', 'lunyx/final-*', lunyx/studio-final-gui-completion-v1]
   workflow_dispatch:
 
 permissions:
