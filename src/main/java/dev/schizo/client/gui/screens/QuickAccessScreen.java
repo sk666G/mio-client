@@ -56,8 +56,8 @@ public final class QuickAccessScreen extends StudioScreen {
       int historyWidth = layout.stacked() ? (panelWidth-4)/2 : tab;
       int historyX = layout.stacked() ? left : left+3*(tab+4);
       int historyY = top+(layout.stacked()?47:24);
-      button("Visited",historyX,historyY,historyWidth,() -> minecraft.setScreen(new RecentSettingsScreen(this)));
-      button("Edit history",historyX+historyWidth+4,historyY,historyWidth,() -> minecraft.setScreen(new ScalarHistoryScreen(this)));
+      button("Visited",historyX,historyY,historyWidth,() -> openStudioChild(new RecentSettingsScreen(this)));
+      button("Edit history",historyX+historyWidth+4,historyY,historyWidth,() -> openStudioChild(new ScalarHistoryScreen(this)));
       search = trackResizeFocus("search", addRenderableWidget(new StudioEditBox(font,left,layout.searchY(),panelWidth,20,Component.literal("Search quick access"))));
       search.setMaxLength(64);
       search.setValue(query);
@@ -125,7 +125,7 @@ public final class QuickAccessScreen extends StudioScreen {
    }
 
    private void inspectSelected() {
-      if (selected != null) minecraft.setScreen(new ModuleInspectorScreen(this, selected));
+      if (selected != null) openStudioChild(new ModuleInspectorScreen(this, selected));
    }
 
    @Override public boolean keyPressed(KeyEvent event) {
@@ -220,6 +220,6 @@ public final class QuickAccessScreen extends StudioScreen {
       super.render(graphics,mouseX,mouseY,partialTick);
    }
 
-   @Override public void onClose() {minecraft.setScreen(parent);}
+   @Override public void onClose() {returnToParent(parent);}
    @Override public boolean isPauseScreen() {return false;}
 }
