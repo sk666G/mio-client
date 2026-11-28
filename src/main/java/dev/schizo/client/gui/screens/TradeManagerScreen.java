@@ -40,8 +40,8 @@ public final class TradeManagerScreen extends ClientScreen {
       if (this.pendingPanelRequest != null) {
          this.tradeListPanel
             .refreshTrades();
-         this.getPanels()
-            .remove(this.actionPanel);
+         this.actionPanel.cancelInput();
+         this.getPanels().remove(this.actionPanel);
          if (this.pendingPanelRequest
                .mode()
             == TradePanelMode.CREATE) {
