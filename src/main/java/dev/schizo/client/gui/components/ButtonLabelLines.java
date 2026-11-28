@@ -11,7 +11,7 @@ final class ButtonLabelLines {
    List<String> resolve(String next) {
       if(!Objects.equals(label,next)) {
          label=Objects.requireNonNull(next);
-         lines=next.indexOf('\n')<0?List.of(next):List.of(next.split("\\n",-1));
+         lines=next.indexOf('\n')<0?List.of(next):List.of(next.split("\\n"));
       }
       return lines;
    }
