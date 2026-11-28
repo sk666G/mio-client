@@ -88,4 +88,25 @@ class PresetUndoActionTest {
          () -> PresetUndoAction.beforeLoad(null, "preset")
       );
    }
+
+   @Test void recordedLoadUndoRejectsSubsequentLiveConfigurationChanges() throws Exception {
+      MacroRegistry registry=new MacroRegistry();
+      MacroRegistry previousRegistry=ClientContext.macroRegistry;
+      ClientContext.macroRegistry=registry;
+      try {
+         Macro original=MacroType.SIMPLE.create("Original",Keybind.toggle(65,false));
+         assertTrue(registry.registerEntry(original));
+         var undo=PresetUndoAction.beforeLoad(PresetCategory.MACRO,"macro-set");
+         var history=new PresetUndoState();
+         history.push(undo);
+         original.getCommands().add("help");
+         assertThrows(java.io.IOException.class,history::undo);
+         assertEquals("help",original.getCommands().getFirst());
+         original.getCommands().clear();
+         assertSame(undo,history.undo());
+      } finally {
+         ClientContext.macroRegistry=previousRegistry;
+         ClientAccess.eventBus.unsubscribe(registry);
+      }
+   }
 }
