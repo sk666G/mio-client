@@ -45,7 +45,45 @@ final class PaletteMatcher {
       if (normalizedSubtitle.contains(query)) {
          return 3;
       }
-      return isSubsequence(query, normalizedTitle) ? 4 : -1;
+      if (query.length() > 64) return -1;
+      if (query.indexOf(' ') >= 0 && allTermsMatch(query, normalizedTitle + " " + normalizedSubtitle)) return 4;
+      if (isSubsequence(query, normalizedTitle)) return 4;
+      if (query.length() >= 4 && query.indexOf(' ') < 0 && typoMatches(query, normalizedTitle)) return 5;
+      return -1;
+   }
+
+   private static boolean allTermsMatch(String query, String combined) {
+      for (String term : query.split("\\s+")) {
+         if (!term.isEmpty() && !combined.contains(term)) return false;
+      }
+      return true;
+   }
+
+   private static boolean typoMatches(String query, String title) {
+      if (oneEditApart(query, title)) return true;
+      for (String word : title.split("[^\\p{L}\\p{N}]+")) {
+         if (oneEditApart(query, word)) return true;
+      }
+      return false;
+   }
+
+   /** One insertion, deletion, substitution or adjacent transposition. No DP allocation. */
+   private static boolean oneEditApart(String a, String b) {
+      int n = a.length(), m = b.length();
+      if (Math.abs(n - m) > 1) return false;
+      if (n == m) {
+         int first = 0;
+         while (first < n && a.charAt(first) == b.charAt(first)) first++;
+         if (first == n) return true;
+         int next = first + 1;
+         if (next < n && a.charAt(first) == b.charAt(next) && a.charAt(next) == b.charAt(first)
+            && a.regionMatches(next + 1, b, next + 1, n - next - 1)) return true;
+         return a.regionMatches(next, b, next, n - next);
+      }
+      String shorter = n < m ? a : b, longer = n < m ? b : a;
+      int index = 0;
+      while (index < shorter.length() && shorter.charAt(index) == longer.charAt(index)) index++;
+      return shorter.regionMatches(index, longer, index + 1, shorter.length() - index);
    }
 
    private static boolean isSubsequence(String query, String candidate) {
