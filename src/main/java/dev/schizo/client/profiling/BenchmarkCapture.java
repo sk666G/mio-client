@@ -14,7 +14,7 @@ public final class BenchmarkCapture {
    private long[] samples;
    private final double[] bucketTotals = new double[30];
    private final int[] bucketCounts = new int[30];
-   private long start, sum, max, hitches;
+   private long start, lastObserved, sum, max, hitches;
    private int count;
    private boolean first;
    private BenchmarkSession completed;
@@ -27,6 +27,7 @@ public final class BenchmarkCapture {
       count = 0;
       sum = max = hitches = 0;
       start = now;
+      lastObserved=now;
       first = true;
       completed = null;
       active = true;
@@ -46,12 +47,16 @@ public final class BenchmarkCapture {
          active = false;
          return;
       }
+      // Only distinct, ordered frame timestamps can contribute disjoint intervals.
+      long interval=now-lastObserved;
+      if(interval<=0) return;
+      lastObserved=now;
       // The first measured frame may have started before capture was requested.
       if (first) {
          first = false;
          return;
       }
-      if (duration <= 0 || duration > elapsed) return;
+      if (duration <= 0 || duration > interval) return;
       samples[count++] = duration;
       sum += duration;
       max = Math.max(max, duration);
