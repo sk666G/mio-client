@@ -57,7 +57,11 @@ abstract class StudioScreen extends Screen {
 
    @Override public void resize(int width, int height) {
       FocusSnapshot snapshot = captureFocus();
+      boolean wasStarted = entryStarted;
+      long previousStart = entryNanos;
       super.resize(width, height);
+      entryStarted = wasStarted;
+      entryNanos = previousStart;
       restoreFocus(snapshot);
    }
 
