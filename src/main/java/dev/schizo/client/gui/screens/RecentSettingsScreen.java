@@ -110,7 +110,7 @@ public final class RecentSettingsScreen extends StudioScreen {
       var visit=rows.get(selected);
       confirming=false;
       if(!registered(visit)) {reload();return;}
-      minecraft.setScreen(new ModuleInspectorScreen(this,visit.owner(),visit.item()));
+      openStudioChild(new ModuleInspectorScreen(this,visit.owner(),visit.item()));
    }
 
    @Override public boolean keyPressed(KeyEvent event) {
@@ -167,6 +167,6 @@ public final class RecentSettingsScreen extends StudioScreen {
       super.render(graphics,mouseX,mouseY,partialTick);
    }
 
-   @Override public void onClose(){minecraft.setScreen(parent);}
+   @Override public void onClose(){returnToParent(parent);}
    @Override public boolean isPauseScreen(){return false;}
 }
