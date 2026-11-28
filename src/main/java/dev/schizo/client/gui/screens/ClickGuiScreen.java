@@ -267,6 +267,7 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
    private void selectPanel(Panel panel) {
       if (!this.panels.contains(panel)) return;
       if (this.selectedPanel != panel) {
+         if(this.selectedPanel!=null) this.selectedPanel.cancelInput();
          this.setEditingSetting(null);
          this.selectedPanel = panel;
          panel.setExpanded(true);
