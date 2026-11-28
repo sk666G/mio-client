@@ -27,7 +27,7 @@
 | Registry/sound selectors | Baseline CI verified | Actual registry reload, search, resource removal, click/scroll boundaries |
 | Enchantment and item lists | Catalog reuse and bounded fitting implemented; stale selection check added | World/language/resource reload and dynamic filters; exact-head build |
 | Preset import | Snapshot isolation, changed-source rejection and local status implemented | Exact-head tests, import valid/invalid/changed/duplicate files and refresh failure |
-| Preset manager and trade configuration | Not exhaustively reviewed in this pass | Source review and live workflow checks |
+| Preset manager and trade configuration | Targeted source review; create-new, confirmation, rename/duplicate, stale trade editing and panel cleanup implemented in finalization pass | New exact-head CI, live input and configuration workflow tests, wider lifecycle review |
 | Theme Studio and Gallery | Baseline CI verified | Actual color editing, persistence, dynamic colors and readability |
 | Quick Access/Inspector/Visited Settings | Baseline CI verified | Live keyboard/navigation and stale edit checks |
 | Health/Benchmark/Performance/Context/Expedition | Baseline CI verified | Actual viewport, interaction and telemetry checks |
@@ -233,3 +233,26 @@ This is a list of GUI files present in the PR changed-filename response, not an 
 ## Release notes (candidate, not release sign-off)
 
 This pass improves text-editing correctness, legacy label rendering work, resource-list refresh costs, preset import consistency, HUD preview responsiveness and transient gesture cleanup. Earlier consolidated changes add precision HUD properties and magnetic snapping, Theme Studio palette tools, accessibility, navigation and responsive workspaces. No performance benchmark claim or live acceptance claim is made. Keep main untouched and PR #301 in draft until remaining acceptance requirements are satisfied.
+
+
+## Absolute finalization pass
+
+- Verified baseline: `57221da4905d1c2ad836ac3113df1d2f73ff540f`. [Build #3541](https://github.com/sk666G/mio-client/actions/runs/46154826730) completed successfully, including rebuild security tests, Java toolchains, Gradle build, remapped artifact verification/provenance, and upload.
+- Baseline artifact: [schizo-client](https://github.com/sk666G/mio-client/actions/runs/46154826730/artifacts/15267068827), ID `15267068827`. Archive digest `sha256:6a5de0f15e47e1911b446ad874e1b0db101d05f72a40e1b194114c1dba481baf`, not an individual JAR digest. Artifact metadata associates it with the verified baseline, not the new candidate.
+- New source checkpoint: `cd126c8f0ab1e941b42783b16da5a56370135dfe` (17 commits, 15 files, +421/-265 since the verified baseline). [Build #3569](https://github.com/sk666G/mio-client/actions/runs/46155823732) pending at documentation time. This documentation commit creates a newer exact-head workflow; verify that head before release.
+- Five regression methods added: two preset registry tests, two confirmation tests, one rejected trade edit test. New tests are not yet CI-confirmed.
+- Preset manager: explicit create-new action, no overwrite on creation, reviewed-content checks before actions, category-bound list selection, two-step overwrite/delete confirmation, rename and duplicate controls using existing registry APIs, local feedback and cleanup of replaced controls. Enter commits the name draft; Create new then saves. Confirmation checks compare registry and bounded on-disk JSON; this is not a filesystem lock or atomic compare-and-swap against external processes.
+- Trade configuration presentation: reject stale selected object or unavailable enchantment before opening an editor, deliberate timed deletion confirmation, clear input on panel removal, distinguish creation from reviewed replacement, validate the replacement before changing the existing registry slot. Existing matching and gameplay behavior unchanged. The registry replacement guard does not establish synchronization with arbitrary external mutation paths.
+- Legacy multiline buttons: retain a minimum single-row height even when a label consists only of newline characters.
+
+### Additional manual acceptance
+
+1. In Preset Manager enter a new name and press Enter, then Create new. Verify that an existing exact or case-insensitive name is rejected and its file remains unchanged. Retry with another name. Confirm local feedback and undo.
+2. Select a preset, change its file externally, and attempt Load, Save, Delete, Rename or Duplicate. Verify stale-content rejection. Test switching categories before a list refresh, selecting another preset during confirmation, cancelling by navigating away, and opening the preset location.
+3. Verify Save changes and Delete require two explicit clicks on the same target. Verify a different action cannot consume the previous confirmation. Rename and Duplicate must not overwrite existing targets. Test failure feedback, missing files, and configuration persistence.
+4. In the trade configuration UI, test creation with a duplicate name, edit an existing entry, replace the underlying configuration while its editor is open, then attempt to save. The original/current entry must not be deleted by a rejected edit. Verify missing-resource feedback, selection changes, cancellation, selector closing and timed deletion confirmation. Test only in a local or authorized environment.
+5. Repeat these workflows on short and narrow logical GUI viewports. Ensure essential navigation and the status row remain accessible.
+
+### Remaining certification limits
+
+The reviewed preset and trade paths are not a full repository audit. No complete directory-tree reader or local Minecraft runtime was established in this session. The PR-derived inventory remains partial, comprehensive visual and performance acceptance is unperformed, and inherited integration changes remain subject to review. Do not sign off release readiness or claim measured performance gains. Comprehensive HUD locking and independent layer ordering remain excluded. Main remains untouched.
