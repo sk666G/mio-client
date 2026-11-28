@@ -115,6 +115,17 @@ public final class PresetRegistry extends Registry<PresetData> {
       return null;
    }
 
+   /** Refuse undo restoration when a new file or registry entry occupies the old name. */
+   public void requireUndoTargetAbsent(String name) throws IOException {
+      synchronized(this.getRegistry()) {
+         ensureNoCollision(PresetNameValidator.normalize(name),null);
+      }
+   }
+
+   public void restoreDeletedPreset(PresetData preset) throws IOException {
+      storeNewPreset(preset);
+   }
+
    public void restorePreset(PresetData preset) throws IOException {
       this.restorePreset(preset, preset.getName());
    }
