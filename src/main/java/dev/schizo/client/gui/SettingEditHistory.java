@@ -1,6 +1,8 @@
 package dev.schizo.client.gui;
 
 import com.google.gson.JsonElement;
+import com.google.gson.JsonPrimitive;
+import dev.schizo.client.settings.EnumSetting;
 import dev.schizo.client.settings.BooleanSetting;
 import dev.schizo.client.settings.NumberSetting;
 import dev.schizo.client.settings.Setting;
@@ -28,7 +30,7 @@ public final class SettingEditHistory {
    public Setting<?> redoTarget() { return redo.isEmpty() ? null : redo.peekLast().setting(); }
 
    public static boolean supports(Setting<?> setting) {
-      return (setting instanceof BooleanSetting || setting instanceof NumberSetting<?>)
+      return (setting instanceof BooleanSetting || setting instanceof NumberSetting<?> || setting instanceof EnumSetting<?>)
          && !setting.isGroupOnly() && !setting.isExcludedFromConfig()
          && !setting.hasChangeCallback();
    }
@@ -40,6 +42,12 @@ public final class SettingEditHistory {
          if (!desired.isJsonPrimitive()) return Result.REJECTED;
          if (setting instanceof BooleanSetting && !desired.getAsJsonPrimitive().isBoolean()) return Result.REJECTED;
          if (setting instanceof NumberSetting<?> && !desired.getAsJsonPrimitive().isNumber()) return Result.REJECTED;
+         if (setting instanceof EnumSetting<?>) {
+            if(!desired.getAsJsonPrimitive().isString()) return Result.REJECTED;
+            String canonical=InspectorEnumOptions.canonical(InspectorEnumOptions.selectable(setting),desired.getAsString());
+            if(canonical==null) return Result.REJECTED;
+            desired=new JsonPrimitive(canonical);
+         }
          JsonElement before = setting.toJson().deepCopy();
          setting.fromJson(desired.deepCopy());
          JsonElement after = setting.toJson().deepCopy();
@@ -70,6 +78,10 @@ public final class SettingEditHistory {
          if (edit.setting() instanceof NumberSetting<?> number && number.isNumericBoundsEnabled()) {
             double value = target.getAsDouble();
             if (value < number.getMinimumValue().doubleValue() || value > number.getMaximumValue().doubleValue()) return Result.STALE;
+         }
+         if(edit.setting() instanceof EnumSetting<?>) {
+            String canonical=InspectorEnumOptions.canonical(InspectorEnumOptions.selectable(edit.setting()),target.getAsString());
+            if(canonical==null || !canonical.equals(target.getAsString())) return Result.STALE;
          }
          edit.setting().fromJson(target.deepCopy());
          if (!edit.setting().toJson().equals(target)) return Result.REJECTED;
