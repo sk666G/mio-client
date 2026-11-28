@@ -47,10 +47,14 @@ public class TradeEditorPanel extends Panel implements ClientAccess {
    private String notice="";
 
    public TradeEditorPanel(TradeEditorScreen screen, TradeDefinition trade, String actionLabel) {
+      this(screen,trade,actionLabel,!"Create".equals(actionLabel));
+   }
+
+   public TradeEditorPanel(TradeEditorScreen screen, TradeDefinition trade, String actionLabel,boolean editingExisting) {
       super("Trade Editor");
       this.screen = screen;
       this.tradeName = trade.name();
-      this.expected="Create".equals(actionLabel)?null:trade;
+      this.expected=editingExisting?trade:null;
       this.maxPriceSetting
          .setValue(
             trade.maxPrice()
