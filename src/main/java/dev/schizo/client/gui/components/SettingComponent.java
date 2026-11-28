@@ -53,6 +53,12 @@ public abstract class SettingComponent<T> extends AbstractComponent {
       return unavailable;
    }
 
+   @Override public void cancelInput() {
+      this.editing=false;
+      var gui=this.getClickGui();
+      if(gui!=null && gui.getEditingSetting()==this) gui.setEditingSetting(null);
+   }
+
    public Setting<T> getSetting() {
       return this.setting;
    }
