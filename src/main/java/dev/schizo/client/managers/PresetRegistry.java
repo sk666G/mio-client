@@ -206,6 +206,42 @@ public final class PresetRegistry extends Registry<PresetData> {
       }
    }
 
+   /** Create a new preset without replacing an existing file or case-insensitive name. */
+   public void createPreset(String name) throws IOException {
+      String normalized=PresetNameValidator.normalize(name);
+      ensureNoCollision(normalized,null);
+      if(category==null) throw new IOException("Preset category is unavailable");
+      PresetData preset=new PresetData(normalized,category.toJson().getAsJsonObject());
+      storeNewPreset(preset);
+   }
+
+   void storeNewPreset(PresetData preset) throws IOException {
+      synchronized(this.getRegistry()) {
+         ensureNoCollision(preset.getName(),null);
+         preset.saveNewToDirectory(directory);
+         this.entries.add(preset);
+      }
+   }
+
+   /** Compare both the registry and bounded on-disk JSON with the reviewed preset.
+    * This is a stale-state check, not a filesystem lock against external writers.
+    */
+   public boolean matchesReviewedPreset(PresetData expected) throws IOException {
+      if(expected==null) return false;
+      synchronized(this.getRegistry()) {
+         requireRealDirectory();
+         if(!expected.equals(findPreset(expected.getName()))) return false;
+         Path path=PresetNameValidator.resolve(directory,expected.getName());
+         if(!Files.isRegularFile(path,LinkOption.NOFOLLOW_LINKS)) return false;
+         String json=ConfigFileReader.readUtf8(path,MAX_PRESET_BYTES);
+         try {
+            return expected.equals(new PresetData(expected.getName(),JsonParser.parseString(json).getAsJsonObject()));
+         } catch(RuntimeException invalid) {
+            return false;
+         }
+      }
+   }
+
    public void savePreset(String name) throws IOException {
       this.requireRealDirectory();
       String normalized = this.canonicalExistingName(PresetNameValidator.normalize(name));
