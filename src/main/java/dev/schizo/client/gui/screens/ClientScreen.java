@@ -463,7 +463,7 @@ public class ClientScreen extends Screen implements ClientAccess {
          ClientContext.getClickGui().setEditingSetting(null);
       }
       for (Panel panel : this.panels) {
-         panel.setDragging(false);
+         panel.cancelInput();
       }
       super.removed();
    }
