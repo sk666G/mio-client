@@ -25,7 +25,8 @@ public final class ThemeStudioScreen extends StudioScreen {
    private boolean cachedLight;
    private Button apply, undoPreview, redoPreview, undoApplied, redoApplied;
    private final AppliedPaletteHistory appliedHistory = new AppliedPaletteHistory();
-   private int left, top, panelWidth, previewTop, previewHeight;
+   private int left, top, panelWidth, previewTop, previewHeight, bottom;
+   private boolean compact;
    private String notice = "Preview only. No settings changed.";
 
    public ThemeStudioScreen(Screen parent) {
@@ -42,11 +43,16 @@ public final class ThemeStudioScreen extends StudioScreen {
 
    @Override protected void init() {
       super.init();
-      panelWidth = Math.max(1, Math.min(520, width - 16));
-      left = (width - panelWidth) / 2;
-      top = Math.max(4, (height - 273) / 2);
+      var layout = StudioViewportLayouts.theme(width,height);
+      panelWidth=layout.width(); left=layout.left(); top=layout.top();
+      compact=layout.compact(); previewTop=layout.previewTop(); previewHeight=layout.previewHeight(); bottom=layout.bottom();
       undoApplied = null;
       redoApplied = null;
+      apply = null;
+      if (compact) {
+         button("Back",left,Math.max(0,height-24),panelWidth,this::onClose);
+         return;
+      }
       int w = Math.max(1, (panelWidth - 8) / 3);
       int presetWidth = Math.max(1, (panelWidth - 12) / 4);
       PaletteChoice[] choices = {PaletteChoice.SCHIZO, PaletteChoice.MIDNIGHT, PaletteChoice.FROST, PaletteChoice.AMETHYST};
@@ -79,14 +85,11 @@ public final class ThemeStudioScreen extends StudioScreen {
       });
       button("Copy theme", left + w + 4, top + 75, w, this::copyTheme);
       button("Paste theme", left + 2 * (w + 4), top + 75, w, this::pasteTheme);
-      boolean showApplied = height >= 180;
+      boolean showApplied = layout.appliedControls();
       if (showApplied) {
          undoApplied = button("Undo applied", left, top + 98, w, () -> changeApplied(false));
          redoApplied = button("Redo applied", left + w + 4, top + 98, w, () -> changeApplied(true));
       }
-      previewTop = top + (showApplied ? 126 : 103);
-      int bottom = Math.min(height - 25, top + (showApplied ? 249 : 226));
-      previewHeight = Math.max(1, bottom - previewTop - 27);
       int small = Math.max(1, (panelWidth - 16) / 5);
       button("Back", left, bottom, small, this::onClose);
       undoPreview = button("Undo", left + small + 4, bottom, small, () -> changeHistory(false));
@@ -139,7 +142,7 @@ public final class ThemeStudioScreen extends StudioScreen {
    }
 
    @Override public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
-      if (dev.schizo.client.utils.KeyUtils.isControlDown()) {
+      if (!compact && dev.schizo.client.utils.KeyUtils.isControlDown()) {
          if (event.key() == org.lwjgl.glfw.GLFW.GLFW_KEY_Z) {
             changeHistory(dev.schizo.client.utils.KeyUtils.isShiftDown());
             return true;
@@ -245,7 +248,12 @@ public final class ThemeStudioScreen extends StudioScreen {
    @Override public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
       StudioScreenTheme theme = StudioScreenTheme.current();
       graphics.fill(0, 0, width, height, theme.backdrop());
-      graphics.fill(left - 4, top, left + panelWidth + 4, Math.min(height, previewTop + previewHeight + 40), theme.panel());
+      if (compact) {
+         line(graphics,"Reduce GUI scale to use Theme Studio",left,top,panelWidth,0xffeeeeef);
+         super.render(graphics,mouseX,mouseY,partialTick);
+         return;
+      }
+      graphics.fill(left - 4, top, left + panelWidth + 4, Math.min(height, bottom + 24), theme.panel());
       graphics.fill(left - 4, top, left + panelWidth + 4, top + 2, theme.accent());
       line(graphics, "SCHIZO / THEME STUDIO", left, top + 8, panelWidth, theme.accent());
       line(graphics, draft.selected().getName() + "  |  Interactive palette sample", left, top + 19, panelWidth, 0xffb8b9c7);
