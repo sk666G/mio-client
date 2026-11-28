@@ -36,17 +36,7 @@ final class StudioControlStyle {
       softRect(pose, StudioControlGeometry.thumbLeft(x, width, thumbWidth, p), y - 1, thumbWidth, 4, THUMB);
    }
 
-   static String fitText(String text, float width) {
-      FontRenderer font = FontRenderer.INSTANCE;
-      if (width <= 0) return "";
-      if (font.getWidth(text) <= width) return text;
-      if (font.getWidth("...") > width) return "";
-      int end = text.length();
-      while (end > 0) {
-         end = text.offsetByCodePoints(end, -1);
-         String candidate = text.substring(0, end) + "...";
-         if (font.getWidth(candidate) <= width) return candidate;
-      }
-      return "...";
+   static String fitText(String text,float width) {
+      return MeasuredControlText.fit(text,width,FontRenderer.INSTANCE::getWidth);
    }
 }
