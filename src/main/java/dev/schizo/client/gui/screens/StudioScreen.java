@@ -7,12 +7,18 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.FormattedCharSequence;
+import java.util.List;
 
 /** Shared entry treatment. Input geometry and screen lifecycle stay native. */
 abstract class StudioScreen extends Screen {
    private final StudioResizeFocus<AbstractWidget> resizeFocus = new StudioResizeFocus<>();
    private record FocusSnapshot(String role, StudioTextSelection selection) {}
    private final StudioReturnFocus<Screen,FocusSnapshot> returnFocus = new StudioReturnFocus<>();
+   private final StudioRowHover rowHover = new StudioRowHover();
+   private String rowHelpText;
+   private int rowHelpWidth, rowHelpLimit;
+   private List<FormattedCharSequence> rowHelpLines = List.of();
    private boolean entryStarted;
    private long entryNanos;
 
@@ -23,6 +29,9 @@ abstract class StudioScreen extends Screen {
    @Override protected void init() {
       super.init();
       resizeFocus.clear();
+      rowHover.clear();
+      rowHelpText = null;
+      rowHelpLines = List.of();
       entryStarted = false;
    }
 
@@ -76,6 +85,29 @@ abstract class StudioScreen extends Screen {
       if (parent instanceof StudioScreen studio && minecraft.screen == parent) {
          studio.restoreFocus(snapshot);
       }
+   }
+
+   /** Call once per frame with the actual visible row identity or null. */
+   protected final boolean rowHelpReady(Object candidate) {
+      return rowHover.ready(candidate, System.nanoTime());
+   }
+
+   protected final void showRowHelp(GuiGraphics graphics, String text, int x, int y) {
+      if (text == null || text.isBlank() || width < 48 || height < 48) return;
+      int wrap = Math.min(260, width - 24);
+      int limit = Math.max(1, (height - 24) / Math.max(1, font.lineHeight + 2));
+      if (!text.equals(rowHelpText) || rowHelpWidth != wrap || rowHelpLimit != limit) {
+         rowHelpText = text;
+         rowHelpWidth = wrap;
+         rowHelpLimit = limit;
+         var wrapped = font.split(Component.literal(text), wrap);
+         if (wrapped.size() > limit) {
+            var bounded = new java.util.ArrayList<FormattedCharSequence>(wrapped.subList(0, limit - 1));
+            bounded.add(Component.literal("…").getVisualOrderText());
+            rowHelpLines = List.copyOf(bounded);
+         } else rowHelpLines = List.copyOf(wrapped);
+      }
+      if (!rowHelpLines.isEmpty()) graphics.setTooltipForNextFrame(font, rowHelpLines, x, y);
    }
 
    @Override public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
