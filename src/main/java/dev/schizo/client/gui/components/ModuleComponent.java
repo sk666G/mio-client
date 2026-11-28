@@ -88,8 +88,9 @@ public class ModuleComponent extends AbstractComponent implements CloseState {
    }
 
    public void setOpen(boolean open) {
+      boolean wasOpen=this.requestedOpen;
       this.requestedOpen = open;
-      if(!open) this.cancelInput();
+      if(wasOpen&&!open) this.cancelInput();
    }
 
    @Override public void cancelInput() { this.children.forEach(child -> child.cancelInput()); }
