@@ -11,7 +11,7 @@ final class HudToolbar {
       CENTER_Y("Center Y", HudGroupAlignment.Mode.CENTER_Y, 2), BOTTOM("Bottom", HudGroupAlignment.Mode.BOTTOM, 2),
       DISTRIBUTE_X("Space X", HudGroupAlignment.Mode.DISTRIBUTE_X, 3), DISTRIBUTE_Y("Space Y", HudGroupAlignment.Mode.DISTRIBUTE_Y, 3),
       SCALE_DOWN("Size -", null, 1), SCALE_RESET("100%", null, 1), SCALE_UP("Size +", null, 1),
-      POSITION("Position", null, 1), BACKGROUND("", null, Integer.MAX_VALUE);
+      POSITION("Properties", null, 1), BACKGROUND("", null, Integer.MAX_VALUE);
 
       final String label;
       final HudGroupAlignment.Mode mode;
@@ -38,7 +38,7 @@ final class HudToolbar {
             case SCALE_DOWN -> "Decrease the selected widget scale by 1%; Shift: 10%.";
             case SCALE_RESET -> "Reset the selected widget scale to 100%.";
             case SCALE_UP -> "Increase the selected widget scale by 1%; Shift: 10%.";
-            case POSITION -> "Edit exact X/Y GUI-pixel coordinates for one selected widget.";
+            case POSITION -> "Inspect one widget and edit exact X/Y or supported scale.";
             case BACKGROUND -> "";
          };
       }
