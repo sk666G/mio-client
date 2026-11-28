@@ -116,6 +116,10 @@ public final class SchizoClientGameTest implements FabricClientGameTest {
             if (!"Render".equalsIgnoreCase(studio.getSelectedPanelName())) {
                throw new IllegalStateException("Studio search failed to select the matching category");
             }
+            studio.getSearchBox().setValue("crossahir");
+            if (!"Render".equalsIgnoreCase(studio.getSelectedPanelName())) {
+               throw new IllegalStateException("Fuzzy search did not preserve the matching category");
+            }
          });
          context.waitTicks(3);
          context.runOnClient(minecraft -> {

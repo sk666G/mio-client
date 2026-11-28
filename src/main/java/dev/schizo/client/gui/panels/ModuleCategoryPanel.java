@@ -15,7 +15,7 @@ import dev.schizo.client.NamedFeature;
 import dev.schizo.client.gui.GuiElement;
 import dev.schizo.client.render.FontRenderer;
 import dev.schizo.client.gui.components.ModuleComponent;
-import dev.schizo.client.render.TextUtils;
+import dev.schizo.client.gui.screens.PaletteMatcher;
 import dev.schizo.client.modules.Module;
 import dev.schizo.client.modules.ModuleCategory;
 
@@ -71,18 +71,11 @@ public class ModuleCategoryPanel extends Panel implements ClientAccess {
    }
 
    private static boolean matchesModule(Module module, String query) {
-         if (TextUtils.containsIgnoreCase(module.getName(), query)) return true;
-         for (String alias : module.getAliases()) {
-            if (TextUtils.containsIgnoreCase(alias, query)) {
-               return true;
-            }
-         }
-
-         if (TextUtils.containsIgnoreCase(module.getDescription(), query)) return true;
-         for (var setting : module.getSettings()) {
-            if (TextUtils.containsIgnoreCase(setting.getName(), query)) return true;
-         }
-         return false;
+      StringBuilder context = new StringBuilder(module.getDescription());
+      for (String alias : module.getAliases()) context.append(' ').append(alias);
+      for (var setting : module.getSettings()) {
+         context.append(' ').append(setting.getName()).append(' ').append(setting.getConfigName());
+      }
+      return PaletteMatcher.matchesModule(module.getName(), context.toString(), query);
    }
-
 }
