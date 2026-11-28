@@ -10,6 +10,8 @@
 package dev.schizo.client.gui.components;
 
 import dev.schizo.client.gui.CursorType;
+import dev.schizo.client.gui.ScissorStack;
+import java.util.Objects;
 import dev.schizo.client.render.FontRenderer;
 import dev.schizo.client.render.GuiDrawUtils;
 
@@ -30,6 +32,8 @@ public class StringSettingComponent extends SettingComponent<String> {
    private final ElapsedTimer cursorBlinkTimer = new ElapsedTimer();
    private boolean cursorVisible = false;
    private String editingText;
+   private String originalValue;
+   private String editError="";
    private int cursorIndex = 0;
 
    public String getCursorMarker() {
@@ -54,17 +58,24 @@ public class StringSettingComponent extends SettingComponent<String> {
             if (GLFW.glfwGetKey(window, GLFW.GLFW_KEY_LEFT_CONTROL) == GLFW.GLFW_PRESS
                || GLFW.glfwGetKey(window, GLFW.GLFW_KEY_RIGHT_CONTROL) == GLFW.GLFW_PRESS) {
                String clipboard = ClientAccess.schizoMinecraft.keyboardHandler.getClipboard();
-               this.editingText = new StringBuilder(this.editingText).insert(this.cursorIndex, clipboard).toString();
-               this.cursorIndex += clipboard.length();
+               this.insertText(clipboard);
             }
          }
          case GLFW.GLFW_KEY_ESCAPE -> {
             ClientContext.getClickGui().suppressEscapeClose();
-            this.editing = false;
+            this.cancelInput();
          }
          case GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_KP_ENTER -> {
-            this.editing = false;
-            this.setting.setValue(this.editingText);
+            if(!Objects.equals(originalValue,setting.getValue())) {
+               editError="Value changed externally. Escape and reopen to edit the current value.";
+               return;
+            }
+            try {
+               if(!Objects.equals(originalValue,editingText)) setting.setValue(editingText);
+               this.cancelInput();
+            } catch(IllegalArgumentException rejected) {
+               editError="Setting rejected this value.";
+            }
          }
          case GLFW.GLFW_KEY_BACKSPACE -> {
             if (this.cursorIndex > 0) {
@@ -108,7 +119,9 @@ public class StringSettingComponent extends SettingComponent<String> {
       if (!this.editing) {
          this.getClickGui().setEditingSetting(this);
          this.editing = true;
-         this.editingText = this.setting.getValue();
+         this.originalValue=this.setting.getValue();
+         this.editingText = this.originalValue;
+         this.editError="";
          this.cursorIndex = this.editingText.length();
       }
    }
@@ -156,6 +169,9 @@ public class StringSettingComponent extends SettingComponent<String> {
       );
 
       if (this.editing) {
+         if(!editError.isEmpty()) getClickGui().setTooltipText(editError);
+         GuiDrawUtils.flush();
+         ScissorStack.pushIntersection(panel.getX()+3,panel.getY()+yOffset,Math.max(0,panel.getWidth()-6),getHeight());
          poseStack.pushPose();
          try {
             String cursorMarker = this.getCursorMarker();
@@ -230,7 +246,11 @@ public class StringSettingComponent extends SettingComponent<String> {
                   );
             }
          } finally {
-            poseStack.popPose();
+            try { GuiDrawUtils.flush(); }
+            finally {
+               poseStack.popPose();
+               ScissorStack.pop();
+            }
          }
       } else {
          String labelText = this.getDisplayText();
@@ -272,44 +292,31 @@ public class StringSettingComponent extends SettingComponent<String> {
 
       super.mouseClicked(mouseX, mouseY, button);
       if (this.isMouseOver(mouseX, mouseY) && button == 0) {
-         this.editing = !this.editing;
-         if (this.editing) {
-            if (this.getClickGui()
-                     .getEditingSetting()
-                  != null
-               && this.getClickGui()
-                     .getEditingSetting()
-                  != this) {
-               this.getClickGui()
-                  .getEditingSetting()
-                  .editing = false;
-            }
-
-            this.getClickGui()
-               .setEditingSetting(this);
-         } else if (this.getClickGui()
-               .getEditingSetting()
-            == this) {
-            this.getClickGui()
-               .setEditingSetting(null);
-         }
-
-         this.editingText = this.setting
-            .getValue();
-         this.cursorIndex = this.editingText.length();
+         if(this.editing) this.cancelInput();
+         else this.beginEditing();
       }
    }
 
-   @Override
-   public void charTyped(char character) {
-      if (!this.isUnavailable() && this.editing) {
-         this.editingText = new StringBuilder(
-               this.editingText
-            )
-            .insert(this.cursorIndex, character)
-            .toString();
-         this.cursorIndex++;
-      }
+   @Override public void cancelInput() {
+      super.cancelInput();
+      editingText=null;
+      originalValue=null;
+      cursorIndex=0;
+      editError="";
    }
 
+   private void insertText(String text) {
+      if(text==null || text.isEmpty()) return;
+      editingText=new StringBuilder(editingText).insert(cursorIndex,text).toString();
+      cursorIndex+=text.length();
+      editError="";
+   }
+
+   @Override public void textTyped(String text) {
+      if(!isUnavailable() && editing) insertText(text);
+   }
+
+   @Override public void charTyped(char character) {
+      textTyped(String.valueOf(character));
+   }
 }
