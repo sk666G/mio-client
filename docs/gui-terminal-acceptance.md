@@ -256,3 +256,8 @@ This pass improves text-editing correctness, legacy label rendering work, resour
 ### Remaining certification limits
 
 The reviewed preset and trade paths are not a full repository audit. No complete directory-tree reader or local Minecraft runtime was established in this session. The PR-derived inventory remains partial, comprehensive visual and performance acceptance is unperformed, and inherited integration changes remain subject to review. Do not sign off release readiness or claim measured performance gains. Comprehensive HUD locking and independent layer ordering remain excluded. Main remains untouched.
+
+
+## Project Singularity infrastructure checkpoint
+
+[Build #3571](https://github.com/sk666G/mio-client/actions/runs/46155886818) succeeded at `5a380ba17945c2876b36aef2417594880e4dfd30`; the previous preset and trade configuration changes are now CI-verified. [Matching verified baseline artifact](https://github.com/sk666G/mio-client/actions/runs/46155886818/artifacts/15267841614), ID 15267841614. See [Project Singularity audit](project-singularity-audit.md) for the newer source checkpoint's preset undo, startup, scissor, font draw, benchmark and frame timing changes, independent helper test evidence and additional acceptance steps. Exact final-head CI and live Minecraft acceptance remain outstanding.
