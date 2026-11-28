@@ -220,6 +220,9 @@ public class ClientScreen extends Screen implements ClientAccess {
       return this.cachedTooltip;
    }
 
+   /** Custom dashboard content can contribute help before the shared tooltip pass. */
+   protected void prepareTooltip(int mouseX,int mouseY) {}
+
    public void setTooltipText(String text) {
       this.tooltipText = text;
    }
@@ -600,6 +603,7 @@ public class ClientScreen extends Screen implements ClientAccess {
          panel.render(poseStack, mouseX, mouseY);
       }
 
+      this.prepareTooltip(mouseX,mouseY);
       float lineHeight=Math.max(1F,FontRenderer.INSTANCE.getHeight()+1F);
       var tooltip=this.resolveTooltip(lineHeight);
       if (tooltip!=null && !tooltip.lines().isEmpty()) {
