@@ -89,7 +89,10 @@ public class ModuleComponent extends AbstractComponent implements CloseState {
 
    public void setOpen(boolean open) {
       this.requestedOpen = open;
+      if(!open) this.cancelInput();
    }
+
+   @Override public void cancelInput() { this.children.forEach(child -> child.cancelInput()); }
 
    private boolean isFavoriteHandleHovered(double mouseX, double mouseY) {
       float right = this.panel.getX() + this.panel.getWidth() - 5.0F;
