@@ -29,4 +29,22 @@ class PaletteMatcherTest {
    void rejectsNullQueryAsAnEmptySearch() {
       assertEquals(0, PaletteMatcher.score("Anything", "", null));
    }
+
+   @Test
+   void supportsCrossFieldTermsWithoutRequiringOrder() {
+      assertEquals(4, PaletteMatcher.score("Size", "Crosshair setting", "crosshair size"));
+      assertEquals(4, PaletteMatcher.score("Size", "Crosshair setting", "size crosshair"));
+      assertEquals(-1, PaletteMatcher.score("Size", "Crosshair setting", "crosshair unknown"));
+   }
+
+   @Test
+   void acceptsSingleTypoOnlyAsLowestPriorityFallback() {
+      assertEquals(5, PaletteMatcher.score("Metrics", "", "metrcis"));
+      assertEquals(5, PaletteMatcher.score("Metrics", "", "metrixs"));
+      assertEquals(5, PaletteMatcher.score("Frame Metrics", "", "metrisc"));
+      assertEquals(5, PaletteMatcher.score("Metrics", "", "mettrics"));
+      assertEquals(4, PaletteMatcher.score("Metrics", "", "metrcs"));
+      assertEquals(-1, PaletteMatcher.score("HUD", "", "HXD"));
+      assertEquals(-1, PaletteMatcher.score("Metrics", "", "mexxics"));
+   }
 }

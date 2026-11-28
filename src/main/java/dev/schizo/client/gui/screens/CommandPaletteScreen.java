@@ -53,6 +53,7 @@ public final class CommandPaletteScreen extends ClientScreen {
       EntryKind kind,
       String title,
       String subtitle,
+      String searchContext,
       Module module,
       Command command
    ) {
@@ -95,6 +96,7 @@ public final class CommandPaletteScreen extends ClientScreen {
             EntryKind.MODULE,
             module.getName(),
             moduleSubtitle,
+            moduleSubtitle + " " + String.join(" ", module.getAliases()) + " " + module.getDescription(),
             module,
             null
          ));
@@ -107,6 +109,7 @@ public final class CommandPaletteScreen extends ClientScreen {
                EntryKind.SETTING,
                setting.getName(),
                module.getName() + " setting",
+               module.getName() + " setting " + String.join(" ", module.getAliases()),
                module,
                null
             ));
@@ -116,6 +119,7 @@ public final class CommandPaletteScreen extends ClientScreen {
             this.index.add(new PaletteEntry(
                EntryKind.KEYBIND,
                module.getKeybind().getDisplayName() + " - " + module.getName(),
+               "Keybind for " + module.getName(),
                "Keybind for " + module.getName(),
                module,
                null
@@ -131,6 +135,7 @@ public final class CommandPaletteScreen extends ClientScreen {
                EntryKind.COMMAND,
                command.getName(),
                description.isBlank() ? "Command" : description,
+               description,
                null,
                command
             ));
@@ -149,7 +154,7 @@ public final class CommandPaletteScreen extends ClientScreen {
          ? ModuleQuickAccessRanking.emptySnapshot()
          : ModuleQuickAccessRanking.snapshot(preferences.getFavorites(), preferences.getRecentlyUsed());
       for (PaletteEntry entry : this.index) {
-         int score = PaletteMatcher.scoreNormalized(entry.title(), entry.subtitle(), query);
+         int score = PaletteMatcher.scoreNormalized(entry.title(), entry.searchContext(), query);
          if (score >= 0) {
             ModuleQuickAccessRanking.Rank rank = switch (entry.kind()) {
                case MODULE -> quickAccessRanks.rank(entry.module().getConfigName());
@@ -166,6 +171,7 @@ public final class CommandPaletteScreen extends ClientScreen {
             .thenComparing(PaletteResult::quickAccessRank)
             .thenComparing(result -> result.entry().kind().ordinal())
             .thenComparing(result -> result.entry().title(), String.CASE_INSENSITIVE_ORDER)
+            .thenComparing(result -> result.entry().subtitle(), String.CASE_INSENSITIVE_ORDER)
       );
       if (this.results.size() > MAX_RESULTS) {
          this.results.subList(MAX_RESULTS, this.results.size()).clear();
