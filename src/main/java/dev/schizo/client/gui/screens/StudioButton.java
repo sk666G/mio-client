@@ -12,7 +12,8 @@ import net.minecraft.network.chat.Component;
 /** Palette-aware button; vanilla Button retains input, focus, sound and narration. */
 final class StudioButton extends Button {
    private final FloatAnimation hover = new FloatAnimation();
-   private String help, installedTooltip;
+   private String help, installedTooltip, lastLabel, lastHelp;
+   private boolean lastClipped;
 
    StudioButton(int x, int y, int width, int height, Component label, OnPress action) {
       super(x, y, width, height, label, action, DEFAULT_NARRATION);
@@ -25,6 +26,10 @@ final class StudioButton extends Button {
    }
 
    private void updateTooltip(String label, boolean clipped) {
+      if (clipped == lastClipped && Objects.equals(lastLabel, label) && Objects.equals(lastHelp, help)) return;
+      lastLabel = label;
+      lastHelp = help;
+      lastClipped = clipped;
       String text = StudioTooltipText.resolve(label, clipped, help);
       if (Objects.equals(installedTooltip, text)) return;
       installedTooltip = text;
@@ -46,9 +51,10 @@ final class StudioButton extends Button {
       var font = Minecraft.getInstance().font;
       String label = getMessage().getString();
       int available = Math.max(0, w - 8);
-      boolean clipped = font.width(label) > available || h < font.lineHeight;
+      int labelWidth = font.width(label);
+      boolean clipped = labelWidth > available || h < font.lineHeight;
       updateTooltip(label, clipped);
-      if (font.width(label) > available) {
+      if (labelWidth > available) {
          String ellipsis = "…";
          label = available < font.width(ellipsis) ? "" : font.plainSubstrByWidth(label, available - font.width(ellipsis)) + ellipsis;
       }
