@@ -19,4 +19,13 @@ class ItemListLayoutTest {
       assertEquals("A...", ItemListLayout.fitLabel("A😀long", 5, String::length));
       assertEquals("A😀...", ItemListLayout.fitLabel("A😀long", 6, String::length));
    }
+
+   @Test void boundedFittingRetainsLegacyTrimAndRejectsInvalidWidth() {
+      assertEquals("A...",ItemListLayout.fitLabel("A   long",4,String::length));
+      assertEquals("",ItemListLayout.fitLabel("A",Float.NaN,String::length));
+      var count=new java.util.concurrent.atomic.AtomicInteger();
+      String result=ItemListLayout.fitLabel("x".repeat(10000),20,text->{count.incrementAndGet();return text.length();});
+      assertEquals(20,result.length());
+      org.junit.jupiter.api.Assertions.assertTrue(count.get()<=17);
+   }
 }
