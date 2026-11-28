@@ -29,6 +29,28 @@ public final class GuiProjectionUtils implements ClientAccess {
    private static Matrix4f savedModelView;
    private static int projectionDepth;
 
+   /** One successful acquisition, released independently of the active screen. */
+   public static ProjectionScope openGuiProjection() {
+      ProjectionScope scope = new ProjectionScope();
+      beginGuiProjection();
+      return scope;
+   }
+
+   public static final class ProjectionScope implements AutoCloseable {
+      private boolean closed;
+
+      private ProjectionScope() {
+      }
+
+      @Override
+      public void close() {
+         if (!this.closed) {
+            this.closed = true;
+            restoreProjection();
+         }
+      }
+   }
+
    public static void restoreProjection() {
       if (projectionDepth == 0 || --projectionDepth != 0) {
          return;

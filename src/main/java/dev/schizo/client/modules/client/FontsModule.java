@@ -123,11 +123,8 @@ public class FontsModule extends Module {
          return;
       }
 
-      GuiProjectionUtils.beginGuiProjection();
-      try {
+      try (var projection = GuiProjectionUtils.openGuiProjection()) {
          this.flushQueuedDraws(new PoseStack());
-      } finally {
-         GuiProjectionUtils.restoreProjection();
       }
    }
 

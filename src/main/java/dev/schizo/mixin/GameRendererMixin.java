@@ -44,6 +44,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.render.GuiRenderer;
 import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.gui.screens.Overlay;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.renderer.ItemInHandRenderer;
 import net.minecraft.client.renderer.RenderBuffers;
@@ -282,50 +283,31 @@ public abstract class GameRendererMixin {
       }
    }
 
-   @Inject(
+   @WrapOperation(
       method = "render",
-      at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/screens/Screen;renderWithTooltipAndSubtitles(Lnet/minecraft/client/gui/GuiGraphics;IIF)V", shift = Shift.BEFORE)
+      at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/screens/Screen;renderWithTooltipAndSubtitles(Lnet/minecraft/client/gui/GuiGraphics;IIF)V")
    )
-   private void beforeScreenRendering(
-      DeltaTracker deltaTracker, boolean renderLevel, CallbackInfo callback, @Local GuiGraphics graphics
+   private void renderScreenWithOwnedProjection(
+      Screen screen, GuiGraphics graphics, int mouseX, int mouseY, float partialTick, Operation<Void> original
    ) {
+      boolean previousBypass = NameProtectModule.replacementBypassed;
       NameProtectModule.replacementBypassed = true;
-      boolean manageProjection;
-      if (this.minecraft.screen instanceof ClientScreen clientScreen) {
-         if (clientScreen.hasMenuParent()) {
-            clientScreen.getParentScreen()
-               .renderWithTooltipAndSubtitles(
-                  graphics,
-                  -99,
-                  -99,
-                  RenderUtils.getPartialTick()
-               );
+      try {
+         boolean clientScreen = screen instanceof ClientScreen;
+         if (screen instanceof ClientScreen client && client.hasMenuParent()) {
+            client.getParentScreen().renderWithTooltipAndSubtitles(
+               graphics, -99, -99, RenderUtils.getPartialTick()
+            );
          }
-         manageProjection = false;
-      } else if (this.minecraft.screen != null) {
-         manageProjection = true;
-      } else {
-         return;
-      }
-      this.guiRenderer.render(this.fogRenderer.getBuffer(FogMode.NONE));
-      this.guiRenderer.incrementFrameNumber();
-      RenderUtils.clearDepth(this.minecraft.getMainRenderTarget());
-      if (!manageProjection) {
-         GuiProjectionUtils.beginGuiProjection();
-      }
-      this.renderClientHud(graphics, manageProjection);
-   }
-
-   @Inject(
-      method = "render",
-      at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/screens/Screen;renderWithTooltipAndSubtitles(Lnet/minecraft/client/gui/GuiGraphics;IIF)V", shift = Shift.AFTER)
-   )
-   private void afterScreenRendering(
-      DeltaTracker deltaTracker, boolean renderLevel, CallbackInfo callback
-   ) {
-      NameProtectModule.replacementBypassed = false;
-      if (this.minecraft.screen instanceof ClientScreen) {
-         GuiProjectionUtils.restoreProjection();
+         this.guiRenderer.render(this.fogRenderer.getBuffer(FogMode.NONE));
+         this.guiRenderer.incrementFrameNumber();
+         RenderUtils.clearDepth(this.minecraft.getMainRenderTarget());
+         try (var projection = clientScreen ? GuiProjectionUtils.openGuiProjection() : null) {
+            this.renderClientHud(graphics, !clientScreen);
+            original.call(screen, graphics, mouseX, mouseY, partialTick);
+         }
+      } finally {
+         NameProtectModule.replacementBypassed = previousBypass;
       }
    }
 
@@ -341,13 +323,13 @@ public abstract class GameRendererMixin {
       if (ClientAccess.schizoMinecraft.level != null
          && !ClientAccess.schizoMinecraft.options.hideGui
          && !ClientAccess.schizoMinecraft.debugEntries.isOverlayVisible()) {
-         GuiProjectionUtils.beginGuiProjection();
-         HudRenderEvent.Before event = HudRenderEvent.Before.create(
-            poses, graphics, RenderUtils.getPartialTick()
-         );
-         ClientAccess.eventBus.post(event);
-         GuiDrawUtils.flush();
-         GuiProjectionUtils.restoreProjection();
+         try (var projection = GuiProjectionUtils.openGuiProjection()) {
+            HudRenderEvent.Before event = HudRenderEvent.Before.create(
+               poses, graphics, RenderUtils.getPartialTick()
+            );
+            ClientAccess.eventBus.post(event);
+            GuiDrawUtils.flush();
+         }
       }
       return overlay;
    }
@@ -382,36 +364,24 @@ public abstract class GameRendererMixin {
          return;
       }
       boolean nameReplacementWasBypassed = NameProtectModule.replacementBypassed;
-      if (nameReplacementWasBypassed) {
-         NameProtectModule.replacementBypassed = false;
-      }
+      NameProtectModule.replacementBypassed = false;
+      try (var projection = manageProjection ? GuiProjectionUtils.openGuiProjection() : null) {
+         PoseStack poses = GuiProjectionUtils.toPoseStack(graphics);
+         if (!ClientAccess.schizoMinecraft.options.hideGui
+            && !ClientAccess.schizoMinecraft.debugEntries.isOverlayVisible()) {
+            HudRenderEvent hudEvent = HudRenderEvent.create(
+               poses, graphics, RenderUtils.getPartialTick()
+            );
+            ClientAccess.eventBus.post(hudEvent);
+         }
 
-      if (manageProjection) {
-         GuiProjectionUtils.beginGuiProjection();
-      }
-
-      PoseStack poses = GuiProjectionUtils.toPoseStack(graphics);
-      if (!ClientAccess.schizoMinecraft.options.hideGui
-         && !ClientAccess.schizoMinecraft.debugEntries.isOverlayVisible()) {
-         HudRenderEvent hudEvent = HudRenderEvent.create(
+         HudRenderEvent.Unconditional unconditionalEvent = HudRenderEvent.Unconditional.create(
             poses, graphics, RenderUtils.getPartialTick()
          );
-         ClientAccess.eventBus
-            .post(hudEvent);
-      }
-
-      HudRenderEvent.Unconditional unconditionalEvent = HudRenderEvent.Unconditional.create(
-         poses, graphics, RenderUtils.getPartialTick()
-      );
-      ClientAccess.eventBus
-         .post(unconditionalEvent);
-      GuiDrawUtils.flush();
-      if (manageProjection) {
-         GuiProjectionUtils.restoreProjection();
-      }
-
-      if (nameReplacementWasBypassed) {
-         NameProtectModule.replacementBypassed = true;
+         ClientAccess.eventBus.post(unconditionalEvent);
+         GuiDrawUtils.flush();
+      } finally {
+         NameProtectModule.replacementBypassed = nameReplacementWasBypassed;
       }
    }
 }
