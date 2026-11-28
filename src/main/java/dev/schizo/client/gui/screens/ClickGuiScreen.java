@@ -332,10 +332,9 @@ public class ClickGuiScreen extends ClientScreen implements ClientAccess {
          keybindCapture=null;
          previous.cancelInput();
       }
-      if (this.editingSetting != null && this.editingSetting != component) {
-         this.editingSetting.editing = false;
-      }
-      this.editingSetting = component;
+      var previous=this.editingSetting;
+      this.editingSetting=component;
+      if(previous!=null && previous!=component) previous.cancelInput();
    }
 
    @Override
