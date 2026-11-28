@@ -21,6 +21,26 @@ final class HudToolbar {
          this.mode = mode;
          this.required = required;
       }
+      String help() {
+         return switch (this) {
+            case GRID -> "Cycle the precision grid (G).";
+            case UNDO -> "Undo the last HUD layout edit (Ctrl+Z).";
+            case REDO -> "Redo the next HUD layout edit (Ctrl+Y).";
+            case CLEAR -> "Clear the current widget selection.";
+            case LEFT -> "Align selected left edges (Ctrl+Shift+Left).";
+            case CENTER_X -> "Align horizontal centers (Ctrl+Shift+H).";
+            case RIGHT -> "Align selected right edges (Ctrl+Shift+Right).";
+            case TOP -> "Align selected top edges (Ctrl+Shift+Up).";
+            case CENTER_Y -> "Align vertical centers (Ctrl+Shift+V).";
+            case BOTTOM -> "Align selected bottom edges (Ctrl+Shift+Down).";
+            case DISTRIBUTE_X -> "Distribute at least three widgets horizontally (Ctrl+Shift+X).";
+            case DISTRIBUTE_Y -> "Distribute at least three widgets vertically (Ctrl+Shift+D).";
+            case SCALE_DOWN -> "Decrease the selected widget scale by 1%; Shift: 10%.";
+            case SCALE_RESET -> "Reset the selected widget scale to 100%.";
+            case SCALE_UP -> "Increase the selected widget scale by 1%; Shift: 10%.";
+            case BACKGROUND -> "";
+         };
+      }
       boolean isScaleAction() { return this == SCALE_DOWN || this == SCALE_RESET || this == SCALE_UP; }
       boolean enabled(int selected, boolean undo, boolean redo) {
          return this != BACKGROUND && selected >= required && (this != UNDO || undo) && (this != REDO || redo);
@@ -61,6 +81,18 @@ final class HudToolbar {
       int width = 2 * PAD + columns * cellWidth + (columns - 1) * GAP;
       if (height > viewportHeight / 2) return new Layout(false, 0, 0, 0, 0, 1, 0);
       return new Layout(true, (viewportWidth - width) / 2, viewportHeight - height - 8, width, height, columns, cellWidth);
+   }
+
+   /** Circular keyboard traversal; disabled actions are never focused. */
+   static int nextEnabled(int current, int direction, int count, java.util.function.IntPredicate enabled) {
+      if (count <= 0) return -1;
+      int step = direction < 0 ? -1 : 1;
+      int index = current >= 0 && current < count ? current : step > 0 ? count-1 : 0;
+      for(int visited=0; visited<count; visited++) {
+         index = Math.floorMod(index+step,count);
+         if(enabled.test(index)) return index;
+      }
+      return -1;
    }
 
    private HudToolbar() {}
