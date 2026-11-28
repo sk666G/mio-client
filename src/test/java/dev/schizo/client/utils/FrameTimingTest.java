@@ -196,8 +196,8 @@ class FrameTimingTest {
       var timing=new FrameTiming();
       timing.recordFrameAt(0);
       timing.recordFrameAt(10_000_000);
-      assertEquals(100,timing.getOnePercentLowFramesPerSecondAt(10_000_000),0.01);
+      assertEquals(100,timing.getOnePercentLowFramesPerSecondAt(1_990_000_000),0.01);
       timing.recordFrameAt(2_000_000_000);
-      assertEquals(1000.0/1990.0,timing.getOnePercentLowFramesPerSecondAt(20_000_000),0.001);
+      assertEquals(1000.0/1990.0,timing.getOnePercentLowFramesPerSecondAt(2_000_000_000),0.001);
    }
 }
