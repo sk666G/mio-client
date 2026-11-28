@@ -24,13 +24,8 @@ import java.awt.font.FontRenderContext;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.Collection;
-import javax.imageio.ImageIO;
 import net.minecraft.resources.Identifier;
-import org.lwjgl.BufferUtils;
 
 public final class FontAtlas {
    public static final Identifier ATLAS_TEXTURE = Identifier.fromNamespaceAndPath("schizo", "textures/font.png");
@@ -177,7 +172,7 @@ public final class FontAtlas {
             mipImages[level] = toNativeImage(this.createMipLevel(level));
          }
          ClientAccess.schizoMinecraft.getTextureManager().register(ATLAS_TEXTURE, new MipmapFontTexture(() -> ATLAS_LABEL, mipImages));
-      } catch (IOException | RuntimeException | Error failure) {
+      } catch (RuntimeException | Error failure) {
          for (NativeImage image : mipImages) {
             if (image != null) {
                try {
@@ -187,21 +182,34 @@ public final class FontAtlas {
                }
             }
          }
-         if (failure instanceof RuntimeException runtime) throw runtime;
-         if (failure instanceof Error error) throw error;
-         throw new RuntimeException(failure);
+         throw failure;
       }
    }
 
-   private static NativeImage toNativeImage(BufferedImage image) throws IOException {
+   static NativeImage toNativeImage(BufferedImage image) {
+      NativeImage nativeImage = null;
       try {
-         ByteArrayOutputStream output = new ByteArrayOutputStream();
-         if (!ImageIO.write(image, "png", output)) {
-            throw new IOException("No PNG writer is available");
+         int width = image.getWidth();
+         int height = image.getHeight();
+         nativeImage = new NativeImage(NativeImage.Format.RGBA, width, height, false);
+         int[] row = new int[width];
+         for (int y = 0; y < height; y++) {
+            image.getRGB(0, y, width, 1, row, 0, width);
+            for (int x = 0; x < width; x++) {
+               // NativeImage.setPixel accepts ARGB, as does BufferedImage.getRGB.
+               nativeImage.setPixel(x, y, row[x]);
+            }
          }
-         ByteBuffer buffer = BufferUtils.createByteBuffer(output.size()).put(output.toByteArray());
-         buffer.flip();
-         return NativeImage.read(buffer);
+         return nativeImage;
+      } catch (RuntimeException | Error failure) {
+         if (nativeImage != null) {
+            try {
+               nativeImage.close();
+            } catch (RuntimeException | Error cleanupFailure) {
+               if (failure != cleanupFailure) failure.addSuppressed(cleanupFailure);
+            }
+         }
+         throw failure;
       } finally {
          image.flush();
       }
