@@ -166,7 +166,11 @@ public final class FontAtlas {
    }
 
    public float drawGlyph(PoseStack poses, VertexConsumer consumer, char character, float x, float y, int argb) {
-      Glyph glyph = this.glyphs.get(character);
+      return this.drawGlyph(poses, consumer, (int)character, x, y, argb);
+   }
+
+   public float drawGlyph(PoseStack poses, VertexConsumer consumer, int codePoint, float x, float y, int argb) {
+      Glyph glyph = this.resolveGlyph(codePoint);
       if (glyph == null) {
          return 0.0F;
       }
@@ -179,11 +183,18 @@ public final class FontAtlas {
    }
 
    public float getGlyphWidth(char character) {
-      Glyph glyph = this.glyphs.get(character);
-      if (glyph == null) {
-         glyph = this.glyphs.get('?');
-      }
+      return this.getGlyphWidth((int)character);
+   }
+
+   public float getGlyphWidth(int codePoint) {
+      Glyph glyph = this.resolveGlyph(codePoint);
       return glyph == null ? 0.0F : glyph.width - 8.0F;
+   }
+
+   private Glyph resolveGlyph(int codePoint) {
+      Glyph glyph = Character.isBmpCodePoint(codePoint) && !Character.isSurrogate((char)codePoint)
+         ? this.glyphs.get((char)codePoint) : null;
+      return glyph != null ? glyph : this.glyphs.get('?');
    }
 
    public int getHeight() {

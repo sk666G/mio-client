@@ -38,9 +38,8 @@ public class FontActiveTextCollector implements Consumer<Style>, ActiveTextColle
       boolean checkHoveredStyle = this.hoveredTextEffects.allowCursorChanges
          || this.hoveredTextEffects.allowTooltip
          || this.styleConsumer != null;
-      float left = alignedX(alignment, x, text);
-      float width = FontRenderer.INSTANCE
-         .getWidth(text);
+      float width = FontRenderer.INSTANCE.getWidth(text);
+      float left = alignedX(alignment, x, width);
       float height = FontRenderer.INSTANCE
          .getHeight();
       if (checkHoveredStyle) {
@@ -124,9 +123,8 @@ public class FontActiveTextCollector implements Consumer<Style>, ActiveTextColle
    }
 
    private static float alignedX(
-      TextAlignment alignment, float x, FormattedCharSequence text
+      TextAlignment alignment, float x, float width
    ) {
-      float width = FontRenderer.INSTANCE.getWidth(text);
       return switch (alignment) {
          case LEFT -> x;
          case CENTER -> x - width / 2.0F;
@@ -188,15 +186,15 @@ public class FontActiveTextCollector implements Consumer<Style>, ActiveTextColle
 
       @Override
       public void accept(TextAlignment alignment, int x, int y, Parameters parameters, FormattedCharSequence text) {
-         float left = FontActiveTextCollector.alignedX(alignment, x, text);
+         float width = FontRenderer.INSTANCE.getWidth(text);
+         float left = FontActiveTextCollector.alignedX(alignment, x, width);
          FontActiveTextCollector.visitHoveredStyle(
             text,
             this.mouseX,
             this.mouseY,
             left,
             y,
-            FontRenderer.INSTANCE
-               .getWidth(text),
+            width,
             FontRenderer.INSTANCE
                .getHeight(),
             parameters,

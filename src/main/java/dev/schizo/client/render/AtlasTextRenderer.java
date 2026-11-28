@@ -144,10 +144,12 @@ public final class AtlasTextRenderer {
             glyphMesh.begin(Mode.QUADS, DefaultVertexFormat.POSITION_TEX_COLOR);
          }
          boolean formattingCode = false;
-         for (char character : text.toCharArray()) {
+         for (int offset = 0; offset < text.length();) {
+            int character = text.codePointAt(offset);
+            offset += Character.charCount(character);
             if (formattingCode) {
                formattingCode = false;
-               ChatFormatting format = FORMATTING_CODES.get(Character.toLowerCase(character));
+               ChatFormatting format = Character.isBmpCodePoint(character) ? FORMATTING_CODES.get((char)Character.toLowerCase(character)) : null;
                if (format == null || format == ChatFormatting.RESET) {
                   color = baseColor;
                } else if (format.getColor() != null) {
@@ -165,7 +167,11 @@ public final class AtlasTextRenderer {
    }
 
    public float getCharacterWidth(char character) {
-      return this.atlas.getGlyphWidth(character) * ATLAS_SCALE;
+      return this.getCharacterWidth((int)character);
+   }
+
+   public float getCharacterWidth(int codePoint) {
+      return this.atlas.getGlyphWidth(codePoint) * ATLAS_SCALE;
    }
 
    private int drawPass(PoseStack poses, String text, float x, float y, int argb, boolean shadowPass) {
@@ -210,7 +216,9 @@ public final class AtlasTextRenderer {
       }
       float width = 0.0F;
       boolean formattingCode = false;
-      for (char character : text.toCharArray()) {
+      for (int offset = 0; offset < text.length();) {
+         int character = text.codePointAt(offset);
+         offset += Character.charCount(character);
          if (formattingCode) {
             formattingCode = false;
          } else if (character == '\u00a7') {
