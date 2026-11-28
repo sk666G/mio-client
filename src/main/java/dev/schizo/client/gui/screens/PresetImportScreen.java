@@ -36,12 +36,17 @@ public final class PresetImportScreen extends ClientScreen {
    private final Panel importPanel;
    private final Screen returnScreen;
    private final Path sourceFile;
+   private final PresetImportSnapshot reviewed;
+   private String status="Review category, then import.";
+   private boolean saved;
 
    public PresetImportScreen(Screen previousScreen, Path sourcePath) {
       this.returnScreen = previousScreen;
-      this.detectedCategory = this.readPresetCategory(
-         sourcePath
-      );
+      JsonObject snapshot=null;
+      try { snapshot=readPresetObject(sourcePath); }
+      catch(IOException | RuntimeException failure) { status="Invalid or unreadable preset."; }
+      this.reviewed=snapshot==null?null:new PresetImportSnapshot(snapshot);
+      this.detectedCategory=readPresetCategory(snapshot);
       this.importPanel = new Panel(
          this.getCategoryTitle(
             this.detectedCategory
@@ -56,7 +61,10 @@ public final class PresetImportScreen extends ClientScreen {
                "Preset: " + this.getPresetName(sourcePath)
             )
          );
-      if (this.detectedCategory != null) {
+      this.importPanel.registerChild(new ButtonComponent(this.importPanel,()->status));
+      if (reviewed==null) {
+         // Invalid input has no import action; cancellation remains available.
+      } else if (this.detectedCategory != null) {
          this.importPanel
             .registerChild(
                new ActionButtonComponent(
@@ -96,11 +104,12 @@ public final class PresetImportScreen extends ClientScreen {
    public boolean keyPressed(KeyEvent event) {
       if (event.key()
             == 257
-         && this.detectedCategory != null) {
+         && this.detectedCategory != null && reviewed!=null && !saved) {
          this.importPreset(
             this.sourceFile,
             this.detectedCategory
          );
+         return true;
       }
 
       return super.keyPressed(event);
@@ -137,18 +146,29 @@ public final class PresetImportScreen extends ClientScreen {
    }
 
    private void importPreset(Path sourcePath, PresetCategory targetCategory) {
+      if(reviewed==null || saved) return;
       try {
-         JsonObject presetObject = this.readPresetObject(sourcePath);
-         PresetData preset = new PresetData(this.getPresetName(sourcePath), presetObject);
+         JsonObject presetObject=this.readPresetObject(sourcePath);
+         if(!reviewed.matches(presetObject)) {
+            status="Source changed.\nCancel and reopen.";
+            return;
+         }
+         PresetData preset = new PresetData(this.getPresetName(sourcePath), reviewed.copy());
          preset.saveNewToDirectory(targetCategory.getDirectory());
       } catch (IOException | RuntimeException copyFailure) {
          ClientAccess.logger.warn("Could not import dropped preset {}", sourcePath, copyFailure);
+         status="Import failed.\nCheck name and file.";
          return;
       }
 
-      ClientContext.configurationManager
-         .getPresetRegistry(targetCategory)
-         .loadPresets();
+      saved=true;
+      try {
+         ClientContext.configurationManager.getPresetRegistry(targetCategory).loadPresets();
+      } catch(RuntimeException refreshFailure) {
+         ClientAccess.logger.warn("Preset saved but registry refresh failed",refreshFailure);
+         status="Saved; refresh failed.\nReopen preset manager.";
+         return;
+      }
       ClientAccess.schizoMinecraft.setScreen(
          this.returnScreen
       );
@@ -172,17 +192,15 @@ public final class PresetImportScreen extends ClientScreen {
       return parsedJson.getAsJsonObject();
    }
 
-   private PresetCategory readPresetCategory(Path sourcePath) {
+   private PresetCategory readPresetCategory(JsonObject jsonObject) {
       try {
-         JsonObject jsonObject = this.readPresetObject(sourcePath);
-         if (!jsonObject.has("category")) {
+         if (jsonObject==null || !jsonObject.has("category")) {
             return null;
          }
 
          String categoryName = jsonObject.get("category").getAsString();
          return PresetCategory.findByName(categoryName);
-      } catch (IOException | RuntimeException readFailure) {
-         ClientAccess.logger.debug("Could not infer dropped preset category from {}", sourcePath, readFailure);
+      } catch (RuntimeException readFailure) {
          return null;
       }
    }
