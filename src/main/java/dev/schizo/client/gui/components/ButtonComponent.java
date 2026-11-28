@@ -68,7 +68,7 @@ public class ButtonComponent extends AbstractComponent {
       return super.getHeight()
          + FontRenderer.INSTANCE
                .getHeight()
-            * (labelLines.resolve(this.getLabel()).size() - 1)
+            * (Math.max(1,labelLines.resolve(this.getLabel()).size()) - 1)
          + 1;
    }
 
