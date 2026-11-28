@@ -13,37 +13,32 @@ import dev.schizo.client.modules.Module;
 import dev.schizo.client.settings.Setting;
 
 import java.lang.reflect.Field;
-import java.util.Properties;
 import net.fabricmc.loader.api.FabricLoader;
 
 public class ExperimentalFeatures {
-   private static boolean experimentalFeaturesAllowed;
+   // Cache only after Fabric has a game provider. An early query must fail closed
+   // without permanently poisoning class initialization or later startup.
+   private static volatile Boolean experimentalFeaturesAllowed;
 
    public static boolean isExperimentalDisabled() {
-      return !experimentalFeaturesAllowed;
-   }
-
-   static {
-      experimentalFeaturesAllowed = false;
-
-      FabricLoader loader = FabricLoader.getInstance();
-
-      for (String launchArgument : loader.getLaunchArguments(true)) {
-         if ("--schizo-allow-experimental".equals(launchArgument)) {
-            experimentalFeaturesAllowed = true;
+      Boolean allowed = experimentalFeaturesAllowed;
+      if (allowed != null) return !allowed;
+      String[] arguments;
+      try {
+         arguments = FabricLoader.getInstance().getLaunchArguments(true);
+      } catch (IllegalStateException providerUnavailable) {
+         return true;
+      }
+      boolean resolved = false;
+      for (String argument : arguments) {
+         if ("--schizo-allow-experimental".equals(argument)) {
+            resolved = true;
             break;
          }
       }
-
-      Properties propertiesForPresenceCheck = System.getProperties();
-      if (propertiesForPresenceCheck.get("schizo.allowExperimental") != null) {
-         String expectedPropertyValue = "true";
-         Properties propertiesForValueCheck = System.getProperties();
-         String propertyValue = (String)propertiesForValueCheck.get("schizo.allowExperimental");
-         if (expectedPropertyValue.equalsIgnoreCase(propertyValue)) {
-            experimentalFeaturesAllowed = true;
-         }
-      }
+      resolved |= "true".equalsIgnoreCase(System.getProperty("schizo.allowExperimental"));
+      experimentalFeaturesAllowed = resolved;
+      return !resolved;
    }
 
    public static boolean isFieldHidden(Field field) {
