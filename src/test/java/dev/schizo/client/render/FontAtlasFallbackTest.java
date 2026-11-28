@@ -21,6 +21,17 @@ class FontAtlasFallbackTest {
    }
 
    @Test
+   void rebuildingAtlasRemovesStaleGlyphs() {
+      FontAtlas atlas = new FontAtlas(new Font("Dialog", Font.PLAIN, 32));
+      atlas.buildAtlas(List.of('A', '?'));
+      assertTrue(atlas.getGlyphWidth('A') > 0);
+      atlas.buildAtlas(List.of('B'));
+      assertEquals(0.0F, atlas.getGlyphWidth('A'));
+      assertEquals(0.0F, atlas.getGlyphWidth('?'));
+      assertTrue(atlas.getGlyphWidth('B') > 0);
+   }
+
+   @Test
    void absentFallbackDoesNotInventAnAdvance() {
       FontAtlas atlas = new FontAtlas(new Font("Dialog", Font.PLAIN, 32));
       atlas.buildAtlas(List.of('A'));

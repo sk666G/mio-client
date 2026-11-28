@@ -27,8 +27,19 @@ public final class MipmapFontTexture extends AbstractTexture {
    public MipmapFontTexture(Supplier<String> label, NativeImage[] mipImages) {
       this.mipImages = mipImages;
       this.mipLevelCount = mipImages.length;
-      this.createTexture(label);
-      this.upload();
+      try {
+         this.createTexture(label);
+         this.upload();
+      } catch (RuntimeException | Error failure) {
+         // The caller still owns the native images until construction succeeds.
+         this.mipImages = null;
+         try {
+            super.close();
+         } catch (RuntimeException | Error cleanupFailure) {
+            if (cleanupFailure != failure) failure.addSuppressed(cleanupFailure);
+         }
+         throw failure;
+      }
    }
 
    private void createTexture(Supplier<String> label) {

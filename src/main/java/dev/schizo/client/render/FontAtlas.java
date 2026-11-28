@@ -53,6 +53,8 @@ public final class FontAtlas {
    }
 
    public void buildAtlas(Collection<Character> characters) {
+      this.glyphs.clear();
+      this.fontHeight = -1;
       this.atlasSize = align(this.calculateAtlasSize(characters), 2);
       BufferedImage metricsImage = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);
       Graphics2D graphics = metricsImage.createGraphics();
@@ -122,6 +124,9 @@ public final class FontAtlas {
             Glyph glyph = this.glyphs.get(character);
             graphics.drawString(Character.toString(character), glyph.x / scale + padding, glyph.y / scale + metrics.getAscent());
          }
+      } catch (RuntimeException | Error failure) {
+         image.flush();
+         throw failure;
       } finally {
          graphics.dispose();
       }
@@ -145,24 +150,34 @@ public final class FontAtlas {
             mipImages[level] = toNativeImage(this.createMipLevel(level));
          }
          ClientAccess.schizoMinecraft.getTextureManager().register(ATLAS_TEXTURE, new MipmapFontTexture(() -> ATLAS_LABEL, mipImages));
-      } catch (Exception exception) {
+      } catch (IOException | RuntimeException | Error failure) {
          for (NativeImage image : mipImages) {
             if (image != null) {
-               image.close();
+               try {
+                  image.close();
+               } catch (RuntimeException | Error cleanupFailure) {
+                  if (cleanupFailure != failure) failure.addSuppressed(cleanupFailure);
+               }
             }
          }
-         throw new RuntimeException(exception);
+         if (failure instanceof RuntimeException runtime) throw runtime;
+         if (failure instanceof Error error) throw error;
+         throw new RuntimeException(failure);
       }
    }
 
    private static NativeImage toNativeImage(BufferedImage image) throws IOException {
-      ByteArrayOutputStream output = new ByteArrayOutputStream();
-      if (!ImageIO.write(image, "png", output)) {
-         throw new IOException("No PNG writer is available");
+      try {
+         ByteArrayOutputStream output = new ByteArrayOutputStream();
+         if (!ImageIO.write(image, "png", output)) {
+            throw new IOException("No PNG writer is available");
+         }
+         ByteBuffer buffer = BufferUtils.createByteBuffer(output.size()).put(output.toByteArray());
+         buffer.flip();
+         return NativeImage.read(buffer);
+      } finally {
+         image.flush();
       }
-      ByteBuffer buffer = BufferUtils.createByteBuffer(output.size()).put(output.toByteArray());
-      buffer.flip();
-      return NativeImage.read(buffer);
    }
 
    public float drawGlyph(PoseStack poses, VertexConsumer consumer, char character, float x, float y, int argb) {
